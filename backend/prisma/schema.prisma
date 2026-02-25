@@ -124,6 +124,7 @@ model Company {
   lcs          LC[]
   loans        Loan[]
   notifications Notification[]
+  settings      CompanySettings?
   
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -239,11 +240,16 @@ model Account {
   currentBalance Float   @default(0)
   cashFlowType   String? // OPERATING, INVESTING, FINANCING, NONE
   
+  // Controls
+  allowNegative  Boolean  @default(false)
+  category       String?  // CASH, BANK, AR, AP, etc.
+  
   company       Company        @relation(fields: [companyId], references: [id])
   accountType   AccountType    @relation(fields: [accountTypeId], references: [id])
   parent        Account?       @relation("AccountHierarchy", fields: [parentId], references: [id])
   children      Account[]      @relation("AccountHierarchy")
   journalLines  JournalEntryLine[]
+  payments      Payment[]
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -402,6 +408,7 @@ model Invoice {
   approvedBy     User?     @relation("ApprovedInvoices", fields: [approvedById], references: [id])
   rejectedBy     User?     @relation("RejectedInvoices", fields: [rejectedById], references: [id])
   lines          InvoiceLine[]
+  payments       Payment[] @relation("InvoicePayments")
   
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -527,6 +534,7 @@ model Bill {
   dueDate     DateTime?
   company     Company   @relation(fields: [companyId], references: [id])
   vendor      Vendor    @relation(fields: [vendorId], references: [id])
+  payments    Payment[] @relation("BillPayments")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   
@@ -636,4 +644,57 @@ model Notification {
   @@index([companyId])
   @@index([companyId, isRead])
 }
+
+// ============================================
+// PAYMENT MODEL (Subledger)
+// ============================================
+
+model Payment {
+  id              String    @id @default(uuid())
+  paymentNumber   String    @unique
+  companyId       String
+  date            DateTime  @default(now())
+  amount          Float
+  currency        String    @default("BDT")
+  method          String    // CASH, BANK, CHEQUE, MOBILE_BANKING
+  reference       String?   // Cheque number, Transaction ID
+  description     String?
+  status          String    @default("APPROVED") // DRAFT, APPROVED, CANCELLED
+  
+  // Linkages
+  invoiceId       String?
+  invoice         Invoice?  @relation("InvoicePayments", fields: [invoiceId], references: [id])
+  
+  billId          String?
+  bill            Bill?     @relation("BillPayments", fields: [billId], references: [id])
+  
+  accountId       String?   // The Cash/Bank account used
+  account         Account?  @relation(fields: [accountId], references: [id])
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([companyId])
+  @@index([invoiceId])
+  @@index([billId])
+}
+
+// ============================================
+// COMPANY SETTINGS (Global Controls)
+// ============================================
+
+model CompanySettings {
+  id                  String   @id @default(uuid())
+  companyId           String   @unique
+  disallowFutureDates Boolean  @default(true)
+  lockPreviousMonths  Boolean  @default(false)
+  approvalWorkflow    Boolean  @default(true)
+  
+  // Relations
+  company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
 

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Plus, FileText, Trash2, Check, X, ArrowLeft, LogOut, Eye, Edit } from 'lucide-react';
+import { Plus, FileText, Trash2, Check, X, ArrowLeft, LogOut, Eye, Edit, CreditCard, DollarSign } from 'lucide-react';
 import { AttachmentManager } from '@/components/AttachmentManager';
 
 interface Customer {
@@ -49,7 +49,16 @@ export default function CompanyInvoicesPage() {
   const [mounted, setMounted] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [paymentFormData, setPaymentFormData] = useState({
+    amount: 0,
+    accountId: '',
+    method: 'CASH',
+    date: new Date().toISOString().split('T')[0],
+    reference: '',
+    description: '',
+  });
   const [formData, setFormData] = useState({
     customerId: '',
     currency: 'BDT',
@@ -84,6 +93,19 @@ export default function CompanyInvoicesPage() {
     },
     enabled: !!companyId,
   });
+
+  const { data: accountsData } = useQuery({
+    queryKey: ['company-accounts', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/accounts`);
+      return response.data.data;
+    },
+    enabled: !!companyId,
+  });
+
+  const cashBankAccounts = accountsData?.filter((a: any) => 
+    a.accountType?.name === 'ASSET' && (a.category === 'CASH' || a.category === 'BANK' || a.name.toLowerCase().includes('cash') || a.name.toLowerCase().includes('bank'))
+  ) || [];
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -172,6 +194,24 @@ export default function CompanyInvoicesPage() {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error?.message || 'Failed to retrieve invoice');
+    },
+  });
+
+  const paymentMutation = useMutation({
+    mutationFn: async (data: typeof paymentFormData) => {
+      const response = await api.post(`/company/${companyId}/payments`, {
+        ...data,
+        invoiceId: selectedInvoice?.id,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company-invoices', companyId] });
+      toast.success('Payment recorded and ledger updated');
+      setShowPaymentModal(false);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Failed to record payment');
     },
   });
 
@@ -325,6 +365,23 @@ export default function CompanyInvoicesPage() {
                         <button onClick={() => openViewModal(invoice)} className="p-1 text-gray-600 hover:text-gray-800" title="View">
                           <Eye className="w-4 h-4" />
                         </button>
+                        {invoice.status === 'APPROVED' && (
+                          <button 
+                            onClick={() => {
+                              setSelectedInvoice(invoice);
+                              setPaymentFormData({
+                                ...paymentFormData,
+                                amount: invoice.total,
+                                description: `Payment for ${invoice.invoiceNumber}`
+                              });
+                              setShowPaymentModal(true);
+                            }} 
+                            className="p-1 text-emerald-600 hover:text-emerald-800" 
+                            title="Record Payment"
+                          >
+                            <DollarSign className="w-4 h-4" />
+                          </button>
+                        )}
                         {canVerify(invoice.status) && (
                           <button onClick={() => verifyMutation.mutate(invoice.id)} className="p-1 text-green-600 hover:text-green-800" title="Verify">
                             <Check className="w-4 h-4" />
@@ -589,6 +646,89 @@ export default function CompanyInvoicesPage() {
           </div>
         </div>
       )}
+
+      {showPaymentModal && selectedInvoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+                <CreditCard className="w-6 h-6 text-emerald-600" />
+                Record Payment
+              </h3>
+              <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); paymentMutation.mutate(paymentFormData); }} className="space-y-6">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
+                <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Invoicing</span>
+                <span className="text-slate-900 font-black">{selectedInvoice.invoiceNumber}</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Amount to Receive (BDT)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={paymentFormData.amount}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, amount: parseFloat(e.target.value) })}
+                  className="w-full px-4 py-3 bg-white border-2 border-slate-100 rounded-xl font-black text-lg focus:border-emerald-500 outline-none transition-all"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Deposit To (Cash/Bank)</label>
+                <select
+                  value={paymentFormData.accountId}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, accountId: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border-2 border-slate-100 rounded-xl font-bold focus:border-emerald-500 outline-none transition-all"
+                  required
+                >
+                  <option value="">Select Account</option>
+                  {cashBankAccounts.map((acc: any) => (
+                    <option key={acc.id} value={acc.id}>{acc.name} ({acc.currentBalance.toLocaleString()})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Method</label>
+                  <select
+                    value={paymentFormData.method}
+                    onChange={(e) => setPaymentFormData({ ...paymentFormData, method: e.target.value })}
+                    className="w-full px-4 py-3 bg-white border-2 border-slate-100 rounded-xl font-bold focus:border-emerald-500 outline-none transition-all"
+                  >
+                    <option value="CASH">Cash</option>
+                    <option value="BANK">Bank Transfer</option>
+                    <option value="CHEQUE">Cheque</option>
+                    <option value="MOBILE_BANKING">Mobile Banking</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Date</label>
+                  <input
+                    type="date"
+                    value={paymentFormData.date}
+                    onChange={(e) => setPaymentFormData({ ...paymentFormData, date: e.target.value })}
+                    className="w-full px-4 py-3 bg-white border-2 border-slate-100 rounded-xl font-bold focus:border-emerald-500 outline-none transition-all"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={paymentMutation.isPending}
+                className="w-full py-4 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 disabled:opacity-50"
+              >
+                {paymentMutation.isPending ? 'Processing...' : 'Post Payment'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
+
   );
 }

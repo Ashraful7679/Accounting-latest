@@ -8,6 +8,7 @@ import { DimensionController } from './dimension.controller';
 import { AttachmentController } from './attachment.controller';
 import { NotificationController } from './notification.controller';
 import { ReconcileController } from './reconcile.controller';
+import { PaymentController } from './payment.controller';
 import { BackupController } from '../backup/backup.controller';
 import { authenticate } from '../../middleware/auth';
 
@@ -21,6 +22,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   const attachmentController = new AttachmentController();
   const notificationController = new NotificationController();
   const reconcileController = new ReconcileController();
+  const paymentController = new PaymentController();
   const backupController = new BackupController();
 
   // All routes require authentication
@@ -97,6 +99,10 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/journals/:journalId/reject', controller.rejectJournal.bind(controller));
   fastify.post('/:id/journals/:journalId/retrieve', controller.retrieveJournal.bind(controller));
   fastify.post('/:id/journals/:journalId/approve', controller.approveJournal.bind(controller));
+
+  // Payments
+  fastify.get('/:id/payments', paymentController.listPayments.bind(paymentController));
+  fastify.post('/:id/payments', paymentController.createPayment.bind(paymentController));
 
   // Reports
   fastify.get('/:id/reports/trial-balance', reportController.getTrialBalance.bind(reportController));

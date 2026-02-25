@@ -18,6 +18,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import Sidebar from '@/components/Sidebar';
 import NotificationPanel from '@/components/NotificationPanel';
+import UserDropdown from '@/components/UserDropdown';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -162,21 +163,16 @@ export default function CompanyDashboard() {
       <Sidebar companyName={companyName} />
 
       {/* Main Content */}
-      <main className="lg:pl-64 min-h-screen">
+        <main className="lg:pl-64 min-h-screen">
         {/* Top Header */}
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 lg:hidden">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="font-bold text-slate-900">{companyName}</h1>
-          </div>
-          
-          <div className="hidden lg:block">
+        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between">
+          {/* Left: breadcrumb (desktop) or spacer for mobile hamburger */}
+          <div className="pl-10 lg:pl-0">
             <h2 className="text-slate-500 text-sm font-medium">Dashboard / <span className="text-slate-900">{role} Perspective</span></h2>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Notification Bell */}
             <div className="relative">
               <button
                 onClick={() => setNotifOpen(o => !o)}
@@ -193,18 +189,9 @@ export default function CompanyDashboard() {
                 onClose={() => setNotifOpen(false)}
               />
             </div>
-            <div className="h-8 w-px bg-slate-200 hidden sm:block" />
-            <div className="hidden sm:flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-xs font-semibold text-slate-900">{(localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!).firstName : 'User')}</p>
-                <p className="text-[10px] text-slate-500 font-medium">{role}</p>
-              </div>
-              <div className="w-10 h-10 bg-slate-200 rounded-full border-2 border-white shadow-sm overflow-hidden">
-                <div className="w-full h-full flex items-center justify-center text-slate-600 font-bold bg-gradient-to-br from-slate-50 to-slate-200">
-                  {role.charAt(0)}
-                </div>
-              </div>
-            </div>
+            <div className="h-6 w-px bg-slate-200" />
+            {/* Profile Dropdown */}
+            <UserDropdown role={role} />
           </div>
         </header>
 

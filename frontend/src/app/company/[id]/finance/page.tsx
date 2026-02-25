@@ -16,6 +16,7 @@ import { AttachmentManager } from '@/components/AttachmentManager';
 import { toast } from 'react-hot-toast';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import UserDropdown from '@/components/UserDropdown';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -154,8 +155,8 @@ export default function FinancePage() {
 
       <main className="lg:pl-64 min-h-screen">
         {/* Header Section */}
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-6 py-4 flex items-center justify-between print:hidden">
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between print:hidden">
+          <div className="flex items-center gap-4 pl-10 lg:pl-0">
             <button onClick={() => router.back()} className="p-2 hover:bg-slate-100 rounded-full transition-colors group">
               <ArrowLeft className="w-5 h-5 text-slate-500 group-hover:text-slate-900" />
             </button>
@@ -170,14 +171,16 @@ export default function FinancePage() {
           <div className="flex items-center gap-3">
             <button 
               onClick={() => handleOpenModal()}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all active:scale-95"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 lg:px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all active:scale-95"
             >
               <Plus className="w-5 h-5" />
-              New {activeTab === 'lcs' ? 'LC' : 'Loan'}
+              <span className="hidden sm:inline">New {activeTab === 'lcs' ? 'LC' : 'Loan'}</span>
             </button>
-            <button className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors relative ml-2">
+            <button className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors relative">
               <Bell className="w-5 h-5" />
             </button>
+            <div className="h-6 w-px bg-slate-200" />
+            <UserDropdown />
           </div>
         </header>
 

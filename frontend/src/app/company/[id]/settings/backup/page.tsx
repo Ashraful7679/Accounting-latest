@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
+import UserDropdown from '@/components/UserDropdown';
 import { 
   Database, 
   Download, 
@@ -165,27 +166,29 @@ export default function BackupRestorePage() {
     <div className="min-h-screen bg-[#F8FAFC]">
       <Sidebar companyName="System Settings" />
       <main className="lg:pl-64 min-h-screen">
-        <div className="p-4 md:p-8 max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-black text-slate-900 Capsule tracking-tight">Backup & Recovery</h1>
-              <p className="text-slate-500 mt-1 text-sm md:text-base">Maintain snapshots of your financial records and document archives.</p>
-            </div>
+        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between">
+          <div className="pl-10 lg:pl-0">
+            <h1 className="text-xl font-black text-slate-900">Backup &amp; Recovery</h1>
+          </div>
+          <div className="flex items-center gap-3">
             <button
               onClick={handleGenerateBackup}
               disabled={isGenerating}
               className={cn(
-                "flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white transition-all shadow-lg",
-                isGenerating 
-                  ? "bg-slate-400 cursor-not-allowed shadow-none" 
+                "flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold text-white transition-all shadow-sm text-sm",
+                isGenerating
+                  ? "bg-slate-400 cursor-not-allowed shadow-none"
                   : "bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-blue-200/50"
               )}
             >
-              <RefreshCw className={cn("w-5 h-5", isGenerating && "animate-spin")} />
-              {isGenerating ? 'Generating Snapshot...' : 'Create Backup Now'}
+              <RefreshCw className={cn("w-4 h-4", isGenerating && "animate-spin")} />
+              <span className="hidden sm:inline">{isGenerating ? 'Generating...' : 'Create Backup'}</span>
             </button>
+            <div className="h-6 w-px bg-slate-200" />
+            <UserDropdown />
           </div>
+        </header>
+        <div className="p-4 md:p-8 max-w-6xl mx-auto">
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Sidebar Column: Status & Info */}

@@ -13,6 +13,7 @@ import {
 import Sidebar from '@/components/Sidebar';
 import { AttachmentManager } from '@/components/AttachmentManager';
 import NotificationPanel from '@/components/NotificationPanel';
+import UserDropdown from '@/components/UserDropdown';
 
 interface Account {
   id: string;
@@ -353,11 +354,11 @@ export default function CompanyJournalsPage() {
       <Sidebar companyName="Journal Entries" role={userRole} />
 
       <main className="lg:pl-64 min-h-screen">
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between">
+          <div className="pl-10 lg:pl-0">
             <h1 className="text-xl font-bold text-slate-900">Voucher Journal</h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button 
               onClick={() => setNotifOpen(true)}
               className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors relative"
@@ -367,6 +368,8 @@ export default function CompanyJournalsPage() {
                 <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full" />
               )}
             </button>
+            <div className="h-6 w-px bg-slate-200" />
+            <UserDropdown role={userRole} />
           </div>
         </header>
 

@@ -10,6 +10,7 @@ import { Plus, ArrowLeft, LogOut, Building2, Bell, RefreshCw, Edit2 } from 'luci
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import Sidebar from '@/components/Sidebar';
+import UserDropdown from '@/components/UserDropdown';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -185,22 +186,24 @@ export default function CompanyAccountsPage() {
       <Sidebar companyName="Company Accounts" />
 
       <main className="lg:pl-64 min-h-screen">
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between">
+          <div className="pl-10 lg:pl-0">
             <h1 className="text-xl font-bold text-slate-900">Chart of Accounts</h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button 
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all ${syncMutation.isPending ? 'opacity-50' : ''}`}
+              className={`flex items-center gap-2 px-3 lg:px-4 py-2 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all ${syncMutation.isPending ? 'opacity-50' : ''}`}
             >
               <RefreshCw className={`w-4 h-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-              {syncMutation.isPending ? 'Syncing...' : 'Sync Balances'}
+              <span className="hidden sm:inline">{syncMutation.isPending ? 'Syncing...' : 'Sync Balances'}</span>
             </button>
             <button className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors relative">
               <Bell className="w-5 h-5" />
             </button>
+            <div className="h-6 w-px bg-slate-200" />
+            <UserDropdown />
           </div>
         </header>
 

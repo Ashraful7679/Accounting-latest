@@ -312,6 +312,22 @@ export class CompanyController {
     // BDT amount
     const bdtAmount = total * (data.exchangeRate || 1);
 
+    // Transaction Date Validation
+    if (!data.invoiceDate) {
+      throw new ValidationError('Invoice date is required');
+    }
+
+    const invoiceDate = new Date(data.invoiceDate);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    const role = await this.getUserRole(userId, companyId);
+    const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
+
+    if (invoiceDate > today && !isOwnerOrAdmin) {
+      throw new ValidationError('Future invoice dates are only allowed for owners');
+    }
+
     const invoice = await TransactionRepository.createInvoice({
       ...data,
       invoiceNumber,
@@ -508,38 +524,66 @@ export class CompanyController {
         },
       });
 
-      // 2. Financial Impact (Standard RMG: AR & Revenue)
-      // Note: In a production system, these account codes should be looked up from settings.
-      // For now, we find them by name/type keywords.
+      // 2. Generate Journal Entry for Audit Trail
+      const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
       
-      const accounts = await tx.account.findMany({
-        where: { 
+      const arAccount = await tx.account.findFirst({ where: { companyId, category: 'AR' } as any });
+      const revAccount = await tx.account.findFirst({ where: { companyId, category: 'REVENUE' } as any });
+
+      if (!arAccount || !revAccount) {
+        throw new ValidationError('AR or Revenue accounts not found');
+      }
+
+      // Create an APPROVED journal entry
+      const journalDate = new Date(invoice.invoiceDate);
+      await tx.journalEntry.create({
+        data: {
+          entryNumber,
           companyId,
-          OR: [
-            { name: { contains: 'Receivable' } },
-            { name: { contains: 'Sales' } },
-            { name: { contains: 'Revenue' } }
-          ]
-        },
-        include: { accountType: true }
+          date: journalDate,
+          description: `Auto-generated from Invoice ${invoice.invoiceNumber}`,
+          reference: invoice.invoiceNumber,
+          totalDebit: invoice.total,
+          totalCredit: invoice.total,
+          status: 'APPROVED',
+          createdById: userId,
+          approvedById: userId,
+          approvedAt: new Date(),
+          lines: {
+            create: [
+              // AR entry
+              {
+                accountId: arAccount.id,
+                debit: invoice.total,
+                credit: 0,
+                debitBase: invoice.total,
+                creditBase: 0,
+                description: `Receivable from Invoice ${invoice.invoiceNumber}`
+              },
+              // Revenue entry
+              {
+                accountId: revAccount.id,
+                debit: 0,
+                credit: invoice.total,
+                debitBase: 0,
+                creditBase: invoice.total,
+                description: `Revenue from Invoice ${invoice.invoiceNumber}`
+              }
+            ]
+          }
+        }
       });
 
-      const arAccount = accounts.find(a => a.accountType.name === 'ASSET');
-      const revAccount = accounts.find(a => a.accountType.name === 'INCOME');
-
-      if (arAccount) {
-        await tx.account.update({
-          where: { id: arAccount.id },
-          data: { currentBalance: { increment: Number(invoice.total) } }
-        });
-      }
-
-      if (revAccount) {
-        await tx.account.update({
-          where: { id: revAccount.id },
-          data: { currentBalance: { increment: Number(invoice.total) } }
-        });
-      }
+      // 3. Update Account Balances (based on the generated journal entry)
+      await tx.account.update({ where: { id: arAccount.id }, data: { currentBalance: { increment: Number(invoice.total) } } });
+      
+      const isRevDebitType = (revAccount as any).accountType?.type === 'DEBIT';
+      const revBalanceChange = isRevDebitType ? -Number(invoice.total) : Number(invoice.total);
+      
+      await tx.account.update({
+        where: { id: revAccount.id },
+        data: { currentBalance: { increment: revBalanceChange } }
+      });
 
       return inv;
     });
@@ -584,11 +628,24 @@ export class CompanyController {
       throw new ValidationError('Debit and Credit must be equal');
     }
 
-    const role = await this.getUserRole(userId, companyId);
-    // Accountants/Owners create as PENDING_VERIFICATION to make them visible to Managers immediately
-    const status = (role === 'Accountant' || role === 'Owner' || role === 'Admin') ? 'PENDING_VERIFICATION' : 'DRAFT';
+    // Transaction Date Validation
+    if (!data.date) {
+      throw new ValidationError('Transaction date is required');
+    }
 
-    const journalDate = data.date ? new Date(data.date) : new Date();
+    const journalDate = new Date(data.date);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    const role = await this.getUserRole(userId, companyId);
+    const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
+
+    if (journalDate > today && !isOwnerOrAdmin) {
+      throw new ValidationError('Future transaction dates are only allowed for owners');
+    }
+
+    // Accountants/Owners create as PENDING_VERIFICATION to make them visible to Managers immediately
+    const status = (role === 'Accountant' || isOwnerOrAdmin) ? 'PENDING_VERIFICATION' : 'DRAFT';
 
     const journal = await TransactionRepository.createJournal({
       ...data,
@@ -822,12 +879,24 @@ export class CompanyController {
         },
       });
 
-      // 2. Update Account Balances
+      // 2. Validate and Update Account Balances
+      const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
+
       for (const line of journal.lines) {
-        const isDebitType = line.account.accountType.type === 'DEBIT';
+        const isDebitType = (line.account as any).accountType.type === 'DEBIT';
         const balanceChange = isDebitType
           ? (Number(line.debitBase) - Number(line.creditBase))
           : (Number(line.creditBase) - Number(line.debitBase));
+
+        const potentialBalance = Number(line.account.currentBalance) + balanceChange;
+
+        // Negative Balance Validation
+        const isCashOrBank = (line.account as any).category === 'CASH' || (line.account as any).category === 'BANK';
+        if (isCashOrBank && potentialBalance < 0 && !(line.account as any).allowNegative && !isOwnerOrAdmin) {
+          throw new ValidationError(
+            `Transaction rejected: ${line.account.name} balance (${potentialBalance}) would be negative. Overdraft not allowed for this account.`
+          );
+        }
 
         await tx.account.update({
           where: { id: line.accountId },

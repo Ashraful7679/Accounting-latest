@@ -44,7 +44,9 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
   const menuItems = [
     { name: 'Dashboard', href: `/company/${companyId}/dashboard`, icon: LayoutDashboard },
     { name: 'Chart of Accounts', href: `/company/${companyId}/accounts`, icon: ClipboardList },
-    { name: 'Vouchers', href: `/company/${companyId}/journals`, icon: BookOpen },
+    { name: 'General Ledger', href: `/company/${companyId}/reports?report=ledger`, icon: BookOpen },
+    { name: 'Vouchers', href: `/company/${companyId}/journals`, icon: History },
+    { name: 'Payments', href: `/company/${companyId}/invoices`, icon: DollarSign },
     { name: 'Bank Recon.', href: `/company/${companyId}/bank/reconcile`, icon: CheckCircle2 },
     { name: 'LC & Banking', href: `/company/${companyId}/finance`, icon: Briefcase },
     { name: 'Receivable', href: `/company/${companyId}/customers`, icon: Users },

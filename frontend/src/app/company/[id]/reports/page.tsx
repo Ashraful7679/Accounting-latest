@@ -427,6 +427,50 @@ export default function ReportCenterPage() {
                               </tbody>
                             </>
                           )}
+                          {selectedReport?.id === 'ledger' && (
+                            <>
+                              <thead>
+                                <tr className="border-b-2 border-slate-900 text-[10px] uppercase font-black tracking-widest text-slate-400">
+                                  <th className="py-4 px-2">Date</th>
+                                  <th className="py-4 px-2">Voucher</th>
+                                  <th className="py-4 px-2">Account</th>
+                                  <th className="py-4 px-2">Description</th>
+                                  <th className="py-4 px-2 text-right">Debit</th>
+                                  <th className="py-4 px-2 text-right">Credit</th>
+                                  <th className="py-4 px-2 text-right">Running Balance</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {(() => {
+                                  let currentBalance = 0;
+                                  return reportData?.map((line: any, i: number) => {
+                                    const isDebitType = line.account.accountType?.type === 'DEBIT' || line.account.type === 'DEBIT';
+                                    const change = isDebitType
+                                      ? (Number(line.debit) - Number(line.credit))
+                                      : (Number(line.credit) - Number(line.debit));
+                                    currentBalance += change;
+
+                                    return (
+                                      <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                        <td className="py-4 px-2 font-medium text-slate-500">{new Date(line.journalEntry.date).toLocaleDateString()}</td>
+                                        <td className="py-4 px-2 font-black text-slate-900">{line.journalEntry.entryNumber}</td>
+                                        <td className="py-4 px-2 font-bold text-slate-700">{line.account.name}</td>
+                                        <td className="py-4 px-2 text-slate-500 text-sm max-w-xs truncate">{line.description || line.journalEntry.description}</td>
+                                        <td className="py-4 px-2 text-right font-bold">{line.debit > 0 ? line.debit.toLocaleString() : '-'}</td>
+                                        <td className="py-4 px-2 text-right font-bold">{line.credit > 0 ? line.credit.toLocaleString() : '-'}</td>
+                                        <td className={cn(
+                                          "py-4 px-2 text-right font-black",
+                                          currentBalance < 0 ? "text-red-600" : "text-emerald-600"
+                                        )}>
+                                          {currentBalance.toLocaleString()}
+                                        </td>
+                                      </tr>
+                                    );
+                                  });
+                                })()}
+                              </tbody>
+                            </>
+                          )}
                           {selectedReport?.id === 'lc-liability' && (
                             <>
                               <thead>

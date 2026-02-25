@@ -36,7 +36,7 @@ async function generateNotifications(companyId: string) {
   // 2. LCs Expiring within 7 Days
   const expiringLCs = await prisma.lC.findMany({
     where: { companyId, status: 'OPEN', expiryDate: { lte: in7Days, gte: now } },
-    select: { id: true, lcNumber: true, amount: true, currency: true, expiryDate: true },
+    select: { id: true, lcNumber: true, amount: true, currency: true, expiryDate: true, conversionRate: true },
     take: 10,
   });
   for (const lc of expiringLCs) {
@@ -45,11 +45,12 @@ async function generateNotifications(companyId: string) {
     });
     if (!existing) {
       const daysLeft = Math.floor((new Date(lc.expiryDate).getTime() - now.getTime()) / 86400000);
+      const convRate = (lc as any).conversionRate || 1;
       await prisma.notification.create({
         data: {
           companyId, type: 'LC_EXPIRY', severity: daysLeft <= 3 ? 'DANGER' : 'WARNING',
           title: `LC Expiry Alert: ${lc.lcNumber}`,
-          message: `LC ${lc.lcNumber} expires in ${daysLeft} day(s). Value: ${Number(lc.amount).toLocaleString()} ${lc.currency} (৳${Number(lc.amount * (lc as any).conversionRate).toLocaleString()}).`,
+          message: `LC ${lc.lcNumber} expires in ${daysLeft} day(s). Value: ${Number(lc.amount).toLocaleString()} ${lc.currency} (৳${Number(lc.amount * convRate).toLocaleString()}).`,
           entityType: 'LC', entityId: lc.id,
         },
       });
@@ -343,13 +344,13 @@ export class DashboardController {
       // 4. --- RMG Monthly Cash Flow Overhaul ---
       const cashFlowData = await (async () => {
         const getCashFlowForPeriod = async (from: Date, to: Date) => {
-          const lines = await (prisma.journalEntryLine.findMany({
+          const lines = await prisma.journalEntryLine.findMany({
             where: {
               journalEntry: { companyId, status: 'APPROVED' as any, date: { gte: from, lte: to } },
-              account: { NOT: { [('cashFlowType' as any)]: null } }
+              account: { cashFlowType: { not: null } }
             },
             include: { account: true }
-          }) as any) as any[];
+          });
 
           let operating = { inflows: 0, outflows: 0, net: 0 };
           let investing = { inflows: 0, outflows: 0, net: 0 };
@@ -449,18 +450,16 @@ export class DashboardController {
       const breakdownSeries: any[] = [];
 
       let cumulativeCash = cashFlowData.openingCash - (await (async () => {
-        // Find cash flow for the 5 months before current month
         let sum = 0;
         for(let i=1; i<=5; i++) {
           const d = new Date();
           d.setMonth(d.getMonth() - i);
           const start = new Date(d.getFullYear(), d.getMonth(), 1);
           const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-          // This is rough, for trend only
-          const lines = await (prisma.journalEntryLine.findMany({
-            where: { journalEntry: { companyId, status: 'APPROVED' as any, date: { gte: start, lte: end } }, account: { NOT: { [('cashFlowType' as any)]: null } } }
-          }) as any);
-          sum += lines.reduce((s: number, l: any) => s + (Number(l.creditBase) - Number(l.debitBase)), 0);
+          const lines = await prisma.journalEntryLine.findMany({
+            where: { journalEntry: { companyId, status: 'APPROVED' as any, date: { gte: start, lte: end } }, account: { cashFlowType: { not: null } } }
+          });
+          sum += lines.reduce((s, l) => s + (Number(l.creditBase) - Number(l.debitBase)), 0);
         }
         return sum;
       })());
@@ -472,13 +471,13 @@ export class DashboardController {
         const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
         const monthName = d.toLocaleString('default', { month: 'short' });
         
-        const lines = await (prisma.journalEntryLine.findMany({
+        const lines = await prisma.journalEntryLine.findMany({
           where: {
             journalEntry: { companyId, status: 'APPROVED' as any, date: { gte: monthStart, lte: monthEnd } },
-            account: { NOT: { [('cashFlowType' as any)]: null } }
+            account: { NOT: { cashFlowType: null } }
           },
           include: { account: true }
-        }) as any) as any[];
+        });
 
         let opNet = 0, invNet = 0, finNet = 0;
         for(const l of lines) {

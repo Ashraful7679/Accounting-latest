@@ -11,6 +11,7 @@ import {
   ChevronRight, RefreshCw, CheckCheck
 } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
+import UserDropdown from '@/components/UserDropdown';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -101,24 +102,29 @@ export default function BankReconcilePage() {
       <Sidebar companyName={company?.name || 'Bank Reconciliation'} role={userRole} />
 
       <main className="lg:pl-64 min-h-screen">
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-4 pl-10 lg:pl-0">
             <button onClick={() => router.back()} className="p-2 hover:bg-slate-100 rounded-full transition-colors group">
               <ArrowLeft className="w-5 h-5 text-slate-500 group-hover:text-slate-900" />
             </button>
             <h1 className="text-xl font-black text-slate-900">Bank Reconciliation</h1>
           </div>
 
-          {selectedLines.length > 0 && (
-            <button 
-              onClick={() => reconcileMutation.mutate(selectedLines)}
-              disabled={reconcileMutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all"
-            >
-              <CheckCheck className="w-4 h-4" />
-              Reconcile Selected ({selectedLines.length})
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {selectedLines.length > 0 && (
+              <button 
+                onClick={() => reconcileMutation.mutate(selectedLines)}
+                disabled={reconcileMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all"
+              >
+                <CheckCheck className="w-4 h-4" />
+                <span className="hidden sm:inline">Reconcile Selected ({selectedLines.length})</span>
+                <span className="sm:hidden">({selectedLines.length})</span>
+              </button>
+            )}
+            <div className="h-6 w-px bg-slate-200" />
+            <UserDropdown role={userRole} />
+          </div>
         </header>
 
         <div className="p-6 max-w-[1400px] mx-auto space-y-6">

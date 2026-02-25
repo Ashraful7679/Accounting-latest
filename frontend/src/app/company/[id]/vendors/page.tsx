@@ -8,6 +8,7 @@ import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, Edit, ArrowLeft, LogOut, Building2, Bell } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
+import UserDropdown from '@/components/UserDropdown';
 
 interface Vendor {
   id: string;
@@ -151,14 +152,16 @@ export default function CompanyVendorsPage() {
       <Sidebar companyName="Vendors" />
 
       <main className="lg:pl-64 min-h-screen">
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between">
+          <div className="pl-10 lg:pl-0">
             <h1 className="text-xl font-bold text-slate-900">Payable Management</h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors relative">
               <Bell className="w-5 h-5" />
             </button>
+            <div className="h-6 w-px bg-slate-200" />
+            <UserDropdown />
           </div>
         </header>
 

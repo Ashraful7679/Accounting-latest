@@ -1,0 +1,178 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer components {
+  .input {
+    @apply w-full px-3 py-2 border border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 font-medium;
+  }
+
+  .btn {
+    @apply px-4 py-2 rounded-lg font-semibold transition-colors;
+  }
+
+  .btn-primary {
+    @apply bg-primary-600 text-white hover:bg-primary-700 shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-300 text-gray-900 hover:bg-gray-400 border border-gray-400;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@media print {
+  @page {
+    margin: 1.5cm;
+    size: auto;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide elements with print-hide class or native print:hidden */
+  .print-hide,
+  .no-print,
+  nav,
+  header.sticky,
+  button:not(.print-allow),
+  .sidebar {
+    display: none !important;
+  }
+
+  /* Reset layout for main content */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    position: static !important;
+    overflow: visible !important;
+  }
+
+  /* Remove sidebar offset for the layout wrapper */
+  .lg\:pl-64 {
+    padding-left: 0 !important;
+  }
+
+  /* Table adjustments for print */
+  table {
+    page-break-inside: auto;
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  /* Universal container resets */
+  .bg-white {
+    background: white !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Target common rounded and shadow classes without complex escaping */
+  canvas,
+  div,
+  section,
+  article {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Typography consistency */
+  .text-slate-500,
+  .text-slate-400 {
+    color: #64748b !important;
+  }
+}
+
+/* Aggressive Print Isolation */
+@media print {
+
+  /* Hide everything except the printable content and its necessary parents */
+  body.printing-mode * {
+    visibility: hidden !important;
+  }
+
+  body.printing-mode .printable-content,
+  body.printing-mode .printable-content * {
+    visibility: visible !important;
+  }
+
+  body.printing-mode .printable-content {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    z-index: 9999 !important;
+  }
+
+  /* Prevent extra pages by forcing height and removing margins */
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .printable-content {
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
+  }
+
+  /* Specific hide for print-hide class */
+  .print-hide,
+  .no-print {
+    display: none !important;
+    visibility: hidden !important;
+  }
+}

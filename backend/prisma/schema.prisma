@@ -1,0 +1,639 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION MODELS
+// ============================================
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String
+  firstName    String
+  lastName     String
+  isActive     Boolean  @default(true)
+  maxCompanies Int      @default(1)
+  phone        String?
+  address      String?
+  
+  // Reporting Hierarchy
+  managerId     String?
+  manager       User?    @relation("ManagerSubordinates", fields: [managerId], references: [id])
+  subordinates  User[]   @relation("ManagerSubordinates")
+  
+  // Relations
+  userRoles     UserRole[]
+  userCompanies UserCompany[]
+  permissions   UserPermission[]
+  
+  // Audit Trail - Created
+  createdInvoices    Invoice[]    @relation("CreatedInvoices")
+  createdJournals    JournalEntry[] @relation("CreatedJournals")
+  
+  // Audit Trail - Verified
+  verifiedInvoices   Invoice[]   @relation("VerifiedInvoices")
+  verifiedJournals  JournalEntry[] @relation("VerifiedJournals")
+  
+  // Audit Trail - Approved
+  approvedInvoices   Invoice[]   @relation("ApprovedInvoices")
+  approvedJournals  JournalEntry[] @relation("ApprovedJournals")
+  
+  // Audit Trail - Rejected
+  rejectedInvoices   Invoice[]   @relation("RejectedInvoices")
+  rejectedJournals  JournalEntry[] @relation("RejectedJournals")
+  
+  // Documents uploaded
+  uploadedAttachments Attachment[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  userRoles   UserRole[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserRole {
+  id      String @id @default(uuid())
+  userId  String
+  roleId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role    Role   @relation(fields: [roleId], references: [id])
+  
+  @@unique([userId, roleId])
+}
+
+model UserPermission {
+  id          String @id @default(uuid())
+  userId      String
+  module      String
+  canCreate   Boolean @default(false)
+  canView     Boolean @default(true)
+  canVerify   Boolean @default(false)
+  canApprove  Boolean @default(false)
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, module])
+}
+
+// ============================================
+// COMPANY MODELS
+// ============================================
+
+model Company {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  name          String
+  logoUrl       String?
+  address       String?
+  city          String?
+  country       String?
+  phone         String?
+  email         String?
+  website       String?
+  baseCurrency  String   @default("BDT")
+  isActive      Boolean  @default(true)
+  
+  // Relations
+  userCompanies UserCompany[]
+  invoices     Invoice[]
+  journals     JournalEntry[]
+  customers    Customer[]
+  vendors      Vendor[]
+  accounts     Account[]
+  branches     Branch[]
+  projects     Project[]
+  costCenters  CostCenter[]
+  products     Product[]
+  bills        Bill[]
+  lcs          LC[]
+  loans        Loan[]
+  notifications Notification[]
+  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model UserCompany {
+  id                  String   @id @default(uuid())
+  userId              String
+  companyId           String
+  isDefault           Boolean  @default(false)
+  
+  // Co-ownership & Permissions
+  ownershipPercentage Float    @default(0)
+  isMainOwner         Boolean  @default(false)
+  canEditCompany      Boolean  @default(false)
+  canDeleteCompany    Boolean  @default(false)
+  canManageOwners     Boolean  @default(false)
+
+  // --- NEW: Owner Profile & Identity (South Asian Compliance) ---
+  fatherMotherName    String?
+  nidPassport        String?
+  mobile             String?
+  permanentAddress   String?
+  
+  // Ownership Structure
+  ownershipType      String?  // Proprietor, Partner, Director, Shareholder
+  joiningDate        DateTime?
+  
+  // Capital & Equity Tracking
+  openingCapital     Float    @default(0)
+  capitalAccountCode String?  @unique // Auto-generated
+  drawingAccountCode String?  @unique // Auto-generated
+  currentCapitalBalance Float @default(0) // Auto-calculated
+  
+  // Tax & Compliance
+  tin                String?
+  tinCertificateUrl  String?
+  din                String?  // Director Identification Number
+  
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, companyId])
+}
+
+// ============================================
+// LC & LOAN MODELS (RMG & Industrial Accounting)
+// ============================================
+
+model LC {
+  id              String    @id @default(uuid())
+  companyId       String
+  lcNumber        String    @unique
+  bankName        String
+  amount          Float
+  currency        String    @default("USD")
+  conversionRate  Float     @default(1)
+  issueDate       DateTime
+  expiryDate      DateTime
+  status          String    @default("OPEN") // OPEN, EXPIRED, CLOSED, CANCELLED
+  type            String    @default("IMPORT") // IMPORT, EXPORT
+  description     String?
+  company         Company   @relation(fields: [companyId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([companyId])
+  @@index([lcNumber])
+}
+
+model Loan {
+  id                  String    @id @default(uuid())
+  companyId           String
+  loanNumber          String    @unique
+  bankName            String
+  principalAmount     Float
+  interestRate        Float
+  repaymentTerm       Int       // In months
+  monthlyInstallment  Float
+  outstandingBalance  Float
+  startDate           DateTime
+  endDate             DateTime?
+  status              String    @default("ACTIVE") // ACTIVE, REPAID, DEFAULTED
+  company             Company   @relation(fields: [companyId], references: [id])
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([companyId])
+  @@index([loanNumber])
+}
+
+// ============================================
+// ACCOUNTING MODELS
+// ============================================
+
+model AccountType {
+  id        String    @id @default(uuid())
+  name      String    @unique // ASSET, LIABILITY, EQUITY, INCOME, EXPENSE
+  type      String    // DEBIT, CREDIT
+  isActive  Boolean   @default(true)
+  accounts  Account[]
+}
+
+model Account {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  name          String
+  companyId     String
+  accountTypeId String
+  parentId      String?
+  isActive      Boolean  @default(true)
+  openingBalance Float   @default(0)
+  currentBalance Float   @default(0)
+  cashFlowType   String? // OPERATING, INVESTING, FINANCING, NONE
+  
+  company       Company        @relation(fields: [companyId], references: [id])
+  accountType   AccountType    @relation(fields: [accountTypeId], references: [id])
+  parent        Account?       @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children      Account[]      @relation("AccountHierarchy")
+  journalLines  JournalEntryLine[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([companyId])
+  @@index([accountTypeId])
+}
+
+model Branch {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  companyId String
+  isActive  Boolean  @default(true)
+  company   Company  @relation(fields: [companyId], references: [id])
+  journalEntries JournalEntry[]
+  journalLines   JournalEntryLine[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([companyId, code])
+}
+
+model Project {
+  id           String             @id @default(uuid())
+  code         String             @unique
+  name         String
+  companyId    String
+  isActive     Boolean            @default(true)
+  company      Company            @relation(fields: [companyId], references: [id])
+  journalLines JournalEntryLine[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([companyId, code])
+}
+
+model CostCenter {
+  id           String             @id @default(uuid())
+  code         String             @unique
+  name         String
+  companyId    String
+  isActive     Boolean            @default(true)
+  company      Company            @relation(fields: [companyId], references: [id])
+  journalLines JournalEntryLine[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([companyId, code])
+}
+
+// ============================================
+// CUSTOMER & VENDOR
+// ============================================
+
+model Customer {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  companyId   String
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  country     String?
+  isActive    Boolean  @default(true)
+  company     Company  @relation(fields: [companyId], references: [id])
+  invoices    Invoice[]
+  journalLines JournalEntryLine[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([companyId])
+}
+
+model Vendor {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  companyId   String
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  country     String?
+  isActive    Boolean  @default(true)
+  company     Company  @relation(fields: [companyId], references: [id])
+  bills       Bill[]
+  journalLines JournalEntryLine[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([companyId])
+}
+
+// ============================================
+// PRODUCTS
+// ============================================
+
+model Product {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  companyId   String
+  sku         String?
+  description String?
+  unitPrice   Float    @default(0)
+  isActive    Boolean  @default(true)
+  company     Company  @relation(fields: [companyId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([companyId])
+}
+
+// ============================================
+// INVOICE MODEL
+// ============================================
+
+model Invoice {
+  id              String    @id @default(uuid())
+  invoiceNumber   String    @unique
+  companyId       String
+  customerId      String?
+  
+  // Currency
+  currency        String    @default("BDT")
+  exchangeRate   Float     @default(1)
+  subtotal       Float
+  taxAmount      Float     @default(0)
+  discountAmount Float     @default(0)
+  total          Float
+  
+  // Status Flow: DRAFT → PENDING_VERIFICATION → VERIFIED → PENDING_APPROVAL → APPROVED
+  //              or REJECTED at any verification stage
+  status          String    @default("DRAFT")
+  
+  // Audit Trail
+  createdById     String
+  verifiedById    String?
+  approvedById   String?
+  rejectedById    String?
+  rejectionReason String?
+  
+  // Dates
+  invoiceDate     DateTime  @default(now())
+  dueDate         DateTime?
+  verifiedAt      DateTime?
+  approvedAt      DateTime?
+  
+  // Relations
+  company        Company   @relation(fields: [companyId], references: [id])
+  customer       Customer? @relation(fields: [customerId], references: [id])
+  createdBy      User      @relation("CreatedInvoices", fields: [createdById], references: [id])
+  verifiedBy     User?     @relation("VerifiedInvoices", fields: [verifiedById], references: [id])
+  approvedBy     User?     @relation("ApprovedInvoices", fields: [approvedById], references: [id])
+  rejectedBy     User?     @relation("RejectedInvoices", fields: [rejectedById], references: [id])
+  lines          InvoiceLine[]
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  @@index([companyId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model InvoiceLine {
+  id          String  @id @default(uuid())
+  invoiceId   String
+  description String?
+  quantity    Float   @default(1)
+  unitPrice   Float
+  taxRate     Float   @default(0)
+  amount      Float
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// JOURNAL ENTRY MODEL
+// ============================================
+
+model JournalEntry {
+  id              String    @id @default(uuid())
+  entryNumber     String    @unique
+  companyId       String
+  date            DateTime  @default(now())
+  description     String?
+  reference       String?
+  totalDebit      Float     @default(0)
+  totalCredit     Float     @default(0)
+  
+  // Multi-Currency Info
+  currencyId      String?
+  currency        Currency? @relation(fields: [currencyId], references: [id])
+  exchangeRate    Float     @default(1)
+  
+  branchId        String?
+  branch          Branch?   @relation(fields: [branchId], references: [id])
+  
+  // Status Flow: DRAFT → PENDING_VERIFICATION → VERIFIED → PENDING_APPROVAL → APPROVED
+  //              or REJECTED at any verification stage
+  status          String    @default("DRAFT")
+  
+  // Audit Trail
+  createdById     String
+  verifiedById    String?
+  approvedById   String?
+  rejectedById    String?
+  rejectionReason String?
+  
+  // Dates
+  verifiedAt      DateTime?
+  approvedAt       DateTime?
+  
+  // Relations
+  company        Company   @relation(fields: [companyId], references: [id])
+  createdBy      User      @relation("CreatedJournals", fields: [createdById], references: [id])
+  verifiedBy     User?     @relation("VerifiedJournals", fields: [verifiedById], references: [id])
+  approvedBy     User?     @relation("ApprovedJournals", fields: [approvedById], references: [id])
+  rejectedBy     User?     @relation("RejectedJournals", fields: [rejectedById], references: [id])
+  lines          JournalEntryLine[]
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  @@index([companyId])
+  @@index([status])
+}
+
+model JournalEntryLine {
+  id             String       @id @default(uuid())
+  journalEntryId String
+  accountId      String
+  
+  // Dimensions
+  branchId       String?
+  projectId      String?
+  costCenterId   String?
+  customerId     String?
+  vendorId       String?
+  
+  debit          Float        @default(0)
+  credit         Float        @default(0)
+  
+  // Multi-Currency Storage
+  debitBase      Float        @default(0)
+  creditBase     Float        @default(0)
+  debitForeign   Float        @default(0)
+  creditForeign  Float        @default(0)
+  exchangeRate   Float        @default(1)
+  
+  description    String?
+  
+  // Reconciliation
+  reconciled     Boolean      @default(false)
+  reconciledAt   DateTime?
+  
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account        Account      @relation(fields: [accountId], references: [id])
+  branch         Branch?      @relation(fields: [branchId], references: [id])
+  project        Project?     @relation(fields: [projectId], references: [id])
+  costCenter     CostCenter?  @relation(fields: [costCenterId], references: [id])
+  customer       Customer?    @relation(fields: [customerId], references: [id])
+  vendor         Vendor?      @relation(fields: [vendorId], references: [id])
+}
+
+// ============================================
+// BILL MODEL (Accounts Payable)
+// ============================================
+
+model Bill {
+  id          String    @id @default(uuid())
+  billNumber  String    @unique
+  companyId   String
+  vendorId    String
+  status      String    @default("DRAFT")
+  subtotal    Float
+  taxAmount   Float     @default(0)
+  total       Float
+  dueDate     DateTime?
+  company     Company   @relation(fields: [companyId], references: [id])
+  vendor      Vendor    @relation(fields: [vendorId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([companyId])
+  @@index([vendorId])
+}
+
+// ============================================
+// DOCUMENTS/ATTACHMENTS
+// ============================================
+
+// ============================================
+// DOCUMENTS/ATTACHMENTS (Audit-Ready)
+// ============================================
+
+model Attachment {
+  id           String   @id @default(uuid())
+  name         String
+  fileName     String
+  fileType     String
+  filePath     String
+  fileSize     Int
+  entityType   String   // VOUCHER, LC, BILL, PAYMENT
+  entityId     String
+  documentType String?  // LC Copy, Invoice, Bill of Lading, etc.
+  
+  // Audit & Security
+  hashValue    String?  // SHA-256 for tamper check
+  version      Int      @default(1)
+  isActive     Boolean  @default(true) // Soft delete
+  isVerified   Boolean  @default(false)
+  verifiedById String?
+  
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([entityType, entityId])
+}
+
+// ============================================
+// CURRENCY & EXCHANGE RATES
+// ============================================
+
+model Currency {
+  id             String         @id @default(uuid())
+  code           String         @unique // USD, BDT, EUR
+  name           String
+  symbol         String?
+  isBase         Boolean        @default(false)
+  isActive       Boolean        @default(true)
+  
+  // Relations
+  ratesFrom      ExchangeRate[] @relation("FromCurrency")
+  ratesTo        ExchangeRate[] @relation("ToCurrency")
+  journalEntries JournalEntry[]
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model ExchangeRate {
+  id             String   @id @default(uuid())
+  fromCurrencyId String
+  toCurrencyId   String
+  rate           Float
+  rateDate       DateTime @default(now())
+  source         String   @default("MANUAL") // MANUAL, API
+  
+  fromCurrency   Currency @relation("FromCurrency", fields: [fromCurrencyId], references: [id])
+  toCurrency     Currency @relation("ToCurrency", fields: [toCurrencyId], references: [id])
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([rateDate])
+}
+
+model BackupLog {
+  id           String   @id @default(uuid())
+  fileName     String
+  fileSize     Int
+  status       String   // SUCCESS, FAILED
+  triggeredBy  String
+  createdAt    DateTime @default(now())
+}
+
+// ============================================
+// NOTIFICATION MODEL
+// ============================================
+
+model Notification {
+  id          String   @id @default(uuid())
+  companyId   String
+  type        String   // OVERDUE_INVOICE, LC_EXPIRY, PENDING_JOURNAL, LOAN_DUE, LOW_CASH, INFO
+  severity    String   @default("INFO") // INFO, WARNING, DANGER
+  title       String
+  message     String
+  entityType  String?  // Invoice, JournalEntry, LC, Loan
+  entityId    String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([companyId, isRead])
+}
+

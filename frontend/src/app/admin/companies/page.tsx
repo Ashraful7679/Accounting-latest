@@ -184,6 +184,7 @@ export default function AdminCompaniesPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (createMutation.isPending || updateMutation.isPending) return;
     if (editingCompany) {
       updateMutation.mutate({ id: editingCompany.id, data: formData });
     } else {
@@ -232,7 +233,7 @@ export default function AdminCompaniesPage() {
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">All Companies</h2>
+          <h2 className="text-xl font-semibold text-gray-900">All Companies</h2>
           <button onClick={() => openModal()} className="btn btn-primary flex items-center gap-2">
             <Plus className="w-5 h-5" />
             Add Company
@@ -305,7 +306,7 @@ export default function AdminCompaniesPage() {
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-4">
+            <h3 className="text-xl font-semibold mb-4 text-gray-900">
               {editingCompany ? 'Edit Company' : 'Create Company'}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">

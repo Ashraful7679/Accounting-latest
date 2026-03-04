@@ -1037,4 +1037,498 @@ export class CompanyController {
 
     return ids;
   }
+
+  // ============================================
+  // EMPLOYEE MANAGEMENT
+  // ============================================
+
+  async getEmployees(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const userId = request.user as string;
+
+    const employees = await prisma.employee.findMany({
+      where: { companyId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return reply.send({ success: true, data: employees });
+  }
+
+  async createEmployee(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { employeeCode, firstName, lastName, email, phone, designation, department, joinDate, salary } = request.body as any;
+
+    const employee = await prisma.employee.create({
+      data: {
+        employeeCode,
+        firstName,
+        lastName,
+        email,
+        phone,
+        designation,
+        department,
+        joinDate: joinDate ? new Date(joinDate) : null,
+        salary: salary || 0,
+        companyId,
+      },
+    });
+
+    return reply.send({ success: true, data: employee });
+  }
+
+  async updateEmployee(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, employeeId } = request.params as { id: string; employeeId: string };
+    const data = request.body as any;
+
+    const employee = await prisma.employee.update({
+      where: { id: employeeId },
+      data: {
+        ...data,
+        joinDate: data.joinDate ? new Date(data.joinDate) : undefined,
+      },
+    });
+
+    return reply.send({ success: true, data: employee });
+  }
+
+  async deleteEmployee(request: FastifyRequest, reply: FastifyReply) {
+    const { employeeId } = request.params as { employeeId: string };
+
+    await prisma.employee.delete({ where: { id: employeeId } });
+
+    return reply.send({ success: true });
+  }
+
+  // Employee Advances
+  async getEmployeeAdvances(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+
+    const advances = await prisma.employeeAdvance.findMany({
+      where: { companyId },
+      include: { employee: true, account: true },
+      orderBy: { date: 'desc' },
+    });
+
+    return reply.send({ success: true, data: advances });
+  }
+
+  async createEmployeeAdvance(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { employeeId, amount, purpose, date, paymentMethod, accountId } = request.body as any;
+
+    const advance = await prisma.employeeAdvance.create({
+      data: {
+        employeeId,
+        amount: parseFloat(amount),
+        purpose,
+        date: new Date(date),
+        paymentMethod,
+        accountId,
+        companyId,
+      },
+    });
+
+    return reply.send({ success: true, data: advance });
+  }
+
+  async updateEmployeeAdvance(request: FastifyRequest, reply: FastifyReply) {
+    const { advanceId } = request.params as { advanceId: string };
+    const data = request.body as any;
+
+    const advance = await prisma.employeeAdvance.update({
+      where: { id: advanceId },
+      data: {
+        ...data,
+        date: data.date ? new Date(data.date) : undefined,
+      },
+    });
+
+    return reply.send({ success: true, data: advance });
+  }
+
+  async deleteEmployeeAdvance(request: FastifyRequest, reply: FastifyReply) {
+    const { advanceId } = request.params as { advanceId: string };
+
+    await prisma.employeeAdvance.delete({ where: { id: advanceId } });
+
+    return reply.send({ success: true });
+  }
+
+  async approveEmployeeAdvance(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, advanceId } = request.params as { id: string; advanceId: string };
+
+    const advance = await prisma.employeeAdvance.findUnique({
+      where: { id: advanceId },
+      include: { employee: true },
+    });
+
+    if (!advance) {
+      throw new NotFoundError('Advance not found');
+    }
+
+    // Generate journal entry
+    const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
+    
+    // Get default accounts
+    const cashAccount = await prisma.account.findFirst({
+      where: { companyId, code: { endsWith: '1000' }, isActive: true },
+    });
+    
+    const advanceAccount = await prisma.account.findFirst({
+      where: { companyId, name: { contains: 'Advance', mode: 'insensitive' }, isActive: true },
+    });
+
+    const employeePayableAccount = await prisma.account.findFirst({
+      where: { companyId, name: { contains: 'Employee', mode: 'insensitive' }, isActive: true },
+    });
+
+    // Create journal entry
+    const journal = await prisma.journalEntry.create({
+      data: {
+        entryNumber,
+        date: advance.date,
+        description: `Advance for ${advance.employee.firstName} ${advance.employee.lastName} - ${advance.purpose || ''}`,
+        companyId,
+        status: 'APPROVED',
+        lines: {
+          create: [
+            {
+              accountId: employeePayableAccount?.id || advanceAccount?.id || cashAccount?.id,
+              debit: advance.amount,
+              credit: 0,
+            },
+            {
+              accountId: advance.accountId || cashAccount?.id,
+              debit: 0,
+              credit: advance.amount,
+            },
+          ],
+        },
+      },
+      include: { lines: { include: { account: true } } },
+    });
+
+    // Update advance status
+    await prisma.employeeAdvance.update({
+      where: { id: advanceId },
+      data: { status: 'APPROVED', journalEntryId: journal.id },
+    });
+
+    return reply.send({ success: true, data: { advance, journal } });
+  }
+
+  // Employee Loans
+  async getEmployeeLoans(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+
+    const loans = await prisma.employeeLoan.findMany({
+      where: { companyId },
+      include: { employee: true, repayments: true },
+      orderBy: { startDate: 'desc' },
+    });
+
+    return reply.send({ success: true, data: loans });
+  }
+
+  async createEmployeeLoan(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { employeeId, principalAmount, interestRate, installments, startDate, purpose } = request.body as any;
+
+    const principal = parseFloat(principalAmount);
+    const rate = parseFloat(interestRate || 0);
+    const interestAmount = (principal * rate * (installments / 12)) / 100;
+    const totalAmount = principal + interestAmount;
+
+    const loan = await prisma.employeeLoan.create({
+      data: {
+        employeeId,
+        principalAmount: principal,
+        interestRate: rate,
+        interestAmount,
+        totalAmount,
+        installments: parseInt(installments) || 1,
+        startDate: new Date(startDate),
+        purpose,
+        companyId,
+      },
+    });
+
+    return reply.send({ success: true, data: loan });
+  }
+
+  async updateEmployeeLoan(request: FastifyRequest, reply: FastifyReply) {
+    const { loanId } = request.params as { loanId: string };
+    const data = request.body as any;
+
+    if (data.principalAmount) {
+      const principal = parseFloat(data.principalAmount);
+      const rate = parseFloat(data.interestRate || 0);
+      const installments = parseInt(data.installments || 1);
+      const interestAmount = (principal * rate * (installments / 12)) / 100;
+      data.interestAmount = interestAmount;
+      data.totalAmount = principal + interestAmount;
+    }
+
+    const loan = await prisma.employeeLoan.update({
+      where: { id: loanId },
+      data: {
+        ...data,
+        startDate: data.startDate ? new Date(data.startDate) : undefined,
+      },
+    });
+
+    return reply.send({ success: true, data: loan });
+  }
+
+  async deleteEmployeeLoan(request: FastifyRequest, reply: FastifyReply) {
+    const { loanId } = request.params as { loanId: string };
+
+    await prisma.employeeLoan.delete({ where: { id: loanId } });
+
+    return reply.send({ success: true });
+  }
+
+  async approveEmployeeLoan(request: FastifyRequest, reply: FastifyReply) {
+    const { loanId } = request.params as { loanId: string };
+
+    await prisma.employeeLoan.update({
+      where: { id: loanId },
+      data: { status: 'ACTIVE' },
+    });
+
+    return reply.send({ success: true });
+  }
+
+  async getLoanRepayments(request: FastifyRequest, reply: FastifyReply) {
+    const { loanId } = request.params as { loanId: string };
+
+    const repayments = await prisma.employeeLoanRepayment.findMany({
+      where: { loanId },
+      orderBy: { paymentDate: 'desc' },
+    });
+
+    return reply.send({ success: true, data: repayments });
+  }
+
+  async createLoanRepayment(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, loanId } = request.params as { id: string; loanId: string };
+    const { amount, principalPaid, interestPaid, paymentDate } = request.body as any;
+
+    const repayment = await prisma.employeeLoanRepayment.create({
+      data: {
+        loanId,
+        amount: parseFloat(amount),
+        principalPaid: parseFloat(principalPaid),
+        interestPaid: parseFloat(interestPaid),
+        paymentDate: new Date(paymentDate),
+        companyId,
+      },
+    });
+
+    return reply.send({ success: true, data: repayment });
+  }
+
+  async approveLoanRepayment(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, repaymentId } = request.params as { id: string; repaymentId: string };
+
+    const repayment = await prisma.employeeLoanRepayment.findUnique({
+      where: { id: repaymentId },
+      include: { loan: { include: { employee: true } } },
+    });
+
+    if (!repayment) {
+      throw new NotFoundError('Repayment not found');
+    }
+
+    // Generate journal entry
+    const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
+    
+    const cashAccount = await prisma.account.findFirst({
+      where: { companyId, code: { endsWith: '1000' }, isActive: true },
+    });
+    
+    const loanAccount = await prisma.account.findFirst({
+      where: { companyId, name: { contains: 'Loan', mode: 'insensitive' }, isActive: true },
+    });
+
+    const interestAccount = await prisma.account.findFirst({
+      where: { companyId, name: { contains: 'Interest Income', mode: 'insensitive' }, isActive: true },
+    });
+
+    // Create journal entry for repayment
+    const journal = await prisma.journalEntry.create({
+      data: {
+        entryNumber,
+        date: repayment.paymentDate,
+        description: `Loan Repayment for ${repayment.loan.employee.firstName} ${repayment.loan.employee.lastName}`,
+        companyId,
+        status: 'APPROVED',
+        lines: {
+          create: [
+            {
+              accountId: loanAccount?.id || cashAccount?.id,
+              debit: repayment.principalPaid,
+              credit: 0,
+            },
+            {
+              accountId: interestAccount?.id || loanAccount?.id || cashAccount?.id,
+              debit: repayment.interestPaid,
+              credit: 0,
+            },
+            {
+              accountId: cashAccount?.id,
+              debit: 0,
+              credit: repayment.amount,
+            },
+          ],
+        },
+      },
+      include: { lines: { include: { account: true } } },
+    });
+
+    // Update repayment status
+    await prisma.employeeLoanRepayment.update({
+      where: { id: repaymentId },
+      data: { status: 'APPROVED', journalEntryId: journal.id },
+    });
+
+    // Check if loan is fully paid
+    const totalRepaid = await prisma.employeeLoanRepayment.aggregate({
+      where: { loanId: repayment.loanId, status: 'APPROVED' },
+      _sum: { amount: true },
+    });
+
+    const loan = await prisma.employeeLoan.findUnique({ where: { id: repayment.loanId } });
+    if (loan && totalRepaid._sum.amount >= loan.totalAmount) {
+      await prisma.employeeLoan.update({
+        where: { id: repayment.loanId },
+        data: { status: 'COMPLETED' },
+      });
+    }
+
+    return reply.send({ success: true, data: { repayment, journal } });
+  }
+
+  // Employee Expenses
+  async getEmployeeExpenses(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+
+    const expenses = await prisma.employeeExpense.findMany({
+      where: { companyId },
+      include: { employee: true, account: true },
+      orderBy: { date: 'desc' },
+    });
+
+    return reply.send({ success: true, data: expenses });
+  }
+
+  async createEmployeeExpense(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { employeeId, amount, description, category, date, paymentMethod, accountId } = request.body as any;
+
+    const expense = await prisma.employeeExpense.create({
+      data: {
+        employeeId,
+        amount: parseFloat(amount),
+        description,
+        category,
+        date: new Date(date),
+        paymentMethod,
+        accountId,
+        companyId,
+      },
+    });
+
+    return reply.send({ success: true, data: expense });
+  }
+
+  async updateEmployeeExpense(request: FastifyRequest, reply: FastifyReply) {
+    const { expenseId } = request.params as { expenseId: string };
+    const data = request.body as any;
+
+    const expense = await prisma.employeeExpense.update({
+      where: { id: expenseId },
+      data: {
+        ...data,
+        date: data.date ? new Date(data.date) : undefined,
+      },
+    });
+
+    return reply.send({ success: true, data: expense });
+  }
+
+  async deleteEmployeeExpense(request: FastifyRequest, reply: FastifyReply) {
+    const { expenseId } = request.params as { expenseId: string };
+
+    await prisma.employeeExpense.delete({ where: { id: expenseId } });
+
+    return reply.send({ success: true });
+  }
+
+  async approveEmployeeExpense(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, expenseId } = request.params as { id: string; expenseId: string };
+
+    const expense = await prisma.employeeExpense.findUnique({
+      where: { id: expenseId },
+      include: { employee: true },
+    });
+
+    if (!expense) {
+      throw new NotFoundError('Expense not found');
+    }
+
+    // Generate journal entry
+    const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
+    
+    const cashAccount = await prisma.account.findFirst({
+      where: { companyId, code: { endsWith: '1000' }, isActive: true },
+    });
+
+    // Get expense account based on category
+    const expenseAccount = await prisma.account.findFirst({
+      where: { 
+        companyId, 
+        name: { contains: expense.category, mode: 'insensitive' },
+        isActive: true 
+      },
+    });
+
+    const salaryAccount = await prisma.account.findFirst({
+      where: { companyId, name: { contains: 'Salary', mode: 'insensitive' }, isActive: true },
+    });
+
+    // Create journal entry
+    const journal = await prisma.journalEntry.create({
+      data: {
+        entryNumber,
+        date: expense.date,
+        description: `${expense.category} - ${expense.employee.firstName} ${expense.employee.lastName} - ${expense.description || ''}`,
+        companyId,
+        status: 'APPROVED',
+        lines: {
+          create: [
+            {
+              accountId: expenseAccount?.id || salaryAccount?.id || cashAccount?.id,
+              debit: expense.amount,
+              credit: 0,
+            },
+            {
+              accountId: expense.accountId || cashAccount?.id,
+              debit: 0,
+              credit: expense.amount,
+            },
+          ],
+        },
+      },
+      include: { lines: { include: { account: true } } },
+    });
+
+    // Update expense status
+    await prisma.employeeExpense.update({
+      where: { id: expenseId },
+      data: { status: 'APPROVED', journalEntryId: journal.id },
+    });
+
+    return reply.send({ success: true, data: { expense, journal } });
+  }
 }

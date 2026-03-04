@@ -49,6 +49,7 @@ export default function AdminOwnersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-owners'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-owners-list'] });
       toast.success('Owner created successfully');
       closeModal();
     },
@@ -201,7 +202,7 @@ export default function AdminOwnersPage() {
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">All Owners</h2>
+          <h2 className="text-xl font-semibold text-gray-900">All Owners</h2>
           <button onClick={() => openModal()} className="btn btn-primary flex items-center gap-2">
             <Plus className="w-5 h-5" />
             Add Owner
@@ -276,7 +277,7 @@ export default function AdminOwnersPage() {
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-semibold mb-4">Create Owner</h3>
+            <h3 className="text-xl font-semibold mb-4 text-gray-900">Create Owner</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -339,7 +340,7 @@ export default function AdminOwnersPage() {
       {showPasswordModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-semibold mb-4">Reset Password</h3>
+            <h3 className="text-xl font-semibold mb-4 text-gray-900">Reset Password</h3>
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">New Password *</label>

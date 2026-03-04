@@ -12,13 +12,13 @@ export class PaymentController {
       throw new ValidationError('Valid payment amount is required');
     }
 
-    const { invoiceId, billId, accountId, date, amount, method, reference, description } = data;
+    const { invoiceId, billId, lcId, piAllocations, accountId, date, amount, method, reference, description } = data;
 
     const payment = await prisma.$transaction(async (tx) => {
       // 1. Create the Payment record
       const pmt = await (tx as any).payment.create({
         data: {
-          paymentNumber: `PAY-${Date.now()}`, // Temporary numbering, use a generator in production
+          paymentNumber: `PAY-${Date.now()}`,
           companyId,
           date: date ? new Date(date) : new Date(),
           amount: Number(amount),
@@ -27,23 +27,76 @@ export class PaymentController {
           description,
           invoiceId,
           billId,
+          lcId,
           accountId,
-          status: 'APPROVED'
+          status: 'APPROVED',
+          piAllocations: piAllocations ? {
+            create: piAllocations.map((alloc: any) => ({
+              piId: alloc.piId,
+              allocatedAmount: Number(alloc.allocatedAmount)
+            }))
+          } : undefined
         }
       });
 
-      // 2. Generate Journal Entry for the Payment
-      // Debit Cash/Bank, Credit AR (if Invoice)
-      // Debit AP, Credit Cash/Bank (if Bill)
-      
-      const pmtDate = date ? new Date(date) : new Date();
+      // 2. Journal Entry & Status Updates if LC/PI
+      if (lcId && piAllocations && piAllocations.length > 0) {
+        for (const alloc of piAllocations) {
+          // Update PI Status
+          const pi = await (tx as any).pI.findUnique({
+            where: { id: alloc.piId },
+            include: { paymentAllocations: true }
+          });
 
+
+          if (pi) {
+            const totalAllocated = (pi.paymentAllocations as any[]).reduce((sum: number, a: any) => sum + a.allocatedAmount, 0) + Number(alloc.allocatedAmount);
+
+            let piStatus = 'PARTIALLY_PAID';
+            if (totalAllocated >= pi.amount) {
+              piStatus = 'PAID';
+            }
+            await (tx as any).pI.update({
+              where: { id: pi.id },
+              data: { status: piStatus }
+            });
+
+          }
+        }
+
+        // Update LC Status
+        const lc = await (tx as any).lC.findUnique({
+          where: { id: lcId },
+          include: { 
+            pis: { include: { paymentAllocations: true } }
+          }
+        });
+
+
+        if (lc) {
+          const totalPaid = (lc.pis as any[]).reduce((sum: number, pi: any) => {
+            const piPaid = (pi.paymentAllocations as any[]).reduce((s: number, a: any) => s + a.allocatedAmount, 0);
+            return sum + piPaid;
+          }, 0) + piAllocations.reduce((sum: number, a: any) => sum + Number(a.allocatedAmount), 0);
+
+
+          let lcStatus = 'PARTIALLY_PAID';
+          if (totalPaid >= lc.amount) {
+            lcStatus = 'CLOSED';
+          }
+          await (tx as any).lC.update({
+            where: { id: lc.id },
+            data: { status: lcStatus }
+          });
+
+        }
+      }
+
+      // 3. Existing Invoice Logic
       if (invoiceId) {
         const invoice = await tx.invoice.findUnique({ where: { id: invoiceId } });
         if (!invoice) throw new NotFoundError('Invoice not found');
 
-        // Logic for Customer Payment (Receipt)
-        // Find AR and Cash/Bank accounts
         const arAccount = await tx.account.findFirst({
             where: { companyId, category: 'AR' } as any
         });
@@ -56,7 +109,7 @@ export class PaymentController {
           data: {
             entryNumber: `JV-PMT-${pmt.id.substring(0,8)}`,
             companyId,
-            date: pmtDate,
+            date: date ? new Date(date) : new Date(),
             description: `Payment received for Invoice ${invoice.invoiceNumber}`,
             totalDebit: Number(amount),
             totalCredit: Number(amount),
@@ -73,7 +126,6 @@ export class PaymentController {
           }
         });
 
-        // Update balances
         await tx.account.update({ where: { id: accountId }, data: { currentBalance: { increment: Number(amount) } } });
         await tx.account.update({ where: { id: arAccount.id }, data: { currentBalance: { decrement: Number(amount) } } });
       }
@@ -88,9 +140,18 @@ export class PaymentController {
     const { id: companyId } = request.params as { id: string };
     const payments = await (prisma as any).payment.findMany({
       where: { companyId },
-      include: { invoice: true, bill: true, account: true },
+      include: { 
+        invoice: true, 
+        bill: true, 
+        account: true,
+        lc: true,
+        piAllocations: {
+          include: { pi: true }
+        }
+      },
       orderBy: { date: 'desc' }
     });
     return reply.send({ success: true, data: payments });
   }
+
 }

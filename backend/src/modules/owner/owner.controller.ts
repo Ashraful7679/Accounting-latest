@@ -274,6 +274,53 @@ export class OwnerController {
     return reply.send({ success: true, message: 'Owner removed from company' });
   }
 
+  // Seed default Chart of Accounts for a new company
+  private async seedDefaultCOA(companyId: string) {
+    const accountTypes = await prisma.accountType.findMany();
+    const typeMap = accountTypes.reduce((acc: any, at) => {
+      acc[at.name] = at.id;
+      return acc;
+    }, {});
+
+    const defaultAccounts = [
+      // Assets
+      { code: '1010', name: 'Cash in Hand', accountTypeId: typeMap['ASSET'], category: 'CASH', cashFlowType: 'OPERATING' },
+      { code: '1020', name: 'Bank Account', accountTypeId: typeMap['ASSET'], category: 'BANK', cashFlowType: 'OPERATING' },
+      { code: '1100', name: 'Accounts Receivable', accountTypeId: typeMap['ASSET'], category: 'AR', cashFlowType: 'OPERATING' },
+      { code: '1200', name: 'Inventory', accountTypeId: typeMap['ASSET'], category: 'NONE', cashFlowType: 'OPERATING' },
+      
+      // Liabilities
+      { code: '2100', name: 'Accounts Payable', accountTypeId: typeMap['LIABILITY'], category: 'AP', cashFlowType: 'OPERATING' },
+      
+      // Equity
+      { code: '3100', name: "Owner's Capital", accountTypeId: typeMap['EQUITY'], category: 'NONE', cashFlowType: 'FINANCING' },
+      { code: '3200', name: 'Retained Earnings', accountTypeId: typeMap['EQUITY'], category: 'NONE', cashFlowType: 'FINANCING' },
+      
+      // Income
+      { code: '4100', name: 'Sales Revenue', accountTypeId: typeMap['INCOME'], category: 'REVENUE', cashFlowType: 'OPERATING' },
+      
+      // Expenses
+      { code: '5100', name: 'Cost of Goods Sold', accountTypeId: typeMap['EXPENSE'], category: 'NONE', cashFlowType: 'OPERATING' },
+      { code: '5200', name: 'Salaries & Wages', accountTypeId: typeMap['EXPENSE'], category: 'NONE', cashFlowType: 'OPERATING' },
+    ];
+
+    // Filter out rows where type ID is missing (safety)
+    const validAccounts = defaultAccounts.filter(a => a.accountTypeId).map(a => ({
+      ...a,
+      companyId,
+      openingBalance: 0,
+      currentBalance: 0,
+      isActive: true,
+    }));
+
+    if (validAccounts.length > 0) {
+      await prisma.account.createMany({
+        data: validAccounts,
+      });
+      console.log(`✅ Seeded ${validAccounts.length} default accounts for company ${companyId}`);
+    }
+  }
+
   // Create a new company
   async createCompany(request: FastifyRequest, reply: FastifyReply) {
     const userId = (request.user as any).id;
@@ -319,6 +366,9 @@ export class OwnerController {
         }
       }
     });
+
+    // Seed default COA
+    await this.seedDefaultCOA(company.id);
 
     return reply.send({ success: true, data: company });
   }

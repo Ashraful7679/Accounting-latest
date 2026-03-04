@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import prisma from '../../config/database';
 import { NotFoundError, ConflictError } from '../../middleware/errorHandler';
 
@@ -13,7 +14,8 @@ export class AdminController {
       .toUpperCase()
       .slice(0, 2);
     
-    return `${initials}-${Date.now().toString().slice(-4)}`;
+    const uniqueId = randomUUID().split('-')[0].toUpperCase();
+    return `${initials}-${uniqueId}`;
   }
 
   async getCompanies(request: FastifyRequest, reply: FastifyReply) {
@@ -67,7 +69,8 @@ export class AdminController {
     let code = this.generateCompanyCode(name);
     let counter = 0;
     while (await prisma.company.findUnique({ where: { code } })) {
-      code = `${name.slice(0, 2).toUpperCase()}-${Date.now().toString().slice(-4)}${counter}`;
+      const uniqueId = randomUUID().split('-')[0].toUpperCase();
+      code = `${name.slice(0, 2).toUpperCase()}-${uniqueId}${counter}`;
       counter++;
     }
 
@@ -87,10 +90,13 @@ export class AdminController {
     });
 
     // Create default branch
-    await prisma.branch.create({
-      data: {
+    const branchCode = `${code}-BR001`;
+    await prisma.branch.upsert({
+      where: { companyId_code: { companyId: company.id, code: branchCode } },
+      update: {},
+      create: {
         companyId: company.id,
-        code: 'MAIN',
+        code: branchCode,
         name: 'Main Branch',
         isActive: true,
       },
@@ -115,6 +121,19 @@ export class AdminController {
 
     // Assign owner to company if provided
     if (ownerId) {
+      // Ensure user has Owner role
+      const ownerRole = await prisma.role.findFirst({ where: { name: 'Owner' } });
+      if (ownerRole) {
+        const hasRole = await prisma.userRole.findFirst({
+          where: { userId: ownerId, roleId: ownerRole.id }
+        });
+        if (!hasRole) {
+          await prisma.userRole.create({
+            data: { userId: ownerId, roleId: ownerRole.id }
+          });
+        }
+      }
+
       await (prisma.userCompany as any).upsert({
         where: { userId_companyId: { userId: ownerId, companyId: company.id } },
         update: { 
@@ -136,6 +155,81 @@ export class AdminController {
           canManageOwners: true
         },
       });
+    }
+
+    // Create default Chart of Accounts (COA)
+    const allAccountTypes = await prisma.accountType.findMany();
+    const assetType = allAccountTypes.find(at => at.name === 'ASSET');
+    const liabilityType = allAccountTypes.find(at => at.name === 'LIABILITY');
+    const equityType = allAccountTypes.find(at => at.name === 'EQUITY');
+    const incomeType = allAccountTypes.find(at => at.name === 'INCOME');
+    const expenseType = allAccountTypes.find(at => at.name === 'EXPENSE');
+
+    const defaultAccounts = [
+      // Asset accounts
+      { code: '1000', name: 'Cash in Hand', typeId: assetType?.id, category: 'CASH' },
+      { code: '1010', name: 'Cash at Bank', typeId: assetType?.id, category: 'BANK' },
+      { code: '1100', name: 'Accounts Receivable', typeId: assetType?.id, category: 'AR' },
+      { code: '1200', name: 'Inventory', typeId: assetType?.id, category: null },
+      { code: '1500', name: 'Fixed Assets', typeId: assetType?.id, category: null },
+      
+      // Liability accounts
+      { code: '2000', name: 'Accounts Payable', typeId: liabilityType?.id, category: 'AP' },
+      { code: '2100', name: 'Notes Payable', typeId: liabilityType?.id, category: null },
+      { code: '2200', name: 'Accrued Expenses', typeId: liabilityType?.id, category: null },
+      
+      // Equity accounts
+      { code: '3000', name: 'Owner\'s Capital', typeId: equityType?.id, category: null },
+      { code: '3100', name: 'Retained Earnings', typeId: equityType?.id, category: null },
+      
+      // Income accounts
+      { code: '4000', name: 'Sales Revenue', typeId: incomeType?.id, category: null },
+      { code: '4100', name: 'Service Revenue', typeId: incomeType?.id, category: null },
+      { code: '4200', name: 'Other Income', typeId: incomeType?.id, category: null },
+      
+      // Expense accounts
+      { code: '5000', name: 'Cost of Goods Sold', typeId: expenseType?.id, category: null },
+      { code: '5100', name: 'Salaries & Wages', typeId: expenseType?.id, category: null },
+      { code: '5200', name: 'Rent Expense', typeId: expenseType?.id, category: null },
+      { code: '5300', name: 'Utilities Expense', typeId: expenseType?.id, category: null },
+      { code: '5400', name: 'Office Supplies', typeId: expenseType?.id, category: null },
+      { code: '5500', name: 'Depreciation Expense', typeId: expenseType?.id, category: null },
+      { code: '5600', name: 'Transportation Expense', typeId: expenseType?.id, category: null },
+      { code: '5700', name: 'Communication Expense', typeId: expenseType?.id, category: null },
+      { code: '5800', name: 'Professional Fees', typeId: expenseType?.id, category: null },
+      { code: '5900', name: 'Miscellaneous Expense', typeId: expenseType?.id, category: null },
+    ];
+
+    for (const acc of defaultAccounts) {
+      if (acc.typeId) {
+        await prisma.account.create({
+          data: {
+            code: `${company.code}-${acc.code}`,
+            name: acc.name,
+            companyId: company.id,
+            accountTypeId: acc.typeId,
+            category: acc.category,
+            isActive: true,
+            openingBalance: 0,
+            currentBalance: 0,
+          }
+        });
+      }
+    }
+
+    // Create default roles for the company
+    const roles = ['Manager', 'Accountant', 'DataEntryOperator'];
+    for (const roleName of roles) {
+      const existingRole = await prisma.role.findFirst({ where: { name: roleName } });
+      if (!existingRole) {
+        await prisma.role.create({
+          data: {
+            name: roleName,
+            description: `${roleName} role for ${company.name}`,
+            isSystem: false,
+          }
+        });
+      }
     }
 
     return reply.status(201).send({ success: true, data: company });
@@ -185,6 +279,19 @@ export class AdminController {
 
       // Then assign the new owner if ownerId is not empty
       if (ownerId) {
+        // Ensure user has Owner role
+        const ownerRole = await prisma.role.findFirst({ where: { name: 'Owner' } });
+        if (ownerRole) {
+          const hasRole = await prisma.userRole.findFirst({
+            where: { userId: ownerId, roleId: ownerRole.id }
+          });
+          if (!hasRole) {
+            await prisma.userRole.create({
+              data: { userId: ownerId, roleId: ownerRole.id }
+            });
+          }
+        }
+
         await (prisma.userCompany as any).upsert({
           where: { userId_companyId: { userId: ownerId, companyId: id } },
           update: { 

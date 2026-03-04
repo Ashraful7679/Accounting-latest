@@ -155,7 +155,8 @@ export default function EmployeesPage() {
         advance: `/company/${companyId}/employee-advances/${id}`,
         loan: `/company/${companyId}/employee-loans/${id}`,
         expense: `/company/${companyId}/employee-expenses/${id}`,
-      }[type];
+      }[type] as string;
+      if (!endpoint) throw new Error('Invalid type');
       const response = await api.delete(endpoint);
       return response.data;
     },
@@ -174,7 +175,8 @@ export default function EmployeesPage() {
         advance: `/company/${companyId}/employee-advances/${id}/approve`,
         loan: `/company/${companyId}/employee-loans/${id}/approve`,
         expense: `/company/${companyId}/employee-expenses/${id}/approve`,
-      }[type];
+      }[type] as string;
+      if (!endpoint) throw new Error('Invalid type');
       const response = await api.post(endpoint);
       return response.data;
     },
@@ -437,7 +439,7 @@ export default function EmployeesPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <h3 className="text-xl font-semibold mb-4">
-              {selectedItem ? 'Edit' : 'Add'} {modalType === 'employee' ? 'Employee' : modalType === 'advance' ? 'Advance' : modalType === 'loans' ? 'Loan' : 'Expense'}
+              {selectedItem ? 'Edit' : 'Add'} {modalType === 'employee' ? 'Employee' : modalType === 'advance' ? 'Advance' : modalType === 'loan' ? 'Loan' : 'Expense'}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               {modalType === 'employee' && (

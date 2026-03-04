@@ -125,6 +125,13 @@ model Company {
   loans        Loan[]
   pis          PI[]
   notifications Notification[]
+  
+  // Employee Relations
+  employees            Employee[]
+  employeeAdvances     EmployeeAdvance[]
+  employeeLoans        EmployeeLoan[]
+  employeeLoanRepayments EmployeeLoanRepayment[]
+  employeeExpenses     EmployeeExpense[]
 
   settings      CompanySettings?
   
@@ -301,6 +308,8 @@ model Account {
   children      Account[]      @relation("AccountHierarchy")
   journalLines  JournalEntryLine[]
   payments      Payment[]
+  employeeAdvances EmployeeAdvance[]
+  employeeExpenses EmployeeExpense[]
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -528,6 +537,9 @@ model JournalEntry {
   approvedBy     User?     @relation("ApprovedJournals", fields: [approvedById], references: [id])
   rejectedBy     User?     @relation("RejectedJournals", fields: [rejectedById], references: [id])
   lines          JournalEntryLine[]
+  employeeAdvances EmployeeAdvance[]
+  employeeLoanRepayments EmployeeLoanRepayment[]
+  employeeExpenses EmployeeExpense[]
   
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt

@@ -1044,7 +1044,6 @@ export class CompanyController {
 
   async getEmployees(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const userId = request.user as string;
 
     const employees = await prisma.employee.findMany({
       where: { companyId },
@@ -1156,6 +1155,7 @@ export class CompanyController {
 
   async approveEmployeeAdvance(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, advanceId } = request.params as { id: string; advanceId: string };
+    const userId = (request.user as any).id;
 
     const advance = await prisma.employeeAdvance.findUnique({
       where: { id: advanceId },
@@ -1182,6 +1182,13 @@ export class CompanyController {
       where: { companyId, name: { contains: 'Employee', mode: 'insensitive' }, isActive: true },
     });
 
+    const debitAccountId = employeePayableAccount?.id || advanceAccount?.id || cashAccount?.id;
+    const creditAccountId = advance.accountId || cashAccount?.id;
+
+    if (!debitAccountId || !creditAccountId) {
+      throw new Error('Required accounts not found. Please configure cash/employee accounts.');
+    }
+
     // Create journal entry
     const journal = await prisma.journalEntry.create({
       data: {
@@ -1189,16 +1196,17 @@ export class CompanyController {
         date: advance.date,
         description: `Advance for ${advance.employee.firstName} ${advance.employee.lastName} - ${advance.purpose || ''}`,
         companyId,
+        createdById: userId,
         status: 'APPROVED',
         lines: {
           create: [
             {
-              accountId: employeePayableAccount?.id || advanceAccount?.id || cashAccount?.id,
+              accountId: debitAccountId,
               debit: advance.amount,
               credit: 0,
             },
             {
-              accountId: advance.accountId || cashAccount?.id,
+              accountId: creditAccountId,
               debit: 0,
               credit: advance.amount,
             },
@@ -1330,6 +1338,7 @@ export class CompanyController {
 
   async approveLoanRepayment(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, repaymentId } = request.params as { id: string; repaymentId: string };
+    const userId = (request.user as any).id;
 
     const repayment = await prisma.employeeLoanRepayment.findUnique({
       where: { id: repaymentId },
@@ -1355,6 +1364,14 @@ export class CompanyController {
       where: { companyId, name: { contains: 'Interest Income', mode: 'insensitive' }, isActive: true },
     });
 
+    const debitAccountId1 = loanAccount?.id || cashAccount?.id;
+    const debitAccountId2 = interestAccount?.id || loanAccount?.id || cashAccount?.id;
+    const creditAccountId = cashAccount?.id;
+
+    if (!debitAccountId1 || !debitAccountId2 || !creditAccountId) {
+      throw new Error('Required accounts not found. Please configure cash/loan accounts.');
+    }
+
     // Create journal entry for repayment
     const journal = await prisma.journalEntry.create({
       data: {
@@ -1362,21 +1379,22 @@ export class CompanyController {
         date: repayment.paymentDate,
         description: `Loan Repayment for ${repayment.loan.employee.firstName} ${repayment.loan.employee.lastName}`,
         companyId,
+        createdById: userId,
         status: 'APPROVED',
         lines: {
           create: [
             {
-              accountId: loanAccount?.id || cashAccount?.id,
+              accountId: debitAccountId1,
               debit: repayment.principalPaid,
               credit: 0,
             },
             {
-              accountId: interestAccount?.id || loanAccount?.id || cashAccount?.id,
+              accountId: debitAccountId2,
               debit: repayment.interestPaid,
               credit: 0,
             },
             {
-              accountId: cashAccount?.id,
+              accountId: creditAccountId,
               debit: 0,
               credit: repayment.amount,
             },
@@ -1399,7 +1417,7 @@ export class CompanyController {
     });
 
     const loan = await prisma.employeeLoan.findUnique({ where: { id: repayment.loanId } });
-    if (loan && totalRepaid._sum.amount >= loan.totalAmount) {
+    if (loan && (totalRepaid._sum.amount || 0) >= loan.totalAmount) {
       await prisma.employeeLoan.update({
         where: { id: repayment.loanId },
         data: { status: 'COMPLETED' },
@@ -1467,6 +1485,7 @@ export class CompanyController {
 
   async approveEmployeeExpense(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, expenseId } = request.params as { id: string; expenseId: string };
+    const userId = (request.user as any).id;
 
     const expense = await prisma.employeeExpense.findUnique({
       where: { id: expenseId },
@@ -1497,6 +1516,13 @@ export class CompanyController {
       where: { companyId, name: { contains: 'Salary', mode: 'insensitive' }, isActive: true },
     });
 
+    const debitAccountId = expenseAccount?.id || salaryAccount?.id || cashAccount?.id;
+    const creditAccountId = expense.accountId || cashAccount?.id;
+
+    if (!debitAccountId || !creditAccountId) {
+      throw new Error('Required accounts not found. Please configure cash/expense accounts.');
+    }
+
     // Create journal entry
     const journal = await prisma.journalEntry.create({
       data: {
@@ -1504,16 +1530,17 @@ export class CompanyController {
         date: expense.date,
         description: `${expense.category} - ${expense.employee.firstName} ${expense.employee.lastName} - ${expense.description || ''}`,
         companyId,
+        createdById: userId,
         status: 'APPROVED',
         lines: {
           create: [
             {
-              accountId: expenseAccount?.id || salaryAccount?.id || cashAccount?.id,
+              accountId: debitAccountId,
               debit: expense.amount,
               credit: 0,
             },
             {
-              accountId: expense.accountId || cashAccount?.id,
+              accountId: creditAccountId,
               debit: 0,
               credit: expense.amount,
             },

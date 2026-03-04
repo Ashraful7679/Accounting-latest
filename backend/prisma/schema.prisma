@@ -123,7 +123,9 @@ model Company {
   bills        Bill[]
   lcs          LC[]
   loans        Loan[]
+  pis          PI[]
   notifications Notification[]
+
   settings      CompanySettings?
   
   createdAt    DateTime  @default(now())
@@ -184,16 +186,65 @@ model LC {
   conversionRate  Float     @default(1)
   issueDate       DateTime
   expiryDate      DateTime
-  status          String    @default("OPEN") // OPEN, EXPIRED, CLOSED, CANCELLED
+  status          String    @default("OPEN") // OPEN, PARTIALLY_PAID, CLOSED, CANCELLED
   type            String    @default("IMPORT") // IMPORT, EXPORT
   description     String?
+  
+  // New Fields for Loan Control
+  loanType        String    @default("NONE") // NONE, PERCENTAGE, FIXED
+  loanValue       Float     @default(0)
+  
+  // Relations
   company         Company   @relation(fields: [companyId], references: [id])
+  customerId      String?
+  customer        Customer? @relation(fields: [customerId], references: [id])
+  receivedDate    DateTime?
+  pis             PI[]
+  payments        Payment[]
+
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   @@index([companyId])
   @@index([lcNumber])
+  @@index([customerId])
 }
+
+model PI {
+  id              String    @id @default(uuid())
+  piNumber        String    @unique
+  lcId            String?
+  piDate          DateTime  @default(now())
+  amount          Float
+  currency        String    @default("USD")
+  status          String    @default("OPEN") // OPEN, PARTIALLY_PAID, PAID
+  
+  // Advanced Export Fields
+  invoiceNumber           String?
+  submissionToBuyerDate   DateTime?
+  submissionToBankDate    DateTime?
+  bankAcceptanceDate      DateTime?
+  maturityDate            DateTime?
+  purchaseApplicationDate DateTime?
+  purchaseAmount          Float?
+  idbpNumber              String?
+
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  customerId      String?
+  customer        Customer? @relation(fields: [customerId], references: [id])
+  lc              LC?       @relation(fields: [lcId], references: [id])
+
+  paymentAllocations PaymentPI[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+
+  @@index([lcId])
+}
+
 
 model Loan {
   id                  String    @id @default(uuid())
@@ -319,8 +370,12 @@ model Customer {
   company     Company  @relation(fields: [companyId], references: [id])
   invoices    Invoice[]
   journalLines JournalEntryLine[]
+  lcs         LC[]
+  pis         PI[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+
   
   @@index([companyId])
 }
@@ -668,6 +723,11 @@ model Payment {
   billId          String?
   bill            Bill?     @relation("BillPayments", fields: [billId], references: [id])
   
+  lcId            String?
+  lc              LC?       @relation(fields: [lcId], references: [id])
+  
+  piAllocations   PaymentPI[]
+  
   accountId       String?   // The Cash/Bank account used
   account         Account?  @relation(fields: [accountId], references: [id])
   
@@ -677,7 +737,22 @@ model Payment {
   @@index([companyId])
   @@index([invoiceId])
   @@index([billId])
+  @@index([lcId])
 }
+
+model PaymentPI {
+  id              String    @id @default(uuid())
+  paymentId       String
+  piId            String
+  allocatedAmount Float
+  
+  payment         Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  pi              PI        @relation(fields: [piId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([piId])
+}
+
 
 // ============================================
 // COMPANY SETTINGS (Global Controls)
@@ -695,6 +770,130 @@ model CompanySettings {
   
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+// ============================================
+// EMPLOYEE MANAGEMENT
+// ============================================
+
+model Employee {
+  id            String   @id @default(uuid())
+  employeeCode  String   @unique
+  firstName     String
+  lastName      String
+  email         String?
+  phone         String?
+  designation   String?
+  department    String?
+  joinDate      DateTime?
+  salary        Float    @default(0)
+  companyId     String
+  isActive      Boolean  @default(true)
+  
+  company        Company          @relation(fields: [companyId], references: [id])
+  advances       EmployeeAdvance[]
+  loans          EmployeeLoan[]
+  expenses       EmployeeExpense[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([companyId])
+}
+
+model EmployeeAdvance {
+  id            String   @id @default(uuid())
+  employeeId    String
+  amount        Float
+  purpose       String?
+  date          DateTime
+  status        String   @default("DRAFT") // DRAFT, PENDING, APPROVED, PAID
+  paymentMethod String?  // CASH, BANK
+  accountId     String?  // Cash/Bank account used for payment
+  journalEntryId String? // Linked journal entry after approval
+  companyId     String
+  
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  company       Company  @relation(fields: [companyId], references: [id])
+  account       Account? @relation(fields: [accountId], references: [id])
+  journalEntry  JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+model EmployeeLoan {
+  id              String   @id @default(uuid())
+  employeeId      String
+  principalAmount Float
+  interestRate    Float    @default(0) // Annual interest rate
+  interestAmount  Float    @default(0)
+  totalAmount     Float
+  installments    Int      @default(1)
+  startDate       DateTime
+  purpose         String?
+  status          String   @default("DRAFT") // DRAFT, APPROVED, ACTIVE, COMPLETED
+  companyId       String
+  
+  employee        Employee @relation(fields: [employeeId], references: [id])
+  company         Company  @relation(fields: [companyId], references: [id])
+  repayments      EmployeeLoanRepayment[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([companyId])
+  @@index([employeeId])
+}
+
+model EmployeeLoanRepayment {
+  id            String   @id @default(uuid())
+  loanId        String
+  amount        Float
+  principalPaid Float
+  interestPaid  Float
+  paymentDate   DateTime
+  status        String   @default("DRAFT") // DRAFT, VERIFIED, APPROVED
+  journalEntryId String? // Linked journal entry
+  companyId     String
+  
+  loan          EmployeeLoan     @relation(fields: [loanId], references: [id])
+  company       Company          @relation(fields: [companyId], references: [id])
+  journalEntry  JournalEntry?    @relation(fields: [journalEntryId], references: [id])
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([companyId])
+  @@index([loanId])
+}
+
+model EmployeeExpense {
+  id            String   @id @default(uuid())
+  employeeId    String
+  amount        Float
+  description   String?
+  category      String   // SALARY, BONUS, OVERTIME, CONVEYANCE, FOOD, MEDICAL, OTHER
+  date          DateTime
+  status        String   @default("DRAFT") // DRAFT, VERIFIED, APPROVED, PAID
+  paymentMethod String?
+  accountId     String?
+  journalEntryId String?
+  companyId     String
+  
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  company       Company  @relation(fields: [companyId], references: [id])
+  account       Account? @relation(fields: [accountId], references: [id])
+  journalEntry  JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([companyId])
+  @@index([employeeId])
 }
 
 

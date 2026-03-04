@@ -37,8 +37,8 @@ interface JournalEntry {
 
 interface Line {
   accountId: string;
-  debit: number;
-  credit: number;
+  amount: number;
+  debitCredit: 'debit' | 'credit';
   description: string;
 }
 
@@ -55,7 +55,7 @@ export default function CompanyJournalsPage() {
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     description: '',
-    lines: [{ accountId: '', debit: 0, credit: 0, description: '' }] as Line[],
+    lines: [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }] as Line[],
   });
 
   const [showGuide, setShowGuide] = useState(false);
@@ -247,7 +247,7 @@ export default function CompanyJournalsPage() {
     setFormData({
       date: new Date().toISOString().split('T')[0],
       description: '',
-      lines: [{ accountId: '', debit: 0, credit: 0, description: '' }],
+      lines: [{ accountId: '', amount: 0, debitCredit: 'debit', description: '' }],
     });
     setShowModal(true);
   };
@@ -270,7 +270,7 @@ export default function CompanyJournalsPage() {
   const addLine = () => {
     setFormData({
       ...formData,
-      lines: [...formData.lines, { accountId: '', debit: 0, credit: 0, description: '' }],
+      lines: [...formData.lines, { accountId: '', amount: 0, debitCredit: 'debit', description: '' }],
     });
   };
 
@@ -288,8 +288,8 @@ export default function CompanyJournalsPage() {
   };
 
   const calculateTotals = () => {
-    const totalDebit = formData.lines.reduce((sum, line) => sum + (line.debit || 0), 0);
-    const totalCredit = formData.lines.reduce((sum, line) => sum + (line.credit || 0), 0);
+    const totalDebit = formData.lines.reduce((sum, line) => sum + (line.debitCredit === 'debit' ? (line.amount || 0) : 0), 0);
+    const totalCredit = formData.lines.reduce((sum, line) => sum + (line.debitCredit === 'credit' ? (line.amount || 0) : 0), 0);
     return { totalDebit, totalCredit };
   };
 
@@ -301,8 +301,18 @@ export default function CompanyJournalsPage() {
       return;
     }
 
+    const payload = {
+      ...formData,
+      lines: formData.lines.map(line => ({
+        accountId: line.accountId,
+        debit: line.debitCredit === 'debit' ? (line.amount || 0) : 0,
+        credit: line.debitCredit === 'credit' ? (line.amount || 0) : 0,
+        description: line.description,
+      })),
+    };
+
     try {
-      const response = await api.post(`/company/${companyId}/journals`, formData);
+      const response = await api.post(`/company/${companyId}/journals`, payload);
       const journal = response.data.data;
 
       // Upload files if any
@@ -412,8 +422,7 @@ export default function CompanyJournalsPage() {
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Entry #</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Date</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Description</th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Debit</th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Credit</th>
+                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Amount</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -426,8 +435,7 @@ export default function CompanyJournalsPage() {
                         {new Date(journal.date).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-400 italic max-w-xs truncate">{journal.description || '-'}</td>
-                      <td className="px-6 py-4 text-sm text-emerald-600 text-right font-mono font-bold">{journal.totalDebit.toLocaleString()}</td>
-                      <td className="px-6 py-4 text-sm text-rose-600 text-right font-mono font-bold">{journal.totalCredit.toLocaleString()}</td>
+                      <td className="px-6 py-4 text-sm text-slate-700 text-right font-mono font-bold">{journal.totalDebit.toLocaleString()}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-md ${getStatusBadge(journal.status)}`}>
                           {journal.status}
@@ -621,12 +629,7 @@ export default function CompanyJournalsPage() {
               </div>
 
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-gray-700">Journal Lines</label>
-                  <button type="button" onClick={addLine} className="text-sm text-blue-600 hover:text-blue-800">
-                    + Add Line
-                  </button>
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Journal Lines</label>
                 <div className="space-y-2">
                   {formData.lines.map((line, index) => (
                     <div key={index} className="flex gap-2 items-start">
@@ -639,23 +642,24 @@ export default function CompanyJournalsPage() {
                         <option value="">Select Account</option>
                         {accountsData?.map((account) => (
                           <option key={account.id} value={account.id}>
-                            {account.code} - {account.name}
+                            {account.code.split('-').pop()} - {account.name}
                           </option>
                         ))}
                       </select>
+                      <select
+                        value={line.debitCredit}
+                        onChange={(e) => updateLine(index, 'debitCredit', e.target.value)}
+                        className="input w-28"
+                      >
+                        <option value="debit">Debit</option>
+                        <option value="credit">Credit</option>
+                      </select>
                       <input
                         type="number"
-                        placeholder="Debit"
-                        value={line.debit || ''}
-                        onChange={(e) => updateLine(index, 'debit', parseFloat(e.target.value) || 0)}
-                        className="input w-28"
-                      />
-                      <input
-                        type="number"
-                        placeholder="Credit"
-                        value={line.credit || ''}
-                        onChange={(e) => updateLine(index, 'credit', parseFloat(e.target.value) || 0)}
-                        className="input w-28"
+                        placeholder="Amount"
+                        value={line.amount || ''}
+                        onChange={(e) => updateLine(index, 'amount', parseFloat(e.target.value) || 0)}
+                        className="input w-32"
                       />
                       <button
                         type="button"
@@ -666,6 +670,9 @@ export default function CompanyJournalsPage() {
                       </button>
                     </div>
                   ))}
+                  <button type="button" onClick={addLine} className="text-sm text-blue-600 hover:text-blue-800 mt-2">
+                    + Add Line
+                  </button>
                 </div>
               </div>
 

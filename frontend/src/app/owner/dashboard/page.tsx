@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api, { BASE_URL } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { Building2, Users, LogOut, Settings, ChevronRight, User } from 'lucide-react';
@@ -26,6 +26,7 @@ interface Company {
 
 export default function OwnerDashboard() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
   const [stats, setStats] = useState({ companies: 0, employees: 0 });
   const [user, setUser] = useState<{ firstName: string; lastName: string } | null>(null);
@@ -73,6 +74,8 @@ export default function OwnerDashboard() {
       return response.data.data;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['owner-companies'] });
+      queryClient.invalidateQueries({ queryKey: ['owner-employees'] });
       toast.success('Company created successfully');
       setShowCreateModal(false);
       setFormData({
@@ -86,8 +89,6 @@ export default function OwnerDashboard() {
         website: '',
       });
       setLogoFile(null);
-      // Refresh companies
-      router.refresh();
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to create company');

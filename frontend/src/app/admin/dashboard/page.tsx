@@ -55,14 +55,14 @@ export default function AdminDashboard() {
           <div className="flex gap-8">
             <Link
               href="/admin/companies"
-              className="flex items-center gap-2 py-4 border-b-2 border-transparent hover:border-primary-500"
+              className="flex items-center gap-2 py-4 border-b-2 border-transparent hover:border-primary-500 text-gray-900"
             >
               <Building2 className="w-5 h-5" />
               Companies
             </Link>
             <Link
               href="/admin/owners"
-              className="flex items-center gap-2 py-4 border-b-2 border-transparent hover:border-primary-500"
+              className="flex items-center gap-2 py-4 border-b-2 border-transparent hover:border-primary-500 text-gray-900"
             >
               <Users className="w-5 h-5" />
               Owners
@@ -81,7 +81,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Total Companies</p>
-                <p className="text-2xl font-bold">{stats.companies}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.companies}</p>
               </div>
             </div>
           </div>
@@ -93,7 +93,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Total Owners</p>
-                <p className="text-2xl font-bold">{stats.owners}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.owners}</p>
               </div>
             </div>
           </div>
@@ -105,14 +105,14 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Total Users</p>
-                <p className="text-2xl font-bold">{stats.users}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.users}</p>
               </div>
             </div>
           </div>
         </div>
 
         <div className="mt-8 bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
+          <h2 className="text-xl font-semibold mb-4 text-gray-900">Quick Actions</h2>
           <div className="flex gap-4">
             <Link href="/admin/companies" className="btn btn-primary">
               Create Company

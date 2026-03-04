@@ -91,7 +91,7 @@ export default function BackupDashboard() {
             <div className="bg-slate-900 p-8 rounded-[32px] text-white overflow-hidden relative group">
               <div className="relative z-10">
                 <Clock className="w-10 h-10 text-blue-400 mb-4" />
-                <h3 className="text-lg font-black">Latest Snapshot</h3>
+                <h3 className="text-lg font-black text-white">Latest Snapshot</h3>
                 <p className="text-slate-400 font-bold">
                   {backups?.[0] ? new Date(backups[0].createdAt).toLocaleString() : 'No backups found'}
                 </p>

@@ -6,8 +6,10 @@ import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Plus, FileText, Trash2, Check, X, ArrowLeft, LogOut, Eye, Edit, CreditCard, DollarSign } from 'lucide-react';
+import { Plus, FileText, Trash2, Check, X, ArrowLeft, LogOut, Eye, Edit, CreditCard, DollarSign, Bell } from 'lucide-react';
 import { AttachmentManager } from '@/components/AttachmentManager';
+import Sidebar from '@/components/Sidebar';
+import UserDropdown from '@/components/UserDropdown';
 
 interface Customer {
   id: string;
@@ -299,60 +301,61 @@ export default function CompanyInvoicesPage() {
   const canEdit = (status: string) => status === 'DRAFT' || status === 'REJECTED';
   const canDelete = (status: string) => status === 'DRAFT';
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href={`/company/${companyId}/dashboard`} className="text-gray-600 hover:text-gray-900">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
+  if (!mounted) return null;
+
+  return (  
+    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans">
+      <Sidebar companyName="Invoices" />
+
+      <main className="lg:pl-64 min-h-screen">
+        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between">
+          <div className="pl-10 lg:pl-0">
+            <h1 className="text-xl font-bold text-slate-900">Invoices</h1>
           </div>
-          <div className="flex items-center gap-4">
-            <button onClick={handleLogout} className="flex items-center gap-2 text-gray-600 hover:text-red-600">
-              <LogOut className="w-5 h-5" />
-              Logout
+          <div className="flex items-center gap-3">
+            <button className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors relative">
+              <Bell className="w-5 h-5" />
+            </button>
+            <div className="h-6 w-px bg-slate-200" />
+            <UserDropdown />
+          </div>
+        </header>
+
+        <div className="p-6 max-w-[1600px] mx-auto space-y-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Invoice Management</h2>
+            <button onClick={openModal} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20">
+              <Plus className="w-5 h-5" />
+              Create Invoice
             </button>
           </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">All Invoices</h2>
-          <button onClick={openModal} className="btn btn-primary flex items-center gap-2">
-            <Plus className="w-5 h-5" />
-            Create Invoice
-          </button>
-        </div>
 
         {isLoading ? (
           <div className="text-center py-8">Loading...</div>
         ) : (
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Invoice #</th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Customer</th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Date</th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Currency</th>
-                  <th className="px-6 py-3 text-right text-sm font-medium text-gray-500">Total</th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Status</th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Actions</th>
+                  <th className="px-6 py-3 text-left text-sm font-medium text-slate-500">Invoice #</th>
+                  <th className="px-6 py-3 text-left text-sm font-medium text-slate-500">Customer</th>
+                  <th className="px-6 py-3 text-left text-sm font-medium text-slate-500">Date</th>
+                  <th className="px-6 py-3 text-left text-sm font-medium text-slate-500">Currency</th>
+                  <th className="px-6 py-3 text-right text-sm font-medium text-slate-500">Total</th>
+                  <th className="px-6 py-3 text-left text-sm font-medium text-slate-500">Status</th>
+                  <th className="px-6 py-3 text-left text-sm font-medium text-slate-500">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-slate-200">
                 {invoicesData?.map((invoice) => (
-                  <tr key={invoice.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{invoice.invoiceNumber}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{invoice.customer?.name || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
+                  <tr key={invoice.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-4 text-sm font-medium text-slate-900">{invoice.invoiceNumber}</td>
+                    <td className="px-6 py-4 text-sm text-slate-500">{invoice.customer?.name || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-slate-500">
                       {new Date(invoice.invoiceDate).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{invoice.currency}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900 text-right">
+                    <td className="px-6 py-4 text-sm text-slate-500">{invoice.currency}</td>
+                    <td className="px-6 py-4 text-sm text-slate-900 text-right">
                       {invoice.total.toFixed(2)}
                     </td>
                     <td className="px-6 py-4">
@@ -413,6 +416,7 @@ export default function CompanyInvoicesPage() {
             )}
           </div>
         )}
+        </div>
       </main>
 
       {showModal && (

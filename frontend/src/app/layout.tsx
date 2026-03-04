@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 import { OfflineBanner } from "@/components/OfflineBanner";

@@ -50,6 +50,21 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
 
   const isOwner = role === 'Owner' || role === 'Admin';
 
+  // Auto-expand menus when a submenu is active
+  React.useEffect(() => {
+    const pathParts = pathname.split('/').filter(Boolean);
+    if (pathParts.length >= 3) {
+      const activeParent = menuItems.find(item => 
+        item.children?.some(child => 
+          child.href && pathname.startsWith(child.href.split('/').slice(0, 4).join('/'))
+        )
+      );
+      if (activeParent && !expandedMenus.has(activeParent.name)) {
+        setExpandedMenus(prev => new Set([...prev, activeParent.name]));
+      }
+    }
+  }, [pathname]);
+
   const toggleMenu = (menuName: string) => {
     const newExpanded = new Set(expandedMenus);
     if (newExpanded.has(menuName)) {
@@ -67,7 +82,7 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
       icon: TrendingUp,
       children: [
         { name: 'Customers', href: `/company/${companyId}/customers` },
-        { name: 'Export PIs', href: `/company/${companyId}/finance` },
+        { name: 'Export PIs', href: `/company/${companyId}/sales/pis` },
         { name: 'Sales Invoices', href: `/company/${companyId}/invoices` },
       ]
     },
@@ -76,7 +91,7 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
       icon: CreditCard,
       children: [
         { name: 'Suppliers', href: `/company/${companyId}/vendors` },
-        { name: 'Import PIs', href: `/company/${companyId}/finance` },
+        { name: 'Import PIs', href: `/company/${companyId}/purchase/pis` },
         { name: 'Purchase Invoices', href: `/company/${companyId}/invoices` },
       ]
     },
@@ -84,10 +99,10 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
       name: 'LC Management', 
       icon: Briefcase,
       children: [
-        { name: 'All LCs', href: `/company/${companyId}/finance` },
-        { name: 'LC PIs', href: `/company/${companyId}/finance` },
-        { name: 'LC Loans', href: `/company/${companyId}/finance` },
-        { name: 'LC Settlement', href: `/company/${companyId}/finance` },
+        { name: 'All LCs', href: `/company/${companyId}/lc` },
+        { name: 'LC PIs', href: `/company/${companyId}/lc/pis` },
+        { name: 'LC Loans', href: `/company/${companyId}/lc/loans` },
+        { name: 'LC Settlement', href: `/company/${companyId}/lc/settlement` },
       ]
     },
     { 

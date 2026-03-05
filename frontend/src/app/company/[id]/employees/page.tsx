@@ -464,10 +464,6 @@ export default function EmployeesPage() {
                       <input type="text" value={formData.lastName || ''} onChange={(e) => setFormData({...formData, lastName: e.target.value})} className="input" required />
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Employee Code</label>
-                    <input type="text" value={formData.employeeCode || ''} onChange={(e) => setFormData({...formData, employeeCode: e.target.value})} className="input" placeholder="Auto-generated if empty" />
-                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1">Email</label>

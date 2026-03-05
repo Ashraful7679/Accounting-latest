@@ -1054,31 +1054,37 @@ export class CompanyController {
   }
 
   async createEmployee(request: FastifyRequest, reply: FastifyReply) {
-    const { id: companyId } = request.params as { id: string };
-    const { employeeCode, firstName, lastName, email, phone, designation, department, joinDate, salary } = request.body as any;
+    try {
+      const { id: companyId } = request.params as { id: string };
+      const { firstName, lastName, email, phone, designation, department, joinDate, salary } = request.body as any;
 
-    let code = employeeCode;
-    if (!code) {
+      if (!firstName || !lastName) {
+        return reply.status(400).send({ success: false, error: 'First name and last name are required' });
+      }
+
       const count = await prisma.employee.count({ where: { companyId } });
-      code = `EMP-${String(count + 1).padStart(4, '0')}`;
+      const employeeCode = `EMP-${String(count + 1).padStart(4, '0')}`;
+
+      const employee = await prisma.employee.create({
+        data: {
+          employeeCode,
+          firstName: String(firstName),
+          lastName: String(lastName),
+          email: email || null,
+          phone: phone || null,
+          designation: designation || null,
+          department: department || null,
+          joinDate: joinDate ? new Date(joinDate) : null,
+          salary: salary ? parseFloat(salary) : 0,
+          companyId,
+        },
+      });
+
+      return reply.send({ success: true, data: employee });
+    } catch (error: any) {
+      console.error('Error creating employee:', error);
+      return reply.status(500).send({ success: false, error: error.message || 'Internal server error' });
     }
-
-    const employee = await prisma.employee.create({
-      data: {
-        employeeCode: code,
-        firstName,
-        lastName,
-        email,
-        phone,
-        designation,
-        department,
-        joinDate: joinDate ? new Date(joinDate) : null,
-        salary: salary || 0,
-        companyId,
-      },
-    });
-
-    return reply.send({ success: true, data: employee });
   }
 
   async updateEmployee(request: FastifyRequest, reply: FastifyReply) {

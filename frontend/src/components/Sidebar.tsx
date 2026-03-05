@@ -83,7 +83,7 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
       children: [
         { name: 'Customers', href: `/company/${companyId}/customers` },
         { name: 'Export PIs', href: `/company/${companyId}/sales/pis` },
-        { name: 'Sales Invoices', href: `/company/${companyId}/invoices` },
+        { name: 'Sales Invoices', href: `/company/${companyId}/sales/invoices` },
       ]
     },
     { 
@@ -92,7 +92,7 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
       children: [
         { name: 'Suppliers', href: `/company/${companyId}/vendors` },
         { name: 'Import PIs', href: `/company/${companyId}/purchase/pis` },
-        { name: 'Purchase Invoices', href: `/company/${companyId}/invoices` },
+        { name: 'Purchase Invoices', href: `/company/${companyId}/purchase/invoices` },
       ]
     },
     { 

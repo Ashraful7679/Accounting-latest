@@ -1166,75 +1166,80 @@ export class CompanyController {
   }
 
   async approveEmployeeAdvance(request: FastifyRequest, reply: FastifyReply) {
-    const { id: companyId, advanceId } = request.params as { id: string; advanceId: string };
-    const userId = (request.user as any).id;
+    try {
+      const { id: companyId, advanceId } = request.params as { id: string; advanceId: string };
+      const userId = (request.user as any).id;
 
-    const advance = await prisma.employeeAdvance.findUnique({
-      where: { id: advanceId },
-      include: { employee: true },
-    });
+      const advance = await prisma.employeeAdvance.findUnique({
+        where: { id: advanceId },
+        include: { employee: true },
+      });
 
-    if (!advance) {
-      throw new NotFoundError('Advance not found');
-    }
+      if (!advance) {
+        throw new NotFoundError('Advance not found');
+      }
 
-    // Generate journal entry
-    const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
-    
-    // Get default accounts
-    const cashAccount = await prisma.account.findFirst({
-      where: { companyId, code: { endsWith: '1000' }, isActive: true },
-    });
-    
-    const advanceAccount = await prisma.account.findFirst({
-      where: { companyId, name: { contains: 'Advance', mode: 'insensitive' }, isActive: true },
-    });
+      // Generate journal entry
+      const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
+      
+      // Get default accounts
+      const cashAccount = await prisma.account.findFirst({
+        where: { companyId, code: { endsWith: '1000' }, isActive: true },
+      });
+      
+      const advanceAccount = await prisma.account.findFirst({
+        where: { companyId, name: { contains: 'Advance', mode: 'insensitive' }, isActive: true },
+      });
 
-    const employeePayableAccount = await prisma.account.findFirst({
-      where: { companyId, name: { contains: 'Employee', mode: 'insensitive' }, isActive: true },
-    });
+      const employeePayableAccount = await prisma.account.findFirst({
+        where: { companyId, name: { contains: 'Employee', mode: 'insensitive' }, isActive: true },
+      });
 
-    const debitAccountId = employeePayableAccount?.id || advanceAccount?.id || cashAccount?.id;
-    const creditAccountId = advance.accountId || cashAccount?.id;
+      const debitAccountId = employeePayableAccount?.id || advanceAccount?.id || cashAccount?.id;
+      const creditAccountId = advance.accountId || cashAccount?.id;
 
-    if (!debitAccountId || !creditAccountId) {
-      throw new Error('Required accounts not found. Please configure cash/employee accounts.');
-    }
+      if (!debitAccountId || !creditAccountId) {
+        throw new Error('Required accounts not found. Please configure cash/employee accounts.');
+      }
 
-    // Create journal entry
-    const journal = await prisma.journalEntry.create({
-      data: {
-        entryNumber,
-        date: advance.date,
-        description: `Advance for ${advance.employee.firstName} ${advance.employee.lastName} - ${advance.purpose || ''}`,
-        companyId,
-        createdById: userId,
-        status: 'APPROVED',
-        lines: {
-          create: [
-            {
-              accountId: debitAccountId,
-              debit: advance.amount,
-              credit: 0,
-            },
-            {
-              accountId: creditAccountId,
-              debit: 0,
-              credit: advance.amount,
-            },
-          ],
+      // Create journal entry
+      const journal = await prisma.journalEntry.create({
+        data: {
+          entryNumber,
+          date: advance.date,
+          description: `Advance for ${advance.employee.firstName} ${advance.employee.lastName} - ${advance.purpose || ''}`,
+          companyId,
+          createdById: userId,
+          status: 'APPROVED',
+          lines: {
+            create: [
+              {
+                accountId: debitAccountId,
+                debit: advance.amount,
+                credit: 0,
+              },
+              {
+                accountId: creditAccountId,
+                debit: 0,
+                credit: advance.amount,
+              },
+            ],
+          },
         },
-      },
-      include: { lines: { include: { account: true } } },
-    });
+        include: { lines: { include: { account: true } } },
+      });
 
-    // Update advance status
-    await prisma.employeeAdvance.update({
-      where: { id: advanceId },
-      data: { status: 'APPROVED', journalEntryId: journal.id },
-    });
+      // Update advance status
+      await prisma.employeeAdvance.update({
+        where: { id: advanceId },
+        data: { status: 'APPROVED', journalEntryId: journal.id },
+      });
 
-    return reply.send({ success: true, data: { advance, journal } });
+      return reply.send({ success: true, data: { advance, journal } });
+    } catch (error: any) {
+      console.error('Error approving employee advance:', error);
+      return reply.status(500).send({ success: false, error: error.message || 'Internal server error' });
+    }
   }
 
   // Employee Loans

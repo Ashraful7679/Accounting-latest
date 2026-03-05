@@ -148,6 +148,31 @@ export default function EmployeesPage() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ type, id, data }: { type: string; id: string; data: any }) => {
+      const endpoint = {
+        employee: `/company/${companyId}/employees/${id}`,
+        advance: `/company/${companyId}/employee-advances/${id}`,
+        loan: `/company/${companyId}/employee-loans/${id}`,
+        expense: `/company/${companyId}/employee-expenses/${id}`,
+      }[type] as string;
+      if (!endpoint) throw new Error('Invalid type');
+      const response = await api.put(endpoint, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['employee-advances', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['employee-loans', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['employee-expenses', companyId] });
+      toast.success('Updated successfully');
+      closeModal();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Failed to update');
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async ({ type, id }: { type: string; id: string }) => {
       const endpoint = {
@@ -227,7 +252,11 @@ export default function EmployeesPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    if (selectedItem) {
+      updateMutation.mutate({ type: modalType, id: selectedItem.id, data: formData });
+    } else {
+      createMutation.mutate(formData);
+    }
   };
 
   const getStatusBadge = (status: string) => {

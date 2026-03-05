@@ -209,6 +209,16 @@ export default function EmployeesPage() {
     setShowModal(true);
   };
 
+  const getModalType = (tab: string): 'employee' | 'advance' | 'loan' | 'expense' => {
+    const map: Record<string, 'employee' | 'advance' | 'loan' | 'expense'> = {
+      employees: 'employee',
+      advances: 'advance',
+      loans: 'loan',
+      expenses: 'expense',
+    };
+    return map[tab] || 'employee';
+  };
+
   const closeModal = () => {
     setShowModal(false);
     setSelectedItem(null);
@@ -281,7 +291,7 @@ export default function EmployeesPage() {
             <div className="p-4 border-b flex justify-between items-center">
               <h3 className="font-semibold text-slate-900">{tabs.find(t => t.id === activeTab)?.label}</h3>
               <button
-                onClick={() => openModal(activeTab as any)}
+                onClick={() => openModal(getModalType(activeTab))}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700"
               >
                 <Plus className="w-4 h-4" />

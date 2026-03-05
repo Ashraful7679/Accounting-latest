@@ -8,7 +8,8 @@ import {
   CreditCard, Package, FileBarChart, Settings, DollarSign,
   LayoutDashboard, BookOpen, ClipboardList, Bell, ChevronRight,
   Plus, AlertCircle, ArrowUpRight, ArrowDownRight, Briefcase, User,
-  Calendar, ShieldCheck, History, CheckCircle2, Database, Menu, X
+  Calendar, ShieldCheck, History, CheckCircle2, Database, Menu, X,
+  ArrowLeftRight, Send, Wallet, FileStack
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -22,11 +23,19 @@ interface SidebarProps {
   role?: string;
 }
 
+interface MenuItem {
+  name: string;
+  href?: string;
+  icon?: React.ElementType;
+  children?: MenuItem[];
+}
+
 export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
   const params = useParams();
   const pathname = usePathname();
   const companyId = params.id as string;
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
 
   // Derive role from prop or localStorage (client-side only)
   const [role, setRole] = React.useState(propRole || 'User');
@@ -41,21 +50,72 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
 
   const isOwner = role === 'Owner' || role === 'Admin';
 
-  const menuItems = [
+  const toggleMenu = (menuName: string) => {
+    const newExpanded = new Set(expandedMenus);
+    if (newExpanded.has(menuName)) {
+      newExpanded.delete(menuName);
+    } else {
+      newExpanded.add(menuName);
+    }
+    setExpandedMenus(newExpanded);
+  };
+
+  const menuItems: MenuItem[] = [
     { name: 'Dashboard', href: `/company/${companyId}/dashboard`, icon: LayoutDashboard },
+    { 
+      name: 'Sales', 
+      icon: TrendingUp,
+      children: [
+        { name: 'Customers', href: `/company/${companyId}/customers` },
+        { name: 'Export PIs', href: `/company/${companyId}/finance` },
+        { name: 'Sales Invoices', href: `/company/${companyId}/invoices` },
+      ]
+    },
+    { 
+      name: 'Purchases', 
+      icon: CreditCard,
+      children: [
+        { name: 'Suppliers', href: `/company/${companyId}/vendors` },
+        { name: 'Import PIs', href: `/company/${companyId}/finance` },
+        { name: 'Purchase Invoices', href: `/company/${companyId}/invoices` },
+      ]
+    },
+    { 
+      name: 'LC Management', 
+      icon: Briefcase,
+      children: [
+        { name: 'All LCs', href: `/company/${companyId}/finance` },
+        { name: 'LC PIs', href: `/company/${companyId}/finance` },
+        { name: 'LC Loans', href: `/company/${companyId}/finance` },
+        { name: 'LC Settlement', href: `/company/${companyId}/finance` },
+      ]
+    },
+    { 
+      name: 'Payments', 
+      icon: DollarSign,
+      children: [
+        { name: 'Receive Payment', href: `/company/${companyId}/payments/receive` },
+        { name: 'Make Payment', href: `/company/${companyId}/payments/make` },
+        { name: 'Transfer', href: `/company/${companyId}/payments/transfer` },
+        { name: 'Payment History', href: `/company/${companyId}/invoices` },
+        { name: 'Advance Payments', href: `/company/${companyId}/employees` },
+        { name: 'Payment Allocation', href: `/company/${companyId}/payments/allocate` },
+      ]
+    },
     { name: 'Chart of Accounts', href: `/company/${companyId}/accounts`, icon: ClipboardList },
-    { name: 'Vouchers', href: `/company/${companyId}/journals`, icon: History },
+    { name: 'Journal Entries', href: `/company/${companyId}/journals`, icon: History },
     { name: 'Employees', href: `/company/${companyId}/employees`, icon: User },
-    { name: 'Payments', href: `/company/${companyId}/invoices`, icon: DollarSign },
-    { name: 'Bank Recon.', href: `/company/${companyId}/bank/reconcile`, icon: CheckCircle2 },
-    { name: 'LC & Banking', href: `/company/${companyId}/finance`, icon: Briefcase },
-    { name: 'Receivable', href: `/company/${companyId}/customers`, icon: Users },
-    { name: 'Payable', href: `/company/${companyId}/vendors`, icon: CreditCard },
+    { name: 'Bank Reconciliation', href: `/company/${companyId}/bank/reconcile`, icon: CheckCircle2 },
     { name: 'Reports', href: `/company/${companyId}/reports`, icon: FileBarChart },
     { name: 'Backup', href: `/company/${companyId}/settings/backup`, icon: Database },
   ];
 
   const isActive = (href: string) => pathname === href;
+
+  const isParentActive = (item: MenuItem) => {
+    if (!item.children) return false;
+    return item.children.some(child => child.href && pathname.startsWith(child.href.split('/').slice(0, 4).join('/')));
+  };
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
@@ -90,26 +150,74 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
         {/* Navigation */}
         <nav className="space-y-1">
           {menuItems.map((item) => (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative",
-                isActive(item.href)
-                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                  : "text-slate-400 hover:text-white hover:bg-[#1E293B]"
+            <div key={item.name}>
+              {item.children ? (
+                <div>
+                  <button
+                    onClick={() => toggleMenu(item.name)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
+                      isParentActive(item) || expandedMenus.has(item.name)
+                        ? "bg-blue-600 text-white"
+                        : "text-slate-400 hover:text-white hover:bg-[#1E293B]"
+                    )}
+                  >
+                    {item.icon && (
+                      <item.icon className={cn(
+                        "w-5 h-5 flex-shrink-0",
+                        isParentActive(item) || expandedMenus.has(item.name) ? "text-white" : "text-slate-400"
+                      )} />
+                    )}
+                    <span className="font-medium text-sm flex-1 text-left">{item.name}</span>
+                    <ChevronRight className={cn(
+                      "w-4 h-4 transition-transform",
+                      expandedMenus.has(item.name) && "rotate-90"
+                    )} />
+                  </button>
+                  {expandedMenus.has(item.name) && (
+                    <div className="ml-4 mt-1 space-y-1">
+                      {item.children.map((child) => (
+                        <Link
+                          key={child.name}
+                          href={child.href || '#'}
+                          onClick={() => setMobileOpen(false)}
+                          className={cn(
+                            "flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200",
+                            isActive(child.href || '')
+                              ? "bg-blue-500/20 text-white text-sm"
+                              : "text-slate-400 hover:text-white hover:bg-[#1E293B] text-sm"
+                          )}
+                        >
+                          <span>{child.name}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link
+                  href={item.href || '#'}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative",
+                    isActive(item.href || '')
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                      : "text-slate-400 hover:text-white hover:bg-[#1E293B]"
+                  )}
+                >
+                  {item.icon && (
+                    <item.icon className={cn(
+                      "w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110",
+                      isActive(item.href || '') ? "text-white" : "text-slate-400 group-hover:text-blue-400"
+                    )} />
+                  )}
+                  <span className="font-medium text-sm">{item.name}</span>
+                  {isActive(item.href || '') && (
+                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  )}
+                </Link>
               )}
-            >
-              <item.icon className={cn(
-                "w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110",
-                isActive(item.href) ? "text-white" : "text-slate-400 group-hover:text-blue-400"
-              )} />
-              <span className="font-medium text-sm">{item.name}</span>
-              {isActive(item.href) && (
-                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              )}
-            </Link>
+            </div>
           ))}
         </nav>
       </div>

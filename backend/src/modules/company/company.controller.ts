@@ -1057,9 +1057,15 @@ export class CompanyController {
     const { id: companyId } = request.params as { id: string };
     const { employeeCode, firstName, lastName, email, phone, designation, department, joinDate, salary } = request.body as any;
 
+    let code = employeeCode;
+    if (!code) {
+      const count = await prisma.employee.count({ where: { companyId } });
+      code = `EMP-${String(count + 1).padStart(4, '0')}`;
+    }
+
     const employee = await prisma.employee.create({
       data: {
-        employeeCode,
+        employeeCode: code,
         firstName,
         lastName,
         email,

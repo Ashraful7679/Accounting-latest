@@ -208,13 +208,67 @@ export class CompanyController {
     const { id: companyId } = request.params as { id: string };
     const { code, name, accountTypeId, parentId, openingBalance, cashFlowType } = request.body as any;
 
+    let accountCode = code;
+    
+    // If no code provided, auto-generate based on account type
+    if (!accountCode) {
+      const accountType = await prisma.accountType.findUnique({ where: { id: accountTypeId } });
+      
+      if (parentId) {
+        // Get parent account and derive code from its serial
+        const parent = await prisma.account.findUnique({ where: { id: parentId } });
+        if (parent) {
+          // Get count of existing children under this parent
+          const siblingCount = await prisma.account.count({ where: { parentId } });
+          const parentPrefix = parent.code.substring(0, parent.code.length - 2);
+          accountCode = `${parentPrefix}${String(siblingCount + 1).padStart(2, '0')}`;
+        }
+      } else if (accountType) {
+        // Generate code based on account type
+        const typeCodeMap: Record<string, { prefix: string; min: number; max: number }> = {
+          'ASSET': { prefix: 'A-1', min: 100, max: 999 },
+          'LIABILITY': { prefix: 'L-1', min: 100, max: 999 },
+          'EQUITY': { prefix: 'E-1', min: 100, max: 999 },
+          'INCOME': { prefix: 'I-1', min: 100, max: 999 },
+          'EXPENSE': { prefix: 'X-1', min: 100, max: 999 },
+        };
+        
+        const config = typeCodeMap[accountType.name];
+        if (config) {
+          // Find next available code in range
+          const existing = await prisma.account.findMany({
+            where: { 
+              companyId,
+              code: { startsWith: config.prefix }
+            },
+            orderBy: { code: 'desc' },
+            take: 1
+          });
+          
+          let nextNum = config.min;
+          if (existing.length > 0) {
+            const lastCode = existing[0].code;
+            const lastNum = parseInt(lastCode.replace(/[^0-9]/g, ''));
+            if (lastNum < config.max) {
+              nextNum = lastNum + 1;
+            }
+          }
+          accountCode = `${config.prefix}${String(nextNum).padStart(3, '0')}`;
+        }
+      }
+    }
+
+    if (!accountCode) {
+      return reply.status(400).send({ success: false, error: 'Could not generate account code' });
+    }
+
     const openBal = parseFloat(openingBalance) || 0;
     const account = await AccountRepository.create({ 
-      code, 
+      code: accountCode, 
       name, 
       companyId, 
       accountTypeId, 
-      parentId, 
+      parentId: parentId || null, 
       openingBalance: openBal, 
       currentBalance: openBal,
       cashFlowType

@@ -157,9 +157,18 @@ export default function CompanyAccountsPage() {
   };
 
   const handleTypeChange = (typeId: string) => {
-    const type = accountTypesData?.find((t) => t.id === typeId);
-    const code = type ? generateCode(type.name) : '';
-    setFormData({ ...formData, accountTypeId: typeId, code });
+    setFormData({ ...formData, accountTypeId: typeId, code: '' });
+  };
+
+  const handleParentChange = (parentId: string) => {
+    if (parentId) {
+      const parent = accountsData?.find(a => a.id === parentId);
+      if (parent) {
+        setFormData({ ...formData, parentId, code: '' });
+      }
+    } else {
+      setFormData({ ...formData, parentId: '', code: '' });
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -398,13 +407,13 @@ export default function CompanyAccountsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Account Code *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Account Code</label>
                 <input
                   type="text"
                   value={formData.code}
                   onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                   className="input"
-                  required
+                  placeholder="Auto-generated if empty"
                 />
               </div>
               <div>
@@ -421,7 +430,7 @@ export default function CompanyAccountsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Parent Account</label>
                 <select
                   value={formData.parentId}
-                  onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
+                  onChange={(e) => handleParentChange(e.target.value)}
                   className="input"
                 >
                   <option value="">No Parent (Root)</option>

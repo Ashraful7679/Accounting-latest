@@ -1314,14 +1314,77 @@ export class CompanyController {
   }
 
   async approveEmployeeLoan(request: FastifyRequest, reply: FastifyReply) {
-    const { loanId } = request.params as { loanId: string };
+    try {
+      const { id: companyId, loanId } = request.params as { id: string; loanId: string };
+      const userId = (request.user as any).id;
 
-    await prisma.employeeLoan.update({
-      where: { id: loanId },
-      data: { status: 'ACTIVE' },
-    });
+      const loan = await prisma.employeeLoan.findUnique({
+        where: { id: loanId },
+        include: { employee: true },
+      });
 
-    return reply.send({ success: true });
+      if (!loan) {
+        throw new NotFoundError('Loan not found');
+      }
+
+      // Generate journal entry for loan disbursement
+      const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
+      
+      const cashAccount = await prisma.account.findFirst({
+        where: { companyId, code: { endsWith: '1000' }, isActive: true },
+      });
+      
+      const loanAccount = await prisma.account.findFirst({
+        where: { companyId, code: 'A-1381', isActive: true },
+      });
+      
+      const employeePayableAccount = await prisma.account.findFirst({
+        where: { companyId, name: { contains: 'Employee', mode: 'insensitive' }, isActive: true },
+      });
+
+      const debitAccountId = employeePayableAccount?.id || loanAccount?.id || cashAccount?.id;
+      const creditAccountId = loanAccount?.id || cashAccount?.id;
+
+      if (!debitAccountId || !creditAccountId) {
+        throw new Error('Required accounts not found. Please configure loan/cash accounts.');
+      }
+
+      // Create journal entry for loan disbursement
+      await prisma.journalEntry.create({
+        data: {
+          entryNumber,
+          date: loan.startDate,
+          description: `Employee Loan for ${loan.employee.firstName} ${loan.employee.lastName} - ${loan.purpose || ''}`,
+          companyId,
+          createdById: userId,
+          status: 'APPROVED',
+          lines: {
+            create: [
+              {
+                accountId: debitAccountId,
+                debit: loan.principalAmount,
+                credit: 0,
+              },
+              {
+                accountId: creditAccountId,
+                debit: 0,
+                credit: loan.principalAmount,
+              },
+            ],
+          },
+        },
+      });
+
+      await prisma.employeeLoan.update({
+        where: { id: loanId },
+        data: { status: 'ACTIVE' },
+      });
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      console.error('Error approving employee loan:', error);
+      return reply.status(500).send({ success: false, error: error.message || 'Internal server error' });
+    }
   }
 
   async getLoanRepayments(request: FastifyRequest, reply: FastifyReply) {

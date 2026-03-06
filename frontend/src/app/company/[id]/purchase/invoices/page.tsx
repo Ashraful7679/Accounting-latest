@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
 import UserDropdown from '@/components/UserDropdown';
 import { 
   FileText, Plus, Search, Edit2, Trash2, Eye,
@@ -43,9 +41,8 @@ export default function PurchaseInvoicesPage() {
     exchangeRate: 1,
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
-    subtotal: 0,
-    taxAmount: 0,
     description: '',
+    lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0 }]
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -69,6 +66,15 @@ export default function PurchaseInvoicesPage() {
     queryKey: ['vendors', companyId],
     queryFn: async () => {
       const response = await api.get(`/company/${companyId}/vendors`);
+      return response.data.data;
+    },
+    enabled: !!companyId,
+  });
+
+  const { data: productsData } = useQuery({
+    queryKey: ['products', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/products`);
       return response.data.data;
     },
     enabled: !!companyId,
@@ -103,7 +109,7 @@ export default function PurchaseInvoicesPage() {
     },
   });
 
-  const openModal = (invoice?: Invoice) => {
+  const openModal = (invoice?: any) => {
     if (invoice) {
       setSelectedInvoice(invoice);
       setFormData({
@@ -113,9 +119,14 @@ export default function PurchaseInvoicesPage() {
         exchangeRate: invoice.exchangeRate || 1,
         invoiceDate: invoice.invoiceDate ? invoice.invoiceDate.split('T')[0] : '',
         dueDate: invoice.dueDate ? invoice.dueDate.split('T')[0] : '',
-        subtotal: invoice.subtotal || 0,
-        taxAmount: invoice.taxAmount || 0,
         description: invoice.description || '',
+        lines: invoice.lines?.length ? invoice.lines.map((l: any) => ({
+          productId: l.productId || '',
+          description: l.description || '',
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          taxRate: l.taxRate
+        })) : [{ productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0 }]
       });
     } else {
       setSelectedInvoice(null);
@@ -126,9 +137,8 @@ export default function PurchaseInvoicesPage() {
         exchangeRate: 1,
         invoiceDate: new Date().toISOString().split('T')[0],
         dueDate: '',
-        subtotal: 0,
-        taxAmount: 0,
         description: '',
+        lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0 }]
       });
     }
     setShowModal(true);
@@ -137,6 +147,50 @@ export default function PurchaseInvoicesPage() {
   const closeModal = () => {
     setShowModal(false);
     setSelectedInvoice(null);
+  };
+
+  const handleLineChange = (index: number, field: string, value: any) => {
+    const newLines = [...formData.lines];
+    const line = { ...newLines[index], [field]: value };
+    
+    // Auto-fill price if product changes
+    if (field === 'productId' && value) {
+      const product = productsData?.find((p: any) => p.id === value);
+      if (product) {
+        line.unitPrice = product.unitPrice;
+        line.description = product.name;
+      }
+    }
+    
+    newLines[index] = line;
+    setFormData({ ...formData, lines: newLines });
+  };
+
+  const addLine = () => {
+    setFormData({
+      ...formData,
+      lines: [...formData.lines, { productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0 }]
+    });
+  };
+
+  const removeLine = (index: number) => {
+    if (formData.lines.length === 1) return;
+    const newLines = formData.lines.filter((_, i) => i !== index);
+    setFormData({ ...formData, lines: newLines });
+  };
+
+  const calculateSubtotal = () => {
+    return formData.lines.reduce((sum, line) => sum + (line.quantity * line.unitPrice), 0);
+  };
+
+  const calculateTax = () => {
+    return formData.lines.reduce((sum, line) => sum + (line.quantity * line.unitPrice * line.taxRate / 100), 0);
+  };
+
+  const calculateTotal = () => {
+    const sub = calculateSubtotal();
+    const tax = calculateTax();
+    return (sub + tax) * formData.exchangeRate;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -168,16 +222,7 @@ export default function PurchaseInvoicesPage() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans">
-      <Sidebar companyName="Purchase Invoices" />
-
-      <main className="lg:pl-64 min-h-screen">
-        <Header 
-          companyId={companyId} 
-          breadcrumbs="Purchase / Invoices" 
-          unreadCount={0}
-        />
-
+    <div className="min-h-screen">
         <div className="p-6 max-w-[1600px] mx-auto">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">Purchase Invoices</h2>
@@ -257,64 +302,151 @@ export default function PurchaseInvoicesPage() {
             </table>
           </div>
         </div>
-      </main>
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-4">Create Purchase Invoice</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Invoice Number *</label>
-                <input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({...formData, invoiceNumber: e.target.value})} className="input" required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Supplier *</label>
-                <select value={formData.vendorId} onChange={(e) => setFormData({...formData, vendorId: e.target.value})} className="input" required>
-                  <option value="">Select Supplier</option>
-                  {vendorsData?.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Invoice Date *</label>
-                  <input type="date" value={formData.invoiceDate} onChange={(e) => setFormData({...formData, invoiceDate: e.target.value})} className="input" required />
+          <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold mb-6">Create Purchase Invoice</h3>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Invoice Number *</label>
+                    <input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({...formData, invoiceNumber: e.target.value})} className="w-full px-4 py-2 border rounded-lg" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Supplier *</label>
+                    <select value={formData.vendorId} onChange={(e) => setFormData({...formData, vendorId: e.target.value})} className="w-full px-4 py-2 border rounded-lg" required>
+                      <option value="">Select Supplier</option>
+                      {vendorsData?.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Due Date</label>
-                  <input type="date" value={formData.dueDate} onChange={(e) => setFormData({...formData, dueDate: e.target.value})} className="input" />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Currency</label>
-                  <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="input">
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                    <option value="BDT">BDT</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Exchange Rate</label>
-                  <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value)})} className="input" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Subtotal</label>
-                  <input type="number" step="0.01" value={formData.subtotal} onChange={(e) => setFormData({...formData, subtotal: parseFloat(e.target.value)})} className="input" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Invoice Date *</label>
+                    <input type="date" value={formData.invoiceDate} onChange={(e) => setFormData({...formData, invoiceDate: e.target.value})} className="w-full px-4 py-2 border rounded-lg" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Due Date</label>
+                    <input type="date" value={formData.dueDate} onChange={(e) => setFormData({...formData, dueDate: e.target.value})} className="w-full px-4 py-2 border rounded-lg" />
+                  </div>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Tax Amount</label>
-                <input type="number" step="0.01" value={formData.taxAmount} onChange={(e) => setFormData({...formData, taxAmount: parseFloat(e.target.value)})} className="input" />
+
+              <div className="grid grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl">
+                 <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Currency</label>
+                    <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full px-4 py-2 border rounded-lg bg-white">
+                      <option value="USD">USD</option>
+                      <option value="BDT">BDT</option>
+                      <option value="EUR">EUR</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Exchange Rate</label>
+                    <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})} className="w-full px-4 py-2 border rounded-lg bg-white" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Overall Description</label>
+                    <input type="text" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} placeholder="e.g. Purchase for Feb" className="w-full px-4 py-2 border rounded-lg bg-white" />
+                  </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
-                <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="input" rows={2} />
+
+              {/* Line Items */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-bold text-slate-900 uppercase text-xs tracking-wider">Line Items</h4>
+                  <button type="button" onClick={addLine} className="text-blue-600 text-sm font-bold flex items-center gap-1 hover:underline">
+                    <Plus className="w-4 h-4" /> Add Line
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {formData.lines.map((line, index) => (
+                    <div key={index} className="grid grid-cols-12 gap-3 items-end p-3 border rounded-xl bg-white shadow-sm">
+                      <div className="col-span-3">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Product</label>
+                        <select 
+                          value={line.productId} 
+                          onChange={(e) => handleLineChange(index, 'productId', e.target.value)}
+                          className="w-full px-2 py-1.5 text-sm border rounded-lg"
+                        >
+                          <option value="">Custom Item</option>
+                          {productsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="col-span-3">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Description</label>
+                        <input 
+                          type="text" 
+                          value={line.description} 
+                          onChange={(e) => handleLineChange(index, 'description', e.target.value)}
+                          className="w-full px-2 py-1.5 text-sm border rounded-lg"
+                        />
+                      </div>
+                      <div className="col-span-1">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Qty</label>
+                        <input 
+                          type="number" 
+                          value={line.quantity} 
+                          onChange={(e) => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                          className="w-full px-2 py-1.5 text-sm border rounded-lg"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Price</label>
+                        <input 
+                          type="number" 
+                          value={line.unitPrice} 
+                          onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                          className="w-full px-2 py-1.5 text-sm border rounded-lg"
+                        />
+                      </div>
+                      <div className="col-span-1">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tax%</label>
+                        <input 
+                          type="number" 
+                          value={line.taxRate} 
+                          onChange={(e) => handleLineChange(index, 'taxRate', parseFloat(e.target.value) || 0)}
+                          className="w-full px-2 py-1.5 text-sm border rounded-lg"
+                        />
+                      </div>
+                      <div className="col-span-1 text-right self-center">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total</div>
+                        <div className="text-sm font-black">{(line.quantity * line.unitPrice).toLocaleString()}</div>
+                      </div>
+                      <div className="col-span-1 text-right">
+                        <button type="button" onClick={() => removeLine(index)} className="p-1.5 text-slate-400 hover:text-red-600">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={closeModal} className="btn btn-secondary flex-1">Cancel</button>
-                <button type="submit" disabled={createMutation.isPending} className="btn btn-primary flex-1">
+
+              {/* Totals Summary */}
+              <div className="flex justify-end pt-4 border-t">
+                <div className="w-64 space-y-2">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Subtotal:</span>
+                    <span className="font-mono">{formData.currency} {calculateSubtotal().toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Tax:</span>
+                    <span className="font-mono">{formData.currency} {calculateTax().toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-lg font-black text-slate-900 pt-2 border-t">
+                    <span>Total (BDT):</span>
+                    <span>{calculateTotal().toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <button type="button" onClick={closeModal} className="flex-1 px-6 py-3 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50">Cancel</button>
+                <button type="submit" disabled={createMutation.isPending} className="flex-1 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 disabled:opacity-50">
                   {createMutation.isPending ? 'Saving...' : 'Save Invoice'}
                 </button>
               </div>

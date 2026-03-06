@@ -7,8 +7,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, Edit2, Search, Building2, User, Mail, Phone, MapPin, DollarSign, CreditCard, ShieldCheck, ChevronDown } from 'lucide-react';
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
 
 interface Customer {
   id: string;
@@ -161,15 +159,8 @@ export default function CompanyCustomersPage() {
   ) || [];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans">
-      <Sidebar companyName="Customers" />
+    <div className="min-h-screen">
 
-      <main className="lg:pl-64 min-h-screen">
-        <Header 
-          companyId={companyId} 
-          breadcrumbs="Sales / Customers" 
-          unreadCount={0}
-        />
 
         <div className="p-6 max-w-[1600px] mx-auto space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

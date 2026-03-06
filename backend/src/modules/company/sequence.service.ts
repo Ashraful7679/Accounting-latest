@@ -7,7 +7,7 @@ export class SequenceService {
    */
   static async generateDocumentNumber(
     companyId: string,
-    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor'
+    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product'
   ): Promise<string> {
     const prefixes: Record<string, string> = {
       invoice: 'INV',
@@ -16,7 +16,8 @@ export class SequenceService {
       pi: 'PI',
       lc: 'LC',
       customer: 'CUS',
-      vendor: 'VEN'
+      vendor: 'VEN',
+      product: 'PRD'
     };
 
     const prefix = prefixes[type];
@@ -46,6 +47,9 @@ export class SequenceService {
       case 'vendor':
         lastDoc = await prisma.vendor.findFirst({ where: { companyId }, orderBy: { createdAt: 'desc' } });
         break;
+      case 'product':
+        lastDoc = await (prisma as any).product.findFirst({ where: { companyId }, orderBy: { createdAt: 'desc' } });
+        break;
     }
 
     let counter = 1;
@@ -56,7 +60,7 @@ export class SequenceService {
         if (type === 'po') return doc.poNumber;
         if (type === 'pi') return doc.piNumber;
         if (type === 'lc') return doc.lcNumber;
-        if (type === 'customer' || type === 'vendor') return doc.code;
+        if (type === 'customer' || type === 'vendor' || type === 'product') return doc.code;
         return '';
       };
 

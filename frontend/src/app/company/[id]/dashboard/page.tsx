@@ -16,8 +16,6 @@ import {
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import Header from '@/components/Header';
-import Sidebar from '@/components/Sidebar';
 import { ActivityLog, renderActivityMessage } from '@/utils/activityRenderer';
 
 function cn(...inputs: ClassValue[]) {
@@ -115,12 +113,12 @@ export default function CompanyDashboard() {
 
   const { role, companyName, kpis, alerts, actions, activities } = dashboardResponse;
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('roles');
-    router.push('/login');
-  };
+  // Cache company name so the shared layout can use it without an extra API call
+  useEffect(() => {
+    if (companyName) {
+      localStorage.setItem(`company_name_${companyId}`, companyName);
+    }
+  }, [companyName, companyId]);
 
   // menuItems moved to Sidebar component
 
@@ -164,17 +162,7 @@ export default function CompanyDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans">
-      <Sidebar companyName={companyName} />
-
-      {/* Main Content */}
-        <main className="lg:pl-64 min-h-screen">
-        <Header 
-          companyId={companyId} 
-          breadcrumbs={`Dashboard / ${role} Perspective`} 
-          role={role}
-          unreadCount={dashboardResponse.unreadCount}
-        />
+    <div className="min-h-screen">
 
         <div className="p-6 max-w-[1600px] mx-auto space-y-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -646,7 +634,6 @@ export default function CompanyDashboard() {
             </div>
           </div>
         </div>
-      </main>
     </div>
   );
 }

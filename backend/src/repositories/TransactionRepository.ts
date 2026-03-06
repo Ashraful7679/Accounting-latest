@@ -15,6 +15,7 @@ export class TransactionRepository {
           where,
           include: { 
             customer: true,
+            vendor: true,
             createdBy: { select: { firstName: true, lastName: true } },
             verifiedBy: { select: { firstName: true, lastName: true } },
             approvedBy: { select: { firstName: true, lastName: true } }
@@ -36,7 +37,10 @@ export class TransactionRepository {
           where: { id },
           include: {
             customer: true,
-            lines: true,
+            vendor: true,
+            lines: {
+              include: { product: true }
+            },
             createdBy: { select: { firstName: true, lastName: true } },
             verifiedBy: { select: { firstName: true, lastName: true } },
             approvedBy: { select: { firstName: true, lastName: true } }

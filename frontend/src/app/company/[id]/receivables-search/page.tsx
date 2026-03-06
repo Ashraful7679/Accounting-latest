@@ -10,7 +10,6 @@ import {
   Calendar, Building2, DollarSign, FileText, ChevronRight,
   ArrowUpRight, Clock, AlertCircle, X
 } from 'lucide-react';
-import Sidebar from '@/components/Sidebar';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -79,10 +78,8 @@ export default function ReceivablesSearchPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans">
-      <Sidebar companyName={company?.name || 'Loading...'} />
+    <div className="min-h-screen">
 
-      <main className="lg:pl-64 min-h-screen">
         <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 

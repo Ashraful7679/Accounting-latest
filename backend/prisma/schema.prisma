@@ -260,6 +260,7 @@ model PI {
   customer        Customer? @relation(fields: [customerId], references: [id])
   lc              LC?       @relation(fields: [lcId], references: [id])
 
+  lines           PILine[]
   paymentAllocations PaymentPI[]
   
   createdAt       DateTime  @default(now())
@@ -267,6 +268,19 @@ model PI {
 
 
   @@index([lcId])
+}
+
+model PILine {
+  id          String   @id @default(uuid())
+  piId        String
+  productId   String?
+  description String?
+  quantity    Float    @default(1)
+  unitPrice   Float
+  total       Float
+  
+  pi          PI       @relation(fields: [piId], references: [id], onDelete: Cascade)
+  product     Product? @relation(fields: [productId], references: [id])
 }
 
 
@@ -439,6 +453,7 @@ model Vendor {
   paymentTerms  String @default("COD") // COD, CREDIT, ADVANCE, DO_DUE
 
   company     Company  @relation(fields: [companyId], references: [id])
+  invoices    Invoice[]
   purchaseOrders PurchaseOrder[]
   lcs         LC[]
   bills       Bill[]
@@ -492,12 +507,14 @@ model PurchaseOrder {
 model PurchaseOrderLine {
   id              String    @id @default(uuid())
   purchaseOrderId String
+  productId       String?
   itemDescription String
   quantity        Float     @default(1)
   unitPrice       Float
   total           Float
   
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product         Product?      @relation(fields: [productId], references: [id])
 }
 
 // ============================================
@@ -517,6 +534,10 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
+  invoiceLines   InvoiceLine[]
+  poLines        PurchaseOrderLine[]
+  piLines        PILine[]
+
   @@index([companyId])
 }
 
@@ -529,6 +550,8 @@ model Invoice {
   invoiceNumber   String    @unique
   companyId       String
   customerId      String?
+  vendorId        String?
+  type            String    @default("SALES") // SALES, PURCHASE
   
   // Currency
   currency        String    @default("BDT")
@@ -561,6 +584,7 @@ model Invoice {
   // Relations
   company        Company   @relation(fields: [companyId], references: [id])
   customer       Customer? @relation(fields: [customerId], references: [id])
+  vendor         Vendor?   @relation(fields: [vendorId], references: [id])
   createdBy      User      @relation("CreatedInvoices", fields: [createdById], references: [id])
   verifiedBy     User?     @relation("VerifiedInvoices", fields: [verifiedById], references: [id])
   approvedBy     User?     @relation("ApprovedInvoices", fields: [approvedById], references: [id])
@@ -573,18 +597,21 @@ model Invoice {
   
   @@index([companyId])
   @@index([customerId])
+  @@index([vendorId])
   @@index([status])
 }
 
 model InvoiceLine {
   id          String  @id @default(uuid())
   invoiceId   String
+  productId   String?
   description String?
   quantity    Float   @default(1)
   unitPrice   Float
   taxRate     Float   @default(0)
   amount      Float
   invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product     Product? @relation(fields: [productId], references: [id])
 }
 
 // ============================================

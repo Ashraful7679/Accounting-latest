@@ -17,7 +17,7 @@ export class CompanyController {
   // Robust sequence-based document numbers
   private async generateDocumentNumber(
     companyId: string, 
-    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor'
+    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product'
   ): Promise<string> {
     return SequenceService.generateDocumentNumber(companyId, type);
   }
@@ -408,7 +408,12 @@ export class CompanyController {
   // ============ INVOICES ============
   async getInvoices(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const invoices = await TransactionRepository.findInvoices({ companyId });
+    const { type } = request.query as { type?: string };
+    
+    const where: any = { companyId };
+    if (type) where.type = type.toUpperCase();
+
+    const invoices = await TransactionRepository.findInvoices(where);
     return reply.send({ success: true, data: invoices });
   }
 
@@ -452,16 +457,27 @@ export class CompanyController {
     }
 
     const invoice = await TransactionRepository.createInvoice({
-      ...data,
       invoiceNumber,
       companyId,
+      customerId: data.customerId || null,
+      vendorId: data.vendorId || null,
+      type: data.type || 'SALES',
+      currency: data.currency || 'BDT',
+      exchangeRate: data.exchangeRate || 1,
+      invoiceDate: invoiceDate,
+      dueDate: data.dueDate ? new Date(data.dueDate) : null,
+      description: data.description,
       subtotal,
       taxAmount,
       total: bdtAmount,
       createdById: userId,
       lines: {
         create: data.lines.map((l: any) => ({
-          ...l,
+          productId: l.productId || null,
+          description: l.description,
+          quantity: Number(l.quantity || 1),
+          unitPrice: Number(l.unitPrice || 0),
+          taxRate: Number(l.taxRate || 0),
           amount: l.quantity * l.unitPrice * (1 + (l.taxRate || 0) / 100),
         })),
       },
@@ -499,7 +515,22 @@ export class CompanyController {
 
     const updated = await prisma.invoice.update({
       where: { id: invoiceId },
-      data,
+      data: {
+        ...data,
+        customerId: data.customerId || undefined,
+        vendorId: data.vendorId || undefined,
+        lines: data.lines ? {
+          deleteMany: {},
+          create: data.lines.map((l: any) => ({
+            productId: l.productId || null,
+            description: l.description,
+            quantity: Number(l.quantity || 1),
+            unitPrice: Number(l.unitPrice || 0),
+            taxRate: Number(l.taxRate || 0),
+            amount: l.quantity * l.unitPrice * (1 + (l.taxRate || 0) / 100),
+          })),
+        } : undefined,
+      },
       include: { lines: true },
     });
 

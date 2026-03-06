@@ -10,8 +10,6 @@ import {
   Plus, Trash2, Check, X, ArrowLeft, LogOut, Eye, 
   Building2, Bell, Send, CheckCheck, BookOpen, Printer, Info, ChevronRight, Hash, DollarSign, Clock
 } from 'lucide-react';
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
 import { AttachmentManager } from '@/components/AttachmentManager';
 import NotificationPanel from '@/components/NotificationPanel';
 import UserDropdown from '@/components/UserDropdown';
@@ -396,16 +394,8 @@ export default function CompanyJournalsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans">
-      <Sidebar companyName="Journal Entries" role={userRole} />
+    <div className="min-h-screen">
 
-      <main className="lg:pl-64 min-h-screen">
-        <Header 
-          companyId={companyId} 
-          breadcrumbs="Finance / Journal Entries" 
-          role={userRole}
-          unreadCount={unreadCount}
-        />
 
         <NotificationPanel
           companyId={companyId}

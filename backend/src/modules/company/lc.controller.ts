@@ -1,6 +1,9 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
 import { FinanceRepository } from '../../repositories/FinanceRepository';
+import { SequenceService } from './sequence.service';
+import { AccountRepository } from '../../repositories/AccountRepository';
+import { NotificationController } from './notification.controller';
 
 export class LCController {
   async getLCs(request: FastifyRequest, reply: FastifyReply) {
@@ -52,11 +55,51 @@ export class LCController {
     const { id: companyId } = request.params as { id: string };
     const { piIds, ...data } = request.body as any;
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
+      // 0. Automate LC Number if not provided
+      const lcNumber = data.lcNumber || await SequenceService.generateDocumentNumber(companyId, 'lc');
+
+      // 0a. Automated Bank COA Creation
+      if (data.bankName) {
+        const existingBank = await tx.account.findFirst({
+          where: { 
+            name: data.bankName,
+            companyId,
+            category: 'BANK'
+          }
+        });
+
+        if (!existingBank) {
+          // Find the Asset account type
+          const assetType = await tx.accountType.findUnique({ where: { name: 'ASSET' } });
+          const bankParent = await tx.account.findFirst({ where: { companyId, category: 'BANK_PARENT' } });
+
+          if (assetType) {
+            // Generate a code for the bank account (e.g., 1010-001)
+            const count = await tx.account.count({ where: { companyId, accountTypeId: assetType.id } });
+            const bankCode = `1010-${(count + 1).toString().padStart(3, '0')}`;
+
+            await tx.account.create({
+              data: {
+                code: bankCode,
+                name: data.bankName,
+                companyId,
+                accountTypeId: assetType.id,
+                parentId: bankParent?.id || null,
+                category: 'BANK',
+                isActive: true,
+                allowNegative: false
+              }
+            });
+          }
+        }
+      }
+
       // 1. Create the LC
       const lc = await tx.lC.create({
         data: {
           ...data,
+          lcNumber,
           companyId,
           issueDate: new Date(data.issueDate),
           expiryDate: new Date(data.expiryDate),
@@ -89,6 +132,16 @@ export class LCController {
 
 
       return lc;
+    });
+
+    // Log Activity
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'lc',
+      entityId: result.id,
+      action: 'CREATED',
+      performedById: (request.user as any).id,
+      metadata: { docNumber: result.lcNumber }
     });
 
     return reply.status(201).send({ success: true, data: result });

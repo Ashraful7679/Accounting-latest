@@ -12,13 +12,13 @@ import {
   LayoutDashboard, BookOpen, ClipboardList, Bell, ChevronRight,
   Plus, AlertCircle, ArrowUpRight, ArrowDownRight, Briefcase, User,
   Globe, TrendingDown, Landmark, Filter, Download, Printer, ArrowLeft,
-  Calendar, Layers, Search, ArrowUp, ArrowDown, RefreshCw
+  Calendar, Layers, Search, ArrowUp, ArrowDown, RefreshCw, Clock
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
-import NotificationPanel from '@/components/NotificationPanel';
-import UserDropdown from '@/components/UserDropdown';
+import { ActivityLog, renderActivityMessage } from '@/utils/activityRenderer';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -37,6 +37,7 @@ interface DashboardData {
     status: string;
   } | null;
   actions: { label: string; href: string; icon?: string }[];
+  activities?: ActivityLog[];
 }
 
 export default function CompanyDashboard() {
@@ -44,7 +45,6 @@ export default function CompanyDashboard() {
   const params = useParams();
   const companyId = params.id as string;
   const [mounted, setMounted] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -58,9 +58,14 @@ export default function CompanyDashboard() {
     queryKey: ['company-dashboard-stats', companyId],
     queryFn: async () => {
       try {
-        console.log('Fetching dashboard stats for:', companyId);
-        const response = await api.get(`/company/${companyId}/dashboard-stats`);
-        return response.data.data as DashboardData;
+        const [statsRes, activitiesRes] = await Promise.all([
+          api.get(`/company/${companyId}/dashboard-stats`),
+          api.get(`/company/${companyId}/activities?limit=10`)
+        ]);
+        return { 
+          ...statsRes.data.data, 
+          activities: activitiesRes.data.data 
+        } as DashboardData;
       } catch (err: any) {
         throw err;
       }
@@ -108,7 +113,7 @@ export default function CompanyDashboard() {
     );
   }
 
-  const { role, companyName, kpis, alerts, actions } = dashboardResponse;
+  const { role, companyName, kpis, alerts, actions, activities } = dashboardResponse;
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -164,36 +169,12 @@ export default function CompanyDashboard() {
 
       {/* Main Content */}
         <main className="lg:pl-64 min-h-screen">
-        {/* Top Header */}
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between">
-          {/* Left: breadcrumb (desktop) or spacer for mobile hamburger */}
-          <div className="pl-10 lg:pl-0">
-            <h2 className="text-slate-500 text-sm font-medium">Dashboard / <span className="text-slate-900">{role} Perspective</span></h2>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Notification Bell */}
-            <div className="relative">
-              <button
-                onClick={() => setNotifOpen(o => !o)}
-                className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors relative"
-              >
-                <Bell className="w-5 h-5" />
-                {(dashboardResponse.unreadCount || 0) > 0 && (
-                  <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full" />
-                )}
-              </button>
-              <NotificationPanel
-                companyId={companyId}
-                isOpen={notifOpen}
-                onClose={() => setNotifOpen(false)}
-              />
-            </div>
-            <div className="h-6 w-px bg-slate-200" />
-            {/* Profile Dropdown */}
-            <UserDropdown role={role} />
-          </div>
-        </header>
+        <Header 
+          companyId={companyId} 
+          breadcrumbs={`Dashboard / ${role} Perspective`} 
+          role={role}
+          unreadCount={dashboardResponse.unreadCount}
+        />
 
         <div className="p-6 max-w-[1600px] mx-auto space-y-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -555,41 +536,35 @@ export default function CompanyDashboard() {
 
                 <div className="space-y-4 max-h-[700px] overflow-y-auto pr-2 custom-scrollbar">
                   <AnimatePresence>
-                    {alerts.map((alert, idx) => {
+                    {(activities || []).map((activity: any, idx) => {
+                      const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+                      const currentUserId = userStr ? JSON.parse(userStr).id : '';
+                      const message = renderActivityMessage(activity, currentUserId, role || '');
+                      
                       let href = '#';
-                      if (alert.entityType === 'Invoice' && alert.entityId) {
-                        href = `/company/${companyId}/sales/invoices/${alert.entityId}`;
-                      } else if (alert.entityType === 'JournalEntry' && alert.entityId) {
-                        href = `/company/${companyId}/journals/${alert.entityId}`;
-                      } else if (alert.entityType === 'LC' && alert.entityId) {
-                        href = `/company/${companyId}/lcs/${alert.entityId}`;
-                      } else if (alert.entityType === 'Loan' && alert.entityId) {
-                        href = `/company/${companyId}/loans/${alert.entityId}`;
+                      if (activity.entityType === 'journal') {
+                        href = `/company/${companyId}/journals`;
+                      } else if (activity.entityType === 'invoice') {
+                        href = `/company/${companyId}/sales/invoices`;
                       }
 
                       return (
                         <motion.div
-                          key={idx}
+                          key={activity.id}
                           initial={{ opacity: 0, x: 20 }}
                           animate={{ opacity: 1, x: 0 }}
-                          className={cn(
-                            "p-4 rounded-2xl border flex gap-4 transition-all hover:translate-x-1 hover:bg-slate-800/50 relative group/alert cursor-pointer",
-                            alert.type === 'warning' ? "bg-amber-500/10 border-amber-500/20 text-amber-500" :
-                            alert.type === 'danger' ? "bg-red-500/10 border-red-500/20 text-red-500" :
-                            "bg-blue-500/10 border-blue-500/20 text-blue-400"
-                          )}
+                          className="p-4 rounded-2xl border border-slate-800/40 bg-slate-800/10 flex gap-4 transition-all hover:translate-x-1 hover:bg-slate-800/30 relative group/alert cursor-pointer"
                           onClick={() => href !== '#' && router.push(href)}
                         >
-                          <AlertCircle className="w-5 h-5 shrink-0" />
+                          <Clock className="w-5 h-5 shrink-0 text-blue-400" />
                           <div className="flex-1">
-                            <h4 className="font-bold text-sm text-white mb-1">{alert.title || 'Activity'}</h4>
-                            <p className="text-xs font-medium leading-tight opacity-80">{alert.message}</p>
+                            <p className="text-sm font-medium leading-tight text-slate-300">{message}</p>
                             <div className="flex items-center justify-between mt-2">
-                               <p className="text-[10px] font-medium opacity-60">
-                                 {alert.createdAt ? new Date(alert.createdAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }) : 'Recently'}
+                               <p className="text-[10px] font-medium text-slate-500">
+                                 {new Date(activity.createdAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })}
                                </p>
                                {href !== '#' && (
-                                 <span className="text-[10px] font-bold text-white opacity-0 group-hover/alert:opacity-100 transition-opacity flex items-center gap-1">
+                                 <span className="text-[10px] font-bold text-blue-400 opacity-0 group-hover/alert:opacity-100 transition-opacity flex items-center gap-1">
                                    View Details <ChevronRight className="w-3 h-3" />
                                  </span>
                                )}
@@ -600,7 +575,7 @@ export default function CompanyDashboard() {
                     })}
                   </AnimatePresence>
                   
-                  {alerts.length === 0 && (
+                  {(!activities || activities.length === 0) && (
                     <div className="text-center py-20 text-slate-500">
                       <p className="font-bold">No recent activity found.</p>
                     </div>

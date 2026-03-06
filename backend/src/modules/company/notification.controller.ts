@@ -145,7 +145,7 @@ export class NotificationController {
       take: 50,
     });
 
-    const unreadCount = notifications.filter(n => !n.isRead).length;
+    const unreadCount = notifications.filter((n: { isRead: boolean }) => !n.isRead).length;
 
     return reply.send({ success: true, data: { notifications, unreadCount } });
   }
@@ -187,5 +187,64 @@ export class NotificationController {
     await prisma.notification.delete({ where: { id: notifId } });
 
     return reply.send({ success: true, message: 'Notification dismissed.' });
+  }
+
+  /**
+   * Static utility to log an activity from anywhere in the backend.
+   */
+  static async logActivity(params: {
+    companyId: string;
+    entityType: string;
+    entityId: string;
+    action: string;
+    performedById: string;
+    targetUserId?: string | null;
+    branchId?: string | null;
+    metadata?: any;
+  }) {
+    try {
+      return await prisma.activityLog.create({
+        data: {
+          companyId: params.companyId,
+          entityType: params.entityType,
+          entityId: params.entityId,
+          action: params.action,
+          performedById: params.performedById,
+          targetUserId: params.targetUserId,
+          branchId: params.branchId,
+          metadata: params.metadata || {},
+        },
+      });
+    } catch (error) {
+      console.error('Failed to log activity:', error);
+      return null;
+    }
+  }
+
+  /**
+   * List structured activities for a company (dynamic feed).
+   */
+  async listActivities(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { branchId } = request.query as { branchId?: string };
+
+    const where: any = { companyId };
+    if (branchId) where.branchId = branchId;
+
+    const activities = await prisma.activityLog.findMany({
+      where,
+      include: {
+        performedBy: {
+          select: { firstName: true, lastName: true, id: true }
+        },
+        targetUser: {
+          select: { firstName: true, lastName: true, id: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    return reply.send({ success: true, data: activities });
   }
 }

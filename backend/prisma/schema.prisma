@@ -53,6 +53,9 @@ model User {
   // Documents uploaded
   uploadedAttachments Attachment[]
   
+  performedActivities ActivityLog[] @relation("PerformedActivities")
+  targetActivities    ActivityLog[] @relation("TargetActivities")
+  
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -124,6 +127,8 @@ model Company {
   lcs          LC[]
   loans        Loan[]
   pis          PI[]
+  purchaseOrders PurchaseOrder[]
+  activityLogs  ActivityLog[]
   notifications Notification[]
   
   // Employee Relations
@@ -201,12 +206,22 @@ model LC {
   loanType        String    @default("NONE") // NONE, PERCENTAGE, FIXED
   loanValue       Float     @default(0)
   
+  // Shipment Info
+  shipmentDate    DateTime?
+  portOfLoading   String?
+  portOfDestination String?
+  vesselName      String?
+  bankBranch      String?
+
   // Relations
   company         Company   @relation(fields: [companyId], references: [id])
   customerId      String?
   customer        Customer? @relation(fields: [customerId], references: [id])
+  vendorId        String?
+  vendor          Vendor?   @relation(fields: [vendorId], references: [id])
   receivedDate    DateTime?
   pis             PI[]
+  purchaseOrders  PurchaseOrder[]
   payments        Payment[]
 
 
@@ -225,6 +240,8 @@ model PI {
   piDate          DateTime  @default(now())
   amount          Float
   currency        String    @default("USD")
+  exchangeRate    Float     @default(1)
+  totalBDT        Float?
   status          String    @default("OPEN") // OPEN, PARTIALLY_PAID, PAID
   
   // Advanced Export Fields
@@ -327,6 +344,7 @@ model Branch {
   company   Company  @relation(fields: [companyId], references: [id])
   journalEntries JournalEntry[]
   journalLines   JournalEntryLine[]
+  activityLogs   ActivityLog[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
@@ -376,6 +394,16 @@ model Customer {
   city        String?
   country     String?
   isActive    Boolean  @default(true)
+  
+  // Financial Info
+  contactPerson String?
+  tinVat        String?
+  openingBalance Float   @default(0)
+  balanceType   String?  // DR, CR
+  creditLimit   Float?
+  preferredCurrency String @default("BDT")
+  paymentTerms  String @default("COD") // COD, CREDIT, ADVANCE, DO_DUE
+
   company     Company  @relation(fields: [companyId], references: [id])
   invoices    Invoice[]
   journalLines JournalEntryLine[]
@@ -394,19 +422,82 @@ model Vendor {
   code        String   @unique
   name        String
   companyId   String
+  country     String?
   email       String?
   phone       String?
   address     String?
   city        String?
-  country     String?
   isActive    Boolean  @default(true)
+
+  // Financial Info
+  contactPerson String?
+  tinVat        String?
+  openingBalance Float   @default(0)
+  balanceType   String?  // DR, CR
+  creditLimit   Float?
+  preferredCurrency String @default("BDT")
+  paymentTerms  String @default("COD") // COD, CREDIT, ADVANCE, DO_DUE
+
   company     Company  @relation(fields: [companyId], references: [id])
+  purchaseOrders PurchaseOrder[]
+  lcs         LC[]
   bills       Bill[]
   journalLines JournalEntryLine[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
   @@index([companyId])
+}
+
+// ============================================
+// PURCHASE ORDER MODEL
+// ============================================
+
+model PurchaseOrder {
+  id              String    @id @default(uuid())
+  poNumber        String    @unique
+  companyId       String
+  supplierId      String
+  lcId            String?
+  
+  poDate          DateTime  @default(now())
+  expectedDeliveryDate DateTime?
+  
+  // Currency
+  currency        String    @default("BDT")
+  exchangeRate    Float     @default(1)
+  totalForeign    Float     @default(0)
+  totalBDT        Float     @default(0)
+  
+  // Status: DRAFT, APPROVED, SENT, RECEIVED, CLOSED
+  status          String    @default("DRAFT")
+  
+  // Audit
+  createdById     String
+  approvedById    String?
+
+  company        Company   @relation(fields: [companyId], references: [id])
+  supplier       Vendor    @relation(fields: [supplierId], references: [id])
+  lc             LC?       @relation(fields: [lcId], references: [id])
+  lines          PurchaseOrderLine[]
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([companyId])
+  @@index([supplierId])
+  @@index([lcId])
+}
+
+model PurchaseOrderLine {
+  id              String    @id @default(uuid())
+  purchaseOrderId String
+  itemDescription String
+  quantity        Float     @default(1)
+  unitPrice       Float
+  total           Float
+  
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
 }
 
 // ============================================
@@ -450,6 +541,9 @@ model Invoice {
   // Status Flow: DRAFT → PENDING_VERIFICATION → VERIFIED → PENDING_APPROVAL → APPROVED
   //              or REJECTED at any verification stage
   status          String    @default("DRAFT")
+  
+  // COD & Split Payment Support
+  paymentSplits   Json?    // { cash: 0, bank: 0, ar: 0, bankAccountId: "..." }
   
   // Audit Trail
   createdById     String
@@ -691,7 +785,34 @@ model BackupLog {
 }
 
 // ============================================
-// NOTIFICATION MODEL
+// ACTIVITY LOG MODEL (Structured Audit Trail)
+// ============================================
+
+model ActivityLog {
+  id            String   @id @default(uuid())
+  companyId     String
+  entityType    String   // journal, invoice, payment, purchase_order, lc
+  entityId      String   
+  action        String   // CREATED, VERIFIED, APPROVED, REJECTED_MANAGER, REJECTED_OWNER
+  performedById String
+  targetUserId  String?
+  branchId      String?
+  metadata      Json?    // { reason: "...", docNumber: "..." }
+  createdAt     DateTime @default(now())
+
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  performedBy   User     @relation("PerformedActivities", fields: [performedById], references: [id])
+  targetUser    User?    @relation("TargetActivities", fields: [targetUserId], references: [id])
+  branch        Branch?  @relation(fields: [branchId], references: [id])
+
+  @@index([companyId])
+  @@index([performedById])
+  @@index([targetUserId])
+  @@index([entityType, entityId])
+}
+
+// ============================================
+// NOTIFICATION MODEL (Legacy/Simple)
 // ============================================
 
 model Notification {
@@ -801,6 +922,7 @@ model Employee {
   salary        Float    @default(0)
   companyId     String
   isActive      Boolean  @default(true)
+  paymentTerms  String @default("BANK") // CASH, BANK, CHEQUE
   
   company        Company          @relation(fields: [companyId], references: [id])
   advances       EmployeeAdvance[]

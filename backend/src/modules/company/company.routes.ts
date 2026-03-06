@@ -89,6 +89,11 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.put('/:id/vendors/:vendorId', controller.updateVendor.bind(controller));
   fastify.delete('/:id/vendors/:vendorId', controller.deleteVendor.bind(controller));
 
+  // Purchase Orders
+  fastify.get('/:id/purchase-orders', controller.getPurchaseOrders.bind(controller));
+  fastify.post('/:id/purchase-orders', controller.createPurchaseOrder.bind(controller));
+  fastify.delete('/:id/purchase-orders/:poId', controller.deletePurchaseOrder.bind(controller));
+
   // Accounts
   fastify.get('/:id/accounts', controller.getAccounts.bind(controller));
   fastify.post('/:id/accounts', controller.createAccount.bind(controller));

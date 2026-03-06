@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
 import UserDropdown from '@/components/UserDropdown';
 import { 
   FileText, Plus, Search, Edit2, Trash2, Eye,
@@ -50,11 +51,8 @@ export default function SalesInvoicesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  useEffect(() => {
-    setMounted(true);
-    const token = localStorage.getItem('token');
-    if (!token) router.push('/login');
-  }, [router]);
+  const searchParams = useSearchParams();
+  const action = searchParams.get('action');
 
   const { data: invoicesData, isLoading } = useQuery({
     queryKey: ['sales-invoices', companyId],
@@ -64,6 +62,18 @@ export default function SalesInvoicesPage() {
     },
     enabled: !!companyId,
   });
+
+  useEffect(() => {
+    setMounted(true);
+    const token = localStorage.getItem('token');
+    if (!token) router.push('/login');
+
+    if (action === 'create' && !isLoading) {
+      openModal();
+      // Remove query param without reload
+      window.history.replaceState({}, '', `/company/${companyId}/sales/invoices`);
+    }
+  }, [router, action, isLoading, companyId]);
 
   const { data: customersData } = useQuery({
     queryKey: ['customers', companyId],
@@ -185,15 +195,11 @@ export default function SalesInvoicesPage() {
       <Sidebar companyName="Sales Invoices" />
 
       <main className="lg:pl-64 min-h-screen">
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between">
-          <div className="pl-10 lg:pl-0">
-            <h1 className="text-xl font-bold text-slate-900">Sales Invoices</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="h-6 w-px bg-slate-200" />
-            <UserDropdown />
-          </div>
-        </header>
+        <Header 
+          companyId={companyId} 
+          breadcrumbs="Sales / Invoices" 
+          unreadCount={0} // Can be fetched if needed, but keeping simple for now
+        />
 
         <div className="p-6 max-w-[1600px] mx-auto">
           <div className="flex justify-between items-center mb-6">

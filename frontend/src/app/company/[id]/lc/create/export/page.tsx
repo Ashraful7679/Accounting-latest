@@ -5,7 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from 'react-hot-toast';
-import { ArrowLeft, Ship, Globe, Landmark, Calendar, DollarSign, FileText, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Ship, Globe, Landmark, Calendar, DollarSign, FileText, CheckCircle2, AlertCircle 
+} from 'lucide-react';
 import Link from 'next/link';
 
 export default function CreateExportLCPage() {
@@ -37,11 +38,32 @@ export default function CreateExportLCPage() {
     description: '',
   });
 
+  const [selectedPIs, setSelectedPIs] = useState<string[]>([]);
+
   const { data: customers } = useQuery({
     queryKey: ['company-customers', companyId],
     queryFn: () => api.get(`/company/${companyId}/customers`).then(res => res.data.data),
     enabled: !!companyId,
   });
+
+  const { data: openPIs, isLoading: isLoadingPIs } = useQuery({
+    queryKey: ['open-pis', companyId, formData.customerId],
+    queryFn: () => api.get(`/company/${companyId}/pis`, { 
+      params: { customerId: formData.customerId, isUnlinked: 'true' } 
+    }).then(res => res.data.data),
+    enabled: !!companyId && !!formData.customerId,
+  });
+
+  useEffect(() => {
+    if (openPIs && openPIs.length > 0) {
+      const piIds = openPIs.map((pi: any) => pi.id);
+      setSelectedPIs(piIds);
+      const totalAmount = openPIs.reduce((sum: number, pi: any) => sum + pi.amount, 0);
+      setFormData(prev => ({ ...prev, amount: totalAmount.toString() }));
+    } else {
+      setSelectedPIs([]);
+    }
+  }, [openPIs]);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.post(`/company/${companyId}/lcs`, data),
@@ -64,6 +86,7 @@ export default function CreateExportLCPage() {
       amount: parseFloat(formData.amount),
       conversionRate: parseFloat(formData.conversionRate),
       loanValue: parseFloat(formData.loanValue),
+      piIds: selectedPIs,
     });
   };
 
@@ -168,17 +191,54 @@ export default function CreateExportLCPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Bank Branch</label>
-              <input
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800"
-                placeholder="e.g. Motijheel"
-                value={formData.bankBranch}
-                onChange={e => set('bankBranch', e.target.value)}
-              />
             </div>
           </div>
         </div>
+
+        {/* Linked PIs Section */}
+        {formData.customerId && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+            <h2 className="font-black text-slate-700 text-sm uppercase tracking-widest flex items-center gap-2">
+              <FileText className="w-4 h-4 text-blue-500" /> Linked Proforma Invoices (PIs)
+            </h2>
+            {isLoadingPIs ? (
+              <div className="text-slate-400 text-sm animate-pulse italic">Scanning for open PIs...</div>
+            ) : openPIs && openPIs.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  The following open PIs were found for this buyer and will be linked:
+                </p>
+                <div className="grid grid-cols-1 gap-2">
+                  {openPIs.map((pi: any) => (
+                    <div key={pi.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <FileText className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900 text-sm">{pi.piNumber}</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase">{new Date(pi.piDate).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <p className="font-black text-slate-900">{pi.currency} {pi.amount.toLocaleString()}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-2 border-t border-dashed border-slate-200 flex justify-between items-center">
+                  <span className="text-xs font-black text-slate-500 uppercase">Total Linked Value:</span>
+                  <span className="font-black text-emerald-600">
+                    {openPIs[0]?.currency} {openPIs.reduce((sum: number, p: any) => sum + p.amount, 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
+                <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5" />
+                <p className="text-xs font-bold text-amber-700">No open PIs found for this buyer. You can still create the LC manually.</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Dates Section */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">

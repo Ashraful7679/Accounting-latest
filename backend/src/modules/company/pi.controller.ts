@@ -15,19 +15,22 @@ export class PIController {
 
   async getAllPIs(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { type } = request.query as { type?: string };
+    const { type, customerId, isUnlinked } = request.query as { type?: string, customerId?: string, isUnlinked?: string };
 
-    const whereClause: any = {
-      OR: [
-        { lc: { companyId } },
-        { companyId } // Standalone PIs
-      ]
-    };
+    const whereClause: any = { companyId };
 
     if (type === 'export') {
       whereClause.customerId = { not: null };
     } else if (type === 'import') {
       whereClause.vendorId = { not: null };
+    }
+
+    if (customerId) {
+      whereClause.customerId = customerId;
+    }
+
+    if (isUnlinked === 'true') {
+      whereClause.lcId = null;
     }
 
     const pis = await (prisma as any).pI.findMany({

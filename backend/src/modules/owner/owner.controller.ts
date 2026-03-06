@@ -223,6 +223,9 @@ export class OwnerController {
       throw new ConflictError(`Total ownership cannot exceed 100%. Current total shares: ${currentTotal}%. You are trying to add ${ownershipPercentage}%, which would total ${newTotal}%. Please reduce the share of another owner or adjust the current entry.`);
     }
 
+    const company = await prisma.company.findUnique({ where: { id: companyId } });
+    if (!company) throw new NotFoundError('Company not found');
+
     const shortId = ownerId.split('-')[0].toUpperCase();
 
     await (prisma.userCompany as any).create({
@@ -243,8 +246,8 @@ export class OwnerController {
         joiningDate: joiningDate ? new Date(joiningDate) : null,
         openingCapital: Number(openingCapital),
         currentCapitalBalance: Number(openingCapital),
-        capitalAccountCode: `CAP-O-${shortId}`,
-        drawingAccountCode: `DRW-O-${shortId}`,
+        capitalAccountCode: `CAP-O-${company.code}-${shortId}`,
+        drawingAccountCode: `DRW-O-${company.code}-${shortId}`,
         tin,
         din,
       },

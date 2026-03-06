@@ -82,8 +82,6 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
       children: [
         { name: 'Suppliers', href: `/company/${companyId}/vendors` },
         { name: 'Purchase Order', href: `/company/${companyId}/purchase/orders` },
-        { name: 'Import LC', href: `/company/${companyId}/lc/create/import` },
-        { name: 'Loan Management', href: `/company/${companyId}/lc/loans` },
         { name: 'Purchase Invoices', href: `/company/${companyId}/purchase/invoices` },
       ]
     },
@@ -93,16 +91,17 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
       children: [
         { name: 'Customers', href: `/company/${companyId}/sales/customers` },
         { name: 'Proforma Invoice', href: `/company/${companyId}/sales/pis` },
-        { name: 'Export LC', href: `/company/${companyId}/lc/create/export` },
         { name: 'Sales Invoices', href: `/company/${companyId}/sales/invoices` },
       ]
     },
     { 
-      name: 'Trade & Finance Hub', 
+      name: 'LC Management', 
       icon: FileStack,
       children: [
-        { name: 'LC All List', href: `/company/${companyId}/lc` },
-        { name: 'LC PIs', href: `/company/${companyId}/lc/pis` },
+        { name: 'LC Overview', href: `/company/${companyId}/lc` },
+        { name: 'Import LC', href: `/company/${companyId}/lc/create/import` },
+        { name: 'Export LC', href: `/company/${companyId}/lc/create/export` },
+        { name: 'Loan Management', href: `/company/${companyId}/lc/loans` },
         { name: 'LC Settlement', href: `/company/${companyId}/lc/settlement` },
       ]
     },

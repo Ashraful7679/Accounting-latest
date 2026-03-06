@@ -27,17 +27,7 @@ export default function ProductsPage() {
   const companyId = params.id as string;
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    sku: '',
-    description: '',
-    unitPrice: 0,
-    isActive: true
-  });
 
   useEffect(() => {
     setMounted(true);
@@ -54,36 +44,6 @@ export default function ProductsPage() {
     enabled: !!companyId,
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await api.post(`/company/${companyId}/products`, data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products', companyId] });
-      toast.success('Product created successfully');
-      closeModal();
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to create product');
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await api.put(`/company/${companyId}/products/${selectedProduct?.id}`, data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products', companyId] });
-      toast.success('Product updated successfully');
-      closeModal();
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to update product');
-    },
-  });
-
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await api.delete(`/company/${companyId}/products/${id}`);
@@ -97,43 +57,6 @@ export default function ProductsPage() {
       toast.error(error.response?.data?.error?.message || 'Failed to delete product');
     },
   });
-
-  const openModal = (product?: Product) => {
-    if (product) {
-      setSelectedProduct(product);
-      setFormData({
-        name: product.name,
-        sku: product.sku || '',
-        description: product.description || '',
-        unitPrice: product.unitPrice,
-        isActive: product.isActive
-      });
-    } else {
-      setSelectedProduct(null);
-      setFormData({
-        name: '',
-        sku: '',
-        description: '',
-        unitPrice: 0,
-        isActive: true
-      });
-    }
-    setShowModal(true);
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setSelectedProduct(null);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedProduct) {
-      updateMutation.mutate(formData);
-    } else {
-      createMutation.mutate(formData);
-    }
-  };
 
   const filteredProducts = products?.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -156,7 +79,7 @@ export default function ProductsPage() {
           </div>
           
           <button
-            onClick={() => openModal()}
+            onClick={() => router.push(`/company/${companyId}/products/create`)}
             className="group relative px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all duration-300 hover:shadow-lg hover:shadow-blue-200 active:scale-95 flex items-center gap-2"
           >
             <Plus className="w-5 h-5 transition-transform group-hover:rotate-90" />
@@ -210,7 +133,7 @@ export default function ProductsPage() {
                           <p className="text-slate-900 font-bold text-lg">No products found</p>
                           <p className="text-slate-500 text-sm mt-1">Get started by adding your first product to the catalog.</p>
                         </div>
-                        <button onClick={() => openModal()} className="text-blue-600 font-bold text-sm hover:underline flex items-center gap-1">
+                        <button onClick={() => router.push(`/company/${companyId}/products/create`)} className="text-blue-600 font-bold text-sm hover:underline flex items-center gap-1">
                           <Plus className="w-4 h-4" /> Add your first product
                         </button>
                       </div>
@@ -252,7 +175,7 @@ export default function ProductsPage() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
                           <button
-                            onClick={() => openModal(product)}
+                            onClick={() => router.push(`/company/${companyId}/products/${product.id}/edit`)}
                             className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100"
                             title="Edit Product"
                           >
@@ -279,124 +202,6 @@ export default function ProductsPage() {
           </div>
         </div>
       </div>
-
-      {/* Modal Overlay */}
-      {showModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 backdrop-blur-md bg-slate-900/40 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between p-6 bg-slate-50 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
-                  <Package className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900">
-                    {selectedProduct ? 'Edit Product' : 'Add New Product'}
-                  </h3>
-                  <p className="text-slate-500 text-xs">Fill in the product details below</p>
-                </div>
-              </div>
-              <button onClick={closeModal} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white rounded-lg transition-colors shadow-sm border border-transparent hover:border-slate-100">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    Product Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    placeholder="e.g. Industrial Steel Pipe"
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1.5">SKU / Model</label>
-                    <input
-                      type="text"
-                      value={formData.sku}
-                      onChange={(e) => setFormData({...formData, sku: e.target.value})}
-                      placeholder="e.g. SP-2024"
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                      Default Unit Price <span className="text-slate-400 font-normal">(Optional)</span>
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.unitPrice || ''}
-                        onChange={(e) => setFormData({...formData, unitPrice: parseFloat(e.target.value) || 0})}
-                        placeholder="0.00"
-                        className="w-full pl-8 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-black text-slate-900"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1.5">Description</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    placeholder="Short product description..."
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium min-h-[100px]"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <input
-                    type="checkbox"
-                    id="isActive"
-                    checked={formData.isActive}
-                    onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
-                    className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                  />
-                  <label htmlFor="isActive" className="text-sm font-bold text-slate-700 cursor-pointer select-none">
-                    Available for transactions
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="flex-1 px-4 py-3 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-colors active:scale-95"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || updateMutation.isPending}
-                  className="flex-1 px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 disabled:opacity-50 active:scale-95"
-                >
-                  {createMutation.isPending || updateMutation.isPending ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Saving...
-                    </div>
-                  ) : (
-                    selectedProduct ? 'Update Product' : 'Create Product'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

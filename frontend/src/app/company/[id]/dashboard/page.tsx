@@ -73,6 +73,13 @@ export default function CompanyDashboard() {
     retry: 1
   });
 
+  // Cache company name so the shared layout can use it without an extra API call
+  useEffect(() => {
+    if (dashboardResponse?.companyName) {
+      localStorage.setItem(`company_name_${companyId}`, dashboardResponse.companyName);
+    }
+  }, [dashboardResponse?.companyName, companyId]);
+
   if (!mounted) return null;
 
   if (isError) {
@@ -112,13 +119,6 @@ export default function CompanyDashboard() {
   }
 
   const { role, companyName, kpis, alerts, actions, activities } = dashboardResponse;
-
-  // Cache company name so the shared layout can use it without an extra API call
-  useEffect(() => {
-    if (companyName) {
-      localStorage.setItem(`company_name_${companyId}`, companyName);
-    }
-  }, [companyName, companyId]);
 
   // menuItems moved to Sidebar component
 

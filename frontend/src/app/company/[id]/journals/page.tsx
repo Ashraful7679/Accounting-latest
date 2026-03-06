@@ -57,7 +57,7 @@ export default function CompanyJournalsPage() {
     queryKey: ['journals', companyId, page],
     queryFn: async () => {
       const response = await api.get(`/company/${companyId}/journals?limit=${limit}&page=${page}`);
-      return response.data;
+      return response.data.data;
     },
     enabled: !!companyId,
   });

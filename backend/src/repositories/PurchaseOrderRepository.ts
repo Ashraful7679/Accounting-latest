@@ -33,6 +33,12 @@ export class PurchaseOrderRepository {
 
   static async create(data: any) {
     const { lines, ...poData } = data;
+    
+    // Ensure empty relation IDs are treated as null
+    if (poData.lcId === "") {
+      poData.lcId = null;
+    }
+
     if (SYSTEM_MODE === "LIVE") {
       return await prisma.purchaseOrder.create({
         data: {
@@ -51,6 +57,12 @@ export class PurchaseOrderRepository {
 
   static async update(id: string, data: any) {
     const { lines, ...poData } = data;
+    
+    // Ensure empty relation IDs are treated as null
+    if (poData.lcId === "") {
+      poData.lcId = null;
+    }
+
     if (SYSTEM_MODE === "LIVE") {
       // For updates, we might want to replace lines or update them individually.
       // Simplest: Delete and recreate lines if provided

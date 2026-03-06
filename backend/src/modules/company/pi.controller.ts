@@ -13,13 +13,23 @@ export class PIController {
 
   async getAllPIs(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
+    const { type } = request.query as { type?: string };
+
+    const whereClause: any = {
+      OR: [
+        { lc: { companyId } },
+        { companyId } // Standalone PIs
+      ]
+    };
+
+    if (type === 'export') {
+      whereClause.customerId = { not: null };
+    } else if (type === 'import') {
+      whereClause.vendorId = { not: null };
+    }
+
     const pis = await (prisma as any).pI.findMany({
-      where: {
-        OR: [
-          { lc: { companyId } },
-          { companyId } // Standalone PIs
-        ]
-      },
+      where: whereClause,
       include: {
         lc: {
           include: { customer: { select: { name: true } } }

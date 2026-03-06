@@ -36,12 +36,13 @@ export default function SalesInvoicesPage() {
   const [showModal, setShowModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [formData, setFormData] = useState({
-    invoiceNumber: '',
+    invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
     customerId: '',
-    currency: 'USD',
+    currency: 'BDT',
     exchangeRate: 1,
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
+    amount: 0,
     subtotal: 0,
     taxAmount: 0,
     description: '',
@@ -108,23 +109,25 @@ export default function SalesInvoicesPage() {
       setFormData({
         invoiceNumber: invoice.invoiceNumber || '',
         customerId: invoice.customer?.id || '',
-        currency: invoice.currency || 'USD',
+        currency: invoice.currency || 'BDT',
         exchangeRate: invoice.exchangeRate || 1,
         invoiceDate: invoice.invoiceDate ? invoice.invoiceDate.split('T')[0] : '',
         dueDate: invoice.dueDate ? invoice.dueDate.split('T')[0] : '',
-        subtotal: invoice.subtotal || 0,
+        amount: invoice.subtotal || 0,
+        subtotal: (invoice.subtotal || 0) * (invoice.exchangeRate || 1),
         taxAmount: invoice.taxAmount || 0,
         description: invoice.description || '',
       });
     } else {
       setSelectedInvoice(null);
       setFormData({
-        invoiceNumber: '',
+        invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
         customerId: '',
-        currency: 'USD',
+        currency: 'BDT',
         exchangeRate: 1,
         invoiceDate: new Date().toISOString().split('T')[0],
         dueDate: '',
+        amount: 0,
         subtotal: 0,
         taxAmount: 0,
         description: '',
@@ -140,7 +143,18 @@ export default function SalesInvoicesPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    const submitData = {
+      ...formData,
+      lines: [
+        {
+          description: formData.description || 'Sales',
+          quantity: 1,
+          unitPrice: formData.subtotal,
+          taxRate: formData.subtotal > 0 ? (formData.taxAmount / formData.subtotal) * 100 : 0
+        }
+      ]
+    };
+    createMutation.mutate(submitData);
   };
 
   const getStatusBadge = (status: string) => {
@@ -267,10 +281,7 @@ export default function SalesInvoicesPage() {
           <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-semibold mb-4">Create Sales Invoice</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Invoice Number *</label>
-                <input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({...formData, invoiceNumber: e.target.value})} className="input" required />
-              </div>
+              <input type="hidden" value={formData.invoiceNumber} />
               <div>
                 <label className="block text-sm font-medium mb-1">Customer *</label>
                 <select value={formData.customerId} onChange={(e) => setFormData({...formData, customerId: e.target.value})} className="input" required>
@@ -303,8 +314,15 @@ export default function SalesInvoicesPage() {
                   <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value)})} className="input" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Subtotal</label>
-                  <input type="number" step="0.01" value={formData.subtotal} onChange={(e) => setFormData({...formData, subtotal: parseFloat(e.target.value)})} className="input" />
+                  <label className="block text-sm font-medium mb-1">Amount</label>
+                  <input type="number" step="0.01" value={formData.amount} onChange={(e) => {
+                    const amt = parseFloat(e.target.value) || 0;
+                    setFormData({...formData, amount: amt, subtotal: amt * formData.exchangeRate});
+                  }} className="input" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Subtotal (Auto-calculated)</label>
+                  <input type="number" step="0.01" value={formData.subtotal} readOnly className="input bg-gray-50" />
                 </div>
               </div>
               <div>

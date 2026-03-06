@@ -68,7 +68,7 @@ export class CompanyController {
       },
     });
 
-    if (isOwner?.user.userRoles.some((ur) => ur.role.name === 'Owner')) {
+    if (isOwner?.user.userRoles.some((ur: any) => ur.role.name === 'Owner')) {
       return 'Owner';
     }
 
@@ -303,7 +303,7 @@ export class CompanyController {
     });
 
     // 2. Wrap in a transaction for safety
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       for (const account of accounts) {
         // Reset to opening balance
         let balance = Number(account.openingBalance) || 0;
@@ -567,7 +567,7 @@ export class CompanyController {
       throw new ForbiddenError('Cannot approve this invoice');
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx: any) => {
       // 1. Update Status
       const inv = await tx.invoice.update({
         where: { id: invoiceId },
@@ -922,7 +922,7 @@ export class CompanyController {
       throw new ForbiddenError('Cannot approve this journal');
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx: any) => {
       // 1. Update Journal Status
       const jrnl = await tx.journalEntry.update({
         where: { id: journalId },
@@ -983,9 +983,9 @@ export class CompanyController {
       },
     });
 
-    const data = accounts.map((acc) => {
-      const totalDebit = acc.journalLines.reduce((sum, line) => sum + line.debit, 0);
-      const totalCredit = acc.journalLines.reduce((sum, line) => sum + line.credit, 0);
+    const data = accounts.map((acc: any) => {
+      const totalDebit = acc.journalLines.reduce((sum: number, line: any) => sum + line.debit, 0);
+      const totalCredit = acc.journalLines.reduce((sum: number, line: any) => sum + line.credit, 0);
       const balance = acc.openingBalance + totalDebit - totalCredit;
 
       return {
@@ -1043,9 +1043,9 @@ export class CompanyController {
     return reply.send({
       success: true,
       data: {
-        assets: assets.map((a) => ({ name: a.name, balance: a.currentBalance })),
-        liabilities: liabilities.map((l) => ({ name: l.name, balance: Math.abs(l.currentBalance) })),
-        equity: equity.map((e) => ({ name: e.name, balance: Math.abs(e.currentBalance) })),
+        assets: assets.map((a: any) => ({ name: a.name, balance: a.currentBalance })),
+        liabilities: liabilities.map((l: any) => ({ name: l.name, balance: Math.abs(l.currentBalance) })),
+        equity: equity.map((e: any) => ({ name: e.name, balance: Math.abs(e.currentBalance) })),
       },
     });
   }
@@ -1061,15 +1061,15 @@ export class CompanyController {
       where: { companyId, accountType: { name: 'EXPENSE' }, isActive: true },
     });
 
-    const totalIncome = income.reduce((sum, a) => sum + Math.abs(a.currentBalance), 0);
-    const totalExpense = expenses.reduce((sum, a) => sum + Math.abs(a.currentBalance), 0);
+    const totalIncome = income.reduce((sum: number, a: any) => sum + Math.abs(a.currentBalance), 0);
+    const totalExpense = expenses.reduce((sum: number, a: any) => sum + Math.abs(a.currentBalance), 0);
     const netProfit = totalIncome - totalExpense;
 
     return reply.send({
       success: true,
       data: {
-        income: income.map((i) => ({ name: i.name, amount: Math.abs(i.currentBalance) })),
-        expenses: expenses.map((e) => ({ name: e.name, amount: Math.abs(e.currentBalance) })),
+        income: income.map((i: any) => ({ name: i.name, amount: Math.abs(i.currentBalance) })),
+        expenses: expenses.map((e: any) => ({ name: e.name, amount: Math.abs(e.currentBalance) })),
         totalIncome,
         totalExpense,
         netProfit,
@@ -1082,7 +1082,7 @@ export class CompanyController {
   // Helper: Get all subordinate IDs recursively
   private async getSubordinateIds(managerId: string): Promise<string[]> {
     const subordinates = await prisma.user.findMany({ where: { managerId } });
-    let ids = subordinates.map((s) => s.id);
+    let ids = subordinates.map((s: any) => s.id);
 
     for (const sub of subordinates) {
       const subIds = await this.getSubordinateIds(sub.id);

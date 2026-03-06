@@ -55,6 +55,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/lcs/:id/pis', piController.createPI.bind(piController));
   fastify.put('/pis/:piId', piController.updatePI.bind(piController));
   fastify.get('/pis/:piId', piController.getPIDetail.bind(piController));
+  fastify.get('/:id/pis', piController.getAllPIs.bind(piController));
   fastify.get('/:id/all-pis', piController.getAllPIs.bind(piController));
   fastify.post('/:id/pis', piController.createPI.bind(piController));
   fastify.delete('/pis/:piId', piController.deletePI.bind(piController));

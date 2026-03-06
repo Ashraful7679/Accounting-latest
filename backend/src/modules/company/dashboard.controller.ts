@@ -538,7 +538,7 @@ export class DashboardController {
           { name: 'Liquidity Trend (Cumulative)', data: liquidityTrend, type: 'LINE' },
           { name: 'Revenue by Buyer', data: buyerDistribution, type: 'PIE' }
         ],
-        alerts: activities, // Send activities here, frontend uses this array
+        alerts: activities, // Send activities here, frontend uses this array 
         unreadCount,
         lastBackup: lastBackup ? {
           timestamp: lastBackup.createdAt,
@@ -605,7 +605,14 @@ export class DashboardController {
     try {
       const activities = await prisma.activityLog.findMany({
         where: { companyId },
-        include: {
+        select: {
+          id: true,
+          companyId: true,
+          entityType: true,
+          entityId: true,
+          action: true,
+          metadata: true,
+          createdAt: true,
           performedBy: { select: { id: true, firstName: true, lastName: true } },
           targetUser: { select: { id: true, firstName: true, lastName: true } }
         },

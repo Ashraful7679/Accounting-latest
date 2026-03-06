@@ -34,6 +34,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
 
   // Dashboards
   fastify.get('/:id/dashboard-stats', dashboardController.getStats.bind(dashboardController));
+  fastify.get('/:id/activities', dashboardController.getActivities.bind(dashboardController));
 
   // Notifications
   fastify.post('/:id/notifications/generate', notificationController.generate.bind(notificationController));

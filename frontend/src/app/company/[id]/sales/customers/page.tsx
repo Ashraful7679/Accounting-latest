@@ -128,13 +128,14 @@ export default function CompanyCustomersPage() {
         balanceType: customer.balanceType || 'DR',
         creditLimit: customer.creditLimit || 0,
         preferredCurrency: customer.preferredCurrency || 'BDT',
+        paymentTerms: customer.paymentTerms || 'COD',
       });
     } else {
       setEditingCustomer(null);
       setFormData({
         name: '', email: '', phone: '', address: '', city: '', country: '',
         contactPerson: '', tinVat: '', openingBalance: 0, balanceType: 'DR',
-        creditLimit: 0, preferredCurrency: 'BDT'
+        creditLimit: 0, preferredCurrency: 'BDT', paymentTerms: 'COD'
       });
     }
     setShowModal(true);

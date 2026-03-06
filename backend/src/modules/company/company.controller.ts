@@ -255,6 +255,55 @@ export class CompanyController {
     return reply.status(201).send({ success: true, data: po });
   }
 
+  async updatePurchaseOrder(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, poId } = request.params as { id: string, poId: string };
+    const updateData = request.body as any;
+
+    // Remove immutable fields if present in update payload
+    delete updateData.companyId;
+    delete updateData.poNumber;
+    delete updateData.createdById;
+
+    if (updateData.poDate) updateData.poDate = new Date(updateData.poDate);
+    if (updateData.expectedDeliveryDate) updateData.expectedDeliveryDate = new Date(updateData.expectedDeliveryDate);
+
+    const po = await PurchaseOrderRepository.update(poId, updateData);
+
+    // Log Activity
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'purchase_order',
+      entityId: po.id,
+      action: 'UPDATED',
+      performedById: (request.user as any).id,
+      metadata: { docNumber: po.poNumber }
+    });
+
+    return reply.send({ success: true, data: po });
+  }
+
+  async updatePurchaseOrderStatus(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, poId } = request.params as { id: string, poId: string };
+    const { status } = request.body as { status: string };
+
+    const po = await prisma.purchaseOrder.update({
+      where: { id: poId },
+      data: { status }
+    });
+
+    // Log Activity
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'purchase_order',
+      entityId: po.id,
+      action: 'STATUS_CHANGED',
+      performedById: (request.user as any).id,
+      metadata: { docNumber: po.poNumber, newStatus: status }
+    });
+
+    return reply.send({ success: true, data: po });
+  }
+
   async deletePurchaseOrder(request: FastifyRequest, reply: FastifyReply) {
     const { poId } = request.params as { poId: string };
     await PurchaseOrderRepository.delete(poId);

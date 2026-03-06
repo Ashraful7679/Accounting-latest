@@ -95,6 +95,8 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   // Purchase Orders
   fastify.get('/:id/purchase-orders', controller.getPurchaseOrders.bind(controller));
   fastify.post('/:id/purchase-orders', controller.createPurchaseOrder.bind(controller));
+  fastify.put('/:id/purchase-orders/:poId', controller.updatePurchaseOrder.bind(controller));
+  fastify.patch('/:id/purchase-orders/:poId/status', controller.updatePurchaseOrderStatus.bind(controller));
   fastify.delete('/:id/purchase-orders/:poId', controller.deletePurchaseOrder.bind(controller));
 
   // Accounts

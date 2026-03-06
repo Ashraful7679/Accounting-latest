@@ -191,7 +191,6 @@ export default function CreateExportLCPage() {
               />
             </div>
 
-            </div>
           </div>
         </div>
 

@@ -68,6 +68,19 @@ export class AccountRepository {
     return { ...data, id: `offline-${Date.now()}` };
   }
 
+  static async findByCategory(companyId: string, category: string) {
+    if (SYSTEM_MODE === "LIVE") {
+      try {
+        return await prisma.account.findFirst({
+          where: { companyId, category, isActive: true }
+        });
+      } catch (error) {
+        console.error(`Account search by category ${category} failed`);
+      }
+    }
+    return demoAccounts.find(a => a.category === category && (a as any).companyId === companyId);
+  }
+
   static async findById(id: string) {
     if (SYSTEM_MODE === "LIVE") {
       try {

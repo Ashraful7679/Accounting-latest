@@ -254,7 +254,7 @@ export default function CompanyCustomersPage() {
             </div>
           </div>
         </div>
-      </main>
+      
 
       {/* CUSTOMER MODAL */}
       {showModal && (

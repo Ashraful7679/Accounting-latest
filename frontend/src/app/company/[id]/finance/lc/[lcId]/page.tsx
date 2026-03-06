@@ -396,7 +396,6 @@ export default function LCDetailPage() {
             </div>
           </div>
         </div>
-      </main>
 
       {/* PI Modal */}
       <AnimatePresence>

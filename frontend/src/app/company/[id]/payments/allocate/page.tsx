@@ -192,7 +192,7 @@ export default function PaymentAllocationPage() {
             </div>
           </div>
         </div>
-      </main>
+      
 
       {showModal && selectedPayment && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

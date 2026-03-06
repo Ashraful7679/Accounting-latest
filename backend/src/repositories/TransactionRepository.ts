@@ -145,4 +145,116 @@ export class TransactionRepository {
     offlineJournals.unshift(newJournal);
     return newJournal;
   }
+
+  // --- Accounting Hooks ---
+  static async generateInvoiceJournal(tx: any, invoice: any, companyId: string, userId: string) {
+    const isSales = invoice.type === 'SALES';
+    const invoiceTotal = Number(invoice.total);
+    const journalDate = new Date(invoice.invoiceDate);
+
+    // 1. Get Primary Accounts
+    const revOrExpCategory = isSales ? 'REVENUE' : 'EXPENSE';
+    const arOrApCategory = isSales ? 'AR' : 'AP';
+
+    const incomeExpAccount = await tx.account.findFirst({ where: { companyId, category: revOrExpCategory } });
+    const arApAccount = await tx.account.findFirst({ where: { companyId, category: arOrApCategory } });
+
+    if (!incomeExpAccount) throw new Error(`${revOrExpCategory} account not found in Chart of Accounts`);
+    if (!arApAccount) throw new Error(`${arOrApCategory} account not found in Chart of Accounts`);
+
+    // 2. Handle Split Payments (COD Support)
+    const splits = (invoice as any).paymentSplits as {
+      cash?: number;
+      bank?: number;
+      ar?: number;
+      ap?: number;
+      bankAccountId?: string;
+    } | null;
+
+    const cashAmount = Number(splits?.cash || 0);
+    const bankAmount = Number(splits?.bank || 0);
+    // Remaining goes to AR (for Sales) or AP (for Purchase)
+    const creditDebitAmount = Number(isSales ? splits?.ar : splits?.ap) || (invoiceTotal - cashAmount - bankAmount);
+
+    const lines: any[] = [];
+
+    // Cash line
+    if (cashAmount > 0) {
+      const cashAcc = await tx.account.findFirst({ where: { companyId, category: 'CASH' } });
+      if (!cashAcc) throw new Error('Cash account not found');
+      lines.push({
+        accountId: cashAcc.id,
+        debit: isSales ? cashAmount : 0,
+        credit: isSales ? 0 : cashAmount,
+        debitBase: isSales ? cashAmount : 0,
+        creditBase: isSales ? 0 : cashAmount,
+        description: `Cash ${isSales ? 'received' : 'paid'} - Inv ${invoice.invoiceNumber}`
+      });
+      await tx.account.update({ where: { id: cashAcc.id }, data: { currentBalance: { increment: isSales ? cashAmount : -cashAmount } } });
+    }
+
+    // Bank line
+    if (bankAmount > 0) {
+      const bankAcc = splits?.bankAccountId 
+        ? await tx.account.findUnique({ where: { id: splits.bankAccountId } })
+        : await tx.account.findFirst({ where: { companyId, category: 'BANK' } });
+      if (!bankAcc) throw new Error('Bank account not found');
+      lines.push({
+        accountId: bankAcc.id,
+        debit: isSales ? bankAmount : 0,
+        credit: isSales ? 0 : bankAmount,
+        debitBase: isSales ? bankAmount : 0,
+        creditBase: isSales ? 0 : bankAmount,
+        description: `Bank ${isSales ? 'received' : 'paid'} - Inv ${invoice.invoiceNumber}`
+      });
+      await tx.account.update({ where: { id: bankAcc.id }, data: { currentBalance: { increment: isSales ? bankAmount : -bankAmount } } });
+    }
+
+    // AR/AP line (Receivable/Payable)
+    if (creditDebitAmount > 0) {
+      lines.push({
+        accountId: arApAccount.id,
+        debit: isSales ? creditDebitAmount : 0,
+        credit: isSales ? 0 : creditDebitAmount,
+        debitBase: isSales ? creditDebitAmount : 0,
+        creditBase: isSales ? 0 : creditDebitAmount,
+        description: `${isSales ? 'Receivable' : 'Payable'} - Inv ${invoice.invoiceNumber}`
+      });
+      await tx.account.update({ where: { id: arApAccount.id }, data: { currentBalance: { increment: isSales ? creditDebitAmount : -creditDebitAmount } } });
+    }
+
+    // Revenue/Expense line (The Offset)
+    lines.push({
+      accountId: incomeExpAccount.id,
+      debit: isSales ? 0 : invoiceTotal,
+      credit: isSales ? invoiceTotal : 0,
+      debitBase: isSales ? 0 : invoiceTotal,
+      creditBase: isSales ? invoiceTotal : 0,
+      description: `${isSales ? 'Revenue' : 'Expense'} - Inv ${invoice.invoiceNumber}`
+    });
+
+    // Update income/exp balance
+    const isDebitType = (incomeExpAccount as any).accountType?.type === 'DEBIT';
+    const balanceChange = isDebitType ? (isSales ? -invoiceTotal : invoiceTotal) : (isSales ? invoiceTotal : -invoiceTotal);
+    await tx.account.update({ where: { id: incomeExpAccount.id }, data: { currentBalance: { increment: balanceChange } } });
+
+    // Create the Journal Entry
+    const entryNumber = `JV-INV-${invoice.invoiceNumber}`;
+    return await tx.journalEntry.create({
+      data: {
+        entryNumber,
+        companyId,
+        date: journalDate,
+        description: `Auto-journal: Invoice ${invoice.invoiceNumber}`,
+        reference: invoice.invoiceNumber,
+        totalDebit: invoiceTotal,
+        totalCredit: invoiceTotal,
+        status: 'APPROVED',
+        createdById: userId,
+        approvedById: userId,
+        approvedAt: new Date(),
+        lines: { create: lines }
+      }
+    });
+  }
 }

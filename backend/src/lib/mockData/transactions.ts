@@ -8,13 +8,15 @@ export const demoInvoices = [
     status: "APPROVED",
     currency: "USD",
     exchangeRate: 110.5,
+    type: "SALES",
     subtotal: 5000,
     taxAmount: 0,
     total: 552500, // in BDT
-    customer: { name: "Global Garments USA" },
+    customer: { id: "cust-1", name: "Global Garments USA" },
+    vendor: null,
     createdBy: demoUser,
     lines: [
-      { id: "inv-l-1", description: "Export Quality Cotton Yarn", quantity: 1000, unitPrice: 50, amount: 5000 }
+      { id: "inv-l-1", description: "Export Quality Cotton Yarn", quantity: 1000, unitPrice: 50, taxRate: 0, amount: 5000, product: null }
     ]
   },
   {
@@ -24,13 +26,33 @@ export const demoInvoices = [
     status: "PENDING_VERIFICATION",
     currency: "BDT",
     exchangeRate: 1,
+    type: "SALES",
     subtotal: 125000,
     taxAmount: 6250,
     total: 131250,
-    customer: { name: "Local Textile Ltd" },
+    customer: { id: "cust-2", name: "Local Textile Ltd" },
+    vendor: null,
     createdBy: demoUser,
     lines: [
-      { id: "inv-l-2", description: "Fabric Dying (Blue)", quantity: 5000, unitPrice: 25, amount: 125000 }
+      { id: "inv-l-2", description: "Fabric Dying (Blue)", quantity: 5000, unitPrice: 25, taxRate: 5, amount: 125000, product: null }
+    ]
+  },
+  {
+    id: "inv-3",
+    invoiceNumber: "PUR-DEMO-001",
+    invoiceDate: new Date().toISOString(),
+    status: "APPROVED",
+    currency: "BDT",
+    exchangeRate: 1,
+    type: "PURCHASE",
+    subtotal: 80000,
+    taxAmount: 4000,
+    total: 84000,
+    customer: null,
+    vendor: { id: "ven-1", name: "Fabric Supplier X" },
+    createdBy: demoUser,
+    lines: [
+      { id: "inv-l-3", description: "Raw Cotton", quantity: 100, unitPrice: 800, taxRate: 5, amount: 80000, product: null }
     ]
   }
 ];

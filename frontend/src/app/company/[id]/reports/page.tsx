@@ -479,7 +479,7 @@ export default function ReportCenterPage() {
             </div>
           )}
         </div>
-      </main>
+      
 
     </div>
   );

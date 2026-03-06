@@ -328,7 +328,7 @@ export default function ReceivablesSearchPage() {
             </div>
           </div>
         </div>
-      </main>
+      
 
       <style jsx global>{`
         @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }

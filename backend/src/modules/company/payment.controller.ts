@@ -92,25 +92,31 @@ export class PaymentController {
         }
       }
 
-      // 3. Existing Invoice Logic
+      // 3. Invoice Payment (Sales AR or Purchase AP)
       if (invoiceId) {
         const invoice = await tx.invoice.findUnique({ where: { id: invoiceId } });
         if (!invoice) throw new NotFoundError('Invoice not found');
 
-        const arAccount = await tx.account.findFirst({
-            where: { companyId, category: 'AR' } as any
+        const isSales = invoice.type === 'SALES';
+        const arApCategory = isSales ? 'AR' : 'AP';
+        const arApAccount = await tx.account.findFirst({
+            where: { companyId, category: arApCategory } as any
         });
         
-        if (!accountId || !arAccount) {
-            throw new ValidationError('Settlement accounts (AR/Cash) not found');
+        if (!accountId || !arApAccount) {
+            throw new ValidationError(`${arApCategory} settlement account not found`);
         }
+
+        const journalDesc = isSales 
+          ? `Payment received for Invoice ${invoice.invoiceNumber}`
+          : `Payment made for Purchase Invoice ${invoice.invoiceNumber}`;
 
         await tx.journalEntry.create({
           data: {
             entryNumber: `JV-PMT-${pmt.id.substring(0,8)}`,
             companyId,
             date: date ? new Date(date) : new Date(),
-            description: `Payment received for Invoice ${invoice.invoiceNumber}`,
+            description: journalDesc,
             totalDebit: Number(amount),
             totalCredit: Number(amount),
             status: 'APPROVED',
@@ -119,15 +125,30 @@ export class PaymentController {
             approvedAt: new Date(),
             lines: {
               create: [
-                { accountId: accountId, debit: Number(amount), credit: 0, debitBase: Number(amount), creditBase: 0 },
-                { accountId: arAccount.id, debit: 0, credit: Number(amount), debitBase: 0, creditBase: Number(amount) }
+                { 
+                  accountId: accountId, 
+                  debit: isSales ? Number(amount) : 0, 
+                  credit: isSales ? 0 : Number(amount), 
+                  debitBase: isSales ? Number(amount) : 0, 
+                  creditBase: isSales ? 0 : Number(amount) 
+                },
+                { 
+                  accountId: arApAccount.id, 
+                  debit: isSales ? 0 : Number(amount), 
+                  credit: isSales ? Number(amount) : 0, 
+                  debitBase: isSales ? 0 : Number(amount), 
+                  creditBase: isSales ? Number(amount) : 0 
+                }
               ]
             }
           }
         });
 
-        await tx.account.update({ where: { id: accountId }, data: { currentBalance: { increment: Number(amount) } } });
-        await tx.account.update({ where: { id: arAccount.id }, data: { currentBalance: { decrement: Number(amount) } } });
+        // Update balances: 
+        // Sales: Cash/Bank + (Debit), AR - (Credit)
+        // Purchase: Cash/Bank - (Credit), AP + (Debit) -> AP is liability, Debit reduces balance
+        await tx.account.update({ where: { id: accountId }, data: { currentBalance: { increment: isSales ? Number(amount) : -Number(amount) } } });
+        await tx.account.update({ where: { id: arApAccount.id }, data: { currentBalance: { increment: isSales ? -Number(amount) : Number(amount) } } });
       }
 
       return pmt;

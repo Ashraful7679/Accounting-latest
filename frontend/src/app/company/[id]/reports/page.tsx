@@ -113,7 +113,39 @@ export default function ReportCenterPage() {
               ))}
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* Report Header & Navigation */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 print:hidden">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setSelectedReport(null)}
+                    className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-slate-900 hover:shadow-sm transition-all active:scale-95 group"
+                  >
+                    <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                  </button>
+                  <div>
+                    <nav className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
+                      <span className="hover:text-blue-600 transition-colors cursor-pointer" onClick={() => setSelectedReport(null)}>Reports Center</span>
+                      <span>/</span>
+                      <span className="text-slate-900">{selectedReport.category.replace('_', ' ')}</span>
+                    </nav>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                      {selectedReport.name}
+                    </h1>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={handlePrint}
+                    className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-blue-600 hover:border-blue-100 transition-all font-bold text-sm flex items-center gap-2"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span className="hidden sm:inline">Print Report</span>
+                  </button>
+                </div>
+              </div>
+
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-end print:hidden">
                 <div className="flex-1 min-w-[200px]">
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Date Range</label>

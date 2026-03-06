@@ -151,7 +151,7 @@ export class DashboardController {
         }
 
         const lines = await prisma.journalEntryLine.findMany({ where });
-        return lines.reduce((sum: number, l) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
+        return lines.reduce((sum: number, l: any) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
       };
 
       const currentMonthRevenue = await getRevenue(startOfMonth);
@@ -177,7 +177,7 @@ export class DashboardController {
           }
         }
       });
-      const cashBalance = cashLines.reduce((sum, l) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
+      const cashBalance = cashLines.reduce((sum: number, l: any) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
 
       // Receivables (Dynamic from Ledger)
       const recLines = await prisma.journalEntryLine.findMany({
@@ -189,7 +189,7 @@ export class DashboardController {
           }
         }
       });
-      const totalReceivables = recLines.reduce((sum, l) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
+      const totalReceivables = recLines.reduce((sum: number, l: any) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
 
       // Payables (Dynamic from Ledger)
       const payLines = await prisma.journalEntryLine.findMany({
@@ -201,7 +201,7 @@ export class DashboardController {
           }
         }
       });
-      const totalPayables = payLines.reduce((sum, l) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
+      const totalPayables = payLines.reduce((sum: number, l: any) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
 
       // Loans (Dynamic from Ledger)
       const loanLines = await prisma.journalEntryLine.findMany({
@@ -213,7 +213,7 @@ export class DashboardController {
           }
         }
       });
-      const totalLoanOutstanding = loanLines.reduce((sum, l) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
+      const totalLoanOutstanding = loanLines.reduce((sum: number, l: any) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
 
       const netCashPosition = cashBalance + totalReceivables - totalPayables - totalLoanOutstanding;
       const currentRatio = (totalPayables + totalLoanOutstanding) > 0 
@@ -255,10 +255,10 @@ export class DashboardController {
         where: { companyId, accountType: { name: 'INCOME' }, isActive: true },
         include: { journalLines: { where: { journalEntry: { status: 'APPROVED' } } } }
       });
-      const revenueBreakdown = revenueAccounts.map(acc => ({
+      const revenueBreakdown = revenueAccounts.map((acc: any) => ({
         name: acc.name,
-        currentBalance: acc.journalLines.reduce((sum, l) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0)
-      })).filter(a => Math.abs(a.currentBalance) > 0.01);
+        currentBalance: acc.journalLines.reduce((sum: number, l: any) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0)
+      })).filter((a: any) => Math.abs(a.currentBalance) > 0.01);
 
       // Cash & Bank Breakdown (Dynamic)
       const cashAccounts = await prisma.account.findMany({
@@ -273,30 +273,30 @@ export class DashboardController {
         },
         include: { journalLines: { where: { journalEntry: { status: 'APPROVED' } } } }
       });
-      const cashBreakdown = cashAccounts.map(acc => ({
+      const cashBreakdown = cashAccounts.map((acc: any) => ({
         name: acc.name,
-        currentBalance: acc.journalLines.reduce((sum, l) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0)
-      })).filter(a => Math.abs(a.currentBalance) > 0.01);
+        currentBalance: acc.journalLines.reduce((sum: number, l: any) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0)
+      })).filter((a: any) => Math.abs(a.currentBalance) > 0.01);
 
       // Receivables Breakdown (by Customer if linked, else Account)
       const customerReceivables = await prisma.customer.findMany({
         where: { companyId, isActive: true },
         include: { journalLines: { where: { journalEntry: { status: 'APPROVED' } } } }
       });
-      const receivablesBreakdown = customerReceivables.map(c => {
-        const balance = c.journalLines.reduce((sum, l) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
+      const receivablesBreakdown = customerReceivables.map((c: any) => {
+        const balance = c.journalLines.reduce((sum: number, l: any) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
         return { name: c.name, balance };
-      }).filter(c => Math.abs(c.balance) > 0.01);
+      }).filter((c: any) => Math.abs(c.balance) > 0.01);
 
       // Payables Breakdown
       const vendorPayables = await prisma.vendor.findMany({
         where: { companyId, isActive: true },
         include: { journalLines: { where: { journalEntry: { status: 'APPROVED' } } } }
       });
-      const payablesBreakdown = vendorPayables.map(v => {
-        const balance = v.journalLines.reduce((sum, l) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
+      const payablesBreakdown = vendorPayables.map((v: any) => {
+        const balance = v.journalLines.reduce((sum: number, l: any) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
         return { name: v.name, balance };
-      }).filter(v => Math.abs(v.balance) > 0.01);
+      }).filter((v: any) => Math.abs(v.balance) > 0.01);
 
       // Loan Breakdown: first try structured Loan records, fallback to ledger accounts
       const loanRecords = await prisma.loan.findMany({
@@ -318,7 +318,7 @@ export class DashboardController {
           },
           include: { journalLines: { where: { journalEntry: { status: 'APPROVED' as any } } } }
         });
-        loanBreakdown = loanAccounts.map(acc => ({
+        loanBreakdown = loanAccounts.map((acc: any) => ({
           bankName: acc.name,
           principalAmount: acc.openingBalance,
           outstandingBalance: acc.journalLines.reduce((sum: number, l: any) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0),
@@ -339,10 +339,10 @@ export class DashboardController {
           }
         }
       });
-      const buyerDistribution = buyers.map(b => ({
+      const buyerDistribution = buyers.map((b: any) => ({
         name: b.name,
-        value: b.journalLines.reduce((sum, l) => sum + (l.creditBase - l.debitBase), 0)
-      })).filter(b => b.value > 0).sort((a, b) => b.value - a.value);
+        value: b.journalLines.reduce((sum: number, l: any) => sum + (l.creditBase - l.debitBase), 0)
+      })).filter((b: any) => b.value > 0).sort((a: any, b: any) => b.value - a.value);
 
       // 4. --- RMG Monthly Cash Flow Overhaul ---
       const cashFlowData = await (async () => {
@@ -401,11 +401,11 @@ export class DashboardController {
           value: currentMonthRevenue,
           lastMonth: lastMonthRevenue,
           growth: growthPercent,
-          breakdown: revenueBreakdown.map(r => ({ label: r.name, amount: r.currentBalance }))
+          breakdown: revenueBreakdown.map((r: any) => ({ label: r.name, amount: r.currentBalance }))
         },
         cash: {
           value: cashBalance,
-          breakdown: cashBreakdown.map(c => ({ label: c.name, amount: c.currentBalance })),
+          breakdown: cashBreakdown.map((c: any) => ({ label: c.name, amount: c.currentBalance })),
           movement: {
              received: cashFlowData.operating.inflows + cashFlowData.investing.inflows + cashFlowData.financing.inflows,
              paid: cashFlowData.operating.outflows + cashFlowData.investing.outflows + cashFlowData.financing.outflows
@@ -414,15 +414,15 @@ export class DashboardController {
         monthlyCashFlow: cashFlowData,
         receivables: {
           value: totalReceivables,
-          breakdown: receivablesBreakdown.map(r => ({ label: r.name, amount: r.balance }))
+          breakdown: receivablesBreakdown.map((r: any) => ({ label: r.name, amount: r.balance }))
         },
         payables: {
           value: totalPayables,
-          breakdown: payablesBreakdown.map(p => ({ label: p.name, amount: p.balance }))
+          breakdown: payablesBreakdown.map((p: any) => ({ label: p.name, amount: p.balance }))
         },
         loans: {
           value: totalLoanOutstanding,
-          breakdown: loanBreakdown.map(l => ({ 
+          breakdown: loanBreakdown.map((l: any) => ({ 
             label: l.bankName, 
             principal: l.principalAmount, 
             outstanding: l.outstandingBalance,
@@ -462,7 +462,7 @@ export class DashboardController {
           const lines = await prisma.journalEntryLine.findMany({
             where: { journalEntry: { companyId, status: 'APPROVED' as any, date: { gte: start, lte: end } }, account: { cashFlowType: { not: null } } }
           });
-          sum += lines.reduce((s, l) => s + (Number(l.creditBase) - Number(l.debitBase)), 0);
+          sum += lines.reduce((s: number, l: any) => s + (Number(l.creditBase) - Number(l.debitBase)), 0);
         }
         return sum;
       })());
@@ -520,7 +520,7 @@ export class DashboardController {
           debit: { gt: 0 }
         }
       });
-      const dailyCollection = todayLines.reduce((sum: number, l) => sum + Number(l.debitBase), 0);
+      const dailyCollection = todayLines.reduce((sum: number, l: any) => sum + Number(l.debitBase), 0);
 
       let dashboardData: any = {
         role: roleName,

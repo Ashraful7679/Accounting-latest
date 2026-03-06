@@ -169,8 +169,8 @@ model UserCompany {
   
   // Capital & Equity Tracking
   openingCapital     Float    @default(0)
-  capitalAccountCode String?  @unique // Auto-generated
-  drawingAccountCode String?  @unique // Auto-generated
+  capitalAccountCode String?
+  drawingAccountCode String?
   currentCapitalBalance Float @default(0) // Auto-calculated
   
   // Tax & Compliance
@@ -523,12 +523,15 @@ model PurchaseOrderLine {
 
 model Product {
   id          String   @id @default(uuid())
-  code        String   @unique
+  code        String
   name        String
   companyId   String
   sku         String?
   description String?
-  unitPrice   Float    @default(0)
+  unitPrice   Float    @default(0) // Price in specified currency
+  currency    String   @default("BDT")
+  exchangeRate Float   @default(1)
+  priceBDT    Float    @default(0) // Calculated BDT price
   isActive    Boolean  @default(true)
   company     Company  @relation(fields: [companyId], references: [id])
   createdAt   DateTime @default(now())
@@ -538,6 +541,7 @@ model Product {
   poLines        PurchaseOrderLine[]
   piLines        PILine[]
 
+  @@unique([companyId, code])
   @@index([companyId])
 }
 

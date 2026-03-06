@@ -21,8 +21,20 @@ export default function CreateProductPage() {
     sku: '',
     description: '',
     unitPrice: 0,
+    currency: 'BDT',
+    exchangeRate: 1,
+    priceBDT: 0,
     isActive: true
   });
+
+  useEffect(() => {
+    const price = parseFloat(formData.unitPrice?.toString() || '0');
+    const rate = parseFloat(formData.exchangeRate?.toString() || '1');
+    setFormData(prev => ({ 
+      ...prev, 
+      priceBDT: Number((price * rate).toFixed(2))
+    }));
+  }, [formData.unitPrice, formData.exchangeRate]);
 
   useEffect(() => {
     setMounted(true);
@@ -81,24 +93,12 @@ export default function CreateProductPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-3 w-full sm:w-auto invisible sm:visible">
             <button
               onClick={() => router.back()}
-              className="flex-1 sm:flex-none px-6 py-2.5 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all active:scale-95"
+              className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all active:scale-95"
             >
               Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={createMutation.isPending}
-              className="flex-1 sm:flex-none px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 active:scale-95 flex items-center justify-center gap-2"
-            >
-              {createMutation.isPending ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Save className="w-5 h-5" />
-              )}
-              {createMutation.isPending ? 'Saving...' : 'Save Product'}
             </button>
           </div>
         </div>
@@ -165,11 +165,13 @@ export default function CreateProductPage() {
                   </div>
                   <div>
                     <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
-                      Default Unit Price
-                      <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded uppercase tracking-tighter">Optional</span>
+                      Unit Price
+                      <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded uppercase tracking-tighter">Required</span>
                     </label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-lg">$</span>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-lg">
+                        {formData.currency === 'USD' ? '$' : formData.currency === 'EUR' ? '€' : formData.currency === 'GBP' ? '£' : '৳'}
+                      </span>
                       <input
                         type="number"
                         step="0.01"
@@ -177,6 +179,51 @@ export default function CreateProductPage() {
                         onChange={(e) => setFormData({...formData, unitPrice: parseFloat(e.target.value) || 0})}
                         placeholder="0.00"
                         className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-black text-slate-900 text-lg"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
+                       Currency
+                    </label>
+                    <select
+                      value={formData.currency}
+                      onChange={(e) => setFormData({...formData, currency: e.target.value})}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700"
+                    >
+                      <option value="BDT">BDT (Takas)</option>
+                      <option value="USD">USD (Dollar)</option>
+                      <option value="EUR">EUR (Euro)</option>
+                      <option value="GBP">GBP (Pounds)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
+                       Exchange Rate
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">৳</span>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        disabled={formData.currency === 'BDT'}
+                        value={formData.currency === 'BDT' ? 1 : formData.exchangeRate}
+                        onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})}
+                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700 disabled:bg-slate-50"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
+                       Final Price (BDT)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-lg">৳</span>
+                      <input
+                        type="number"
+                        readOnly
+                        value={formData.priceBDT}
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-900 text-lg outline-none cursor-default"
                       />
                     </div>
                   </div>
@@ -231,6 +278,30 @@ export default function CreateProductPage() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Footer / Submit */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 lg:left-64 z-30">
+        <div className="max-w-4xl mx-auto flex items-center gap-4">
+          <button
+            onClick={() => router.back()}
+            className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={createMutation.isPending}
+            className="flex-[2] px-6 py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 disabled:opacity-50 active:scale-95 flex items-center justify-center gap-3 text-lg"
+          >
+            {createMutation.isPending ? (
+              <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Save className="w-6 h-6" />
+            )}
+            {createMutation.isPending ? 'Creating Product...' : 'Create Product'}
+          </button>
         </div>
       </div>
     </div>

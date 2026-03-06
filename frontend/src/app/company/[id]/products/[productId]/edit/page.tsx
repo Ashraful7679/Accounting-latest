@@ -27,12 +27,14 @@ export default function EditProductPage() {
   const productId = params.productId as string;
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
-
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
     description: '',
     unitPrice: 0,
+    currency: 'BDT',
+    exchangeRate: 1,
+    priceBDT: 0,
     isActive: true
   });
 
@@ -58,10 +60,22 @@ export default function EditProductPage() {
         sku: product.sku || '',
         description: product.description || '',
         unitPrice: product.unitPrice,
+        currency: (product as any).currency || 'BDT',
+        exchangeRate: (product as any).exchangeRate || 1,
+        priceBDT: (product as any).priceBDT || (product.unitPrice * ((product as any).exchangeRate || 1)),
         isActive: product.isActive
       });
     }
   }, [product]);
+
+  useEffect(() => {
+    const price = parseFloat(formData.unitPrice?.toString() || '0');
+    const rate = parseFloat(formData.exchangeRate?.toString() || '1');
+    setFormData(prev => ({ 
+      ...prev, 
+      priceBDT: Number((price * rate).toFixed(2))
+    }));
+  }, [formData.unitPrice, formData.exchangeRate]);
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -147,32 +161,12 @@ export default function EditProductPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <button
-              onClick={handleDelete}
-              disabled={deleteMutation.isPending}
-              className="p-2.5 bg-white border border-red-100 text-red-500 rounded-xl hover:bg-red-50 hover:border-red-200 transition-all active:scale-95"
-              title="Delete Product"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
-            <button
+          <div className="flex items-center gap-3 w-full sm:w-auto invisible sm:visible">
+             <button
               onClick={() => router.back()}
               className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all active:scale-95"
             >
               Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={updateMutation.isPending}
-              className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 active:scale-95 flex items-center gap-2"
-            >
-              {updateMutation.isPending ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Save className="w-5 h-5" />
-              )}
-              {updateMutation.isPending ? 'Updating...' : 'Save Changes'}
             </button>
           </div>
         </div>
@@ -239,11 +233,12 @@ export default function EditProductPage() {
                   </div>
                   <div>
                     <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
-                      Default Unit Price
-                      <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded uppercase tracking-tighter">Optional</span>
+                       Unit Price
                     </label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-lg">$</span>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-lg">
+                        {formData.currency === 'USD' ? '$' : formData.currency === 'EUR' ? '€' : formData.currency === 'GBP' ? '£' : '৳'}
+                      </span>
                       <input
                         type="number"
                         step="0.01"
@@ -251,6 +246,51 @@ export default function EditProductPage() {
                         onChange={(e) => setFormData({...formData, unitPrice: parseFloat(e.target.value) || 0})}
                         placeholder="0.00"
                         className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-black text-slate-900 text-lg"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
+                       Currency
+                    </label>
+                    <select
+                      value={formData.currency}
+                      onChange={(e) => setFormData({...formData, currency: e.target.value})}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700"
+                    >
+                      <option value="BDT">BDT (Takas)</option>
+                      <option value="USD">USD (Dollar)</option>
+                      <option value="EUR">EUR (Euro)</option>
+                      <option value="GBP">GBP (Pounds)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
+                       Exchange Rate
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">৳</span>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        disabled={formData.currency === 'BDT'}
+                        value={formData.currency === 'BDT' ? 1 : formData.exchangeRate}
+                        onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})}
+                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700 disabled:bg-slate-50"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
+                       Final Price (BDT)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-lg">৳</span>
+                      <input
+                        type="number"
+                        readOnly
+                        value={formData.priceBDT}
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-900 text-lg outline-none cursor-default"
                       />
                     </div>
                   </div>
@@ -301,6 +341,40 @@ export default function EditProductPage() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Footer / Submit */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 lg:left-64 z-30">
+        <div className="max-w-4xl mx-auto flex items-center gap-4">
+          <button
+            onClick={handleDelete}
+            disabled={deleteMutation.isPending}
+            className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+            title="Delete Product"
+          >
+            <Trash2 className="w-6 h-6" />
+          </button>
+          
+          <button
+            onClick={() => router.back()}
+            className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
+          >
+            Cancel
+          </button>
+          
+          <button
+            onClick={handleSubmit}
+            disabled={updateMutation.isPending}
+            className="flex-[2] px-6 py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 disabled:opacity-50 active:scale-95 flex items-center justify-center gap-3 text-lg"
+          >
+            {updateMutation.isPending ? (
+              <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Save className="w-6 h-6" />
+            )}
+            {updateMutation.isPending ? 'Updating Product...' : 'Update Product'}
+          </button>
         </div>
       </div>
     </div>

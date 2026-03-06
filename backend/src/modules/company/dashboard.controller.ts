@@ -220,19 +220,22 @@ export class DashboardController {
         ? (cashBalance + totalReceivables) / (totalPayables + totalLoanOutstanding) 
         : 0;
 
-      // Unread alerts (Priority Alerts)
-      const liveNotifications = await prisma.notification.findMany({
-        where: { companyId, isRead: false },
+      // Recent Activity Log (previously Priority Alerts)
+      const recentActivities = await prisma.notification.findMany({
+        where: { companyId },
         orderBy: { createdAt: 'desc' },
-        take: 10,
+        take: 15,
       });
 
-      const alerts = liveNotifications.map((n: any) => ({
+      const activities = recentActivities.map((n: any) => ({
         id: n.id,
         type: n.severity === 'DANGER' ? 'danger' : n.severity === 'WARNING' ? 'warning' : 'info',
         title: n.title,
         message: n.message,
+        entityType: n.entityType,
+        entityId: n.entityId,
         createdAt: n.createdAt,
+        isRead: n.isRead,
       }));
 
       const unreadCount = await prisma.notification.count({ where: { companyId, isRead: false } });
@@ -529,7 +532,7 @@ export class DashboardController {
           { name: 'Liquidity Trend (Cumulative)', data: liquidityTrend, type: 'LINE' },
           { name: 'Revenue by Buyer', data: buyerDistribution, type: 'PIE' }
         ],
-        alerts: alerts.slice(0, 10),
+        alerts: activities, // Send activities here, frontend uses this array
         unreadCount,
         lastBackup: lastBackup ? {
           timestamp: lastBackup.createdAt,
@@ -580,7 +583,7 @@ export class DashboardController {
         ];
       }
 
-      console.log(`[DashboardStats] Assembled data for ${companyId}. Alerts: ${alerts.length}, Unread: ${unreadCount}`);
+      console.log(`[DashboardStats] Assembled data for ${companyId}. Activities: ${activities.length}, Unread: ${unreadCount}`);
       return reply.send({ success: true, data: dashboardData });
     } catch (error) {
       console.error(`[DashboardStats] CRITICAL ERROR for ${companyId}:`, error);

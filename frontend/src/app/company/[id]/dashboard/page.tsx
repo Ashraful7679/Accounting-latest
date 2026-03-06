@@ -29,7 +29,7 @@ interface DashboardData {
   companyName: string;
   kpis: Record<string, any>; // Relaxed for complex objects
   charts: any[];
-  alerts: { type: 'warning' | 'danger' | 'info'; title?: string; message: string; id?: string; createdAt?: string }[];
+  alerts: { type: 'warning' | 'danger' | 'info'; title?: string; message: string; id?: string; createdAt?: string; entityType?: string; entityId?: string; }[];
   unreadCount: number;
   lastBackup?: {
     timestamp: string;
@@ -548,39 +548,61 @@ export default function CompanyDashboard() {
                 >
                   <h3 className="text-xl font-bold text-white flex items-center gap-3">
                     <Bell className="w-6 h-6 text-blue-500 group-hover:text-blue-400 transition-colors" />
-                    Priority Alerts
+                    Recent Activity
                   </h3>
                   <span className="bg-blue-600 text-white text-[10px] font-black px-2 py-1 rounded-full">{alerts.length}</span>
                 </Link>
 
                 <div className="space-y-4 max-h-[700px] overflow-y-auto pr-2 custom-scrollbar">
                   <AnimatePresence>
-                    {alerts.map((alert, idx) => (
-                      <motion.div
-                        key={idx}
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className={cn(
-                          "p-4 rounded-2xl border flex gap-4 transition-all hover:translate-x-1",
-                          alert.type === 'warning' ? "bg-amber-500/10 border-amber-500/20 text-amber-500" :
-                          alert.type === 'danger' ? "bg-red-500/10 border-red-500/20 text-red-400" :
-                          "bg-blue-500/10 border-blue-500/20 text-blue-400"
-                        )}
-                      >
-                        <AlertCircle className="w-5 h-5 shrink-0" />
-                        <div>
-                          <p className="text-sm font-bold leading-tight">{alert.message}</p>
-                          <p className="text-[10px] font-medium opacity-60 mt-1">
-                            {alert.createdAt ? new Date(alert.createdAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }) : 'Recently'}
-                          </p>
-                        </div>
-                      </motion.div>
-                    ))}
+                    {alerts.map((alert, idx) => {
+                      let href = '#';
+                      if (alert.entityType === 'Invoice' && alert.entityId) {
+                        href = `/company/${companyId}/sales/invoices/${alert.entityId}`;
+                      } else if (alert.entityType === 'JournalEntry' && alert.entityId) {
+                        href = `/company/${companyId}/journals/${alert.entityId}`;
+                      } else if (alert.entityType === 'LC' && alert.entityId) {
+                        href = `/company/${companyId}/lcs/${alert.entityId}`;
+                      } else if (alert.entityType === 'Loan' && alert.entityId) {
+                        href = `/company/${companyId}/loans/${alert.entityId}`;
+                      }
+
+                      return (
+                        <motion.div
+                          key={idx}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          className={cn(
+                            "p-4 rounded-2xl border flex gap-4 transition-all hover:translate-x-1 hover:bg-slate-800/50 relative group/alert cursor-pointer",
+                            alert.type === 'warning' ? "bg-amber-500/10 border-amber-500/20 text-amber-500" :
+                            alert.type === 'danger' ? "bg-red-500/10 border-red-500/20 text-red-500" :
+                            "bg-blue-500/10 border-blue-500/20 text-blue-400"
+                          )}
+                          onClick={() => href !== '#' && router.push(href)}
+                        >
+                          <AlertCircle className="w-5 h-5 shrink-0" />
+                          <div className="flex-1">
+                            <h4 className="font-bold text-sm text-white mb-1">{alert.title || 'Activity'}</h4>
+                            <p className="text-xs font-medium leading-tight opacity-80">{alert.message}</p>
+                            <div className="flex items-center justify-between mt-2">
+                               <p className="text-[10px] font-medium opacity-60">
+                                 {alert.createdAt ? new Date(alert.createdAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }) : 'Recently'}
+                               </p>
+                               {href !== '#' && (
+                                 <span className="text-[10px] font-bold text-white opacity-0 group-hover/alert:opacity-100 transition-opacity flex items-center gap-1">
+                                   View Details <ChevronRight className="w-3 h-3" />
+                                 </span>
+                               )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
                   </AnimatePresence>
                   
                   {alerts.length === 0 && (
                     <div className="text-center py-20 text-slate-500">
-                      <p className="font-bold">No critical alerts for today.</p>
+                      <p className="font-bold">No recent activity found.</p>
                     </div>
                   )}
                 </div>
@@ -589,7 +611,7 @@ export default function CompanyDashboard() {
                   href={`/company/${companyId}/notifications`}
                   className="w-full mt-8 py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold rounded-2xl transition-all flex items-center justify-center gap-2 group decoration-none"
                 >
-                  Manage All Notifications
+                  View Full Activity Log
                   <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </Link>
               </div>

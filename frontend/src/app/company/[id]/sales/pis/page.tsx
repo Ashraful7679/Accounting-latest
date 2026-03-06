@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import Sidebar from '@/components/Sidebar';
-import UserDropdown from '@/components/UserDropdown';
 import { 
   FileText, Plus, Search, Filter, Edit2, Trash2, Eye,
   ChevronDown, CheckCircle2, AlertCircle, DollarSign, Calendar,
-  ArrowUpRight, ArrowDownRight, Building2
+  ArrowUpRight, ArrowDownRight, Building2, Globe, ArrowRightLeft
 } from 'lucide-react';
+import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
 import { toast } from 'react-hot-toast';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -24,6 +24,8 @@ interface PI {
   piNumber: string;
   amount: number;
   currency: string;
+  exchangeRate: number;
+  totalBDT: number;
   piDate: string;
   invoiceNumber?: string;
   submissionToBuyerDate?: string;
@@ -48,6 +50,8 @@ export default function ExportPIsPage() {
     piNumber: '',
     amount: 0,
     currency: 'USD',
+    exchangeRate: 110,
+    totalBDT: 0,
     piDate: new Date().toISOString().split('T')[0],
     invoiceNumber: '',
     submissionToBuyerDate: '',
@@ -66,6 +70,12 @@ export default function ExportPIsPage() {
     const token = localStorage.getItem('token');
     if (!token) router.push('/login');
   }, [router]);
+
+  // Automated BDT Calculation
+  useEffect(() => {
+    const total = (formData.amount || 0) * (formData.exchangeRate || 1);
+    setFormData(prev => ({ ...prev, totalBDT: total }));
+  }, [formData.amount, formData.exchangeRate]);
 
   const { data: pisData, isLoading } = useQuery({
     queryKey: ['export-pis', companyId],
@@ -101,7 +111,7 @@ export default function ExportPIsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['export-pis', companyId] });
-      toast.success('Export PI created successfully');
+      toast.success('Export PI registered successfully');
       closeModal();
     },
     onError: (error: any) => {
@@ -116,7 +126,7 @@ export default function ExportPIsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['export-pis', companyId] });
-      toast.success('PI updated successfully');
+      toast.success('PI details updated');
       closeModal();
     },
     onError: (error: any) => {
@@ -131,7 +141,7 @@ export default function ExportPIsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['export-pis', companyId] });
-      toast.success('PI deleted successfully');
+      toast.success('PI deleted');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error?.message || 'Failed to delete PI');
@@ -145,6 +155,8 @@ export default function ExportPIsPage() {
         piNumber: pi.piNumber || '',
         amount: pi.amount || 0,
         currency: pi.currency || 'USD',
+        exchangeRate: pi.exchangeRate || 110,
+        totalBDT: pi.totalBDT || 0,
         piDate: pi.piDate ? pi.piDate.split('T')[0] : '',
         invoiceNumber: pi.invoiceNumber || '',
         submissionToBuyerDate: pi.submissionToBuyerDate ? pi.submissionToBuyerDate.split('T')[0] : '',
@@ -158,18 +170,10 @@ export default function ExportPIsPage() {
     } else {
       setSelectedPI(null);
       setFormData({
-        piNumber: '',
-        amount: 0,
-        currency: 'USD',
+        piNumber: '', amount: 0, currency: 'USD', exchangeRate: 110, totalBDT: 0,
         piDate: new Date().toISOString().split('T')[0],
-        invoiceNumber: '',
-        submissionToBuyerDate: '',
-        submissionToBankDate: '',
-        bankAcceptanceDate: '',
-        maturityDate: '',
-        customerId: '',
-        lcId: '',
-        description: '',
+        invoiceNumber: '', submissionToBuyerDate: '', submissionToBankDate: '',
+        bankAcceptanceDate: '', maturityDate: '', customerId: '', lcId: '', description: '',
       });
     }
     setShowModal(true);
@@ -191,14 +195,12 @@ export default function ExportPIsPage() {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      DRAFT: 'bg-gray-100 text-gray-800',
-      SUBMITTED: 'bg-blue-100 text-blue-800',
-      ACCEPTED: 'bg-purple-100 text-purple-800',
-      PAID: 'bg-green-100 text-green-800',
-      PARTIAL: 'bg-yellow-100 text-yellow-800',
-      OVERDUE: 'bg-red-100 text-red-800',
+      OPEN: 'bg-blue-100 text-blue-700 font-bold',
+      PAID: 'bg-emerald-100 text-emerald-700 font-bold',
+      PARTIALLY_PAID: 'bg-amber-100 text-amber-700 font-bold',
+      CLOSED: 'bg-slate-100 text-slate-600 font-bold',
     };
-    return styles[status] || 'bg-gray-100 text-gray-800';
+    return styles[status] || 'bg-slate-100 text-slate-600';
   };
 
   const filteredPIs = pisData?.filter(pi => {
@@ -216,172 +218,251 @@ export default function ExportPIsPage() {
       <Sidebar companyName="Export PIs" />
 
       <main className="lg:pl-64 min-h-screen">
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between">
-          <div className="pl-10 lg:pl-0">
-            <h1 className="text-xl font-bold text-slate-900">Export PIs</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="h-6 w-px bg-slate-200" />
-            <UserDropdown />
-          </div>
-        </header>
+        <Header 
+          companyId={companyId} 
+          breadcrumbs="Sales / Proforma Invoices" 
+          unreadCount={0}
+        />
 
-        <div className="p-6 max-w-[1600px] mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Export Proforma Invoices</h2>
-            <button
+        <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <FileText className="w-8 h-8 text-blue-600" />
+                Export PIs
+              </h2>
+              <p className="text-slate-500 font-medium">Manage Proforma Invoices and export documentation</p>
+            </div>
+            <button 
               onClick={() => openModal()}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700"
+              className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 active:scale-95"
             >
-              <Plus className="w-4 h-4" />
-              Add Export PI
+              <Plus className="w-5 h-5" />
+              Create Export PI
             </button>
           </div>
 
-          <div className="flex gap-4 mb-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search by PI Number or Customer..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="p-4 border-b border-slate-50 flex gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by PI # or Customer..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                />
+              </div>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-4 py-2 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 font-bold text-slate-600 outline-none"
+              >
+                <option value="all">All Status</option>
+                <option value="OPEN">Open</option>
+                <option value="PAID">Paid</option>
+                <option value="PARTIALLY_PAID">Partial</option>
+              </select>
             </div>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Status</option>
-              <option value="DRAFT">Draft</option>
-              <option value="SUBMITTED">Submitted</option>
-              <option value="ACCEPTED">Accepted</option>
-              <option value="PAID">Paid</option>
-              <option value="PARTIAL">Partial</option>
-              <option value="OVERDUE">Overdue</option>
-            </select>
-          </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">PI Number</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Customer</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">LC</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {isLoading ? (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Loading...</td></tr>
-                ) : filteredPIs.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">No Export PIs found</td></tr>
-                ) : (
-                  filteredPIs.map((pi) => (
-                    <tr key={pi.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium">{pi.piNumber}</td>
-                      <td className="px-4 py-3 text-slate-500">{pi.piDate ? new Date(pi.piDate).toLocaleDateString() : '-'}</td>
-                      <td className="px-4 py-3">{pi.customer?.name || '-'}</td>
-                      <td className="px-4 py-3 text-right font-mono">{pi.currency} {pi.amount?.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-slate-500">{pi.lc?.lcNumber || '-'}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(pi.status)}`}>{pi.status}</span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button onClick={() => openModal(pi)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={() => deleteMutation.mutate(pi.id)} className="p-1 text-red-600 hover:bg-red-50 rounded ml-1"><Trash2 className="w-4 h-4" /></button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50/50">
+                  <tr>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">PI Details</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Client / Export LC</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Amount (USD)</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Total (BDT)</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {isLoading ? (
+                    <tr><td colSpan={6} className="text-center py-12 animate-pulse font-bold text-slate-400">Loading export data...</td></tr>
+                  ) : filteredPIs.length === 0 ? (
+                    <tr><td colSpan={6} className="text-center py-12 text-slate-400">No Proforma Invoices found</td></tr>
+                  ) : (
+                    filteredPIs.map((pi) => (
+                      <tr key={pi.id} className="group hover:bg-blue-50/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{pi.piNumber}</span>
+                            <span className="text-[10px] text-slate-400 font-black">{new Date(pi.piDate).toLocaleDateString()}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-slate-700">{pi.customer?.name || '-'}</span>
+                            <span className="text-[10px] text-blue-500 font-black uppercase">{pi.lc?.lcNumber ? `LC: ${pi.lc.lcNumber}` : 'DIRECT EXPORT'}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="font-mono font-bold text-slate-900">{pi.amount?.toLocaleString()} {pi.currency}</span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="font-mono font-black text-slate-900">৳ {pi.totalBDT?.toLocaleString()}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1 text-[10px] uppercase tracking-tighter rounded-full ${getStatusBadge(pi.status)}`}>
+                            {pi.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex justify-center gap-2">
+                            <button onClick={() => openModal(pi)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
+                            <button onClick={() => deleteMutation.mutate(pi.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </main>
 
+      {/* PI MODAL */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-4">{selectedPI ? 'Edit Export PI' : 'Create Export PI'}</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">PI Number *</label>
-                  <input type="text" value={formData.piNumber} onChange={(e) => setFormData({...formData, piNumber: e.target.value})} className="input" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">PI Date *</label>
-                  <input type="date" value={formData.piDate} onChange={(e) => setFormData({...formData, piDate: e.target.value})} className="input" required />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Amount *</label>
-                  <input type="number" step="0.01" value={formData.amount} onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value)})} className="input" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Currency</label>
-                  <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="input">
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                    <option value="BDT">BDT</option>
-                  </select>
-                </div>
-              </div>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+            <div className="px-8 py-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
               <div>
-                <label className="block text-sm font-medium mb-1">Customer *</label>
-                <select value={formData.customerId} onChange={(e) => setFormData({...formData, customerId: e.target.value})} className="input" required>
-                  <option value="">Select Customer</option>
-                  {customersData?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <h3 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+                  <Globe className="w-6 h-6 text-blue-600" />
+                  {selectedPI ? 'Update Proforma Invoice' : 'New Export PI Generation'}
+                </h3>
+                <p className="text-sm text-slate-500">Configure export value and banking timelines</p>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Linked LC</label>
-                <select value={formData.lcId} onChange={(e) => setFormData({...formData, lcId: e.target.value})} className="input">
-                  <option value="">Select LC (Optional)</option>
-                  {lcsData?.map((lc: any) => <option key={lc.id} value={lc.id}>{lc.lcNumber} - {lc.bankName}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Invoice Number</label>
-                <input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({...formData, invoiceNumber: e.target.value})} className="input" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Submission to Buyer</label>
-                  <input type="date" value={formData.submissionToBuyerDate} onChange={(e) => setFormData({...formData, submissionToBuyerDate: e.target.value})} className="input" />
+              <button onClick={closeModal} className="p-2 hover:bg-white rounded-xl transition-all border border-transparent hover:border-slate-100">
+                <ChevronDown className="w-6 h-6 text-slate-400" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Left: Core Details */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 text-blue-600 mb-2">
+                    <FileText className="w-4 h-4" />
+                    <span className="text-xs font-black uppercase tracking-widest">Document Header</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">PI Number *</label>
+                      <input type="text" value={formData.piNumber} onChange={(e) => setFormData({...formData, piNumber: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold" required />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">PI Date *</label>
+                      <input type="date" value={formData.piDate} onChange={(e) => setFormData({...formData, piDate: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold" required />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Client / Buyer *</label>
+                    <select value={formData.customerId} onChange={(e) => setFormData({...formData, customerId: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold" required>
+                      <option value="">Select Buyer</option>
+                      {customersData?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Link to Export LC</label>
+                    <select value={formData.lcId} onChange={(e) => setFormData({...formData, lcId: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold">
+                      <option value="">Direct Export (No LC)</option>
+                      {lcsData?.filter((l: any) => l.type === 'EXPORT').map((lc: any) => <option key={lc.id} value={lc.id}>{lc.lcNumber} - {lc.bankName}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Submission to Bank</label>
-                  <input type="date" value={formData.submissionToBankDate} onChange={(e) => setFormData({...formData, submissionToBankDate: e.target.value})} className="input" />
+
+                {/* Middle: Financials */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 text-emerald-600 mb-2">
+                    <DollarSign className="w-4 h-4" />
+                    <span className="text-xs font-black uppercase tracking-widest">Pricing & Conversion</span>
+                  </div>
+
+                  <div className="bg-emerald-50/50 p-6 rounded-[2rem] border border-emerald-100 space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Foreign Amount</label>
+                        <input type="number" step="0.01" value={formData.amount} onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value)})} className="w-full bg-white border-2 border-transparent focus:border-emerald-600 rounded-2xl px-4 py-3 outline-none transition-all font-bold" required />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Currency</label>
+                        <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full bg-white border-2 border-transparent focus:border-emerald-600 rounded-2xl px-4 py-3 outline-none transition-all font-bold">
+                          <option value="USD">USD</option>
+                          <option value="EUR">EUR</option>
+                          <option value="BDT">BDT</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Exchange Rate (vs BDT)</label>
+                      <div className="relative">
+                        <ArrowRightLeft className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400" />
+                        <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value)})} className="w-full bg-white border-2 border-transparent focus:border-emerald-600 rounded-2xl pl-12 pr-4 py-3 outline-none transition-all font-bold" />
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-emerald-100 mt-4">
+                      <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">Estimated BDT Value</p>
+                      <p className="text-3xl font-black text-emerald-800 font-mono">৳ {formData.totalBDT.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Timeline */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 text-indigo-600 mb-2">
+                    <Calendar className="w-4 h-4" />
+                    <span className="text-xs font-black uppercase tracking-widest">Banking Timeline</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Invoice Reference</label>
+                      <input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({...formData, invoiceNumber: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Subm. Buyer</label>
+                        <input type="date" value={formData.submissionToBuyerDate} onChange={(e) => setFormData({...formData, submissionToBuyerDate: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:bg-white rounded-2xl px-2 py-3 outline-none transition-all font-bold text-xs" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Subm. Bank</label>
+                        <input type="date" value={formData.submissionToBankDate} onChange={(e) => setFormData({...formData, submissionToBankDate: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:bg-white rounded-2xl px-2 py-3 outline-none transition-all font-bold text-xs" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Acceptance</label>
+                        <input type="date" value={formData.bankAcceptanceDate} onChange={(e) => setFormData({...formData, bankAcceptanceDate: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:bg-white rounded-2xl px-2 py-3 outline-none transition-all font-bold text-xs" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Maturity</label>
+                        <input type="date" value={formData.maturityDate} onChange={(e) => setFormData({...formData, maturityDate: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:bg-white rounded-2xl px-2 py-3 outline-none transition-all font-bold text-xs" />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Bank Acceptance Date</label>
-                  <input type="date" value={formData.bankAcceptanceDate} onChange={(e) => setFormData({...formData, bankAcceptanceDate: e.target.value})} className="input" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Maturity Date</label>
-                  <input type="date" value={formData.maturityDate} onChange={(e) => setFormData({...formData, maturityDate: e.target.value})} className="input" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
-                <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="input" rows={3} />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={closeModal} className="btn btn-secondary flex-1">Cancel</button>
-                <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="btn btn-primary flex-1">
-                  {createMutation.isPending || updateMutation.isPending ? 'Saving...' : 'Save'}
+
+              <div className="flex justify-end gap-3 pt-8 border-t border-slate-50">
+                <button type="button" onClick={closeModal} className="px-8 py-3 rounded-2xl text-slate-500 font-bold hover:bg-slate-50 transition-all active:scale-95">
+                  Discard Draft
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                  className="px-12 py-3 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 active:scale-95 disabled:bg-slate-200"
+                >
+                  {createMutation.isPending || updateMutation.isPending ? 'Saving PI...' : (selectedPI ? 'Confirm PI Update' : 'Initialize Proforma Invoice')}
                 </button>
               </div>
             </form>

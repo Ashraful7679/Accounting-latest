@@ -1,46 +1,25 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
+import { NotificationController } from './notification.controller';
 import prisma from '../../config/database';
 import { AccountRepository } from '../../repositories/AccountRepository';
 import { TransactionRepository } from '../../repositories/TransactionRepository';
 import { CustomerRepository } from '../../repositories/CustomerRepository';
 import { VendorRepository } from '../../repositories/VendorRepository';
+import { PurchaseOrderRepository } from '../../repositories/PurchaseOrderRepository';
 import { SYSTEM_MODE } from '../../lib/systemMode';
 import { demoCompany } from '../../lib/mockData/company';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../middleware/errorHandler';
+import { SequenceService } from './sequence.service';
 import path from 'path';
 import fs from 'fs';
 
 export class CompanyController {
-  // Generate customer/vendor code
-  private generateCode(prefix: string): string {
-    return `${prefix}-${Date.now().toString().slice(-6)}`;
-  }
-
-  // Generate invoice/journal number
-  private async generateDocumentNumber(companyId: string, type: 'invoice' | 'journal'): Promise<string> {
-    const prefix = type === 'invoice' ? 'INV' : 'JE';
-    const year = new Date().getFullYear();
-
-    const lastDoc = type === 'invoice' 
-      ? await prisma.invoice.findFirst({
-          where: { companyId },
-          orderBy: { createdAt: 'desc' },
-        })
-      : await prisma.journalEntry.findFirst({
-          where: { companyId },
-          orderBy: { createdAt: 'desc' },
-        });
-
-    let counter = 1;
-    if (lastDoc) {
-      const docNum = type === 'invoice' 
-        ? (lastDoc as any).invoiceNumber 
-        : (lastDoc as any).entryNumber;
-      const lastNum = parseInt(docNum.split('-').pop() || '0');
-      counter = lastNum + 1;
-    }
-
-    return `${prefix}-${year}-${counter.toString().padStart(4, '0')}`;
+  // Robust sequence-based document numbers
+  private async generateDocumentNumber(
+    companyId: string, 
+    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor'
+  ): Promise<string> {
+    return SequenceService.generateDocumentNumber(companyId, type);
   }
 
   // Check user access to company
@@ -131,10 +110,31 @@ export class CompanyController {
 
   async createCustomer(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { name, email, phone, address, city, country } = request.body as any;
+    const { 
+      name, email, phone, address, city, country,
+      contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency 
+    } = request.body as any;
 
-    const code = this.generateCode('CUS');
-    const customer = await CustomerRepository.create({ code, name, companyId, email, phone, address, city, country });
+    const code = await this.generateDocumentNumber(companyId, 'customer');
+    const customer = await CustomerRepository.create({ 
+      code, name, companyId, email, phone, address, city, country,
+      contactPerson, tinVat, 
+      openingBalance: Number(openingBalance || 0), 
+      balanceType, 
+      creditLimit: Number(creditLimit || 0), 
+      preferredCurrency: preferredCurrency || 'BDT'
+    });
+
+    // Log Activity
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'customer',
+      entityId: customer.id,
+      action: 'CREATED',
+      performedById: (request.user as any).id,
+      metadata: { docNumber: code, name: customer.name }
+    });
+
     return reply.status(201).send({ success: true, data: customer });
   }
 
@@ -166,10 +166,27 @@ export class CompanyController {
 
   async createVendor(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { name, email, phone, address, city, country } = request.body as any;
+    const { 
+      name, email, phone, address, city, country,
+      contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency
+    } = request.body as any;
 
-    const code = this.generateCode('VEN');
-    const vendor = await VendorRepository.create({ code, name, companyId, email, phone, address, city, country });
+    const code = await this.generateDocumentNumber(companyId, 'vendor');
+    const vendor = await VendorRepository.create({ 
+      code, name, companyId, email, phone, address, city, country,
+      contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency
+    });
+
+    // Log Activity
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'vendor',
+      entityId: vendor.id,
+      action: 'CREATED',
+      performedById: (request.user as any).id,
+      metadata: { docNumber: code, name: vendor.name }
+    });
+
     return reply.status(201).send({ success: true, data: vendor });
   }
 
@@ -190,6 +207,58 @@ export class CompanyController {
 
     await prisma.vendor.delete({ where: { id: vendorId } });
     return reply.send({ success: true, message: 'Vendor deleted' });
+  }
+
+  // ============ PURCHASE ORDERS ============
+  async getPurchaseOrders(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const pos = await PurchaseOrderRepository.findMany({ companyId });
+    return reply.send({ success: true, data: pos });
+  }
+
+  async createPurchaseOrder(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { 
+      supplierId, lcId, poDate, expectedDeliveryDate, 
+      currency, exchangeRate, totalForeign, totalBDT, 
+      status, lines, createdById 
+    } = request.body as any;
+
+    const poNumber = await this.generateDocumentNumber(companyId, 'po');
+    
+    const po = await PurchaseOrderRepository.create({
+      poNumber,
+      companyId,
+      supplierId,
+      lcId,
+      poDate: poDate ? new Date(poDate) : undefined,
+      expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : undefined,
+      currency,
+      exchangeRate,
+      totalForeign,
+      totalBDT,
+      status: status || 'DRAFT',
+      createdById,
+      lines
+    });
+
+    // Log Activity
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'purchase_order',
+      entityId: po.id,
+      action: 'CREATED',
+      performedById: (request.user as any).id,
+      metadata: { docNumber: poNumber }
+    });
+
+    return reply.status(201).send({ success: true, data: po });
+  }
+
+  async deletePurchaseOrder(request: FastifyRequest, reply: FastifyReply) {
+    const { poId } = request.params as { poId: string };
+    await PurchaseOrderRepository.delete(poId);
+    return reply.send({ success: true, message: 'Purchase Order deleted' });
   }
 
   // ============ ACCOUNTS ============
@@ -578,65 +647,139 @@ export class CompanyController {
         },
       });
 
-      // 2. Generate Journal Entry for Audit Trail
+      // 2. Generate Multi-Line Journal Entry (Split-Payment Aware)
       const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
       
-      const arAccount = await tx.account.findFirst({ where: { companyId, category: 'AR' } as any });
       const revAccount = await tx.account.findFirst({ where: { companyId, category: 'REVENUE' } as any });
+      if (!revAccount) throw new ValidationError('Revenue account not found in Chart of Accounts');
 
-      if (!arAccount || !revAccount) {
-        throw new ValidationError('AR or Revenue accounts not found');
+      const invoiceTotal = Number(invoice.total);
+      const journalDate = new Date(invoice.invoiceDate);
+      const splits = (invoice as any).paymentSplits as {
+        cash?: number;
+        bank?: number;
+        ar?: number;
+        bankAccountId?: string;
+      } | null;
+
+      const cashAmount  = Number(splits?.cash  || 0);
+      const bankAmount  = Number(splits?.bank  || 0);
+      // AR receives whatever is not covered by cash/bank
+      const arAmount    = Number(splits?.ar    || (invoiceTotal - cashAmount - bankAmount));
+
+      // Build debit lines dynamically based on split
+      const debitLines: any[] = [];
+
+      // Cash portion
+      if (cashAmount > 0) {
+        const cashAccount = await tx.account.findFirst({
+          where: { companyId, category: 'CASH' } as any
+        });
+        if (!cashAccount) throw new ValidationError('Cash account not found. Check Chart of Accounts.');
+        debitLines.push({
+          accountId: cashAccount.id,
+          debit: cashAmount,
+          credit: 0,
+          debitBase: cashAmount,
+          creditBase: 0,
+          description: `Cash received – Invoice ${invoice.invoiceNumber}`,
+        });
+        await tx.account.update({
+          where: { id: cashAccount.id },
+          data: { currentBalance: { increment: cashAmount } },
+        });
       }
 
-      // Create an APPROVED journal entry
-      const journalDate = new Date(invoice.invoiceDate);
+      // Bank portion
+      if (bankAmount > 0) {
+        const bankAccountId = splits?.bankAccountId;
+        const bankAccount = bankAccountId
+          ? await tx.account.findUnique({ where: { id: bankAccountId } })
+          : await tx.account.findFirst({ where: { companyId, category: 'BANK' } as any });
+        if (!bankAccount) throw new ValidationError('Bank account not found. Check Chart of Accounts or split settings.');
+        debitLines.push({
+          accountId: bankAccount.id,
+          debit: bankAmount,
+          credit: 0,
+          debitBase: bankAmount,
+          creditBase: 0,
+          description: `Bank received – Invoice ${invoice.invoiceNumber}`,
+        });
+        await tx.account.update({
+          where: { id: bankAccount.id },
+          data: { currentBalance: { increment: bankAmount } },
+        });
+      }
+
+      // AR portion (remaining balance)
+      if (arAmount > 0) {
+        const arAccount = await tx.account.findFirst({ where: { companyId, category: 'AR' } as any });
+        if (!arAccount) throw new ValidationError('Accounts Receivable account not found.');
+        debitLines.push({
+          accountId: arAccount.id,
+          debit: arAmount,
+          credit: 0,
+          debitBase: arAmount,
+          creditBase: 0,
+          description: `Receivable – Invoice ${invoice.invoiceNumber}`,
+        });
+        await tx.account.update({
+          where: { id: arAccount.id },
+          data: { currentBalance: { increment: arAmount } },
+        });
+      }
+
+      // If no split configured at all, fall back to full AR
+      if (debitLines.length === 0) {
+        const arAccount = await tx.account.findFirst({ where: { companyId, category: 'AR' } as any });
+        if (!arAccount) throw new ValidationError('AR account not found.');
+        debitLines.push({
+          accountId: arAccount.id,
+          debit: invoiceTotal,
+          credit: 0,
+          debitBase: invoiceTotal,
+          creditBase: 0,
+          description: `Receivable – Invoice ${invoice.invoiceNumber}`,
+        });
+        await tx.account.update({
+          where: { id: arAccount.id },
+          data: { currentBalance: { increment: invoiceTotal } },
+        });
+      }
+
+      // Credit line: Revenue
+      const creditLine = {
+        accountId: revAccount.id,
+        debit: 0,
+        credit: invoiceTotal,
+        debitBase: 0,
+        creditBase: invoiceTotal,
+        description: `Revenue – Invoice ${invoice.invoiceNumber}`,
+      };
+
+      const isRevDebitType = (revAccount as any).accountType?.type === 'DEBIT';
+      const revBalanceChange = isRevDebitType ? -invoiceTotal : invoiceTotal;
+      await tx.account.update({
+        where: { id: revAccount.id },
+        data: { currentBalance: { increment: revBalanceChange } },
+      });
+
+      // Create the Journal Entry with all debit + one credit line
       await tx.journalEntry.create({
         data: {
           entryNumber,
           companyId,
           date: journalDate,
-          description: `Auto-generated from Invoice ${invoice.invoiceNumber}`,
+          description: `Auto-journal: Invoice ${invoice.invoiceNumber}`,
           reference: invoice.invoiceNumber,
-          totalDebit: invoice.total,
-          totalCredit: invoice.total,
+          totalDebit: invoiceTotal,
+          totalCredit: invoiceTotal,
           status: 'APPROVED',
           createdById: userId,
           approvedById: userId,
           approvedAt: new Date(),
-          lines: {
-            create: [
-              // AR entry
-              {
-                accountId: arAccount.id,
-                debit: invoice.total,
-                credit: 0,
-                debitBase: invoice.total,
-                creditBase: 0,
-                description: `Receivable from Invoice ${invoice.invoiceNumber}`
-              },
-              // Revenue entry
-              {
-                accountId: revAccount.id,
-                debit: 0,
-                credit: invoice.total,
-                debitBase: 0,
-                creditBase: invoice.total,
-                description: `Revenue from Invoice ${invoice.invoiceNumber}`
-              }
-            ]
-          }
-        }
-      });
-
-      // 3. Update Account Balances (based on the generated journal entry)
-      await tx.account.update({ where: { id: arAccount.id }, data: { currentBalance: { increment: Number(invoice.total) } } });
-      
-      const isRevDebitType = (revAccount as any).accountType?.type === 'DEBIT';
-      const revBalanceChange = isRevDebitType ? -Number(invoice.total) : Number(invoice.total);
-      
-      await tx.account.update({
-        where: { id: revAccount.id },
-        data: { currentBalance: { increment: revBalanceChange } }
+          lines: { create: [...debitLines, creditLine] },
+        },
       });
 
       return inv;
@@ -721,6 +864,17 @@ export class CompanyController {
           exchangeRate: data.exchangeRate || 1,
         })),
       },
+    });
+
+    // Log Structured Activity
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'journal',
+      entityId: journal.id,
+      action: 'CREATED',
+      performedById: userId,
+      branchId: data.branchId || null,
+      metadata: { docNumber: entryNumber }
     });
 
     // Create Notification if it's pending verification
@@ -820,6 +974,17 @@ export class CompanyController {
       },
     });
 
+    // Log Structured Activity
+    await NotificationController.logActivity({
+      companyId: journal.companyId,
+      entityType: 'journal',
+      entityId: journal.id,
+      action: 'VERIFIED',
+      performedById: userId,
+      branchId: journal.branchId,
+      metadata: { docNumber: journal.entryNumber }
+    });
+
     return reply.send({ success: true, data: updated });
   }
 
@@ -845,6 +1010,18 @@ export class CompanyController {
         rejectedById: userId,
         rejectionReason: reason,
       },
+    });
+
+    // Log Structured Activity
+    await NotificationController.logActivity({
+      companyId: journal.companyId,
+      entityType: 'journal',
+      entityId: journal.id,
+      action: 'REJECTED_MANAGER',
+      performedById: userId,
+      targetUserId: journal.createdById,
+      branchId: journal.branchId,
+      metadata: { docNumber: journal.entryNumber, reason }
     });
 
     return reply.send({ success: true, data: updated });
@@ -933,6 +1110,18 @@ export class CompanyController {
         },
       });
 
+      // Log Structured Activity (Outside transaction or inside, depending on preference, inside here for consistency)
+      // Actually best practice to do it inside and wait for commit, but for now we follow the pattern
+      await NotificationController.logActivity({
+        companyId: journal.companyId,
+        entityType: 'journal',
+        entityId: journal.id,
+        action: 'APPROVED',
+        performedById: userId,
+        branchId: journal.branchId,
+        metadata: { docNumber: journal.entryNumber }
+      });
+
       // 2. Validate and Update Account Balances
       const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
 
@@ -944,11 +1133,10 @@ export class CompanyController {
 
         const potentialBalance = Number(line.account.currentBalance) + balanceChange;
 
-        // Negative Balance Validation
-        const isCashOrBank = (line.account as any).category === 'CASH' || (line.account as any).category === 'BANK';
-        if (isCashOrBank && potentialBalance < 0 && !(line.account as any).allowNegative && !isOwnerOrAdmin) {
+        // Negative Balance Validation (Global Guard)
+        if (potentialBalance < 0 && !(line.account as any).allowNegative && !isOwnerOrAdmin) {
           throw new ValidationError(
-            `Transaction rejected: ${line.account.name} balance (${potentialBalance}) would be negative. Overdraft not allowed for this account.`
+            `Transaction rejected: ${line.account.name} balance (${potentialBalance.toLocaleString()}) would be negative. Negative balance (overdraft) is not permitted for this account.`
           );
         }
 

@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
 import UserDropdown from '@/components/UserDropdown';
 import { 
   FileText, Plus, Search, Edit2, Trash2, Eye,
@@ -171,15 +172,11 @@ export default function PurchaseInvoicesPage() {
       <Sidebar companyName="Purchase Invoices" />
 
       <main className="lg:pl-64 min-h-screen">
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between">
-          <div className="pl-10 lg:pl-0">
-            <h1 className="text-xl font-bold text-slate-900">Purchase Invoices</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="h-6 w-px bg-slate-200" />
-            <UserDropdown />
-          </div>
-        </header>
+        <Header 
+          companyId={companyId} 
+          breadcrumbs="Purchase / Invoices" 
+          unreadCount={0}
+        />
 
         <div className="p-6 max-w-[1600px] mx-auto">
           <div className="flex justify-between items-center mb-6">

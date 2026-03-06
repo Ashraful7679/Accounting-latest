@@ -1,19 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { 
   Plus, Trash2, Check, X, ArrowLeft, LogOut, Eye, 
-  Building2, Bell, Send, CheckCheck, BookOpen, Printer, Info, ChevronRight, Hash, DollarSign
+  Building2, Bell, Send, CheckCheck, BookOpen, Printer, Info, ChevronRight, Hash, DollarSign, Clock
 } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
 import { AttachmentManager } from '@/components/AttachmentManager';
 import NotificationPanel from '@/components/NotificationPanel';
 import UserDropdown from '@/components/UserDropdown';
+import { renderActivityMessage, type ActivityLog } from '@/utils/activityRenderer';
 
 interface Account {
   id: string;
@@ -45,8 +47,37 @@ interface Line {
 export default function CompanyJournalsPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const companyId = params.id as string;
+  const action = searchParams.get('action');
   const queryClient = useQueryClient();
+
+  const [page, setPage] = useState(1);
+  const limit = 50;
+
+  const { data: journalsData, isLoading } = useQuery({
+    queryKey: ['journals', companyId, page],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/journals?limit=${limit}&page=${page}`);
+      return response.data;
+    },
+    enabled: !!companyId,
+  });
+
+  useEffect(() => {
+    if (action === 'create' && !isLoading) {
+      // Small delay to ensure data is ready or just open it
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        description: '',
+        lines: [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }] as Line[],
+      } as any);
+      setShowModal(true);
+      // Remove query param without reload
+      window.history.replaceState({}, '', `/company/${companyId}/journals`);
+    }
+  }, [action, isLoading, companyId]);
+
   const [mounted, setMounted] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -62,8 +93,6 @@ export default function CompanyJournalsPage() {
 
   const [userRole, setUserRole] = useState('User');
   const [attachments, setAttachments] = useState<File[]>([]);
-  const [page, setPage] = useState(1);
-  const limit = 50;
 
   useEffect(() => {
     setMounted(true);
@@ -86,15 +115,6 @@ export default function CompanyJournalsPage() {
     }
     return () => document.body.classList.remove('printing-mode');
   }, [showViewModal]);
-
-  const { data: journalsData, isLoading } = useQuery({
-    queryKey: ['company-journals', companyId, page],
-    queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/journals?page=${page}&limit=${limit}`);
-      return response.data.data as JournalEntry[];
-    },
-    enabled: !!companyId,
-  });
 
   const { data: accountsData } = useQuery({
     queryKey: ['company-accounts', companyId],
@@ -267,6 +287,22 @@ export default function CompanyJournalsPage() {
     setSelectedJournal(null);
   };
 
+  const navigateJournal = async (direction: 'next' | 'prev') => {
+    if (!journalsData || !selectedJournal) return;
+    
+    const currentIndex = journalsData.findIndex((j: any) => j.id === selectedJournal.id);
+    let newIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
+
+    if (newIndex >= 0 && newIndex < journalsData.length) {
+      const nextJournal = journalsData[newIndex];
+      // Reuse openViewModal logic
+      const response = await api.get(`/company/${companyId}/journals/${nextJournal.id}`);
+      setSelectedJournal(response.data.data);
+    } else {
+      toast.error(`No more journals in this ${direction === 'next' ? 'direction' : 'page'}`);
+    }
+  };
+
   const addLine = () => {
     setFormData({
       ...formData,
@@ -364,24 +400,12 @@ export default function CompanyJournalsPage() {
       <Sidebar companyName="Journal Entries" role={userRole} />
 
       <main className="lg:pl-64 min-h-screen">
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between">
-          <div className="pl-10 lg:pl-0">
-            <h1 className="text-xl font-bold text-slate-900">Voucher Journal</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setNotifOpen(true)}
-              className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors relative"
-            >
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full" />
-              )}
-            </button>
-            <div className="h-6 w-px bg-slate-200" />
-            <UserDropdown role={userRole} />
-          </div>
-        </header>
+        <Header 
+          companyId={companyId} 
+          breadcrumbs="Finance / Journal Entries" 
+          role={userRole}
+          unreadCount={unreadCount}
+        />
 
         <NotificationPanel
           companyId={companyId}
@@ -428,7 +452,7 @@ export default function CompanyJournalsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {journalsData?.map((journal) => (
+                  {journalsData?.map((journal: any) => (
                     <tr key={journal.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4 text-sm font-bold text-slate-900">{journal.entryNumber}</td>
                       <td className="px-6 py-4 text-sm text-slate-500 font-medium">
@@ -706,7 +730,26 @@ export default function CompanyJournalsPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 print:hidden no-print">
           <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto no-print">
             <div className="flex justify-between items-center mb-6 print-hide">
-              <h3 className="text-xl font-semibold">Journal Entry Details</h3>
+              <div className="flex items-center gap-4">
+                <h3 className="text-xl font-semibold">Journal Entry Details</h3>
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                  <button 
+                    onClick={() => navigateJournal('prev')}
+                    className="p-1.5 hover:bg-white rounded-lg transition-all text-slate-500 hover:text-slate-900 disabled:opacity-30"
+                    title="Previous Journal"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                  <div className="w-px h-4 bg-slate-200 mx-1" />
+                  <button 
+                    onClick={() => navigateJournal('next')}
+                    className="p-1.5 hover:bg-white rounded-lg transition-all text-slate-500 hover:text-slate-900 disabled:opacity-30"
+                    title="Next Journal"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
               <button onClick={closeViewModal} className="text-slate-400 hover:text-slate-600 text-2xl print-hide">&times;</button>
             </div>
             

@@ -141,7 +141,11 @@ export class DashboardController {
             status: 'APPROVED',
           },
           account: {
-            accountType: { name: 'INCOME' }
+            OR: [
+              { accountType: { name: 'INCOME' } },
+              { accountType: { name: 'REVENUE' } },
+              { category: 'REVENUE' }
+            ]
           }
         };
         if (from || to) {
@@ -154,6 +158,7 @@ export class DashboardController {
         return lines.reduce((sum: number, l: any) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
       };
 
+      const totalRevenue = await getRevenue();
       const currentMonthRevenue = await getRevenue(startOfMonth);
       const lastMonthRevenue = await getRevenue(startOfLastMonth, endOfLastMonth);
 
@@ -398,7 +403,8 @@ export class DashboardController {
 
       const baseKpis = {
         revenue: {
-          value: currentMonthRevenue,
+          value: totalRevenue,
+          thisMonth: currentMonthRevenue,
           lastMonth: lastMonthRevenue,
           growth: growthPercent,
           breakdown: revenueBreakdown.map((r: any) => ({ label: r.name, amount: r.currentBalance }))

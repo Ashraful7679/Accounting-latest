@@ -68,6 +68,12 @@ export default function CompanyInvoicesPage() {
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
     lines: [{ description: '', quantity: 1, unitPrice: 0, taxRate: 0 }] as Line[],
+    paymentSplits: {
+      cash: 0,
+      bank: 0,
+      ar: 0,
+      bankAccountId: '',
+    },
   });
 
   useEffect(() => {
@@ -234,6 +240,7 @@ export default function CompanyInvoicesPage() {
       invoiceDate: new Date().toISOString().split('T')[0],
       dueDate: '',
       lines: [{ description: '', quantity: 1, unitPrice: 0, taxRate: 0 }],
+      paymentSplits: { cash: 0, bank: 0, ar: 0, bankAccountId: '' },
     });
     setShowModal(true);
   };
@@ -548,6 +555,75 @@ export default function CompanyInvoicesPage() {
                     <p className="text-lg font-semibold">Total (BDT): {calculateTotals().total.toFixed(2)}</p>
                   </div>
                 </div>
+              </div>
+
+              {/* ── Payment Split Section ─────────────────────────────── */}
+              <div className="border-t pt-4 space-y-3">
+                <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                  Payment Split <span className="text-xs font-normal text-slate-400">(leave blank for full AR)</span>
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Cash (BDT)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.paymentSplits.cash || ''}
+                      placeholder="0.00"
+                      onChange={(e) => {
+                        const cash = parseFloat(e.target.value) || 0;
+                        const total = calculateTotals().total;
+                        const ar = Math.max(0, total - cash - (formData.paymentSplits.bank || 0));
+                        setFormData({ ...formData, paymentSplits: { ...formData.paymentSplits, cash, ar } });
+                      }}
+                      className="input w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Bank Transfer (BDT)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.paymentSplits.bank || ''}
+                      placeholder="0.00"
+                      onChange={(e) => {
+                        const bank = parseFloat(e.target.value) || 0;
+                        const total = calculateTotals().total;
+                        const ar = Math.max(0, total - (formData.paymentSplits.cash || 0) - bank);
+                        setFormData({ ...formData, paymentSplits: { ...formData.paymentSplits, bank, ar } });
+                      }}
+                      className="input w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">AR / On Credit (BDT)</label>
+                    <input
+                      type="number"
+                      readOnly
+                      value={formData.paymentSplits.ar.toFixed(2)}
+                      className="input w-full bg-slate-50 text-slate-400 cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+                {(formData.paymentSplits.bank > 0) && (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Bank Account to Credit</label>
+                    <select
+                      value={formData.paymentSplits.bankAccountId}
+                      onChange={(e) => setFormData({ ...formData, paymentSplits: { ...formData.paymentSplits, bankAccountId: e.target.value } })}
+                      className="input w-full"
+                      required={formData.paymentSplits.bank > 0}
+                    >
+                      <option value="">Select Bank Account</option>
+                      {cashBankAccounts.filter((a: any) => a.category === 'BANK' || a.name?.toLowerCase().includes('bank')).map((acc: any) => (
+                        <option key={acc.id} value={acc.id}>{acc.name} ({acc.currentBalance?.toLocaleString()} BDT)</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3 pt-4">

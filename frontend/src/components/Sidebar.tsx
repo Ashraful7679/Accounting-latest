@@ -78,30 +78,37 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
   const menuItems: MenuItem[] = [
     { name: 'Dashboard', href: `/company/${companyId}/dashboard`, icon: LayoutDashboard },
     { 
-      name: 'Sales', 
-      icon: TrendingUp,
-      children: [
-        { name: 'Customers', href: `/company/${companyId}/sales/customers` },
-        { name: 'Export PIs', href: `/company/${companyId}/sales/pis` },
-        { name: 'Sales Invoices', href: `/company/${companyId}/sales/invoices` },
-      ]
-    },
-    { 
-      name: 'Purchases', 
+      name: 'Purchase', 
       icon: CreditCard,
       children: [
         { name: 'Suppliers', href: `/company/${companyId}/vendors` },
-        { name: 'Import PIs', href: `/company/${companyId}/purchase/pis` },
+        { name: 'Purchase Order', href: `/company/${companyId}/purchase/orders` },
+        { 
+          name: 'Import LC', 
+          children: [
+            { name: 'Create LC', href: `/company/${companyId}/lc/create/import` },
+            { name: 'Loan Management', href: `/company/${companyId}/lc/loans` },
+          ]
+        },
         { name: 'Purchase Invoices', href: `/company/${companyId}/purchase/invoices` },
       ]
     },
     { 
-      name: 'LC Management', 
-      icon: Briefcase,
+      name: 'Sales', 
+      icon: TrendingUp,
       children: [
-        { name: 'All LCs', href: `/company/${companyId}/lc` },
+        { name: 'Customers', href: `/company/${companyId}/sales/customers` },
+        { name: 'Proforma Invoice', href: `/company/${companyId}/sales/pis` },
+        { name: 'Export LC', href: `/company/${companyId}/lc/create/export` },
+        { name: 'Sales Invoices', href: `/company/${companyId}/sales/invoices` },
+      ]
+    },
+    { 
+      name: 'Trade & Finance Hub', 
+      icon: FileStack,
+      children: [
+        { name: 'LC All List', href: `/company/${companyId}/lc` },
         { name: 'LC PIs', href: `/company/${companyId}/lc/pis` },
-        { name: 'LC Loans', href: `/company/${companyId}/lc/loans` },
         { name: 'LC Settlement', href: `/company/${companyId}/lc/settlement` },
       ]
     },
@@ -113,7 +120,6 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
         { name: 'Make Payment', href: `/company/${companyId}/payments/make` },
         { name: 'Transfer', href: `/company/${companyId}/payments/transfer` },
         { name: 'Payment History', href: `/company/${companyId}/invoices` },
-        { name: 'Advance Payments', href: `/company/${companyId}/employees` },
         { name: 'Payment Allocation', href: `/company/${companyId}/payments/allocate` },
       ]
     },

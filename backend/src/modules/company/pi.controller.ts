@@ -1,5 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
+import { SequenceService } from './sequence.service';
+import { NotificationController } from './notification.controller';
 
 export class PIController {
   async getPIs(request: FastifyRequest, reply: FastifyReply) {
@@ -90,12 +92,16 @@ export class PIController {
       }
     }
 
+    const piNumber = data.piNumber || await SequenceService.generateDocumentNumber(companyId, 'pi');
+
     const pi = await (prisma as any).pI.create({
       data: {
-        piNumber: data.piNumber,
+        piNumber,
         piDate: new Date(data.piDate || new Date()),
         amount: Number(data.amount),
         currency: data.currency || 'USD',
+        exchangeRate: Number(data.exchangeRate || 1),
+        totalBDT: Number(data.totalBDT || (Number(data.amount) * Number(data.exchangeRate || 1))),
         status: data.status || 'OPEN',
         lcId: lcId,
         companyId: companyId,
@@ -109,6 +115,16 @@ export class PIController {
         idbpNumber: data.idbpNumber,
         customerId: data.customerId
       }
+    });
+
+    // Log Activity
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'pi',
+      entityId: pi.id,
+      action: 'CREATED',
+      performedById: (request.user as any).id,
+      metadata: { docNumber: piNumber }
     });
 
     return reply.status(201).send({ success: true, data: pi });
@@ -148,6 +164,8 @@ export class PIController {
         ...data,
         piDate: data.piDate ? new Date(data.piDate) : undefined,
         amount: data.amount ? Number(data.amount) : undefined,
+        exchangeRate: data.exchangeRate ? Number(data.exchangeRate) : undefined,
+        totalBDT: data.totalBDT ? Number(data.totalBDT) : (data.amount && data.exchangeRate ? Number(data.amount) * Number(data.exchangeRate) : undefined),
         invoiceNumber: data.invoiceNumber,
         submissionToBuyerDate: data.submissionToBuyerDate ? new Date(data.submissionToBuyerDate) : undefined,
         submissionToBankDate: data.submissionToBankDate ? new Date(data.submissionToBankDate) : undefined,

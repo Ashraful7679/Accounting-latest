@@ -596,4 +596,27 @@ export class DashboardController {
       return reply.status(500).send({ success: false, message: 'Internal Server Error while generating dashboard' });
     }
   }
+
+  async getActivities(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { limit } = request.query as { limit?: string };
+    const take = parseInt(limit || '10', 10);
+
+    try {
+      const activities = await prisma.activityLog.findMany({
+        where: { companyId },
+        include: {
+          performedBy: { select: { id: true, firstName: true, lastName: true } },
+          targetUser: { select: { id: true, firstName: true, lastName: true } }
+        },
+        orderBy: { createdAt: 'desc' },
+        take
+      });
+
+      return reply.send({ success: true, data: activities });
+    } catch (error) {
+      console.error(`[DashboardActivities] ERROR for ${companyId}:`, error);
+      return reply.status(500).send({ success: false, message: 'Internal Server Error while fetching activities' });
+    }
+  }
 }

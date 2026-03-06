@@ -451,7 +451,7 @@ export default function PurchaseOrdersPage() {
                         <span className="text-xl font-black text-slate-900 font-mono">{formData.currency} {subtotal.toLocaleString()}</span>
                       </div>
                       <div className="flex items-center gap-12">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest text-emerald-600">Total BDT Est.</span>
+                        <span className="text-xs font-bold uppercase tracking-widest text-emerald-600">Total BDT Est.</span>
                         <span className="text-2xl font-black text-emerald-600 font-mono">৳ {(subtotal * formData.exchangeRate).toLocaleString()}</span>
                       </div>
                     </div>

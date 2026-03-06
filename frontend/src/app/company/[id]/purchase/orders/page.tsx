@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
 import { 
   Plus, Search, Edit2, Trash2, Eye, 
   Package, Calendar, DollarSign, Building2, 
@@ -14,6 +12,7 @@ import {
 import { toast } from 'react-hot-toast';
 
 interface POLine {
+  productId?: string;
   itemDescription: string;
   quantity: number;
   unitPrice: number;
@@ -54,7 +53,7 @@ export default function PurchaseOrdersPage() {
     expectedDeliveryDate: '',
     currency: 'USD',
     exchangeRate: 110,
-    lines: [{ itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }] as POLine[],
+    lines: [{ productId: '', itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }] as POLine[],
     status: 'DRAFT'
   });
 
@@ -92,9 +91,18 @@ export default function PurchaseOrdersPage() {
     enabled: !!companyId,
   });
 
+  const { data: productsData } = useQuery({
+    queryKey: ['products', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/products`);
+      return response.data.data;
+    },
+    enabled: !!companyId,
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      const totalForeign = data.lines.reduce((acc: number, line: POLine) => acc + line.total, 0);
+      const totalForeign = data.lines.reduce((acc: number, line: POLine) => acc + (line.quantity * line.unitPrice), 0);
       const submitData = {
         ...data,
         totalForeign,
@@ -127,7 +135,7 @@ export default function PurchaseOrdersPage() {
   const addLine = () => {
     setFormData({
       ...formData,
-      lines: [...formData.lines, { itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }]
+      lines: [...formData.lines, { productId: '', itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }]
     });
   };
 
@@ -142,7 +150,16 @@ export default function PurchaseOrdersPage() {
     const newLines = [...formData.lines];
     const line = { ...newLines[index], [field]: value };
     
-    if (field === 'quantity' || field === 'unitPrice') {
+    // Auto-fill from product
+    if (field === 'productId' && value) {
+      const product = productsData?.find((p: any) => p.id === value);
+      if (product) {
+        line.itemDescription = product.name;
+        line.unitPrice = product.unitPrice;
+      }
+    }
+    
+    if (field === 'quantity' || field === 'unitPrice' || field === 'productId') {
       line.total = line.quantity * line.unitPrice;
     }
     
@@ -163,7 +180,7 @@ export default function PurchaseOrdersPage() {
         expectedDeliveryDate: '',
         currency: 'USD',
         exchangeRate: 110,
-        lines: [{ itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }],
+        lines: [{ productId: '', itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }],
         status: 'DRAFT'
       });
     }
@@ -191,15 +208,8 @@ export default function PurchaseOrdersPage() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans">
-      <Sidebar companyName="Purchase Orders" />
+    <div className="min-h-screen">
 
-      <main className="lg:pl-64 min-h-screen">
-        <Header 
-          companyId={companyId} 
-          breadcrumbs="Purchase / Orders" 
-          unreadCount={0}
-        />
 
         <div className="p-6 max-w-[1600px] mx-auto space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -312,8 +322,6 @@ export default function PurchaseOrdersPage() {
               </table>
             </div>
           </div>
-        </div>
-      </main>
 
       {/* MODAL */}
       {showModal && (
@@ -400,7 +408,8 @@ export default function PurchaseOrdersPage() {
 
                   <div className="space-y-3">
                     <div className="grid grid-cols-12 gap-2 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      <div className="col-span-6">Description</div>
+                      <div className="col-span-3">Product</div>
+                      <div className="col-span-3">Description</div>
                       <div className="col-span-2 text-center">Qty</div>
                       <div className="col-span-2 text-right">Price</div>
                       <div className="col-span-2 text-right">Total</div>
@@ -409,29 +418,39 @@ export default function PurchaseOrdersPage() {
                     <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                       {formData.lines.map((line, idx) => (
                         <div key={idx} className="group grid grid-cols-12 gap-2 bg-slate-50 p-2 rounded-2xl hover:bg-slate-100 transition-colors">
-                          <div className="col-span-6">
+                          <div className="col-span-3">
+                            <select 
+                              value={line.productId} 
+                              onChange={(e) => updateLine(idx, 'productId', e.target.value)}
+                              className="w-full bg-transparent border-none outline-none font-bold text-slate-700 px-2 text-sm"
+                            >
+                              <option value="">Custom Item</option>
+                              {productsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </select>
+                          </div>
+                          <div className="col-span-3">
                             <input 
                               type="text" value={line.itemDescription} placeholder="Material/Product Name"
                               onChange={(e) => updateLine(idx, 'itemDescription', e.target.value)}
-                              className="w-full bg-transparent border-none outline-none font-bold text-slate-700 px-2" required
+                              className="w-full bg-transparent border-none outline-none font-bold text-slate-700 px-2 text-sm" required
                             />
                           </div>
                           <div className="col-span-2">
                             <input 
                               type="number" value={line.quantity}
                               onChange={(e) => updateLine(idx, 'quantity', parseFloat(e.target.value))}
-                              className="w-full bg-transparent border-none outline-none font-bold text-center text-slate-700"
+                              className="w-full bg-transparent border-none outline-none font-bold text-center text-slate-700 text-sm"
                             />
                           </div>
                           <div className="col-span-2">
                             <input 
                               type="number" value={line.unitPrice}
                               onChange={(e) => updateLine(idx, 'unitPrice', parseFloat(e.target.value))}
-                              className="w-full bg-transparent border-none outline-none font-bold text-right text-slate-700"
+                              className="w-full bg-transparent border-none outline-none font-bold text-right text-slate-700 text-sm"
                             />
                           </div>
                           <div className="col-span-2 relative pr-8">
-                            <div className="w-full text-right font-bold text-slate-900 mt-1">
+                            <div className="w-full text-right font-bold text-slate-900 mt-1 text-sm">
                               {line.total.toLocaleString()}
                             </div>
                             <button 
@@ -477,5 +496,6 @@ export default function PurchaseOrdersPage() {
         </div>
       )}
     </div>
-  );
+  </div>
+);
 }

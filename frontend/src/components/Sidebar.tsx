@@ -66,30 +66,24 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
   }, [pathname]);
 
   const toggleMenu = (menuName: string) => {
-    const newExpanded = new Set(expandedMenus);
-    if (newExpanded.has(menuName)) {
-      newExpanded.delete(menuName);
+    if (expandedMenus.has(menuName)) {
+      setExpandedMenus(new Set()); // collapse if already open
     } else {
-      newExpanded.add(menuName);
+      setExpandedMenus(new Set([menuName])); // open only this one, close all others
     }
-    setExpandedMenus(newExpanded);
   };
 
   const menuItems: MenuItem[] = [
     { name: 'Dashboard', href: `/company/${companyId}/dashboard`, icon: LayoutDashboard },
+    { name: 'Products', href: `/company/${companyId}/products`, icon: Package },
     { 
       name: 'Purchase', 
       icon: CreditCard,
       children: [
         { name: 'Suppliers', href: `/company/${companyId}/vendors` },
         { name: 'Purchase Order', href: `/company/${companyId}/purchase/orders` },
-        { 
-          name: 'Import LC', 
-          children: [
-            { name: 'Create LC', href: `/company/${companyId}/lc/create/import` },
-            { name: 'Loan Management', href: `/company/${companyId}/lc/loans` },
-          ]
-        },
+        { name: 'Import LC', href: `/company/${companyId}/lc/create/import` },
+        { name: 'Loan Management', href: `/company/${companyId}/lc/loans` },
         { name: 'Purchase Invoices', href: `/company/${companyId}/purchase/invoices` },
       ]
     },

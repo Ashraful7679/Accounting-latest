@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import Sidebar from '@/components/Sidebar';
-import UserDropdown from '@/components/UserDropdown';
 import { 
   Database, 
   Download, 
@@ -164,30 +162,7 @@ export default function BackupRestorePage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
-      <Sidebar companyName="System Settings" />
-      <main className="lg:pl-64 min-h-screen">
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between">
-          <div className="pl-10 lg:pl-0">
-            <h1 className="text-xl font-black text-slate-900">Backup &amp; Recovery</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleGenerateBackup}
-              disabled={isGenerating}
-              className={cn(
-                "flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold text-white transition-all shadow-sm text-sm",
-                isGenerating
-                  ? "bg-slate-400 cursor-not-allowed shadow-none"
-                  : "bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-blue-200/50"
-              )}
-            >
-              <RefreshCw className={cn("w-4 h-4", isGenerating && "animate-spin")} />
-              <span className="hidden sm:inline">{isGenerating ? 'Generating...' : 'Create Backup'}</span>
-            </button>
-            <div className="h-6 w-px bg-slate-200" />
-            <UserDropdown />
-          </div>
-        </header>
+
         <div className="p-4 md:p-8 max-w-6xl mx-auto">
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -378,7 +353,7 @@ export default function BackupRestorePage() {
             </div>
           </div>
         </div>
-      </main>
+
     </div>
   );
 }

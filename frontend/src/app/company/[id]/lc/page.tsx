@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import Sidebar from '@/components/Sidebar';
-import UserDropdown from '@/components/UserDropdown';
 import { 
   Briefcase, Plus, Search, Edit2, Trash2, Eye,
   Calendar, DollarSign, Building2, CheckCircle2, AlertCircle
@@ -69,30 +67,29 @@ export default function LCPage() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans">
-      <Sidebar companyName="LC Management" />
+    <div className="min-h-screen">
 
-      <main className="lg:pl-64 min-h-screen">
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between">
-          <div className="pl-10 lg:pl-0">
-            <h1 className="text-xl font-bold text-slate-900">LC Management</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="h-6 w-px bg-slate-200" />
-            <UserDropdown />
-          </div>
-        </header>
+
 
         <div className="p-6 max-w-[1600px] mx-auto">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">Letters of Credit</h2>
-            <button
-              onClick={() => router.push(`/company/${companyId}/finance`)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700"
-            >
-              <Plus className="w-4 h-4" />
-              Create New LC
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => router.push(`/company/${companyId}/lc/create/import`)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-xl font-black flex items-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                New Import LC
+              </button>
+              <button
+                onClick={() => router.push(`/company/${companyId}/lc/create/export`)}
+                className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-black flex items-center gap-2 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                New Export LC
+              </button>
+            </div>
           </div>
 
           <div className="flex gap-4 mb-4">
@@ -161,7 +158,7 @@ export default function LCPage() {
             </table>
           </div>
         </div>
-      </main>
+
     </div>
   );
 }

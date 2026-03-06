@@ -13,8 +13,6 @@ import {
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import Sidebar from '@/components/Sidebar';
-import UserDropdown from '@/components/UserDropdown';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -79,48 +77,9 @@ export default function ReportCenterPage() {
   const handlePrint = () => window.print();
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans">
-      <Sidebar companyName={company?.name || 'Report Center'} />
+    <div className="min-h-screen">
 
-      <main className="lg:pl-64 min-h-screen">
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between print:hidden">
-          <div className="flex items-center gap-4 pl-10 lg:pl-0">
-            <button 
-              onClick={() => selectedReport ? setSelectedReport(null) : router.back()} 
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors group"
-            >
-              <ArrowLeft className="w-5 h-5 text-slate-500 group-hover:text-slate-900" />
-            </button>
-            <div>
-              <h1 className="text-xl font-black text-slate-900">
-                {selectedReport ? selectedReport.name : 'Report Center'}
-              </h1>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-3">
-            {selectedReport && (
-              <>
-                <button 
-                  onClick={handlePrint}
-                  className="bg-white border-2 border-slate-200 hover:border-blue-600 text-slate-700 hover:text-blue-600 px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-all"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span className="hidden sm:inline">Print / PDF</span>
-                </button>
-                <button className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition-all">
-                  <Download className="w-4 h-4" />
-                  <span className="hidden sm:inline">Excel</span>
-                </button>
-              </>
-            )}
-            <button className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors relative">
-              <Bell className="w-5 h-5" />
-            </button>
-            <div className="h-6 w-px bg-slate-200" />
-            <UserDropdown />
-          </div>
-        </header>
 
         <div className="p-6 max-w-[1600px] mx-auto space-y-8">
           {!selectedReport ? (

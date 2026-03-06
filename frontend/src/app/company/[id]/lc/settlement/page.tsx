@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
-import Sidebar from '@/components/Sidebar';
-import UserDropdown from '@/components/UserDropdown';
 import { 
   CheckCircle2, Search, FileText, DollarSign, Calendar,
   Building2, AlertCircle, ArrowRight
@@ -122,19 +120,9 @@ export default function LCSettlementPage() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans">
-      <Sidebar companyName="LC Settlement" />
+    <div className="min-h-screen">
 
-      <main className="lg:pl-64 min-h-screen">
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between">
-          <div className="pl-10 lg:pl-0">
-            <h1 className="text-xl font-bold text-slate-900">LC Settlement</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="h-6 w-px bg-slate-200" />
-            <UserDropdown />
-          </div>
-        </header>
+
 
         <div className="p-6 max-w-[1600px] mx-auto">
           <div className="flex justify-between items-center mb-6">
@@ -236,7 +224,7 @@ export default function LCSettlementPage() {
             </div>
           </div>
         </div>
-      </main>
+
     </div>
   );
 }

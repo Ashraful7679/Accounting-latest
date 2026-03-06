@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import Sidebar from '@/components/Sidebar';
 import { 
   FileText, Calendar, DollarSign, ArrowLeft, Plus, 
   CheckCircle2, AlertCircle, Clock, CreditCard, 
@@ -152,10 +151,8 @@ export default function LCDetailPage() {
   if (!lc) return <div className="flex items-center justify-center min-h-screen">LC Not Found</div>;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans">
-      <Sidebar companyName={lc.company?.name || 'LC Details'} />
+    <div className="min-h-screen">
 
-      <main className="lg:pl-64 min-h-screen">
         <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button onClick={() => router.back()} className="p-2 hover:bg-slate-100 rounded-full transition-colors">

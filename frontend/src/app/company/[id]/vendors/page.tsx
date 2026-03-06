@@ -7,8 +7,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, Edit, ArrowLeft, LogOut, Building2, Bell, X, Package, DollarSign } from 'lucide-react';
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
 import UserDropdown from '@/components/UserDropdown';
 
 interface Vendor {
@@ -171,15 +169,8 @@ export default function CompanyVendorsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans">
-      <Sidebar companyName="Vendors" />
+    <div className="min-h-screen">
 
-      <main className="lg:pl-64 min-h-screen">
-        <Header 
-          companyId={companyId} 
-          breadcrumbs="Purchase / Suppliers" 
-          unreadCount={0}
-        />
 
         <div className="p-6 max-w-[1600px] mx-auto space-y-8">
           <div className="flex justify-between items-center mb-6">

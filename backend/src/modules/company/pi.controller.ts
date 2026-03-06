@@ -113,7 +113,16 @@ export class PIController {
         purchaseApplicationDate: data.purchaseApplicationDate ? new Date(data.purchaseApplicationDate) : null,
         purchaseAmount: data.purchaseAmount ? Number(data.purchaseAmount) : null,
         idbpNumber: data.idbpNumber,
-        customerId: data.customerId
+        customerId: data.customerId,
+        lines: {
+          create: data.lines?.map((line: any) => ({
+            productId: line.productId || null,
+            description: line.description,
+            quantity: Number(line.quantity || 1),
+            unitPrice: Number(line.unitPrice || 0),
+            total: Number(line.quantity || 1) * Number(line.unitPrice || 0)
+          }))
+        }
       }
     });
 
@@ -129,7 +138,6 @@ export class PIController {
 
     return reply.status(201).send({ success: true, data: pi });
   }
-
 
   async updatePI(request: FastifyRequest, reply: FastifyReply) {
     const { piId } = request.params as { piId: string };
@@ -157,15 +165,22 @@ export class PIController {
       }
     }
 
-    const updatedPI = await (prisma as any).pI.update({
+    // Delete existing lines and re-create if lines provided
+    if (data.lines) {
+      await (prisma as any).pILine.deleteMany({ where: { piId } });
+    }
 
+    const updatedPI = await (prisma as any).pI.update({
       where: { id: piId },
       data: {
-        ...data,
+        piNumber: data.piNumber,
         piDate: data.piDate ? new Date(data.piDate) : undefined,
         amount: data.amount ? Number(data.amount) : undefined,
+        currency: data.currency,
         exchangeRate: data.exchangeRate ? Number(data.exchangeRate) : undefined,
         totalBDT: data.totalBDT ? Number(data.totalBDT) : (data.amount && data.exchangeRate ? Number(data.amount) * Number(data.exchangeRate) : undefined),
+        status: data.status,
+        lcId: data.lcId,
         invoiceNumber: data.invoiceNumber,
         submissionToBuyerDate: data.submissionToBuyerDate ? new Date(data.submissionToBuyerDate) : undefined,
         submissionToBankDate: data.submissionToBankDate ? new Date(data.submissionToBankDate) : undefined,
@@ -174,9 +189,17 @@ export class PIController {
         purchaseApplicationDate: data.purchaseApplicationDate ? new Date(data.purchaseApplicationDate) : undefined,
         purchaseAmount: data.purchaseAmount ? Number(data.purchaseAmount) : undefined,
         idbpNumber: data.idbpNumber,
-        customerId: data.customerId
+        customerId: data.customerId,
+        lines: data.lines ? {
+          create: data.lines.map((line: any) => ({
+            productId: line.productId || null,
+            description: line.description,
+            quantity: Number(line.quantity || 1),
+            unitPrice: Number(line.unitPrice || 0),
+            total: Number(line.quantity || 1) * Number(line.unitPrice || 0)
+          }))
+        } : undefined
       }
-
     });
 
     return reply.send({ success: true, data: updatedPI });

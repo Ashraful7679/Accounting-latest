@@ -9,14 +9,20 @@ import {
   ChevronDown, CheckCircle2, AlertCircle, DollarSign, Calendar,
   ArrowUpRight, ArrowDownRight, Building2, Globe, ArrowRightLeft
 } from 'lucide-react';
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
 import { toast } from 'react-hot-toast';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+interface PILine {
+  productId?: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
 }
 
 interface PI {
@@ -36,6 +42,7 @@ interface PI {
   customer?: { id: string; name: string; code: string };
   lc?: { id: string; lcNumber: string };
   description?: string;
+  lines: PILine[];
 }
 
 export default function ExportPIsPage() {
@@ -48,10 +55,8 @@ export default function ExportPIsPage() {
   const [selectedPI, setSelectedPI] = useState<PI | null>(null);
   const [formData, setFormData] = useState({
     piNumber: '',
-    amount: 0,
     currency: 'USD',
     exchangeRate: 110,
-    totalBDT: 0,
     piDate: new Date().toISOString().split('T')[0],
     invoiceNumber: '',
     submissionToBuyerDate: '',
@@ -61,6 +66,7 @@ export default function ExportPIsPage() {
     customerId: '',
     lcId: '',
     description: '',
+    lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }] as PILine[]
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -70,12 +76,6 @@ export default function ExportPIsPage() {
     const token = localStorage.getItem('token');
     if (!token) router.push('/login');
   }, [router]);
-
-  // Automated BDT Calculation
-  useEffect(() => {
-    const total = (formData.amount || 0) * (formData.exchangeRate || 1);
-    setFormData(prev => ({ ...prev, totalBDT: total }));
-  }, [formData.amount, formData.exchangeRate]);
 
   const { data: pisData, isLoading } = useQuery({
     queryKey: ['export-pis', companyId],
@@ -104,9 +104,19 @@ export default function ExportPIsPage() {
     enabled: !!companyId,
   });
 
+  const { data: productsData } = useQuery({
+    queryKey: ['products', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/products`);
+      return response.data.data;
+    },
+    enabled: !!companyId,
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await api.post(`/company/${companyId}/pis`, { ...data, type: 'EXPORT' });
+      const totalForeign = data.lines.reduce((acc: number, line: PILine) => acc + (line.quantity * line.unitPrice), 0);
+      const response = await api.post(`/company/${companyId}/pis`, { ...data, amount: totalForeign, totalBDT: totalForeign * data.exchangeRate, type: 'EXPORT' });
       return response.data;
     },
     onSuccess: () => {
@@ -121,7 +131,8 @@ export default function ExportPIsPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const response = await api.put(`/company/${companyId}/pis/${id}`, data);
+      const totalForeign = data.lines.reduce((acc: number, line: PILine) => acc + (line.quantity * line.unitPrice), 0);
+      const response = await api.put(`/company/${companyId}/pis/${id}`, { ...data, amount: totalForeign, totalBDT: totalForeign * data.exchangeRate });
       return response.data;
     },
     onSuccess: () => {
@@ -148,15 +159,51 @@ export default function ExportPIsPage() {
     },
   });
 
+  const handleLineChange = (index: number, field: string, value: any) => {
+    const newLines = [...formData.lines];
+    const line = { ...newLines[index], [field]: value };
+    
+    // Auto-fill from product
+    if (field === 'productId' && value) {
+      const product = productsData?.find((p: any) => p.id === value);
+      if (product) {
+        line.description = product.name;
+        line.unitPrice = product.unitPrice;
+      }
+    }
+    
+    if (field === 'quantity' || field === 'unitPrice' || field === 'productId') {
+      line.total = line.quantity * line.unitPrice;
+    }
+    
+    newLines[index] = line;
+    setFormData({ ...formData, lines: newLines });
+  };
+
+  const addLine = () => {
+    setFormData({
+      ...formData,
+      lines: [...formData.lines, { productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }]
+    });
+  };
+
+  const removeLine = (index: number) => {
+    if (formData.lines.length === 1) return;
+    const newLines = formData.lines.filter((_, i) => i !== index);
+    setFormData({ ...formData, lines: newLines });
+  };
+
+  const calculateSubtotal = () => {
+    return formData.lines.reduce((sum, line) => sum + line.total, 0);
+  };
+
   const openModal = (pi?: PI) => {
     if (pi) {
       setSelectedPI(pi);
       setFormData({
         piNumber: pi.piNumber || '',
-        amount: pi.amount || 0,
         currency: pi.currency || 'USD',
         exchangeRate: pi.exchangeRate || 110,
-        totalBDT: pi.totalBDT || 0,
         piDate: pi.piDate ? pi.piDate.split('T')[0] : '',
         invoiceNumber: pi.invoiceNumber || '',
         submissionToBuyerDate: pi.submissionToBuyerDate ? pi.submissionToBuyerDate.split('T')[0] : '',
@@ -166,14 +213,22 @@ export default function ExportPIsPage() {
         customerId: pi.customer?.id || '',
         lcId: pi.lc?.id || '',
         description: pi.description || '',
+        lines: pi.lines?.length ? pi.lines.map((l: any) => ({
+          productId: l.productId || '',
+          description: l.description || '',
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          total: l.quantity * l.unitPrice
+        })) : [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }]
       });
     } else {
       setSelectedPI(null);
       setFormData({
-        piNumber: '', amount: 0, currency: 'USD', exchangeRate: 110, totalBDT: 0,
+        piNumber: '', currency: 'USD', exchangeRate: 110,
         piDate: new Date().toISOString().split('T')[0],
         invoiceNumber: '', submissionToBuyerDate: '', submissionToBankDate: '',
         bankAcceptanceDate: '', maturityDate: '', customerId: '', lcId: '', description: '',
+        lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }]
       });
     }
     setShowModal(true);
@@ -214,15 +269,8 @@ export default function ExportPIsPage() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans">
-      <Sidebar companyName="Export PIs" />
+    <div className="min-h-screen">
 
-      <main className="lg:pl-64 min-h-screen">
-        <Header 
-          companyId={companyId} 
-          breadcrumbs="Sales / Proforma Invoices" 
-          unreadCount={0}
-        />
 
         <div className="p-6 max-w-[1600px] mx-auto space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -322,8 +370,6 @@ export default function ExportPIsPage() {
               </table>
             </div>
           </div>
-        </div>
-      </main>
 
       {/* PI MODAL */}
       {showModal && (
@@ -379,19 +425,15 @@ export default function ExportPIsPage() {
                   </div>
                 </div>
 
-                {/* Middle: Financials */}
+                {/* Middle: Financials & Conversion */}
                 <div className="space-y-6">
                   <div className="flex items-center gap-2 text-emerald-600 mb-2">
                     <DollarSign className="w-4 h-4" />
-                    <span className="text-xs font-black uppercase tracking-widest">Pricing & Conversion</span>
+                    <span className="text-xs font-black uppercase tracking-widest">Pricing & Total</span>
                   </div>
 
-                  <div className="bg-emerald-50/50 p-6 rounded-[2rem] border border-emerald-100 space-y-6">
+                  <div className="bg-emerald-50/50 p-6 rounded-[2rem] border border-emerald-100 space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Foreign Amount</label>
-                        <input type="number" step="0.01" value={formData.amount} onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value)})} className="w-full bg-white border-2 border-transparent focus:border-emerald-600 rounded-2xl px-4 py-3 outline-none transition-all font-bold" required />
-                      </div>
                       <div>
                         <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Currency</label>
                         <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full bg-white border-2 border-transparent focus:border-emerald-600 rounded-2xl px-4 py-3 outline-none transition-all font-bold">
@@ -400,19 +442,21 @@ export default function ExportPIsPage() {
                           <option value="BDT">BDT</option>
                         </select>
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Exchange Rate (vs BDT)</label>
-                      <div className="relative">
-                        <ArrowRightLeft className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400" />
-                        <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value)})} className="w-full bg-white border-2 border-transparent focus:border-emerald-600 rounded-2xl pl-12 pr-4 py-3 outline-none transition-all font-bold" />
+                      <div>
+                        <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Exchange Rate</label>
+                        <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value)})} className="w-full bg-white border-2 border-transparent focus:border-emerald-600 rounded-2xl px-4 py-3 outline-none transition-all font-bold" />
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t border-emerald-100 mt-4">
-                      <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">Estimated BDT Value</p>
-                      <p className="text-3xl font-black text-emerald-800 font-mono">৳ {formData.totalBDT.toLocaleString()}</p>
+                    <div className="pt-4 border-t border-emerald-100 flex justify-between items-end">
+                      <div>
+                        <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">Total Foreign</p>
+                        <p className="text-2xl font-black text-slate-900 font-mono">{calculateSubtotal().toLocaleString()} {formData.currency}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">Total BDT</p>
+                        <p className="text-2xl font-black text-emerald-800 font-mono">৳ {(calculateSubtotal() * formData.exchangeRate).toLocaleString()}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -453,6 +497,78 @@ export default function ExportPIsPage() {
                 </div>
               </div>
 
+              {/* Line Items Section */}
+              <div className="pt-8 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-4 px-2">
+                  <div className="flex items-center gap-2">
+                    <ArrowDownRight className="w-5 h-5 text-blue-600" />
+                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Itemized Breakdown</h4>
+                  </div>
+                  <button type="button" onClick={addLine} className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-4 py-2 rounded-xl text-xs font-black hover:bg-blue-100 transition-all active:scale-95">
+                    <Plus className="w-4 h-4" /> Add Line Item
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="grid grid-cols-12 gap-3 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    <div className="col-span-3">Product</div>
+                    <div className="col-span-3">Description</div>
+                    <div className="col-span-2 text-center">Quantity</div>
+                    <div className="col-span-2 text-right">Unit Price</div>
+                    <div className="col-span-2 text-right">Total</div>
+                  </div>
+
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                    {formData.lines.map((line, idx) => (
+                      <div key={idx} className="group grid grid-cols-12 gap-3 bg-slate-50/50 p-3 rounded-[1.5rem] border-2 border-transparent hover:border-blue-100 hover:bg-white transition-all">
+                        <div className="col-span-3">
+                          <select 
+                            value={line.productId} 
+                            onChange={(e) => handleLineChange(idx, 'productId', e.target.value)}
+                            className="w-full bg-transparent border-none outline-none font-bold text-slate-700 px-2 text-sm"
+                          >
+                            <option value="">Custom Product</option>
+                            {productsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          </select>
+                        </div>
+                        <div className="col-span-3">
+                          <input 
+                            type="text" value={line.description} placeholder="Item description"
+                            onChange={(e) => handleLineChange(idx, 'description', e.target.value)}
+                            className="w-full bg-transparent border-none outline-none font-bold text-slate-700 px-2 text-sm" required
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <input 
+                            type="number" value={line.quantity}
+                            onChange={(e) => handleLineChange(idx, 'quantity', parseFloat(e.target.value))}
+                            className="w-full bg-transparent border-none outline-none font-bold text-center text-slate-700 text-sm"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <input 
+                            type="number" step="0.01" value={line.unitPrice}
+                            onChange={(e) => handleLineChange(idx, 'unitPrice', parseFloat(e.target.value))}
+                            className="w-full bg-transparent border-none outline-none font-bold text-right text-slate-700 text-sm"
+                          />
+                        </div>
+                        <div className="col-span-2 relative pr-10">
+                          <div className="w-full text-right font-black text-slate-900 mt-1 text-sm font-mono">
+                            {line.total.toLocaleString()}
+                          </div>
+                          <button 
+                            type="button" onClick={() => removeLine(idx)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-300 hover:text-red-500 transition-colors bg-white rounded-lg shadow-sm border border-slate-100 opacity-0 group-hover:opacity-100"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div className="flex justify-end gap-3 pt-8 border-t border-slate-50">
                 <button type="button" onClick={closeModal} className="px-8 py-3 rounded-2xl text-slate-500 font-bold hover:bg-slate-50 transition-all active:scale-95">
                   Discard Draft
@@ -470,5 +586,6 @@ export default function ExportPIsPage() {
         </div>
       )}
     </div>
-  );
+  </div>
+);
 }

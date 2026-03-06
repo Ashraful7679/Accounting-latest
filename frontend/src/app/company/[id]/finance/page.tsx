@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import Sidebar from '@/components/Sidebar';
 import { 
   Building2, Briefcase, CreditCard, Plus, Trash2, Edit2, 
   Search, Filter, ChevronDown, CheckCircle2, AlertCircle,
@@ -16,7 +15,6 @@ import { AttachmentManager } from '@/components/AttachmentManager';
 import { toast } from 'react-hot-toast';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import UserDropdown from '@/components/UserDropdown';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -256,40 +254,10 @@ export default function FinancePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans">
-      <Sidebar companyName={company?.name || 'LC & Banking'} />
+    <div className="min-h-screen">
 
-      <main className="lg:pl-64 min-h-screen">
         {/* Header Section */}
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 px-4 lg:px-6 py-3 flex items-center justify-between print:hidden">
-          <div className="flex items-center gap-4 pl-10 lg:pl-0">
-            <button onClick={() => router.back()} className="p-2 hover:bg-slate-100 rounded-full transition-colors group">
-              <ArrowLeft className="w-5 h-5 text-slate-500 group-hover:text-slate-900" />
-            </button>
-            <div>
-              <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                <Briefcase className="w-6 h-6 text-blue-600" />
-                Financial Instruments
-              </h1>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => activeTab === 'pis' ? setShowPIModal(true) : handleOpenModal()}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 lg:px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all active:scale-95"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="hidden sm:inline">New {activeTab === 'lcs' ? 'LC' : activeTab === 'loans' ? 'Loan' : 'PI'}</span>
-            </button>
-
-            <button className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors relative">
-              <Bell className="w-5 h-5" />
-            </button>
-            <div className="h-6 w-px bg-slate-200" />
-            <UserDropdown />
-          </div>
-        </header>
 
         {/* Tabs Bar */}
         <div className="bg-white border-b border-slate-200 sticky top-[73px] z-20 px-6">

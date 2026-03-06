@@ -10,6 +10,7 @@ import { NotificationController } from './notification.controller';
 import { ReconcileController } from './reconcile.controller';
 import { PaymentController } from './payment.controller';
 import { PIController } from './pi.controller';
+import { ProductController } from './product.controller';
 import { BackupController } from '../backup/backup.controller';
 
 import { authenticate } from '../../middleware/auth';
@@ -26,6 +27,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   const reconcileController = new ReconcileController();
   const paymentController = new PaymentController();
   const piController = new PIController();
+  const productController = new ProductController();
   const backupController = new BackupController();
 
 
@@ -101,6 +103,13 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.put('/:id/accounts/:accountId', controller.updateAccount.bind(controller));
   fastify.get('/:id/account-types', controller.getAccountTypes.bind(controller));
   fastify.post('/:id/heal-balances', controller.healBalances.bind(controller));
+
+  // Products
+  fastify.get('/:id/products', productController.getProducts.bind(productController));
+  fastify.post('/:id/products', productController.createProduct.bind(productController));
+  fastify.get('/:id/products/:productId', productController.getProduct.bind(productController));
+  fastify.put('/:id/products/:productId', productController.updateProduct.bind(productController));
+  fastify.delete('/:id/products/:productId', productController.deleteProduct.bind(productController));
 
   // Employees
   fastify.get('/:id/employees', controller.getEmployees.bind(controller));

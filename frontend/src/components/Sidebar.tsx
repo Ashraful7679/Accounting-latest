@@ -81,7 +81,7 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
       name: 'Sales', 
       icon: TrendingUp,
       children: [
-        { name: 'Customers', href: `/company/${companyId}/customers` },
+        { name: 'Customers', href: `/company/${companyId}/sales/customers` },
         { name: 'Export PIs', href: `/company/${companyId}/sales/pis` },
         { name: 'Sales Invoices', href: `/company/${companyId}/sales/invoices` },
       ]

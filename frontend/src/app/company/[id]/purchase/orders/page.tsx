@@ -51,8 +51,8 @@ export default function PurchaseOrdersPage() {
     lcId: '',
     poDate: new Date().toISOString().split('T')[0],
     expectedDeliveryDate: '',
-    currency: 'USD',
-    exchangeRate: 110,
+    currency: 'BDT',
+    exchangeRate: 1,
     lines: [{ productId: '', itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }] as POLine[],
     status: 'DRAFT'
   });
@@ -121,6 +121,39 @@ export default function PurchaseOrdersPage() {
     }
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string, data: any }) => {
+      const totalForeign = data.lines.reduce((acc: number, line: POLine) => acc + (line.quantity * line.unitPrice), 0);
+      const submitData = {
+        ...data,
+        totalForeign,
+        totalBDT: totalForeign * data.exchangeRate,
+      };
+      return await api.put(`/company/${companyId}/purchase-orders/${id}`, submitData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders', companyId] });
+      toast.success('Purchase Order updated successfully');
+      closeModal();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Failed to update PO');
+    }
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string, status: string }) => {
+      return await api.patch(`/company/${companyId}/purchase-orders/${id}/status`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders', companyId] });
+      toast.success('Purchase Order status updated');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Failed to update status');
+    }
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       return await api.delete(`/company/${companyId}/purchase-orders/${id}`);
@@ -170,7 +203,16 @@ export default function PurchaseOrdersPage() {
   const openModal = (po?: PurchaseOrder) => {
     if (po) {
       setSelectedPO(po);
-      // PO edit not fully implemented in backend yet, strictly creation for now
+      setFormData({
+        supplierId: po.supplier?.id || '',
+        lcId: po.lc?.id || '',
+        poDate: po.poDate ? new Date(po.poDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        expectedDeliveryDate: po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toISOString().split('T')[0] : '',
+        currency: po.currency || 'BDT',
+        exchangeRate: po.exchangeRate || 1,
+        lines: po.lines?.length ? po.lines.map(l => ({...l, productId: l.productId || ''})) : [{ productId: '', itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }],
+        status: po.status || 'DRAFT'
+      });
     } else {
       setSelectedPO(null);
       setFormData({
@@ -178,8 +220,8 @@ export default function PurchaseOrdersPage() {
         lcId: '',
         poDate: new Date().toISOString().split('T')[0],
         expectedDeliveryDate: '',
-        currency: 'USD',
-        exchangeRate: 110,
+        currency: 'BDT',
+        exchangeRate: 1,
         lines: [{ productId: '', itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }],
         status: 'DRAFT'
       });
@@ -311,8 +353,23 @@ export default function PurchaseOrdersPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex justify-center gap-2">
-                            <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Eye className="w-4 h-4" /></button>
-                            <button onClick={() => deleteMutation.mutate(po.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                            <select 
+                               value={po.status}
+                               onChange={(e) => statusMutation.mutate({ id: po.id, status: e.target.value })}
+                               className="px-2 py-1 text-xs rounded border border-slate-200 bg-white"
+                             >
+                                <option value="DRAFT">DRAFT</option>
+                                <option value="APPROVED">APPROVED</option>
+                                <option value="SENT">SENT</option>
+                                <option value="RECEIVED">RECEIVED</option>
+                                <option value="CLOSED">CLOSED</option>
+                             </select>
+                            <button onClick={() => openModal(po)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
+                            <button onClick={() => {
+                                if (window.confirm("Are you sure you want to delete this Purchase Order?")) {
+                                    deleteMutation.mutate(po.id);
+                                }
+                            }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
                           </div>
                         </td>
                       </tr>
@@ -323,7 +380,6 @@ export default function PurchaseOrdersPage() {
             </div>
           </div>
 
-      {/* MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
@@ -332,9 +388,9 @@ export default function PurchaseOrdersPage() {
               <div>
                 <h3 className="text-2xl font-black text-slate-900 flex items-center gap-2">
                   <Package className="w-6 h-6 text-blue-600" />
-                  New Purchase Order
+                  {selectedPO ? `Edit Purchase Order ${selectedPO.poNumber}` : 'New Purchase Order'}
                 </h3>
-                <p className="text-sm text-slate-500">Draft a new procurement request</p>
+                <p className="text-sm text-slate-500">{selectedPO ? 'Update existing procurement request' : 'Draft a new procurement request'}</p>
               </div>
               <button onClick={closeModal} className="p-2 hover:bg-white rounded-xl transition-all border border-transparent hover:border-slate-100">
                 <ChevronDown className="w-6 h-6 text-slate-400" />
@@ -342,7 +398,14 @@ export default function PurchaseOrdersPage() {
             </div>
 
             {/* Modal Content */}
-            <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(formData); }} className="flex-1 overflow-y-auto p-8">
+            <form onSubmit={(e) => { 
+                e.preventDefault(); 
+                if (selectedPO) {
+                    updateMutation.mutate({ id: selectedPO.id, data: formData });
+                } else {
+                    createMutation.mutate(formData); 
+                }
+            }} className="flex-1 overflow-y-auto p-8">
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                 {/* Left Side: Details */}
                 <div className="lg:col-span-1 space-y-6">
@@ -485,10 +548,10 @@ export default function PurchaseOrdersPage() {
                 </button>
                 <button 
                   type="submit" 
-                  disabled={createMutation.isPending}
+                  disabled={createMutation.isPending || updateMutation.isPending}
                   className="px-12 py-3 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 active:scale-95 disabled:bg-slate-200"
                 >
-                  {createMutation.isPending ? 'Confirming Order...' : 'Submit Purchase Order'}
+                  {createMutation.isPending || updateMutation.isPending ? 'Saving...' : 'Save Purchase Order'}
                 </button>
               </div>
             </form>

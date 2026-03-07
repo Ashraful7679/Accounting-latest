@@ -28,7 +28,7 @@ export class ProductController {
       code,
       name,
       companyId,
-      sku,
+      sku: sku || code,
       description,
       unitPrice: Number(unitPrice || 0),
       isActive: isActive !== undefined ? isActive : true

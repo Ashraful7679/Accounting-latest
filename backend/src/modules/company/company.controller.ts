@@ -54,16 +54,25 @@ export class CompanyController {
     return user.userRoles[0]?.role.name || 'User';
   }
 
-  // Check if user can perform action based on status
-  private canEdit(status: string, role: string): boolean {
-    if (role === 'Owner') return true;
+    // Check if user can perform action based on status
+  private canEdit(status: string, role: string, userId?: string, createdById?: string): boolean {
+    const lockedStatuses = ['VERIFIED', 'PENDING_APPROVAL', 'APPROVED', 'PAID', 'CLOSED'];
+    if (lockedStatuses.includes(status)) return false;
+    
+    if (role === 'Owner' || role === 'Admin' || role === 'Manager') return true;
+
+    // Allow creator to edit if DRAFT or REJECTED
+    if (userId && createdById && userId === createdById) {
+      return status === 'DRAFT' || status === 'REJECTED';
+    }
+    
     if (role === 'Accountant') return status === 'DRAFT' || status === 'REJECTED';
     return false;
   }
 
-  private canDelete(status: string, role: string): boolean {
-    if (role === 'Owner') return status === 'DRAFT';
-    if (role === 'Accountant') return status === 'DRAFT';
+    private canDelete(status: string, role: string): boolean {
+    if (status !== 'DRAFT') return false;
+    if (role === 'Owner' || role === 'Admin') return true;
     return false;
   }
 
@@ -255,9 +264,18 @@ export class CompanyController {
     return reply.status(201).send({ success: true, data: po });
   }
 
-  async updatePurchaseOrder(request: FastifyRequest, reply: FastifyReply) {
+    async updatePurchaseOrder(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, poId } = request.params as { id: string, poId: string };
     const updateData = request.body as any;
+    const userId = (request.user as any).id;
+
+    const po = await (prisma as any).purchaseOrder.findUnique({ where: { id: poId } });
+    if (!po) throw new NotFoundError('Purchase Order not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canEdit(po.status, role)) {
+      throw new ForbiddenError('Cannot edit this purchase order in current status');
+    }
 
     // Remove immutable fields if present in update payload
     delete updateData.companyId;
@@ -267,45 +285,80 @@ export class CompanyController {
     if (updateData.poDate) updateData.poDate = new Date(updateData.poDate);
     if (updateData.expectedDeliveryDate) updateData.expectedDeliveryDate = new Date(updateData.expectedDeliveryDate);
 
-    const po = await PurchaseOrderRepository.update(poId, updateData);
+    const updatedPo = await PurchaseOrderRepository.update(poId, updateData);
 
     // Log Activity
     await NotificationController.logActivity({
       companyId,
       entityType: 'purchase_order',
-      entityId: po.id,
+      entityId: updatedPo.id,
       action: 'UPDATED',
-      performedById: (request.user as any).id,
-      metadata: { docNumber: po.poNumber }
+      performedById: userId,
+      metadata: { docNumber: updatedPo.poNumber }
     });
 
-    return reply.send({ success: true, data: po });
+    return reply.send({ success: true, data: updatedPo });
   }
 
   async updatePurchaseOrderStatus(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, poId } = request.params as { id: string, poId: string };
-    const { status } = request.body as { status: string };
+    const { status: newStatus } = request.body as { status: string };
+    const userId = (request.user as any).id;
 
-    const po = await prisma.purchaseOrder.update({
+    const po = await (prisma as any).purchaseOrder.findUnique({ where: { id: poId } });
+    if (!po) throw new NotFoundError('Purchase Order not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    
+    // Status Monotonicity Guard
+    const statusOrder: Record<string, number> = {
+      'DRAFT': 0,
+      'REJECTED': 0,
+      'APPROVED': 1,
+      'SENT': 2,
+      'RECEIVED': 3,
+      'CLOSED': 4
+    };
+
+    if (statusOrder[newStatus] <= statusOrder[po.status] && role !== 'Owner' && role !== 'Admin') {
+      throw new ForbiddenError(`Cannot change status backward from ${po.status} to ${newStatus}`);
+    }
+
+    const updated = await (prisma as any).purchaseOrder.update({
       where: { id: poId },
-      data: { status }
+      data: { status: newStatus },
+      include: {
+        supplier: true,
+        lc: true,
+        lines: true
+      }
     });
 
-    // Log Activity
-    await NotificationController.logActivity({
+    await NotificationController.notifyStatusChange({
       companyId,
-      entityType: 'purchase_order',
-      entityId: po.id,
-      action: 'STATUS_CHANGED',
-      performedById: (request.user as any).id,
-      metadata: { docNumber: po.poNumber, newStatus: status }
+      entityType: 'PurchaseOrder',
+      entityId: poId,
+      entityNumber: po.poNumber,
+      oldStatus: po.status,
+      newStatus: newStatus,
+      performedById: userId
     });
 
-    return reply.send({ success: true, data: po });
+    return reply.send({ success: true, data: updated });
   }
 
-  async deletePurchaseOrder(request: FastifyRequest, reply: FastifyReply) {
-    const { poId } = request.params as { poId: string };
+    async deletePurchaseOrder(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, poId } = request.params as { id: string, poId: string };
+    const userId = (request.user as any).id;
+
+    const po = await (prisma as any).purchaseOrder.findUnique({ where: { id: poId } });
+    if (!po) throw new NotFoundError('Purchase Order not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canDelete(po.status, role)) {
+      throw new ForbiddenError('Cannot delete this purchase order');
+    }
+
     await PurchaseOrderRepository.delete(poId);
     return reply.send({ success: true, message: 'Purchase Order deleted' });
   }
@@ -396,11 +449,18 @@ export class CompanyController {
 
   async updateAccount(request: FastifyRequest, reply: FastifyReply) {
     const { accountId } = request.params as { accountId: string };
-    const { name, isActive, cashFlowType } = request.body as any;
+    const { name, isActive, cashFlowType, code, parentId, openingBalance } = request.body as any;
 
     const account = await prisma.account.update({
       where: { id: accountId },
-      data: { name, isActive, cashFlowType } as any,
+      data: { 
+        name, 
+        isActive, 
+        cashFlowType,
+        code,
+        parentId: parentId || undefined,
+        openingBalance: openingBalance !== undefined ? parseFloat(openingBalance) : undefined,
+      } as any,
     });
 
     return reply.send({ success: true, data: account });
@@ -625,7 +685,7 @@ export class CompanyController {
     }
 
     if (!this.canVerify(invoice.status, role)) {
-      throw new ForbiddenError('Cannot verify this invoice');
+      throw new ForbiddenError(`Cannot verify this invoice from current status: ${invoice.status}`);
     }
 
     const updated = await prisma.invoice.update({
@@ -635,6 +695,16 @@ export class CompanyController {
         verifiedById: userId,
         verifiedAt: new Date(),
       },
+    });
+
+    await NotificationController.notifyStatusChange({
+      companyId,
+      entityType: 'Invoice',
+      entityId: invoiceId,
+      entityNumber: invoice.invoiceNumber,
+      oldStatus: invoice.status,
+      newStatus: 'VERIFIED',
+      performedById: userId
     });
 
     return reply.send({ success: true, data: updated });
@@ -662,6 +732,17 @@ export class CompanyController {
         rejectedById: userId,
         rejectionReason: reason,
       },
+    });
+
+    await NotificationController.notifyStatusChange({
+      companyId,
+      entityType: 'Invoice',
+      entityId: invoiceId,
+      entityNumber: invoice.invoiceNumber,
+      oldStatus: invoice.status,
+      newStatus: 'REJECTED',
+      performedById: userId,
+      reason
     });
 
     return reply.send({ success: true, data: updated });
@@ -695,6 +776,16 @@ export class CompanyController {
       },
     });
 
+    await NotificationController.notifyStatusChange({
+      companyId,
+      entityType: 'Invoice',
+      entityId: invoiceId,
+      entityNumber: invoice.invoiceNumber,
+      oldStatus: invoice.status,
+      newStatus: 'DRAFT',
+      performedById: userId
+    });
+
     return reply.send({ success: true, data: updated });
   }
 
@@ -713,7 +804,7 @@ export class CompanyController {
     if (!invoice) throw new NotFoundError('Invoice not found');
 
     if (!this.canApprove(invoice.status, role)) {
-      throw new ForbiddenError('Cannot approve this invoice');
+      throw new ForbiddenError(`Cannot approve this invoice from current status: ${invoice.status}`);
     }
 
     const updated = await prisma.$transaction(async (tx: any) => {
@@ -850,21 +941,39 @@ export class CompanyController {
     const data = request.body as any;
 
     const role = await this.getUserRole(userId, companyId);
-    const journal = await prisma.journalEntry.findUnique({ where: { id: journalId } });
+    const journal = await (prisma as any).journalEntry.findUnique({ where: { id: journalId } });
 
     if (!journal) throw new NotFoundError('Journal not found');
 
-    if (!this.canEdit(journal.status, role)) {
+    if (!this.canEdit(journal.status, role, userId, journal.createdById)) {
       throw new ForbiddenError('Cannot edit this journal in current status');
     }
 
-    const updated = await prisma.journalEntry.update({
-      where: { id: journalId },
-      data: {
-        description: data.description ?? journal.description,
-        reference: data.reference ?? journal.reference,
-      },
-      include: { lines: true },
+    const { lines, ...otherData } = data;
+
+    const updated = await prisma.$transaction(async (tx: any) => {
+      if (lines) {
+        await tx.journalEntryLine.deleteMany({ where: { journalEntryId: journalId } });
+      }
+
+      return await tx.journalEntry.update({
+        where: { id: journalId },
+        data: {
+          ...otherData,
+          date: otherData.date ? new Date(otherData.date) : undefined,
+          lines: lines ? {
+            create: lines.map((l: any) => ({
+              accountId: l.accountId,
+              description: l.description,
+              debit: l.debitCredit === 'debit' ? Number(l.amount) : 0,
+              credit: l.debitCredit === 'credit' ? Number(l.amount) : 0,
+              debitBase: l.debitCredit === 'debit' ? Number(l.amount) : 0,
+              creditBase: l.debitCredit === 'credit' ? Number(l.amount) : 0,
+            }))
+          } : undefined
+        },
+        include: { lines: true },
+      });
     });
 
     return reply.send({ success: true, data: updated });
@@ -922,15 +1031,14 @@ export class CompanyController {
       },
     });
 
-    // Log Structured Activity
-    await NotificationController.logActivity({
+    await NotificationController.notifyStatusChange({
       companyId: journal.companyId,
-      entityType: 'journal',
+      entityType: 'JournalEntry',
       entityId: journal.id,
-      action: 'VERIFIED',
-      performedById: userId,
-      branchId: journal.branchId,
-      metadata: { docNumber: journal.entryNumber }
+      entityNumber: journal.entryNumber,
+      oldStatus: journal.status,
+      newStatus: 'VERIFIED',
+      performedById: userId
     });
 
     return reply.send({ success: true, data: updated });
@@ -966,16 +1074,15 @@ export class CompanyController {
       },
     });
 
-    // Log Structured Activity
-    await NotificationController.logActivity({
+    await NotificationController.notifyStatusChange({
       companyId: journal.companyId,
-      entityType: 'journal',
+      entityType: 'JournalEntry',
       entityId: journal.id,
-      action: 'REJECTED_MANAGER',
+      entityNumber: journal.entryNumber,
+      oldStatus: journal.status,
+      newStatus: 'REJECTED',
       performedById: userId,
-      targetUserId: journal.createdById,
-      branchId: journal.branchId,
-      metadata: { docNumber: journal.entryNumber, reason }
+      reason
     });
 
     return reply.send({ success: true, data: updated });
@@ -994,6 +1101,16 @@ export class CompanyController {
     const updated = await prisma.journalEntry.update({
       where: { id: journalId },
       data: { status: 'DRAFT', rejectionReason: null },
+    });
+
+    await NotificationController.notifyStatusChange({
+      companyId,
+      entityType: 'JournalEntry',
+      entityId: journalId,
+      entityNumber: updated.entryNumber,
+      oldStatus: 'REJECTED',
+      newStatus: 'DRAFT',
+      performedById: userId
     });
 
     return reply.send({ success: true, data: updated });
@@ -1020,23 +1137,20 @@ export class CompanyController {
       data: { status: 'PENDING_VERIFICATION' },
     });
 
-    // Create Notification
-    await prisma.notification.create({
-      data: {
-        companyId,
-        type: 'PENDING_JOURNAL',
-        severity: 'WARNING',
-        title: 'Voucher Submitted for Verification',
-        message: `Journal ${updated.entryNumber} has been submitted and is awaiting verification.`,
-        entityType: 'JournalEntry',
-        entityId: updated.id
-      }
+    await NotificationController.notifyStatusChange({
+      companyId,
+      entityType: 'JournalEntry',
+      entityId: journalId,
+      entityNumber: updated.entryNumber,
+      oldStatus: journal.status,
+      newStatus: 'PENDING_VERIFICATION',
+      performedById: userId
     });
 
     return reply.send({ success: true, data: updated });
   }
 
-    async approveJournal(request: FastifyRequest, reply: FastifyReply) {
+  async approveJournal(request: FastifyRequest, reply: FastifyReply) {
     const { journalId } = request.params as { journalId: string };
     const { id: companyId } = request.params as { id: string };
     const userId = (request.user as any).id;
@@ -1050,7 +1164,7 @@ export class CompanyController {
     if (!journal) throw new NotFoundError('Journal not found');
 
     if (!this.canApprove(journal.status, role)) {
-      throw new ForbiddenError('Cannot approve this journal');
+      throw new ForbiddenError(`Cannot approve this journal from current status: ${journal.status}`);
     }
 
     const updated = await prisma.$transaction(async (tx: any) => {
@@ -1064,16 +1178,14 @@ export class CompanyController {
         },
       });
 
-      // Log Structured Activity (Outside transaction or inside, depending on preference, inside here for consistency)
-      // Actually best practice to do it inside and wait for commit, but for now we follow the pattern
-      await NotificationController.logActivity({
+      await NotificationController.notifyStatusChange({
         companyId: journal.companyId,
-        entityType: 'journal',
+        entityType: 'JournalEntry',
         entityId: journal.id,
-        action: 'APPROVED',
-        performedById: userId,
-        branchId: journal.branchId,
-        metadata: { docNumber: journal.entryNumber }
+        entityNumber: journal.entryNumber,
+        oldStatus: journal.status,
+        newStatus: 'APPROVED',
+        performedById: userId
       });
 
       // 2. Validate and Update Account Balances
@@ -1339,8 +1451,17 @@ export class CompanyController {
   }
 
   async updateEmployeeAdvance(request: FastifyRequest, reply: FastifyReply) {
-    const { advanceId } = request.params as { advanceId: string };
+    const { id: companyId, advanceId } = request.params as { id: string, advanceId: string };
     const data = request.body as any;
+    const userId = (request.user as any).id;
+
+    const existing = await prisma.employeeAdvance.findUnique({ where: { id: advanceId } });
+    if (!existing) throw new NotFoundError('Advance not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canEdit(existing.status, role)) {
+      throw new ForbiddenError('Cannot edit this advance in current status');
+    }
 
     const advance = await prisma.employeeAdvance.update({
       where: { id: advanceId },
@@ -1354,7 +1475,16 @@ export class CompanyController {
   }
 
   async deleteEmployeeAdvance(request: FastifyRequest, reply: FastifyReply) {
-    const { advanceId } = request.params as { advanceId: string };
+    const { id: companyId, advanceId } = request.params as { id: string, advanceId: string };
+    const userId = (request.user as any).id;
+
+    const existing = await prisma.employeeAdvance.findUnique({ where: { id: advanceId } });
+    if (!existing) throw new NotFoundError('Advance not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canDelete(existing.status, role)) {
+      throw new ForbiddenError('Cannot delete this advance');
+    }
 
     await prisma.employeeAdvance.delete({ where: { id: advanceId } });
 
@@ -1478,8 +1608,17 @@ export class CompanyController {
   }
 
   async updateEmployeeLoan(request: FastifyRequest, reply: FastifyReply) {
-    const { loanId } = request.params as { loanId: string };
+    const { id: companyId, loanId } = request.params as { id: string, loanId: string };
     const data = request.body as any;
+    const userId = (request.user as any).id;
+
+    const existing = await prisma.employeeLoan.findUnique({ where: { id: loanId } });
+    if (!existing) throw new NotFoundError('Loan not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canEdit(existing.status, role)) {
+      throw new ForbiddenError('Cannot edit this loan in current status');
+    }
 
     if (data.principalAmount) {
       const principal = parseFloat(data.principalAmount);
@@ -1502,7 +1641,16 @@ export class CompanyController {
   }
 
   async deleteEmployeeLoan(request: FastifyRequest, reply: FastifyReply) {
-    const { loanId } = request.params as { loanId: string };
+    const { id: companyId, loanId } = request.params as { id: string, loanId: string };
+    const userId = (request.user as any).id;
+
+    const existing = await prisma.employeeLoan.findUnique({ where: { id: loanId } });
+    if (!existing) throw new NotFoundError('Loan not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canDelete(existing.status, role)) {
+      throw new ForbiddenError('Cannot delete this loan');
+    }
 
     await prisma.employeeLoan.delete({ where: { id: loanId } });
 
@@ -1737,8 +1885,17 @@ export class CompanyController {
   }
 
   async updateEmployeeExpense(request: FastifyRequest, reply: FastifyReply) {
-    const { expenseId } = request.params as { expenseId: string };
+    const { id: companyId, expenseId } = request.params as { id: string, expenseId: string };
     const data = request.body as any;
+    const userId = (request.user as any).id;
+
+    const existing = await prisma.employeeExpense.findUnique({ where: { id: expenseId } });
+    if (!existing) throw new NotFoundError('Expense not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canEdit(existing.status, role)) {
+      throw new ForbiddenError('Cannot edit this expense in current status');
+    }
 
     const expense = await prisma.employeeExpense.update({
       where: { id: expenseId },
@@ -1752,7 +1909,16 @@ export class CompanyController {
   }
 
   async deleteEmployeeExpense(request: FastifyRequest, reply: FastifyReply) {
-    const { expenseId } = request.params as { expenseId: string };
+    const { id: companyId, expenseId } = request.params as { id: string, expenseId: string };
+    const userId = (request.user as any).id;
+
+    const existing = await prisma.employeeExpense.findUnique({ where: { id: expenseId } });
+    if (!existing) throw new NotFoundError('Expense not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canDelete(existing.status, role)) {
+      throw new ForbiddenError('Cannot delete this expense');
+    }
 
     await prisma.employeeExpense.delete({ where: { id: expenseId } });
 

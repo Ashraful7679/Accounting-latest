@@ -37,7 +37,7 @@ export default function PurchaseInvoicesPage() {
   const [formData, setFormData] = useState({
     invoiceNumber: '',
     vendorId: '',
-    currency: 'USD',
+    currency: 'BDT',
     exchangeRate: 1,
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
@@ -151,7 +151,7 @@ export default function PurchaseInvoicesPage() {
       setFormData({
         invoiceNumber: '',
         vendorId: '',
-        currency: 'USD',
+        currency: 'BDT',
         exchangeRate: 1,
         invoiceDate: new Date().toISOString().split('T')[0],
         dueDate: '',

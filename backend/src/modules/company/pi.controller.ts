@@ -37,10 +37,10 @@ export class PIController {
       where: whereClause,
       include: {
         lc: {
-          include: { customer: { select: { name: true } } }
+          include: { customer: { select: { id: true, name: true } } }
         },
-        customer: { select: { name: true } },
-        vendor: { select: { name: true } }
+        customer: { select: { id: true, name: true } },
+        vendor: { select: { id: true, name: true } }
       },
       orderBy: { piDate: 'desc' }
     });
@@ -53,10 +53,10 @@ export class PIController {
       where: { id: piId },
       include: {
         lc: {
-          include: { customer: { select: { name: true } } }
+          include: { customer: { select: { id: true, name: true } } }
         },
-        customer: { select: { name: true } },
-        vendor: { select: { name: true } }
+        customer: { select: { id: true, name: true } },
+        vendor: { select: { id: true, name: true } }
       }
     });
     if (!pi) return reply.status(404).send({ success: false, message: 'PI not found' });
@@ -107,7 +107,7 @@ export class PIController {
         currency: data.currency || 'USD',
         exchangeRate: Number(data.exchangeRate || 1),
         totalBDT: Number(data.totalBDT || (Number(data.amount) * Number(data.exchangeRate || 1))),
-        status: data.status || 'OPEN',
+        status: data.status || 'DRAFT',
         lcId: lcId,
         companyId: companyId,
         invoiceNumber: data.invoiceNumber,
@@ -152,11 +152,12 @@ export class PIController {
     const pi = await (prisma as any).pI.findUnique({ where: { id: piId } });
     if (!pi) return reply.status(404).send({ success: false, message: 'PI not found' });
 
-    // Guard: Prevent modification of approved PIs
-    if (pi.status === 'APPROVED' || pi.status === 'PAID') {
+    // Guard: Prevent modification of locked PIs
+    const lockedStatuses = ['VERIFIED', 'PENDING_APPROVAL', 'APPROVED', 'PAID', 'CLOSED'];
+    if (lockedStatuses.includes(pi.status)) {
       return reply.status(400).send({ 
         success: false, 
-        message: 'Cannot modify an approved or paid proforma invoice' 
+        message: `Cannot modify a proforma invoice with status: ${pi.status}` 
       });
     }
 
@@ -222,14 +223,92 @@ export class PIController {
     return reply.send({ success: true, data: updatedPI });
   }
 
+  async verifyPI(request: FastifyRequest, reply: FastifyReply) {
+    const { piId } = request.params as { piId: string };
+    const pi = await (prisma as any).pI.findUnique({ where: { id: piId } });
+    if (!pi) return reply.status(404).send({ success: false, message: 'PI not found' });
+
+    if (pi.status !== 'DRAFT' && pi.status !== 'REJECTED') {
+      return reply.status(400).send({ success: false, message: 'Only DRAFT or REJECTED PI can be verified' });
+    }
+
+    const updated = await (prisma as any).pI.update({
+      where: { id: piId },
+      data: { status: 'VERIFIED' }
+    });
+
+    await NotificationController.notifyStatusChange({
+      companyId: pi.companyId,
+      entityType: 'PI',
+      entityId: piId,
+      entityNumber: pi.piNumber,
+      newStatus: 'VERIFIED',
+      performedById: (request.user as any).id
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
+  async approvePI(request: FastifyRequest, reply: FastifyReply) {
+    const { piId } = request.params as { piId: string };
+    const pi = await (prisma as any).pI.findUnique({ where: { id: piId } });
+    if (!pi) return reply.status(404).send({ success: false, message: 'PI not found' });
+
+    if (pi.status !== 'VERIFIED') {
+      return reply.status(400).send({ success: false, message: 'Only VERIFIED PI can be approved' });
+    }
+
+    const updated = await (prisma as any).pI.update({
+      where: { id: piId },
+      data: { status: 'APPROVED' }
+    });
+
+    await NotificationController.notifyStatusChange({
+      companyId: pi.companyId,
+      entityType: 'PI',
+      entityId: piId,
+      entityNumber: pi.piNumber,
+      newStatus: 'APPROVED',
+      performedById: (request.user as any).id
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
+  async rejectPI(request: FastifyRequest, reply: FastifyReply) {
+    const { piId } = request.params as { piId: string };
+    const { reason } = request.body as { reason?: string };
+    const pi = await (prisma as any).pI.findUnique({ where: { id: piId } });
+    if (!pi) return reply.status(404).send({ success: false, message: 'PI not found' });
+
+    const updated = await (prisma as any).pI.update({
+      where: { id: piId },
+      data: { status: 'REJECTED' }
+    });
+
+    await NotificationController.notifyStatusChange({
+      companyId: pi.companyId,
+      entityType: 'PI',
+      entityId: piId,
+      entityNumber: pi.piNumber,
+      newStatus: 'REJECTED',
+      performedById: (request.user as any).id,
+      reason
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
   async deletePI(request: FastifyRequest, reply: FastifyReply) {
     const { piId } = request.params as { piId: string };
     const pi = await (prisma as any).pI.findUnique({ where: { id: piId } });
     
-    if (pi && (pi.status === 'APPROVED' || pi.status === 'PAID')) {
+    if (!pi) return reply.status(404).send({ success: false, message: 'PI not found' });
+    
+    if (pi.status !== 'DRAFT' && pi.status !== 'REJECTED') {
       return reply.status(400).send({ 
         success: false, 
-        message: 'Cannot delete an approved or paid proforma invoice' 
+        message: `Cannot delete a proforma invoice with status: ${pi.status}` 
       });
     }
 

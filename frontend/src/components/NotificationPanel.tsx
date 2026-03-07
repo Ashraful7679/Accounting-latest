@@ -70,13 +70,13 @@ export default function NotificationPanel({ companyId, isOpen, onClose }: Notifi
     const entityType = notif.entityType?.toLowerCase();
 
     if (type === 'PENDING_JOURNAL' || entityType === 'journalentry') {
-      router.push(`/company/${companyId}/journals`);
+      router.push(`/company/${companyId}/journals?edit=${notif.entityId}`);
     } else if (type === 'OVERDUE_INVOICE' || entityType === 'invoice') {
-      router.push(`/company/${companyId}/invoices`);
+      router.push(`/company/${companyId}/invoices?edit=${notif.entityId}`);
     } else if (type === 'LC_EXPIRY' || entityType === 'lc') {
-      router.push(`/company/${companyId}/finance`);
+      router.push(`/company/${companyId}/finance?edit=${notif.entityId}`);
     } else if (type === 'LOAN_DUE' || entityType === 'loan') {
-      router.push(`/company/${companyId}/finance`);
+      router.push(`/company/${companyId}/finance?edit=${notif.entityId}`);
     }
   };
 

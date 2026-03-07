@@ -56,11 +56,16 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
     if (pathParts.length >= 3) {
       const activeParent = menuItems.find(item => 
         item.children?.some(child => 
-          child.href && pathname.startsWith(child.href.split('/').slice(0, 4).join('/'))
+          child.href && pathname.startsWith(child.href)
         )
       );
-      if (activeParent && !expandedMenus.has(activeParent.name)) {
-        setExpandedMenus(new Set([activeParent.name])); // Replace instead of add
+      if (activeParent) {
+        if (!expandedMenus.has(activeParent.name)) {
+          setExpandedMenus(new Set([activeParent.name])); 
+        }
+      } else {
+        // If we are on a top-level page that's not a child, collapse all
+        setExpandedMenus(new Set());
       }
     }
   }, [pathname]);
@@ -125,11 +130,15 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
     { name: 'Backup', href: `/company/${companyId}/settings/backup`, icon: Database },
   ];
 
-  const isActive = (href: string) => pathname === href;
+  const isActive = (href: string) => {
+    if (!href) return false;
+    // For specific pages, match exactly or match as a parent
+    return pathname === href || (pathname.startsWith(href) && (pathname[href.length] === '/' || pathname[href.length] === undefined));
+  };
 
   const isParentActive = (item: MenuItem) => {
     if (!item.children) return false;
-    return item.children.some(child => child.href && pathname.startsWith(child.href.split('/').slice(0, 4).join('/')));
+    return item.children.some(child => child.href && isActive(child.href));
   };
 
   const SidebarContent = () => (

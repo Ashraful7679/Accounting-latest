@@ -190,6 +190,91 @@ export class NotificationController {
   }
 
   /**
+   * Notify stakeholders of a status change (Push Model).
+   * Generates both a Notification and an Activity Log.
+   */
+  static async notifyStatusChange(params: {
+    companyId: string;
+    entityType: 'Invoice' | 'JournalEntry' | 'LC' | 'PurchaseOrder' | 'EmployeeExpense' | 'PI';
+    entityId: string;
+    entityNumber: string;
+    oldStatus?: string;
+    newStatus: string;
+    performedById: string;
+    reason?: string | null;
+  }) {
+    try {
+      let severity: 'INFO' | 'WARNING' | 'DANGER' = 'INFO';
+      let title = '';
+      let message = '';
+
+      const actionText = params.newStatus.replace('_', ' ');
+      
+      switch (params.newStatus) {
+        case 'PENDING_VERIFICATION':
+          severity = 'INFO';
+          title = `Pending Verification: ${params.entityNumber}`;
+          message = `${params.entityType} ${params.entityNumber} has been submitted and is awaiting verification.`;
+          break;
+        case 'VERIFIED':
+          severity = 'INFO';
+          title = `Verified: ${params.entityNumber}`;
+          message = `${params.entityType} ${params.entityNumber} has been verified and is awaiting final approval.`;
+          break;
+        case 'PENDING_APPROVAL':
+          severity = 'INFO';
+          title = `Pending Approval: ${params.entityNumber}`;
+          message = `${params.entityType} ${params.entityNumber} is awaiting final approval.`;
+          break;
+        case 'APPROVED':
+          severity = 'INFO';
+          title = `Approved: ${params.entityNumber}`;
+          message = `${params.entityType} ${params.entityNumber} has been fully approved.`;
+          break;
+        case 'REJECTED':
+          severity = 'DANGER';
+          title = `Rejected: ${params.entityNumber}`;
+          message = `${params.entityType} ${params.entityNumber} was rejected. ${params.reason ? `Reason: ${params.reason}` : ''}`;
+          break;
+        default:
+          title = `Status Updated: ${params.entityNumber}`;
+          message = `${params.entityType} ${params.entityNumber} status changed to ${actionText}.`;
+      }
+
+      // 1. Create Notification for the company
+      await prisma.notification.create({
+        data: {
+          companyId: params.companyId,
+          type: 'STATUS_CHANGE',
+          severity,
+          title,
+          message,
+          entityType: params.entityType,
+          entityId: params.entityId,
+        },
+      });
+
+      // 2. Log Activity
+      await this.logActivity({
+        companyId: params.companyId,
+        entityType: params.entityType,
+        entityId: params.entityId,
+        action: `STATUS_REACHED_${params.newStatus}`,
+        performedById: params.performedById,
+        metadata: {
+          oldStatus: params.oldStatus,
+          newStatus: params.newStatus,
+          entityNumber: params.entityNumber,
+          reason: params.reason
+        }
+      });
+
+    } catch (error) {
+      console.error('Failed to generate status change notification:', error);
+    }
+  }
+
+  /**
    * Static utility to log an activity from anywhere in the backend.
    */
   static async logActivity(params: {

@@ -7,9 +7,11 @@ import api from '@/lib/api';
 import UserDropdown from '@/components/UserDropdown';
 import { 
   FileText, Plus, Search, Edit2, Trash2, Eye,
-  Calendar, DollarSign, CheckCircle2, AlertCircle
+  Calendar, DollarSign, CheckCircle2, AlertCircle,
+  Layers, Send, CheckCheck, X as CloseIcon, ArrowLeft
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { AttachmentManager } from '@/components/AttachmentManager';
 
 interface Invoice {
   id: string;
@@ -24,6 +26,7 @@ interface Invoice {
   invoiceDate: string;
   dueDate: string | null;
   description?: string;
+  lines?: any[];
 }
 
 export default function SalesInvoicesPage() {
@@ -35,7 +38,7 @@ export default function SalesInvoicesPage() {
   const [showModal, setShowModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [formData, setFormData] = useState({
-    invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
+    invoiceNumber: '',
     customerId: '',
     currency: 'BDT',
     exchangeRate: 1,
@@ -46,6 +49,7 @@ export default function SalesInvoicesPage() {
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [userRole, setUserRole] = useState('User');
 
   const searchParams = useSearchParams();
   const action = searchParams.get('action');
@@ -68,14 +72,24 @@ export default function SalesInvoicesPage() {
     enabled: !!companyId,
   });
 
+  const { data: customersData } = useQuery({
+    queryKey: ['customers', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/customers`);
+      return response.data.data;
+    },
+    enabled: !!companyId,
+  });
+
   useEffect(() => {
     setMounted(true);
     const token = localStorage.getItem('token');
+    const roles = JSON.parse(localStorage.getItem('roles') || '[]');
+    setUserRole(roles[0] || 'User');
     if (!token) router.push('/login');
 
     if (action === 'create' && !isLoading) {
       openModal();
-      // Remove query param without reload
       window.history.replaceState({}, '', `/company/${companyId}/sales/invoices`);
     }
   }, [router, action, isLoading, companyId]);
@@ -97,42 +111,70 @@ export default function SalesInvoicesPage() {
     }
   }, [editId, isLoading, mounted, companyId, invoicesData]);
 
-  const { data: customersData } = useQuery({
-    queryKey: ['customers', companyId],
-    queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/customers`);
-      return response.data.data;
-    },
-    enabled: !!companyId,
-  });
-
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await api.post(`/company/${companyId}/invoices`, { ...data, type: 'SALES' });
+      const endpoint = selectedInvoice ? `/company/${companyId}/invoices/${selectedInvoice.id}` : `/company/${companyId}/invoices`;
+      const method = selectedInvoice ? 'patch' : 'post';
+      const response = await api[method](endpoint, { ...data, type: 'SALES' });
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-invoices', companyId] });
-      toast.success('Sales invoice created successfully');
+      toast.success(selectedInvoice ? 'Invoice updated' : 'Invoice created');
       closeModal();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to create invoice');
+      toast.error(error.response?.data?.error?.message || 'Failed to save invoice');
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await api.delete(`/company/${companyId}/invoices/${id}`);
-      return response.data;
-    },
+    mutationFn: async (id: string) => api.delete(`/company/${companyId}/invoices/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-invoices', companyId] });
       toast.success('Invoice deleted successfully');
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to delete invoice');
+    onError: (error: any) => toast.error(error.response?.data?.error?.message || 'Failed to delete invoice'),
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: async (id: string) => api.post(`/company/${companyId}/invoices/${id}/verify`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales-invoices', companyId] });
+      toast.success('Invoice verified');
+      closeModal();
     },
+    onError: (error: any) => toast.error(error.response?.data?.error?.message || 'Failed to verify invoice'),
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (id: string) => api.post(`/company/${companyId}/invoices/${id}/approve`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales-invoices', companyId] });
+      toast.success('Invoice approved');
+      closeModal();
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error?.message || 'Failed to approve invoice'),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: string, reason: string }) => api.post(`/company/${companyId}/invoices/${id}/reject`, { reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales-invoices', companyId] });
+      toast.success('Invoice rejected');
+      closeModal();
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error?.message || 'Failed to reject invoice'),
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: async (id: string) => api.post(`/company/${companyId}/invoices/${id}/submit`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales-invoices', companyId] });
+      toast.success('Invoice submitted');
+      closeModal();
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error?.message || 'Failed to submit invoice'),
   });
 
   const openModal = (invoice?: any) => {
@@ -178,8 +220,6 @@ export default function SalesInvoicesPage() {
   const handleLineChange = (index: number, field: string, value: any) => {
     const newLines = [...formData.lines];
     const line = { ...newLines[index], [field]: value };
-    
-    // Auto-fill price if product changes
     if (field === 'productId' && value) {
       const product = productsData?.find((p: any) => p.id === value);
       if (product) {
@@ -187,7 +227,6 @@ export default function SalesInvoicesPage() {
         line.description = product.name;
       }
     }
-    
     newLines[index] = line;
     setFormData({ ...formData, lines: newLines });
   };
@@ -233,6 +272,7 @@ export default function SalesInvoicesPage() {
       PAID: 'bg-green-100 text-green-800',
       PARTIAL: 'bg-yellow-100 text-yellow-800',
       OVERDUE: 'bg-red-100 text-red-800',
+      REJECTED: 'bg-rose-100 text-rose-800',
     };
     return styles[status] || 'bg-gray-100 text-gray-800';
   };
@@ -249,231 +289,345 @@ export default function SalesInvoicesPage() {
 
   return (
     <div className="min-h-screen">
-        <div className="p-6 max-w-[1600px] mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Sales Invoices</h2>
-            <button
-              onClick={() => openModal()}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700"
-            >
-              <Plus className="w-4 h-4" />
-              Create Sales Invoice
-            </button>
-          </div>
-
-          <div className="flex gap-4 mb-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search by Invoice Number or Customer..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Status</option>
-              <option value="DRAFT">Draft</option>
-              <option value="PENDING">Pending</option>
-              <option value="VERIFIED">Verified</option>
-              <option value="APPROVED">Approved</option>
-              <option value="PAID">Paid</option>
-              <option value="PARTIAL">Partial</option>
-              <option value="OVERDUE">Overdue</option>
-            </select>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Invoice #</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Customer</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Due Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {isLoading ? (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Loading...</td></tr>
-                ) : filteredInvoices.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">No Sales Invoices found</td></tr>
-                ) : (
-                  filteredInvoices.map((inv: Invoice) => (
-                    <tr key={inv.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium">{inv.invoiceNumber}</td>
-                      <td className="px-4 py-3 text-slate-500">{inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString() : '-'}</td>
-                      <td className="px-4 py-3">{inv.customer?.name || '-'}</td>
-                      <td className="px-4 py-3 text-right font-mono">{inv.currency} {inv.total?.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-slate-500">{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : '-'}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(inv.status)}`}>{inv.status}</span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button onClick={() => openModal(inv)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={() => deleteMutation.mutate(inv.id)} className="p-1 text-red-600 hover:bg-red-50 rounded ml-1"><Trash2 className="w-4 h-4" /></button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+      <div className="p-6 max-w-[1600px] mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Sales Invoices</h2>
+          <button
+            onClick={() => openModal()}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4" />
+            Create Sales Invoice
+          </button>
         </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-6">Create Sales Invoice</h3>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">Customer *</label>
-                  <select value={formData.customerId} onChange={(e) => setFormData({...formData, customerId: e.target.value})} className="w-full px-4 py-2 border rounded-lg" required>
-                    <option value="">Select Customer</option>
-                    {customersData?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Invoice Date *</label>
-                    <input type="date" value={formData.invoiceDate} onChange={(e) => setFormData({...formData, invoiceDate: e.target.value})} className="w-full px-4 py-2 border rounded-lg" required />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Due Date</label>
-                    <input type="date" value={formData.dueDate} onChange={(e) => setFormData({...formData, dueDate: e.target.value})} className="w-full px-4 py-2 border rounded-lg" />
-                  </div>
-                </div>
-              </div>
+        <div className="flex gap-4 mb-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by Invoice # or Customer..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+            />
+          </div>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+          >
+            <option value="all">All Status</option>
+            {['DRAFT', 'PENDING', 'VERIFIED', 'APPROVED', 'PAID', 'PARTIAL', 'OVERDUE', 'REJECTED'].map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
 
-              <div className="grid grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl">
-                 <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Currency</label>
-                    <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full px-4 py-2 border rounded-lg bg-white">
-                      <option value="BDT">BDT</option>
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>
+                <th className="px-4 py-3 text-left font-bold text-slate-500 uppercase tracking-wider">Invoice #</th>
+                <th className="px-4 py-3 text-left font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                <th className="px-4 py-3 text-left font-bold text-slate-500 uppercase tracking-wider">Customer</th>
+                <th className="px-4 py-3 text-right font-bold text-slate-500 uppercase tracking-wider">Amount</th>
+                <th className="px-4 py-3 text-left font-bold text-slate-500 uppercase tracking-wider">Due Date</th>
+                <th className="px-4 py-3 text-left font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-center font-bold text-slate-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {isLoading ? (
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-400 italic">Loading invoices...</td></tr>
+              ) : filteredInvoices.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-400 italic">No Sales Invoices found</td></tr>
+              ) : (
+                filteredInvoices.map((inv: Invoice) => (
+                  <tr key={inv.id} className="hover:bg-blue-50/30 transition-colors">
+                    <td className="px-4 py-3 font-bold text-slate-900">{inv.invoiceNumber}</td>
+                    <td className="px-4 py-3 text-slate-500">{inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString() : '-'}</td>
+                    <td className="px-4 py-3 font-medium text-slate-700">{inv.customer?.name || '-'}</td>
+                    <td className="px-4 py-3 text-right font-black text-slate-900">{inv.currency} {inv.total?.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-slate-500">{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : '-'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 text-[10px] font-black rounded-full uppercase tracking-tighter ${getStatusBadge(inv.status)}`}>{inv.status}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => openModal(inv)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
+                        {(inv.status === 'DRAFT' || inv.status === 'REJECTED') && (
+                          <button onClick={() => deleteMutation.mutate(inv.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {showModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-black text-slate-900">{selectedInvoice ? 'Modify Invoice' : 'Create Invoice'}</h3>
+                <p className="text-xs text-slate-500 font-medium">Sales Invoice Details & Items</p>
+              </div>
+              {selectedInvoice && (
+                <div className="flex flex-col items-end">
+                   <span className={`px-3 py-1 text-[10px] font-black rounded-full uppercase tracking-widest ${getStatusBadge(selectedInvoice.status)}`}>
+                    {selectedInvoice.status}
+                  </span>
+                  <p className="text-[10px] text-slate-400 mt-1 font-bold">ID: {selectedInvoice.id.slice(0,8)}...</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-8">
+              <form onSubmit={handleSubmit} id="invoice-form" className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 font-medium">
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Customer *</label>
+                    <select 
+                      value={formData.customerId} 
+                      onChange={(e) => setFormData({...formData, customerId: e.target.value})} 
+                      className="w-full px-4 py-3 bg-slate-50 border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 border transition-all text-sm font-bold" 
+                      required
+                    >
+                      <option value="">Select Customer</option>
+                      {customersData?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Exchange Rate</label>
-                    <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})} className="w-full px-4 py-2 border rounded-lg bg-white" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Invoice Date *</label>
+                      <input type="date" value={formData.invoiceDate} onChange={(e) => setFormData({...formData, invoiceDate: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 border transition-all text-sm font-bold" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Due Date</label>
+                      <input type="date" value={formData.dueDate} onChange={(e) => setFormData({...formData, dueDate: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 border transition-all text-sm font-bold" />
+                    </div>
                   </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Overall Description</label>
-                    <input type="text" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} placeholder="e.g. Sales for Feb" className="w-full px-4 py-2 border rounded-lg bg-white" />
-                  </div>
-              </div>
-
-              {/* Line Items */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-bold text-slate-900 uppercase text-xs tracking-wider">Line Items</h4>
-                  <button type="button" onClick={addLine} className="text-blue-600 text-sm font-bold flex items-center gap-1 hover:underline">
-                    <Plus className="w-4 h-4" /> Add Line
-                  </button>
                 </div>
 
-                <div className="space-y-3">
-                  {formData.lines.map((line, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-3 items-end p-3 border rounded-xl bg-white shadow-sm">
-                      <div className="col-span-3">
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Product</label>
-                        <select 
-                          value={line.productId} 
-                          onChange={(e) => handleLineChange(index, 'productId', e.target.value)}
-                          className="w-full px-2 py-1.5 text-sm border rounded-lg"
-                        >
-                          <option value="">Custom Item</option>
-                          {productsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-blue-50/30 p-6 rounded-3xl border border-blue-100">
+                   <div>
+                      <label className="block text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Currency</label>
+                      <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full px-3 py-2 bg-white border-blue-100/50 rounded-xl border text-sm font-bold">
+                        <option value="BDT">BDT</option>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Exchange Rate</label>
+                      <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})} className="w-full px-3 py-2 bg-white border-blue-100/50 rounded-xl border text-sm font-bold" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Overall Description</label>
+                      <input type="text" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} placeholder="Internal notes or overall description..." className="w-full px-3 py-2 bg-white border-blue-100/50 rounded-xl border text-sm font-bold" />
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center bg-slate-900 p-4 rounded-2xl">
+                    <h4 className="font-black text-white uppercase text-xs tracking-[0.2em] flex items-center gap-2">
+                       <Layers className="w-4 h-4 text-blue-400" />
+                       Line Items
+                    </h4>
+                    <button type="button" onClick={addLine} className="text-blue-400 hover:text-white transition-colors text-xs font-black flex items-center gap-1.5 group">
+                      <Plus className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform" /> Add New Row
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {formData.lines.map((line, index) => (
+                      <div key={index} className="grid grid-cols-12 gap-4 items-end p-5 border border-slate-100 rounded-3xl bg-white shadow-sm hover:border-blue-200 transition-colors group/row">
+                        <div className="col-span-12 md:col-span-3">
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Product</label>
+                          <select 
+                            value={line.productId} 
+                            onChange={(e) => handleLineChange(index, 'productId', e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border-slate-200 rounded-xl border text-xs font-bold focus:bg-white transition-all"
+                          >
+                            <option value="">Custom Item</option>
+                            {productsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          </select>
+                        </div>
+                        <div className="col-span-12 md:col-span-3">
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Description</label>
+                          <input 
+                            type="text" 
+                            value={line.description} 
+                            onChange={(e) => handleLineChange(index, 'description', e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border-slate-200 rounded-xl border text-xs font-bold focus:bg-white transition-all"
+                          />
+                        </div>
+                        <div className="col-span-4 md:col-span-1">
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Qty</label>
+                          <input 
+                            type="number" 
+                            value={line.quantity} 
+                            onChange={(e) => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 bg-slate-50 border-slate-200 rounded-xl border text-xs font-bold text-center"
+                          />
+                        </div>
+                        <div className="col-span-4 md:col-span-2">
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Unit Price</label>
+                          <input 
+                            type="number" 
+                            value={line.unitPrice} 
+                            onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 bg-slate-50 border-slate-200 rounded-xl border text-xs font-bold text-right"
+                          />
+                        </div>
+                        <div className="col-span-4 md:col-span-1">
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tax%</label>
+                          <input 
+                            type="number" 
+                            value={line.taxRate} 
+                            onChange={(e) => handleLineChange(index, 'taxRate', parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 bg-slate-50 border-slate-200 rounded-xl border text-xs font-bold text-center"
+                          />
+                        </div>
+                        <div className="col-span-10 md:col-span-1 text-right">
+                          <div className="text-[10px] font-black text-slate-300 uppercase mb-1.5">Row Total</div>
+                          <div className="text-sm font-black text-slate-900">{(line.quantity * line.unitPrice).toLocaleString()}</div>
+                        </div>
+                        <div className="col-span-2 md:col-span-1 flex justify-end">
+                          <button type="button" onClick={() => removeLine(index)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="col-span-3">
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Description</label>
-                        <input 
-                          type="text" 
-                          value={line.description} 
-                          onChange={(e) => handleLineChange(index, 'description', e.target.value)}
-                          className="w-full px-2 py-1.5 text-sm border rounded-lg"
-                        />
-                      </div>
-                      <div className="col-span-1">
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Qty</label>
-                        <input 
-                          type="number" 
-                          value={line.quantity} 
-                          onChange={(e) => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1.5 text-sm border rounded-lg"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Price</label>
-                        <input 
-                          type="number" 
-                          value={line.unitPrice} 
-                          onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1.5 text-sm border rounded-lg"
-                        />
-                      </div>
-                      <div className="col-span-1">
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tax%</label>
-                        <input 
-                          type="number" 
-                          value={line.taxRate} 
-                          onChange={(e) => handleLineChange(index, 'taxRate', parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1.5 text-sm border rounded-lg"
-                        />
-                      </div>
-                      <div className="col-span-1 text-right self-center">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total</div>
-                        <div className="text-sm font-black">{(line.quantity * line.unitPrice).toLocaleString()}</div>
-                      </div>
-                      <div className="col-span-1 text-right">
-                        <button type="button" onClick={() => removeLine(index)} className="p-1.5 text-slate-400 hover:text-red-600">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end bg-slate-50 p-8 rounded-[32px] border border-slate-100">
+                  <div className="w-80 space-y-4">
+                    <div className="flex justify-between items-center text-slate-500 font-bold">
+                      <span className="text-[10px] uppercase tracking-widest">Subtotal</span>
+                      <span className="font-black text-slate-900">{formData.currency} {calculateSubtotal().toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-500 font-bold">
+                      <span className="text-[10px] uppercase tracking-widest">Calculated Tax</span>
+                      <span className="font-black text-slate-900">{formData.currency} {calculateTax().toLocaleString()}</span>
+                    </div>
+                    <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
+                      <span className="text-[11px] font-black text-blue-600 uppercase tracking-[0.2em]">Grand Total</span>
+                      <div className="text-right">
+                        <p className="text-2xl font-black text-slate-900 leading-none">{formatCurrency(calculateTotal())}</p>
+                        <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">Excl. FX Diff: @{formData.exchangeRate}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Totals Summary */}
-              <div className="flex justify-end pt-4 border-t">
-                <div className="w-64 space-y-2">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Subtotal:</span>
-                    <span className="font-mono">{formData.currency} {calculateSubtotal().toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Tax:</span>
-                    <span className="font-mono">{formData.currency} {calculateTax().toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-lg font-black text-slate-900 pt-2 border-t">
-                    <span>Total (BDT):</span>
-                    <span>{calculateTotal().toLocaleString()}</span>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex gap-4 pt-4">
-                <button type="button" onClick={closeModal} className="flex-1 px-6 py-3 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50">Cancel</button>
-                <button type="submit" disabled={createMutation.isPending} className="flex-1 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 disabled:opacity-50">
-                  {createMutation.isPending ? 'Saving...' : 'Save Invoice'}
+                {selectedInvoice && (
+                  <div className="mt-8 pt-8 border-t border-slate-100">
+                    <AttachmentManager 
+                      entityType="INVOICE" 
+                      entityId={selectedInvoice.id}
+                      canEdit={['DRAFT', 'REJECTED'].includes(selectedInvoice.status)}
+                    />
+                  </div>
+                )}
+              </form>
+            </div>
+
+            <div className="px-8 py-6 border-t border-slate-100 bg-slate-50/50 flex flex-wrap gap-3 items-center">
+              <button 
+                type="button" 
+                onClick={closeModal} 
+                className="px-6 py-3 bg-white border border-slate-200 text-slate-600 font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-slate-100 transition-all shadow-sm"
+              >
+                Close View
+              </button>
+              
+              <div className="h-8 w-px bg-slate-200 mx-2 hidden sm:block" />
+
+              {/* Status Flow Buttons */}
+              {selectedInvoice && (
+                <>
+                  {(selectedInvoice.status === 'DRAFT' || selectedInvoice.status === 'REJECTED') && (
+                    <button
+                      type="button"
+                      onClick={() => submitMutation.mutate(selectedInvoice.id)}
+                      className="px-6 py-3 bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all"
+                    >
+                      Submit for Verification
+                    </button>
+                  )}
+
+                  {selectedInvoice.status === 'PENDING' && ['Manager', 'Owner', 'Admin'].includes(userRole) && (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => verifyMutation.mutate(selectedInvoice.id)}
+                        className="px-6 py-3 bg-emerald-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all"
+                      >
+                        Verify Entry
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const reason = window.prompt('Provide rejection reason:') ?? '';
+                          rejectMutation.mutate({ id: selectedInvoice.id, reason });
+                        }}
+                        className="px-6 py-3 bg-rose-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-rose-600 shadow-lg shadow-rose-500/30 transition-all"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+
+                  {(['VERIFIED', 'PENDING_APPROVAL'].includes(selectedInvoice.status)) && ['Owner', 'Admin'].includes(userRole) && (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => approveMutation.mutate(selectedInvoice.id)}
+                        className="px-6 py-3 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 transition-all"
+                      >
+                        Final Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const reason = window.prompt('Provide rejection reason:') ?? '';
+                          rejectMutation.mutate({ id: selectedInvoice.id, reason });
+                        }}
+                        className="px-6 py-3 bg-rose-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-rose-600 shadow-lg shadow-rose-500/30 transition-all"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {(!selectedInvoice || ['DRAFT', 'REJECTED'].includes(selectedInvoice.status)) && (
+                <button 
+                  type="submit" 
+                  form="invoice-form"
+                  disabled={createMutation.isPending} 
+                  className="px-8 py-3 bg-slate-900 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-slate-800 shadow-xl ml-auto disabled:opacity-50 transition-all"
+                >
+                  {createMutation.isPending ? 'Processing...' : (selectedInvoice ? 'Update Records' : 'Establish Invoice')}
                 </button>
-              </div>
-            </form>
+              )}
+            </div>
           </div>
         </div>
       )}
     </div>
   );
+
+  function formatCurrency(val: any) {
+    return new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT' }).format(val);
+  }
 }

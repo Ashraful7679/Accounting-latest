@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { 
-  Plus, Trash2, Check, X, ArrowLeft, LogOut, Eye, 
+  Plus, Trash2, Check, X, ArrowLeft, LogOut, Eye, Edit2,
   Building2, Bell, Send, CheckCheck, BookOpen, Printer, Info, ChevronRight, Hash, DollarSign, Clock
 } from 'lucide-react';
 import { AttachmentManager } from '@/components/AttachmentManager';
@@ -74,6 +74,7 @@ export default function CompanyJournalsPage() {
   });
 
   const [showGuide, setShowGuide] = useState(false);
+  const [editingJournalId, setEditingJournalId] = useState<string | null>(null);
 
   const [userRole, setUserRole] = useState('User');
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -112,6 +113,17 @@ export default function CompanyJournalsPage() {
       window.history.replaceState({}, '', `/company/${companyId}/journals`);
     }
   }, [editId, isLoading, mounted, companyId, journalsData]);
+
+  const statusOrder: Record<string, number> = {
+    'DRAFT': 0,
+    'REJECTED': 0,
+    'PENDING_VERIFICATION': 1,
+    'VERIFIED': 2,
+    'PENDING_APPROVAL': 2,
+    'APPROVED': 3
+  };
+
+  const isOwner = userRole === 'Owner' || userRole === 'Admin';
 
   useEffect(() => {
     setMounted(true);
@@ -259,6 +271,21 @@ export default function CompanyJournalsPage() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: typeof formData) => {
+      const response = await api.put(`/company/${companyId}/journals/${editingJournalId}`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
+      toast.success('Journal entry updated successfully');
+      closeModal();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Failed to update journal entry');
+    },
+  });
+
   const submitMutation = useMutation({
     mutationFn: async (journalId: string) => {
       const response = await api.post(`/company/${companyId}/journals/${journalId}/submit`);
@@ -293,6 +320,28 @@ export default function CompanyJournalsPage() {
 
   const closeModal = () => {
     setShowModal(false);
+    setEditingJournalId(null);
+    setFormData({
+      date: new Date().toISOString().split('T')[0],
+      description: '',
+      lines: [{ accountId: '', amount: 0, debitCredit: 'debit', description: '' }],
+    });
+  };
+
+  const handleEdit = (journal: any) => {
+    setEditingJournalId(journal.id);
+    setFormData({
+      date: new Date(journal.date).toISOString().split('T')[0],
+      description: journal.description || '',
+      lines: journal.lines.map((l: any) => ({
+        accountId: l.accountId,
+        amount: l.debit > 0 ? l.debit : l.credit,
+        debitCredit: l.debit > 0 ? 'debit' : 'credit',
+        description: l.description || '',
+      })),
+    });
+    setShowModal(true);
+    setShowViewModal(false);
   };
 
   const openViewModal = async (journal: JournalEntry) => {
@@ -360,17 +409,22 @@ export default function CompanyJournalsPage() {
       ...formData,
       lines: formData.lines.map(line => ({
         accountId: line.accountId,
-        debit: line.debitCredit === 'debit' ? (line.amount || 0) : 0,
-        credit: line.debitCredit === 'credit' ? (line.amount || 0) : 0,
+        debitCredit: line.debitCredit,
+        amount: line.amount || 0,
         description: line.description,
       })),
     };
 
     try {
-      const response = await api.post(`/company/${companyId}/journals`, payload);
+      let response;
+      if (editingJournalId) {
+        response = await api.put(`/company/${companyId}/journals/${editingJournalId}`, payload);
+      } else {
+        response = await api.post(`/company/${companyId}/journals`, payload);
+      }
+      
       const journal = response.data.data;
 
-      // Upload files if any
       if (attachments.length > 0) {
         for (const file of attachments) {
           const uploadData = new FormData();
@@ -382,11 +436,11 @@ export default function CompanyJournalsPage() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
-      toast.success('Journal entry created successfully');
+      toast.success(editingJournalId ? 'Journal entry updated successfully' : 'Journal entry created successfully');
       setAttachments([]);
       closeModal();
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Failed to create journal entry');
+      toast.error(error.response?.data?.error?.message || `Failed to ${editingJournalId ? 'update' : 'create'} journal entry`);
     }
   };
 
@@ -481,6 +535,16 @@ export default function CompanyJournalsPage() {
                           <button onClick={() => openViewModal(journal)} className="p-1.5 text-slate-400 hover:text-slate-900 bg-slate-50 hover:bg-white border border-transparent hover:border-slate-200 rounded-lg transition-all" title="View Details">
                             <Eye className="w-4 h-4" />
                           </button>
+
+                          {(journal.status === 'DRAFT' || journal.status === 'REJECTED') && (
+                            <button 
+                              onClick={() => handleEdit(journal)} 
+                              className="p-1.5 text-blue-600 hover:text-blue-800 bg-blue-50 border border-transparent hover:border-blue-100 rounded-lg transition-all" 
+                              title="Edit Entry"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          )}
                           
                           {(journal.status === 'DRAFT' || journal.status === 'REJECTED') && (
                             <button 
@@ -508,7 +572,7 @@ export default function CompanyJournalsPage() {
                             </button>
                           )}
                           
-                          {canDelete(journal.status) && (
+                          {canDelete(journal.status) || isOwner && (
                             <button onClick={() => deleteMutation.mutate(journal.id)} className="p-1.5 text-rose-600 hover:text-rose-800 bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-all" title="Delete Draft">
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -727,8 +791,8 @@ export default function CompanyJournalsPage() {
                 <button type="button" onClick={closeModal} className="btn btn-secondary flex-1">
                   Cancel
                 </button>
-                <button type="submit" disabled={createMutation.isPending} className="btn btn-primary flex-1">
-                  {createMutation.isPending ? 'Creating...' : 'Create Journal'}
+                <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="btn btn-primary flex-1">
+                  {createMutation.isPending || updateMutation.isPending ? 'Saving...' : (editingJournalId ? 'Update Journal' : 'Create Journal')}
                 </button>
               </div>
             </form>
@@ -838,6 +902,14 @@ export default function CompanyJournalsPage() {
 
             <div className="flex flex-wrap gap-2 pt-6 mt-4 border-t border-slate-100 print-hide">
               {/* ── Status Action Buttons ── */}
+              {(selectedJournal.status === 'DRAFT' || selectedJournal.status === 'REJECTED') && (
+                <button
+                  onClick={() => handleEdit(selectedJournal)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold text-sm hover:bg-slate-200 flex items-center gap-1.5"
+                >
+                  <Edit2 className="w-4 h-4" /> Edit Journal
+                </button>
+              )}
               {(selectedJournal.status === 'DRAFT' || selectedJournal.status === 'REJECTED') && (
                 <button
                   onClick={() => { submitMutation.mutate(selectedJournal.id); setShowViewModal(false); }}

@@ -258,6 +258,8 @@ model PI {
   company         Company   @relation(fields: [companyId], references: [id])
   customerId      String?
   customer        Customer? @relation(fields: [customerId], references: [id])
+  vendorId        String?
+  vendor          Vendor?   @relation(fields: [vendorId], references: [id])
   lc              LC?       @relation(fields: [lcId], references: [id])
 
   lines           PILine[]
@@ -457,6 +459,7 @@ model Vendor {
   purchaseOrders PurchaseOrder[]
   lcs         LC[]
   bills       Bill[]
+  pis         PI[]
   journalLines JournalEntryLine[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

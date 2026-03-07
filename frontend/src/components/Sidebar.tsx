@@ -60,7 +60,7 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
         )
       );
       if (activeParent && !expandedMenus.has(activeParent.name)) {
-        setExpandedMenus(prev => new Set([...prev, activeParent.name]));
+        setExpandedMenus(new Set([activeParent.name])); // Replace instead of add
       }
     }
   }, [pathname]);
@@ -83,6 +83,7 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
         { name: 'Suppliers', href: `/company/${companyId}/vendors` },
         { name: 'Purchase Order', href: `/company/${companyId}/purchase/orders` },
         { name: 'Purchase Invoices', href: `/company/${companyId}/purchase/invoices` },
+        { name: 'Import PI', href: `/company/${companyId}/purchase/pis` },
       ]
     },
     { 

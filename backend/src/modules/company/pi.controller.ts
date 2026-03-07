@@ -39,7 +39,8 @@ export class PIController {
         lc: {
           include: { customer: { select: { name: true } } }
         },
-        customer: { select: { name: true } }
+        customer: { select: { name: true } },
+        vendor: { select: { name: true } }
       },
       orderBy: { piDate: 'desc' }
     });
@@ -54,7 +55,8 @@ export class PIController {
         lc: {
           include: { customer: { select: { name: true } } }
         },
-        customer: { select: { name: true } }
+        customer: { select: { name: true } },
+        vendor: { select: { name: true } }
       }
     });
     if (!pi) return reply.status(404).send({ success: false, message: 'PI not found' });
@@ -117,6 +119,7 @@ export class PIController {
         purchaseAmount: data.purchaseAmount ? Number(data.purchaseAmount) : null,
         idbpNumber: data.idbpNumber,
         customerId: data.customerId,
+        vendorId: data.vendorId,
         lines: {
           create: data.lines?.map((line: any) => ({
             productId: line.productId || null,
@@ -146,9 +149,19 @@ export class PIController {
     const { piId } = request.params as { piId: string };
     const data = request.body as any;
 
+    const pi = await (prisma as any).pI.findUnique({ where: { id: piId } });
+    if (!pi) return reply.status(404).send({ success: false, message: 'PI not found' });
+
+    // Guard: Prevent modification of approved PIs
+    if (pi.status === 'APPROVED' || pi.status === 'PAID') {
+      return reply.status(400).send({ 
+        success: false, 
+        message: 'Cannot modify an approved or paid proforma invoice' 
+      });
+    }
+
     if (data.amount) {
-      const pi = await (prisma as any).pI.findUnique({ where: { id: piId } });
-      if (pi && pi.lcId) {
+      if (pi.lcId) {
         const lc = await (prisma as any).lC.findUnique({
           where: { id: pi.lcId },
           include: { pis: true }
@@ -184,6 +197,7 @@ export class PIController {
         totalBDT: data.totalBDT ? Number(data.totalBDT) : (data.amount && data.exchangeRate ? Number(data.amount) * Number(data.exchangeRate) : undefined),
         status: data.status,
         lcId: data.lcId,
+        vendorId: data.vendorId,
         invoiceNumber: data.invoiceNumber,
         submissionToBuyerDate: data.submissionToBuyerDate ? new Date(data.submissionToBuyerDate) : undefined,
         submissionToBankDate: data.submissionToBankDate ? new Date(data.submissionToBankDate) : undefined,
@@ -210,6 +224,15 @@ export class PIController {
 
   async deletePI(request: FastifyRequest, reply: FastifyReply) {
     const { piId } = request.params as { piId: string };
+    const pi = await (prisma as any).pI.findUnique({ where: { id: piId } });
+    
+    if (pi && (pi.status === 'APPROVED' || pi.status === 'PAID')) {
+      return reply.status(400).send({ 
+        success: false, 
+        message: 'Cannot delete an approved or paid proforma invoice' 
+      });
+    }
+
     await (prisma as any).pI.delete({ where: { id: piId } });
 
     return reply.send({ success: true, message: 'PI deleted' });

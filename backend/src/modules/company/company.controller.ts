@@ -947,7 +947,13 @@ export class CompanyController {
 
     if (!journal) throw new NotFoundError('Journal not found');
 
-    if (!this.canVerify(journal.status, role)) {
+    // Allow rejection from PENDING_VERIFICATION (Manager/Owner) OR PENDING_APPROVAL (Owner/Admin)
+    const canReject =
+      (journal.status === 'PENDING_VERIFICATION' && (role === 'Manager' || role === 'Owner' || role === 'Admin')) ||
+      (journal.status === 'PENDING_APPROVAL' && (role === 'Owner' || role === 'Admin')) ||
+      (journal.status === 'VERIFIED' && (role === 'Owner' || role === 'Admin'));
+
+    if (!canReject) {
       throw new ForbiddenError('Cannot reject this journal');
     }
 

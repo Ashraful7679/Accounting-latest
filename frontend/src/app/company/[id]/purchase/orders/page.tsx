@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
@@ -57,6 +57,8 @@ export default function PurchaseOrdersPage() {
     status: 'DRAFT'
   });
 
+  const searchParams = useSearchParams();
+
   useEffect(() => {
     setMounted(true);
     const token = localStorage.getItem('token');
@@ -72,6 +74,23 @@ export default function PurchaseOrdersPage() {
     },
     enabled: !!companyId,
   });
+
+  const editId = searchParams.get('edit');
+  useEffect(() => {
+    if (editId && !isLoading && mounted) {
+      const existingPO = posData?.find((po: PurchaseOrder) => po.id === editId);
+      if (existingPO) {
+        openModal(existingPO);
+      } else {
+        api.get(`/company/${companyId}/purchase-orders/${editId}`)
+          .then(res => {
+            openModal(res.data.data);
+          })
+          .catch(err => toast.error('Failed to load PO details'));
+      }
+      window.history.replaceState({}, '', `/company/${companyId}/purchase/orders`);
+    }
+  }, [editId, isLoading, mounted, companyId, posData]);
 
   const { data: vendorsData } = useQuery({
     queryKey: ['company-vendors', companyId],

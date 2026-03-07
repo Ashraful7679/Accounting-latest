@@ -538,6 +538,10 @@ export default function CompanyDashboard() {
                         href = `/company/${companyId}/purchase/orders?edit=${activity.entityId}`;
                       } else if (activity.entityType === 'bill') {
                         href = `/company/${companyId}/purchase/invoices?edit=${activity.entityId}`;
+                      } else if (activity.entityType === 'lc' || activity.entityType === 'lc_import') {
+                        href = `/company/${companyId}/lc/import?edit=${activity.entityId}`;
+                      } else if (activity.entityType === 'lc_export') {
+                        href = `/company/${companyId}/lc/export?edit=${activity.entityId}`;
                       }
 
                       return (

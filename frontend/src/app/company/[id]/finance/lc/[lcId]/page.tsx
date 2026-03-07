@@ -51,6 +51,14 @@ export default function LCDetailPage() {
     allocations: [] as any[]
   });
 
+  const [role, setRole] = useState('User');
+  const isOwner = role === 'Owner' || role === 'Admin';
+
+  useEffect(() => {
+    const roles = JSON.parse(localStorage.getItem('roles') || '[]');
+    setRole(roles[0] || 'User');
+  }, []);
+
 
   // Queries
   const { data: lc, isLoading: loadingLC } = useQuery({
@@ -224,12 +232,14 @@ export default function LCDetailPage() {
                     <FileText className="w-5 h-5 text-blue-600" />
                     Proforma Invoices (PI)
                   </h3>
-                  <button 
-                    onClick={() => setShowPIModal(true)}
-                    className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-800 transition-all"
-                  >
-                    <Plus className="w-4 h-4" /> Add PI
-                  </button>
+                  {isOwner && (
+                    <button 
+                      onClick={() => setShowPIModal(true)}
+                      className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-800 transition-all"
+                    >
+                      <Plus className="w-4 h-4" /> Add PI
+                    </button>
+                  )}
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
@@ -295,24 +305,26 @@ export default function LCDetailPage() {
                     <CreditCard className="w-5 h-5 text-emerald-600" />
                     Payments Received
                   </h3>
-                  <button 
-                    onClick={() => {
-                        setPaymentFormData({
-                          ...paymentFormData,
-                          allocations: lc.pis.filter((p: any) => p.status !== 'PAID').map((p: any) => ({
-                            piId: p.id,
-                            piNumber: p.piNumber,
-                            total: p.amount,
-                            pending: p.amount - (p.paymentAllocations?.reduce((s: number, a: any) => s + a.allocatedAmount, 0) || 0),
-                            allocatedAmount: 0
-                          }))
-                        });
-                        setShowPaymentModal(true);
-                    }}
-                    className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all"
-                  >
-                    <Plus className="w-4 h-4" /> Record Payment
-                  </button>
+                  {isOwner && (
+                    <button 
+                      onClick={() => {
+                          setPaymentFormData({
+                            ...paymentFormData,
+                            allocations: lc.pis.filter((p: any) => p.status !== 'PAID').map((p: any) => ({
+                              piId: p.id,
+                              piNumber: p.piNumber,
+                              total: p.amount,
+                              pending: p.amount - (p.paymentAllocations?.reduce((s: number, a: any) => s + a.allocatedAmount, 0) || 0),
+                              allocatedAmount: 0
+                            }))
+                          });
+                          setShowPaymentModal(true);
+                      }}
+                      className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all"
+                    >
+                      <Plus className="w-4 h-4" /> Record Payment
+                    </button>
+                  )}
                 </div>
                 <div className="p-6">
                    <div className="space-y-4">

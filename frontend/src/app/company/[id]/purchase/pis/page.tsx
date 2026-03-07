@@ -53,11 +53,28 @@ export default function ImportPIsPage() {
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [role, setRole] = useState('User');
+
+  const statusOrder: Record<string, number> = {
+    'DRAFT': 0,
+    'SUBMITTED': 1,
+    'VERIFIED': 2,
+    'APPROVED': 3,
+    'PAID': 4,
+    'CLOSED': 5
+  };
+
+  const isOwner = role === 'Owner' || role === 'Admin';
 
   useEffect(() => {
     setMounted(true);
     const token = localStorage.getItem('token');
-    if (!token) router.push('/login');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+    const roles = JSON.parse(localStorage.getItem('roles') || '[]');
+    setRole(roles[0] || 'User');
   }, [router]);
 
   const { data: pisData, isLoading } = useQuery({
@@ -115,6 +132,27 @@ export default function ImportPIsPage() {
     onError: (error: any) => {
       toast.error(error.response?.data?.error?.message || 'Failed to update PI');
     },
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string, status: string }) => {
+      let endpoint = '';
+      if (status === 'VERIFIED') endpoint = 'verify';
+      else if (status === 'APPROVED') endpoint = 'approve';
+      else if (status === 'REJECTED') endpoint = 'reject';
+      
+      if (endpoint) {
+        return await api.patch(`/company/${companyId}/pis/${id}/${endpoint}`);
+      }
+      return await api.put(`/company/${companyId}/pis/${id}`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['import-pis', companyId] });
+      toast.success('PI status updated');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Failed to update status');
+    }
   });
 
   const deleteMutation = useMutation({
@@ -275,8 +313,34 @@ export default function ImportPIsPage() {
                         <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(pi.status)}`}>{pi.status}</span>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <button onClick={() => openModal(pi)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={() => deleteMutation.mutate(pi.id)} className="p-1 text-red-600 hover:bg-red-50 rounded ml-1"><Trash2 className="w-4 h-4" /></button>
+                        <div className="flex items-center justify-center gap-2">
+                          <select 
+                             value={pi.status}
+                             onChange={(e) => {
+                               const nextStatus = e.target.value;
+                               if (statusOrder[nextStatus] < statusOrder[pi.status] && !isOwner) {
+                                 toast.error(`Cannot change status backward to ${nextStatus}`);
+                                 return;
+                               }
+                               statusMutation.mutate({ id: pi.id, status: nextStatus });
+                             }}
+                             className="px-2 py-1 text-xs rounded border border-slate-200 bg-white"
+                           >
+                              <option value="DRAFT">DRAFT</option>
+                              <option value="SUBMITTED">SUBMITTED</option>
+                              <option value="VERIFIED">VERIFIED</option>
+                              <option value="APPROVED">APPROVED</option>
+                              <option value="PAID">PAID</option>
+                           </select>
+                          {(pi.status === 'DRAFT' || isOwner) && (
+                            <>
+                              <button onClick={() => openModal(pi)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="w-4 h-4" /></button>
+                              <button onClick={() => {
+                                  if (window.confirm("Are you sure?")) deleteMutation.mutate(pi.id);
+                              }} className="p-1 text-red-600 hover:bg-red-50 rounded ml-1"><Trash2 className="w-4 h-4" /></button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

@@ -89,7 +89,7 @@ export class SequenceService {
           alreadyExists = !!(await prisma.vendor.findUnique({ where: { code: candidate } }));
           break;
         case 'product':
-          alreadyExists = !!(await (prisma as any).product.findUnique({ where: { code: candidate } }));
+          alreadyExists = !!(await (prisma as any).product.findUnique({ where: { companyId_code: { companyId, code: candidate } } }));
           break;
       }
 

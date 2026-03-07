@@ -48,7 +48,9 @@ export class PurchaseOrderRepository {
           }
         },
         include: {
-          lines: true
+          lines: true,
+          supplier: true,
+          lc: true
         }
       });
     }
@@ -83,7 +85,9 @@ export class PurchaseOrderRepository {
             }
           },
           include: {
-            lines: true
+            lines: true,
+            supplier: true,
+            lc: true
           }
         });
       }
@@ -92,7 +96,9 @@ export class PurchaseOrderRepository {
         where: { id },
         data: poData,
         include: {
-          lines: true
+          lines: true,
+          supplier: true,
+          lc: true
         }
       });
     }

@@ -45,6 +45,18 @@ export default function PurchaseOrdersPage() {
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [role, setRole] = useState('User');
+
+  const statusOrder: Record<string, number> = {
+    'DRAFT': 0,
+    'REJECTED': 0,
+    'APPROVED': 1,
+    'SENT': 2,
+    'RECEIVED': 3,
+    'CLOSED': 4
+  };
+
+  const isOwner = role === 'Owner' || role === 'Admin';
 
   const [formData, setFormData] = useState({
     supplierId: '',
@@ -62,7 +74,12 @@ export default function PurchaseOrdersPage() {
   useEffect(() => {
     setMounted(true);
     const token = localStorage.getItem('token');
-    if (!token) router.push('/login');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+    const roles = JSON.parse(localStorage.getItem('roles') || '[]');
+    setRole(roles[0] || 'User');
   }, [router]);
 
   // Data Fetching
@@ -374,7 +391,14 @@ export default function PurchaseOrdersPage() {
                           <div className="flex justify-center gap-2">
                             <select 
                                value={po.status}
-                               onChange={(e) => statusMutation.mutate({ id: po.id, status: e.target.value })}
+                               onChange={(e) => {
+                                 const nextStatus = e.target.value;
+                                 if (statusOrder[nextStatus] < statusOrder[po.status] && !isOwner) {
+                                   toast.error(`Cannot change status backward to ${nextStatus}`);
+                                   return;
+                                 }
+                                 statusMutation.mutate({ id: po.id, status: nextStatus });
+                               }}
                                className="px-2 py-1 text-xs rounded border border-slate-200 bg-white"
                              >
                                 <option value="DRAFT">DRAFT</option>
@@ -383,12 +407,16 @@ export default function PurchaseOrdersPage() {
                                 <option value="RECEIVED">RECEIVED</option>
                                 <option value="CLOSED">CLOSED</option>
                              </select>
-                            <button onClick={() => openModal(po)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
-                            <button onClick={() => {
-                                if (window.confirm("Are you sure you want to delete this Purchase Order?")) {
-                                    deleteMutation.mutate(po.id);
-                                }
-                            }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                            {(po.status === 'DRAFT' || isOwner) && (
+                              <>
+                                <button onClick={() => openModal(po)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
+                                <button onClick={() => {
+                                    if (window.confirm("Are you sure you want to delete this Purchase Order?")) {
+                                        deleteMutation.mutate(po.id);
+                                    }
+                                }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>

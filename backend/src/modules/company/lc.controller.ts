@@ -11,7 +11,8 @@ export class LCController {
     const lcs = await (prisma as any).lC.findMany({
       where: { companyId },
       include: {
-        customer: { select: { name: true, code: true } }
+        customer: { select: { name: true, code: true } },
+        vendor: { select: { name: true, code: true } }
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -25,6 +26,7 @@ export class LCController {
       where: { id: lcId },
       include: {
         customer: true,
+        vendor: true,
         pis: {
           orderBy: { piDate: 'desc' }
         },
@@ -106,14 +108,15 @@ export class LCController {
           amount: Number(data.amount),
           conversionRate: data.conversionRate ? Number(data.conversionRate) : 1,
           loanValue: data.loanValue ? Number(data.loanValue) : 0,
-          customerId: data.customerId,
+          customerId: data.customerId || null,
+          vendorId: data.vendorId || null,
           receivedDate: data.receivedDate ? new Date(data.receivedDate) : null
         }
       });
 
       // 2. Link PIs if provided
       if (piIds && Array.isArray(piIds) && piIds.length > 0) {
-        // Validate total PI amount vs LC amount if needed (optional based on business flow)
+        // Validate total PI amount vs LC amount
         const pis = await (tx as any).pI.findMany({
           where: { id: { in: piIds } }
         });
@@ -128,8 +131,6 @@ export class LCController {
           data: { lcId: lc.id }
         });
       }
-
-
 
       return lc;
     });
@@ -147,13 +148,22 @@ export class LCController {
     return reply.status(201).send({ success: true, data: result });
   }
 
-
-
   async updateLC(request: FastifyRequest, reply: FastifyReply) {
     const { lcId } = request.params as { lcId: string };
     const data = request.body as any;
 
-    const lc = await prisma.lC.update({
+    const existingLC = await (prisma as any).lC.findUnique({ where: { id: lcId } });
+    if (!existingLC) return reply.status(404).send({ success: false, message: 'LC not found' });
+
+    // Guard: Prevent modification of approved/closed LCs
+    if (existingLC.status !== 'OPEN' && existingLC.status !== 'REJECTED') {
+      return reply.status(400).send({ 
+        success: false, 
+        message: `Cannot modify an LC with status: ${existingLC.status}` 
+      });
+    }
+
+    const lc = await (prisma as any).lC.update({
       where: { id: lcId },
       data: {
         ...data,
@@ -162,19 +172,29 @@ export class LCController {
         amount: data.amount ? Number(data.amount) : undefined,
         conversionRate: data.conversionRate ? Number(data.conversionRate) : undefined,
         loanValue: data.loanValue ? Number(data.loanValue) : undefined,
-        customerId: data.customerId,
+        customerId: data.customerId || undefined,
+        vendorId: data.vendorId || undefined,
         receivedDate: data.receivedDate ? new Date(data.receivedDate) : undefined
       }
-
     });
 
     return reply.send({ success: true, data: lc });
   }
 
-
   async deleteLC(request: FastifyRequest, reply: FastifyReply) {
     const { lcId } = request.params as { lcId: string };
-    await prisma.lC.delete({ where: { id: lcId } });
+    const existingLC = await (prisma as any).lC.findUnique({ where: { id: lcId } });
+    
+    if (!existingLC) return reply.status(404).send({ success: false, message: 'LC not found' });
+
+    if (existingLC.status !== 'OPEN' && existingLC.status !== 'REJECTED') {
+      return reply.status(400).send({ 
+        success: false, 
+        message: `Cannot delete an LC with status: ${existingLC.status}` 
+      });
+    }
+
+    await (prisma as any).lC.delete({ where: { id: lcId } });
     return reply.send({ success: true, message: 'LC deleted' });
   }
 
@@ -193,7 +213,7 @@ export class LCController {
       });
     }
 
-    const lc = await prisma.lC.update({
+    const lc = await (prisma as any).lC.update({
       where: { id: lcId },
       data: { status: 'APPROVED' }
     });

@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "PI" ADD COLUMN     "vendorId" TEXT;
+
+-- AddForeignKey
+ALTER TABLE "PI" ADD CONSTRAINT "PI_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "Vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;

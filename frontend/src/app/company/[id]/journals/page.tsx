@@ -62,20 +62,6 @@ export default function CompanyJournalsPage() {
     enabled: !!companyId,
   });
 
-  useEffect(() => {
-    if (action === 'create' && !isLoading) {
-      // Small delay to ensure data is ready or just open it
-      setFormData({
-        date: new Date().toISOString().split('T')[0],
-        description: '',
-        lines: [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }] as Line[],
-      } as any);
-      setShowModal(true);
-      // Remove query param without reload
-      window.history.replaceState({}, '', `/company/${companyId}/journals`);
-    }
-  }, [action, isLoading, companyId]);
-
   const [mounted, setMounted] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -91,6 +77,41 @@ export default function CompanyJournalsPage() {
 
   const [userRole, setUserRole] = useState('User');
   const [attachments, setAttachments] = useState<File[]>([]);
+
+  useEffect(() => {
+    if (action === 'create' && !isLoading) {
+      // Small delay to ensure data is ready or just open it
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        description: '',
+        lines: [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }] as Line[],
+      } as any);
+      setShowModal(true);
+      // Remove query param without reload
+      window.history.replaceState({}, '', `/company/${companyId}/journals`);
+    }
+  }, [action, isLoading, companyId]);
+
+  const editId = searchParams.get('edit');
+  useEffect(() => {
+    if (editId && !isLoading && mounted) {
+      // Try resolving directly from existing data if possible, else fetch it
+      const existingJournal = journalsData?.find((j: any) => j.id === editId);
+      if (existingJournal) {
+        openViewModal(existingJournal);
+      } else {
+        // Fetch to open
+        api.get(`/company/${companyId}/journals/${editId}`)
+          .then(res => {
+            setSelectedJournal(res.data.data);
+            setShowViewModal(true);
+          })
+          .catch(err => toast.error('Failed to load journal details'));
+      }
+      // Clean up URL
+      window.history.replaceState({}, '', `/company/${companyId}/journals`);
+    }
+  }, [editId, isLoading, mounted, companyId, journalsData]);
 
   useEffect(() => {
     setMounted(true);
@@ -159,7 +180,7 @@ export default function CompanyJournalsPage() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company-journals', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
       toast.success('Journal entry created successfully');
       closeModal();
     },
@@ -174,7 +195,7 @@ export default function CompanyJournalsPage() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company-journals', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
       toast.success('Journal entry deleted successfully');
     },
     onError: (error: any) => {
@@ -188,7 +209,7 @@ export default function CompanyJournalsPage() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company-journals', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
       toast.success('Journal verified');
     },
     onError: (error: any) => {
@@ -202,7 +223,7 @@ export default function CompanyJournalsPage() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company-journals', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
       toast.success('Journal approved');
     },
     onError: (error: any) => {
@@ -216,7 +237,7 @@ export default function CompanyJournalsPage() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company-journals', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
       toast.success('Journal rejected');
     },
     onError: (error: any) => {
@@ -230,7 +251,7 @@ export default function CompanyJournalsPage() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company-journals', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
       toast.success('Journal retrieved to draft');
     },
     onError: (error: any) => {
@@ -244,7 +265,7 @@ export default function CompanyJournalsPage() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company-journals', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
       toast.success('Journal submitted for verification');
     },
     onError: (error: any) => {
@@ -360,7 +381,7 @@ export default function CompanyJournalsPage() {
         }
       }
 
-      queryClient.invalidateQueries({ queryKey: ['company-journals', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
       toast.success('Journal entry created successfully');
       setAttachments([]);
       closeModal();
@@ -815,18 +836,86 @@ export default function CompanyJournalsPage() {
               />
             </div>
 
-            <div className="flex gap-3 pt-8 mt-4 border-t border-slate-100 print-hide">
-              <button 
-                onClick={handlePrint} 
-                className="w-full py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-              >
-                <Printer className="w-4 h-4" />
-                Print Voucher
-              </button>
-              <button onClick={closeViewModal} className="w-full py-2.5 bg-slate-100 text-slate-600 rounded-lg font-semibold hover:bg-slate-200 transition-colors">
-                Close View
-              </button>
+            <div className="flex flex-wrap gap-2 pt-6 mt-4 border-t border-slate-100 print-hide">
+              {/* ── Status Action Buttons ── */}
+              {(selectedJournal.status === 'DRAFT' || selectedJournal.status === 'REJECTED') && (
+                <button
+                  onClick={() => { submitMutation.mutate(selectedJournal.id); setShowViewModal(false); }}
+                  disabled={submitMutation.isPending}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Send className="w-4 h-4" /> Submit for Verification
+                </button>
+              )}
+              {selectedJournal.status === 'PENDING_VERIFICATION' && (userRole === 'Manager' || userRole === 'Owner' || userRole === 'Admin') && (
+                <>
+                  <button
+                    onClick={() => { verifyMutation.mutate(selectedJournal.id); setShowViewModal(false); }}
+                    disabled={verifyMutation.isPending}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold text-sm hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <CheckCheck className="w-4 h-4" /> Verify
+                  </button>
+                  <button
+                    onClick={() => {
+                      const reason = window.prompt('Rejection reason (optional):') ?? '';
+                      rejectMutation.mutate({ journalId: selectedJournal.id, reason });
+                      setShowViewModal(false);
+                    }}
+                    disabled={rejectMutation.isPending}
+                    className="px-4 py-2 bg-rose-600 text-white rounded-lg font-semibold text-sm hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <X className="w-4 h-4" /> Reject
+                  </button>
+                </>
+              )}
+              {(selectedJournal.status === 'VERIFIED' || selectedJournal.status === 'PENDING_APPROVAL') && (userRole === 'Owner' || userRole === 'Admin') && (
+                <>
+                  <button
+                    onClick={() => { approveMutation.mutate(selectedJournal.id); setShowViewModal(false); }}
+                    disabled={approveMutation.isPending}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" /> Approve
+                  </button>
+                  <button
+                    onClick={() => {
+                      const reason = window.prompt('Rejection reason (optional):') ?? '';
+                      rejectMutation.mutate({ journalId: selectedJournal.id, reason });
+                      setShowViewModal(false);
+                    }}
+                    disabled={rejectMutation.isPending}
+                    className="px-4 py-2 bg-rose-600 text-white rounded-lg font-semibold text-sm hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <X className="w-4 h-4" /> Reject
+                  </button>
+                </>
+              )}
+              {selectedJournal.status === 'REJECTED' && (userRole === 'Owner' || userRole === 'Admin') && (
+                <button
+                  onClick={() => { retrieveMutation.mutate(selectedJournal.id); setShowViewModal(false); }}
+                  disabled={retrieveMutation.isPending}
+                  className="px-4 py-2 bg-yellow-500 text-white rounded-lg font-semibold text-sm hover:bg-yellow-600 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Retrieve to Draft
+                </button>
+              )}
+
+              {/* ── Print & Close ── */}
+              <div className="flex gap-2 ml-auto">
+                <button
+                  onClick={handlePrint}
+                  className="py-2 px-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print
+                </button>
+                <button onClick={closeViewModal} className="py-2 px-4 bg-slate-100 text-slate-600 rounded-lg font-semibold hover:bg-slate-200 transition-colors text-sm">
+                  Close
+                </button>
+              </div>
             </div>
+
           </div>
         </div>
           

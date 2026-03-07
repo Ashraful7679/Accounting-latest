@@ -80,6 +80,23 @@ export default function SalesInvoicesPage() {
     }
   }, [router, action, isLoading, companyId]);
 
+  const editId = searchParams.get('edit');
+  useEffect(() => {
+    if (editId && !isLoading && mounted) {
+      const existingInvoice = invoicesData?.find((i: Invoice) => i.id === editId);
+      if (existingInvoice) {
+        openModal(existingInvoice);
+      } else {
+        api.get(`/company/${companyId}/invoices/${editId}`)
+          .then(res => {
+            openModal(res.data.data);
+          })
+          .catch(err => toast.error('Failed to load invoice details'));
+      }
+      window.history.replaceState({}, '', `/company/${companyId}/sales/invoices`);
+    }
+  }, [editId, isLoading, mounted, companyId, invoicesData]);
+
   const { data: customersData } = useQuery({
     queryKey: ['customers', companyId],
     queryFn: async () => {

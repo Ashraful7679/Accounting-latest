@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Plus, FileText, Trash2, Check, X, ArrowLeft, LogOut, Eye, Edit, CreditCard, DollarSign, Bell } from 'lucide-react';
+import { Plus, FileText, Trash2, Check, X, ArrowLeft, LogOut, Eye, Edit, CreditCard, DollarSign, Bell, Send, CheckCheck } from 'lucide-react';
 import { AttachmentManager } from '@/components/AttachmentManager';
 
 interface Customer {
@@ -74,9 +74,13 @@ export default function CompanyInvoicesPage() {
     },
   });
 
+  const [userRole, setUserRole] = useState('User');
+
   useEffect(() => {
     setMounted(true);
     const token = localStorage.getItem('token');
+    const roles = JSON.parse(localStorage.getItem('roles') || '[]');
+    setUserRole(roles[0] || 'User');
     if (!token) {
       router.push('/login');
     }
@@ -702,10 +706,75 @@ export default function CompanyInvoicesPage() {
               />
             </div>
 
-            <div className="flex gap-4 pt-8 mt-6 border-t border-slate-100">
-              <button onClick={closeViewModal} className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all shadow-lg shadow-black/10">
-                Close Invoice View
-              </button>
+            <div className="flex flex-wrap gap-2 pt-6 mt-4 border-t border-slate-100">
+              {/* ── Status Action Buttons ── */}
+              {(selectedInvoice.status === 'DRAFT' || selectedInvoice.status === 'REJECTED') && (
+                <button
+                  onClick={() => { verifyMutation.mutate((selectedInvoice as any).id); setShowViewModal(false); }}
+                  disabled={verifyMutation.isPending}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Send className="w-4 h-4" /> Submit for Verification
+                </button>
+              )}
+              {selectedInvoice.status === 'PENDING_VERIFICATION' && (userRole === 'Manager' || userRole === 'Owner' || userRole === 'Admin') && (
+                <>
+                  <button
+                    onClick={() => { verifyMutation.mutate((selectedInvoice as any).id); setShowViewModal(false); }}
+                    disabled={verifyMutation.isPending}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold text-sm hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <CheckCheck className="w-4 h-4" /> Verify
+                  </button>
+                  <button
+                    onClick={() => {
+                      const reason = window.prompt('Rejection reason (optional):') ?? '';
+                      rejectMutation.mutate({ invoiceId: (selectedInvoice as any).id, reason });
+                      setShowViewModal(false);
+                    }}
+                    disabled={rejectMutation.isPending}
+                    className="px-4 py-2 bg-rose-600 text-white rounded-lg font-semibold text-sm hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <X className="w-4 h-4" /> Reject
+                  </button>
+                </>
+              )}
+              {(selectedInvoice.status === 'VERIFIED' || selectedInvoice.status === 'PENDING_APPROVAL') && (userRole === 'Owner' || userRole === 'Admin') && (
+                <>
+                  <button
+                    onClick={() => { approveMutation.mutate((selectedInvoice as any).id); setShowViewModal(false); }}
+                    disabled={approveMutation.isPending}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" /> Approve
+                  </button>
+                  <button
+                    onClick={() => {
+                      const reason = window.prompt('Rejection reason (optional):') ?? '';
+                      rejectMutation.mutate({ invoiceId: (selectedInvoice as any).id, reason });
+                      setShowViewModal(false);
+                    }}
+                    disabled={rejectMutation.isPending}
+                    className="px-4 py-2 bg-rose-600 text-white rounded-lg font-semibold text-sm hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <X className="w-4 h-4" /> Reject
+                  </button>
+                </>
+              )}
+              {selectedInvoice.status === 'REJECTED' && (userRole === 'Owner' || userRole === 'Admin') && (
+                <button
+                  onClick={() => { retrieveMutation.mutate((selectedInvoice as any).id); setShowViewModal(false); }}
+                  disabled={retrieveMutation.isPending}
+                  className="px-4 py-2 bg-yellow-500 text-white rounded-lg font-semibold text-sm hover:bg-yellow-600 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Retrieve to Draft
+                </button>
+              )}
+              <div className="ml-auto">
+                <button onClick={closeViewModal} className="py-2 px-5 bg-slate-900 text-white rounded-lg font-semibold text-sm hover:bg-black transition-all">
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

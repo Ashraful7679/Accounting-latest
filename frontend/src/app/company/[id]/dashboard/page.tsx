@@ -531,9 +531,13 @@ export default function CompanyDashboard() {
                       
                       let href = '#';
                       if (activity.entityType === 'journal') {
-                        href = `/company/${companyId}/journals`;
+                        href = `/company/${companyId}/journals?edit=${activity.entityId}`;
                       } else if (activity.entityType === 'invoice') {
-                        href = `/company/${companyId}/sales/invoices`;
+                        href = `/company/${companyId}/sales/invoices?edit=${activity.entityId}`;
+                      } else if (activity.entityType === 'purchase_order') {
+                        href = `/company/${companyId}/purchase/orders?edit=${activity.entityId}`;
+                      } else if (activity.entityType === 'bill') {
+                        href = `/company/${companyId}/purchase/invoices?edit=${activity.entityId}`;
                       }
 
                       return (

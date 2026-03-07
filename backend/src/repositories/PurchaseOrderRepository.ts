@@ -62,6 +62,10 @@ export class PurchaseOrderRepository {
     if (poData.lcId === "") {
       poData.lcId = null;
     }
+    // Ensure empty date fields are treated as null (Prisma requires DateTime or null)
+    if (poData.expectedDeliveryDate === "" || poData.expectedDeliveryDate === undefined) {
+      poData.expectedDeliveryDate = null;
+    }
 
     if (SYSTEM_MODE === "LIVE") {
       // For updates, we might want to replace lines or update them individually.

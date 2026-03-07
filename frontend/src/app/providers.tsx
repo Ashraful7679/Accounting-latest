@@ -10,7 +10,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 60 * 1000,
+            staleTime: 0,           // Always consider data stale → refetch on invalidation
+            refetchOnWindowFocus: true,   // Refetch when user returns to tab
+            refetchOnMount: true,         // Refetch when component mounts
+            retry: 1,                     // Single retry on network failure
           },
         },
       })

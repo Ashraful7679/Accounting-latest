@@ -238,8 +238,22 @@ export class TransactionRepository {
     const balanceChange = isDebitType ? (isSales ? -invoiceTotal : invoiceTotal) : (isSales ? invoiceTotal : -invoiceTotal);
     await tx.account.update({ where: { id: incomeExpAccount.id }, data: { currentBalance: { increment: balanceChange } } });
 
-    // Create the Journal Entry
-    const entryNumber = `JV-INV-${invoice.invoiceNumber}`;
+    // Create the Journal Entry (idempotent: delete old one for this specific invoice and company)
+    const entryNumber = `JV-INV-${companyId.slice(0, 8)}-${invoice.invoiceNumber}`;
+    const existingJournal = await tx.journalEntry.findFirst({ 
+      where: { 
+        entryNumber,
+        companyId 
+      } 
+    });
+    
+    if (existingJournal) {
+      // Delete the old journal (lines cascade via Prisma schema)
+      await tx.journalEntry.delete({ 
+        where: { id: existingJournal.id } 
+      });
+    }
+    
     return await tx.journalEntry.create({
       data: {
         entryNumber,

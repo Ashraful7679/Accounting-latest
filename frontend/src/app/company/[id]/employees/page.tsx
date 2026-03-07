@@ -207,7 +207,7 @@ export default function EmployeesPage() {
       queryClient.invalidateQueries({ queryKey: ['employee-advances', companyId] });
       queryClient.invalidateQueries({ queryKey: ['employee-loans', companyId] });
       queryClient.invalidateQueries({ queryKey: ['employee-expenses', companyId] });
-      queryClient.invalidateQueries({ queryKey: ['company-journals', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
       toast.success('Approved - Journal created automatically');
       closeModal();
     },

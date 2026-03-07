@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import UserDropdown from '@/components/UserDropdown';
@@ -61,6 +61,24 @@ export default function PurchaseInvoicesPage() {
     },
     enabled: !!companyId,
   });
+
+  const searchParams = useSearchParams();
+  const editId = searchParams.get('edit');
+  useEffect(() => {
+    if (editId && !isLoading && mounted) {
+      const existingInvoice = invoicesData?.find((i: Invoice) => i.id === editId);
+      if (existingInvoice) {
+        openModal(existingInvoice);
+      } else {
+        api.get(`/company/${companyId}/invoices/${editId}`)
+          .then(res => {
+            openModal(res.data.data);
+          })
+          .catch(err => toast.error('Failed to load invoice details'));
+      }
+      window.history.replaceState({}, '', `/company/${companyId}/purchase/invoices`);
+    }
+  }, [editId, isLoading, mounted, companyId, invoicesData]);
 
   const { data: vendorsData } = useQuery({
     queryKey: ['vendors', companyId],

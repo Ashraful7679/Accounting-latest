@@ -11,6 +11,7 @@ import {
   FileText, Calendar, DollarSign, ArrowLeft, ArrowUpRight,
   ShieldCheck, Globe, Landmark, Bell, Eye, Printer
 } from 'lucide-react';
+import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
 import { AttachmentManager } from '@/components/AttachmentManager';
 import { handleError } from '@/lib/error-handler';
 import toast from 'react-hot-toast';
@@ -21,59 +22,6 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const handlePrint = (item: any, type: 'lc' | 'loan') => {
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) return;
-
-  const isLC = type === 'lc';
-  const title = isLC ? `Letter of Credit - ${item.lcNumber}` : `Loan Statement - ${item.loanNumber}`;
-
-  const content = `
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { font-family: sans-serif; padding: 40px; color: #1e293b; }
-          h1 { font-size: 24px; font-weight: 900; margin-bottom: 8px; }
-          .subtitle { color: #64748b; font-size: 14px; margin-bottom: 32px; }
-          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; border: 1px solid #e2e8f0; padding: 24px; border-radius: 8px; }
-          .field label { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #94a3b8; display: block; margin-bottom: 4px; }
-          .field span { font-size: 14px; font-weight: bold; color: #1e293b; }
-          .status { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: bold; text-transform: uppercase; background: #ecfdf5; color: #059669; }
-          footer { margin-top: 48px; border-top: 1px solid #e2e8f0; padding-top: 16px; font-size: 12px; color: #94a3b8; text-align: right; }
-        </style>
-      </head>
-      <body>
-        <h1>${title}</h1>
-        <p class="subtitle">${item.bankName}${item.customer ? ` | ${item.customer.name}` : ''}</p>
-        <div class="grid">
-          ${isLC ? `
-            <div class="field"><label>LC Number</label><span>${item.lcNumber}</span></div>
-            <div class="field"><label>Status</label><span class="status">${item.status}</span></div>
-            <div class="field"><label>Amount</label><span>${item.currency} ${item.amount?.toLocaleString()}</span></div>
-            <div class="field"><label>Type</label><span>${item.type}</span></div>
-            <div class="field"><label>Issue Date</label><span>${new Date(item.issueDate).toLocaleDateString()}</span></div>
-            <div class="field"><label>Expiry Date</label><span>${new Date(item.expiryDate).toLocaleDateString()}</span></div>
-          ` : `
-            <div class="field"><label>Loan Number</label><span>${item.loanNumber}</span></div>
-            <div class="field"><label>Status</label><span class="status">${item.status}</span></div>
-            <div class="field"><label>Loan Type</label><span>${item.loanType}</span></div>
-            <div class="field"><label>Interest Rate</label><span>${item.interestRate}%</span></div>
-            <div class="field"><label>Principal</label><span>BDT ${item.principalAmount?.toLocaleString()}</span></div>
-            <div class="field"><label>Outstanding</label><span>BDT ${item.outstandingBalance?.toLocaleString()}</span></div>
-            <div class="field"><label>Start Date</label><span>${new Date(item.startDate).toLocaleDateString()}</span></div>
-            ${item.endDate ? `<div class="field"><label>End Date</label><span>${new Date(item.endDate).toLocaleDateString()}</span></div>` : ''}
-          `}
-        </div>
-        <footer>Printed on ${new Date().toLocaleString()}</footer>
-      </body>
-    </html>
-  `;
-
-  printWindow.document.write(content);
-  printWindow.document.close();
-  printWindow.print();
-};
 
 interface LC {
   id: string;
@@ -149,6 +97,49 @@ export default function FinancePage() {
     queryKey: ['company', companyId],
     queryFn: () => api.get(`/company/${companyId}`).then(res => res.data.data)
   });
+
+  const handlePrint = (item: any, type: 'lc' | 'loan') => {
+    const isLC = type === 'lc';
+    const docTitle = isLC ? `Letter of Credit - ${item.lcNumber}` : `Loan Statement - ${item.loanNumber}`;
+    const companyInfo = {
+      name: company?.name || 'Company',
+      address: company?.address,
+      phone: company?.phone,
+      email: company?.email,
+      taxId: company?.taxId || company?.tin,
+      registrationNumber: company?.registrationNumber,
+      website: company?.website,
+    };
+
+    const body = `
+      <div style="margin-bottom:28px;">
+        <h1 style="margin:0 0 4px 0;">${isLC ? 'LETTER OF CREDIT' : 'LOAN STATEMENT'}</h1>
+        <p style="color:#64748b; font-size:13px; margin:0;">${item.bankName}${item.customer ? ` | ${item.customer.name}` : ''}</p>
+      </div>
+      <div class="meta-grid">
+        ${isLC ? `
+          <div class="meta-field"><label>LC Number</label><span>${item.lcNumber}</span></div>
+          <div class="meta-field"><label>Status</label><span class="status-badge">${item.status}</span></div>
+          <div class="meta-field"><label>Amount</label><span>${item.currency} ${item.amount?.toLocaleString()}</span></div>
+          <div class="meta-field"><label>Type</label><span>${item.type}</span></div>
+          <div class="meta-field"><label>Issue Date</label><span>${new Date(item.issueDate).toLocaleDateString()}</span></div>
+          <div class="meta-field"><label>Expiry Date</label><span>${new Date(item.expiryDate).toLocaleDateString()}</span></div>
+        ` : `
+          <div class="meta-field"><label>Loan Number</label><span>${item.loanNumber}</span></div>
+          <div class="meta-field"><label>Status</label><span class="status-badge">${item.status}</span></div>
+          <div class="meta-field"><label>Loan Type</label><span>${item.loanType}</span></div>
+          <div class="meta-field"><label>Interest Rate</label><span>${item.interestRate}%</span></div>
+          <div class="meta-field"><label>Principal</label><span>BDT ${item.principalAmount?.toLocaleString()}</span></div>
+          <div class="meta-field"><label>Outstanding Balance</label><span>BDT ${item.outstandingBalance?.toLocaleString()}</span></div>
+          <div class="meta-field"><label>Start Date</label><span>${new Date(item.startDate).toLocaleDateString()}</span></div>
+          ${item.endDate ? `<div class="meta-field"><label>End Date</label><span>${new Date(item.endDate).toLocaleDateString()}</span></div>` : ''}
+        `}
+      </div>
+    `;
+
+    openPrintWindow(buildPrintDocument({ title: docTitle, company: companyInfo, body }));
+  };
+
 
   const { data: customers } = useQuery({
     queryKey: ['company-customers', companyId],

@@ -15,6 +15,7 @@ import NotificationPanel from '@/components/NotificationPanel';
 import UserDropdown from '@/components/UserDropdown';
 import { renderActivityMessage, type ActivityLog } from '@/utils/activityRenderer';
 import { handleError } from '@/lib/error-handler';
+import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
 
 interface Account {
   id: string;
@@ -54,77 +55,64 @@ export default function CompanyJournalsPage() {
   const [page, setPage] = useState(1);
   const limit = 50;
 
-  const handlePrintVoucher = (journal: any) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+  const handlePrintVoucher = async (journal: any) => {
+    try {
+      const companyRes = await api.get(`/company/${companyId}`);
+      const c = companyRes.data.data;
+      const company = {
+        name: c.name, address: c.address, phone: c.phone,
+        email: c.email, taxId: c.taxId || c.tin,
+        registrationNumber: c.registrationNumber, website: c.website,
+      };
 
-    const content = `
-      <html>
-        <head>
-          <title>Journal Voucher - ${journal.entryNumber}</title>
-          <style>
-            body { font-family: sans-serif; padding: 40px; color: #1e293b; }
-            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #e2e8f0; pb: 20px; mb: 20px; }
-            .title { font-size: 24px; font-weight: 900; }
-            .info { margin-bottom: 30px; display: grid; grid-template-cols: 1fr 1fr; gap: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
-            th { bg-color: #f8fafc; font-weight: bold; }
-            .total { text-align: right; margin-top: 20px; font-size: 18px; font-weight: bold; }
-            .dr { color: #059669; font-weight: bold; }
-            .cr { color: #dc2626; font-weight: bold; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="title">JOURNAL VOUCHER</div>
-            <div>
-              <p><strong>Voucher #:</strong> ${journal.entryNumber}</p>
-              <p><strong>Date:</strong> ${new Date(journal.date).toLocaleDateString()}</p>
-            </div>
+      const body = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px;">
+          <div>
+            <h1 style="margin:0 0 4px 0;">JOURNAL VOUCHER</h1>
+            <span class="status-badge">${journal.status}</span>
           </div>
-          <div class="info">
-            <div>
-              <p><strong>Description:</strong> ${journal.description || 'N/A'}</p>
-              <p><strong>Status:</strong> ${journal.status}</p>
-            </div>
-            <div>
-              <p><strong>Created By:</strong> ${journal.createdBy.firstName} ${journal.createdBy.lastName}</p>
-            </div>
+          <div style="text-align:right; font-size:13px;">
+            <p style="margin:2px 0;"><strong>Voucher #:</strong> ${journal.entryNumber}</p>
+            <p style="margin:2px 0;"><strong>Date:</strong> ${new Date(journal.date).toLocaleDateString()}</p>
           </div>
-          <table>
-            <thead>
+        </div>
+        <div class="meta-grid">
+          <div class="meta-field"><label>Description</label><span>${journal.description || 'N/A'}</span></div>
+          <div class="meta-field"><label>Created By</label><span>${journal.createdBy.firstName} ${journal.createdBy.lastName}</span></div>
+          ${journal.verifiedBy ? `<div class="meta-field"><label>Verified By</label><span>${journal.verifiedBy.firstName} ${journal.verifiedBy.lastName}</span></div>` : ''}
+          ${journal.approvedBy ? `<div class="meta-field"><label>Approved By</label><span>${journal.approvedBy.firstName} ${journal.approvedBy.lastName}</span></div>` : ''}
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th style="text-align:right;">Debit</th>
+              <th style="text-align:right;">Credit</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(journal.lines || []).map((line: any) => `
               <tr>
-                <th>Account</th>
-                <th style="text-align: right;">Debit</th>
-                <th style="text-align: right;">Credit</th>
+                <td>
+                  <div style="font-weight:bold;">${line.account?.name || 'Unknown'}</div>
+                  <div style="font-size:11px; color:#64748b;">${line.account?.code || ''}</div>
+                </td>
+                <td style="text-align:right; color:#059669; font-weight:600;">${line.debitCredit === 'debit' ? line.amount.toLocaleString() : '-'}</td>
+                <td style="text-align:right; color:#dc2626; font-weight:600;">${line.debitCredit === 'credit' ? line.amount.toLocaleString() : '-'}</td>
               </tr>
-            </thead>
-            <tbody>
-              ${(journal.lines || []).map((line: any) => `
-                <tr>
-                  <td>
-                    <div style="font-weight: bold;">${line.account?.name || 'Unknown Account'}</div>
-                    <div style="font-size: 10px; color: #64748b;">${line.account?.code || ''}</div>
-                  </td>
-                  <td style="text-align: right;">${line.debitCredit === 'debit' ? line.amount.toLocaleString() : '-'}</td>
-                  <td style="text-align: right;">${line.debitCredit === 'credit' ? line.amount.toLocaleString() : '-'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <div class="total">
-            Total Debit: ${journal.totalDebit.toLocaleString()}
-            <br/>
-            Total Credit: ${journal.totalCredit.toLocaleString()}
-          </div>
-        </body>
-      </html>
-    `;
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="totals">
+          <p>Total Debit: <strong>${journal.totalDebit.toLocaleString()}</strong></p>
+          <p class="grand-total">Total Credit: ${journal.totalCredit.toLocaleString()}</p>
+        </div>
+      `;
 
-    printWindow.document.write(content);
-    printWindow.document.close();
-    printWindow.print();
+      openPrintWindow(buildPrintDocument({ title: `Journal Voucher - ${journal.entryNumber}`, company, body }));
+    } catch {
+      toast.error('Could not load company info for printing.');
+    }
   };
 
   const { data: journalsData, isLoading } = useQuery({

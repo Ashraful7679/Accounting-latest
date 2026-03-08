@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
+import { handleError } from '@/lib/error-handler';
 import { Plus, Trash2, Edit2, Check, X, User, DollarSign, Wallet, CreditCard, FileText, ChevronRight } from 'lucide-react';
 
 interface Employee {
@@ -142,7 +143,7 @@ export default function EmployeesPage() {
       closeModal();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to create');
+      handleError(error, 'Failed to create');
     },
   });
 
@@ -167,7 +168,7 @@ export default function EmployeesPage() {
       closeModal();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to update');
+      handleError(error, 'Failed to update');
     },
   });
 
@@ -212,7 +213,7 @@ export default function EmployeesPage() {
       closeModal();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to approve');
+      handleError(error, 'Failed to approve');
     },
   });
 

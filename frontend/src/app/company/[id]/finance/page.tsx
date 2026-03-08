@@ -12,7 +12,8 @@ import {
   ShieldCheck, Globe, Landmark, Bell, Eye
 } from 'lucide-react';
 import { AttachmentManager } from '@/components/AttachmentManager';
-import { toast } from 'react-hot-toast';
+import { handleError } from '@/lib/error-handler';
+import toast from 'react-hot-toast';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -139,7 +140,7 @@ export default function FinancePage() {
       toast.success(`${activeTab === 'lcs' ? 'LC' : 'Loan'} saved successfully`);
       setShowModal(false);
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || 'Operation failed')
+    onError: (err: any) => handleError(err, 'Operation failed')
   });
 
 

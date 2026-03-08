@@ -310,7 +310,7 @@ export class CompanyController {
 
     const role = await this.getUserRole(userId, companyId);
     
-    // Status Monotonicity Guard
+    // Status Order for Monotonicity
     const statusOrder: Record<string, number> = {
       'DRAFT': 0,
       'REJECTED': 0,
@@ -320,13 +320,32 @@ export class CompanyController {
       'CLOSED': 4
     };
 
-    if (statusOrder[newStatus] <= statusOrder[po.status] && role !== 'Owner' && role !== 'Admin') {
+    const privilegedRoles = ['Owner', 'Admin', 'Manager'];
+    const isPrivileged = privilegedRoles.includes(role);
+
+    // Status Monotonicity Guard (Backward move restricted for non-privileged)
+    if (statusOrder[newStatus] <= statusOrder[po.status] && !isPrivileged) {
       throw new ForbiddenError(`Cannot change status backward from ${po.status} to ${newStatus}`);
+    }
+
+    // Role-based Status Restrictions
+    if ((newStatus === 'APPROVED' || newStatus === 'CLOSED') && !isPrivileged) {
+      throw new ForbiddenError(`Only Managers or Admins can set Purchase Order to ${newStatus}`);
+    }
+
+    // Protection against bypassing Approval for non-privileged
+    if (po.status === 'DRAFT' && !['APPROVED', 'REJECTED'].includes(newStatus) && !isPrivileged) {
+      throw new ForbiddenError(`Purchase Order must be APPROVED before moving to ${newStatus}`);
+    }
+
+    const updateData: any = { status: newStatus };
+    if (newStatus === 'APPROVED') {
+      updateData.approvedById = userId;
     }
 
     const updated = await (prisma as any).purchaseOrder.update({
       where: { id: poId },
-      data: { status: newStatus },
+      data: updateData,
       include: {
         supplier: true,
         lc: true,
@@ -1565,7 +1584,10 @@ export class CompanyController {
       const debitAccountId = (employeePayableAccount?.id || advanceAccount?.id || creditAccountId) as string;
 
       if (!debitAccountId || !creditAccountId) {
-        throw new Error('Required accounts (Cash/Bank or Employee/Advance) not found. Please ensure accounts have correct categories (CASH, BANK, AP) assigned.');
+        throw new ValidationError(
+          'Required accounts (Cash/Bank or Employee/Advance) not found.',
+          'Please ensure you have accounts with categories CASH, BANK, or AP (Accounts Payable) configured in your Chart of Accounts.'
+        );
       }
 
       // Create journal entry
@@ -1752,7 +1774,10 @@ export class CompanyController {
       const debitAccountId = (loanAccount?.id || employeePayableAccount?.id || creditAccountId) as string;
 
       if (!debitAccountId || !creditAccountId) {
-        throw new Error('Required accounts (Cash/Bank or Loan) not found. Please ensure accounts have correct categories (CASH, BANK).');
+        throw new ValidationError(
+          'Required accounts (Cash/Bank or Loan) not found.',
+          'Please ensure you have accounts with categories CASH or BANK, or an account with "Loan" in its name configured.'
+        );
       }
 
       // Create journal entry for loan disbursement
@@ -1881,7 +1906,10 @@ export class CompanyController {
     const interestAccountId = (interestAccount?.id || loanAccountId) as string;
 
     if (!cashAccountId || !loanAccountId) {
-      throw new Error('Required accounts (Cash/Bank or Loan) not found. Please ensure accounts have correct categories (CASH, BANK).');
+      throw new ValidationError(
+        'Required accounts (Cash/Bank or Loan) not found for repayment.',
+        'Please ensure you have accounts with categories CASH or BANK, and an account with "Loan" in its name.'
+      );
     }
 
     // Create journal entry for repayment (Debit Cash, Credit Loan & Interest)
@@ -2074,7 +2102,10 @@ export class CompanyController {
     const creditAccountId = (expense.accountId || cashAccount?.id || bankAccount?.id) as string;
 
     if (!debitAccountId || !creditAccountId) {
-      throw new Error('Account discovery failed. Please ensure you have accounts categorized as CASH or BANK, or an expense account matching the category.');
+      throw new ValidationError(
+        'Account discovery failed for expense approval.',
+        'Please ensure you have accounts categorized as CASH or BANK, or an expense account matching the category (e.g., Salary, Food, Medical).'
+      );
     }
 
     // Create journal entry

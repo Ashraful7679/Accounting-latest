@@ -14,6 +14,7 @@ import { AttachmentManager } from '@/components/AttachmentManager';
 import NotificationPanel from '@/components/NotificationPanel';
 import UserDropdown from '@/components/UserDropdown';
 import { renderActivityMessage, type ActivityLog } from '@/utils/activityRenderer';
+import { handleError } from '@/lib/error-handler';
 
 interface Account {
   id: string;

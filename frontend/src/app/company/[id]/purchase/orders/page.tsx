@@ -56,7 +56,8 @@ export default function PurchaseOrdersPage() {
     'CLOSED': 4
   };
 
-  const isOwner = role === 'Owner' || role === 'Admin';
+  const isPrivileged = role === 'Owner' || role === 'Admin' || role === 'Manager';
+  const isOwner = isPrivileged;
 
   const [formData, setFormData] = useState({
     supplierId: '',
@@ -389,24 +390,32 @@ export default function PurchaseOrdersPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex justify-center gap-2">
-                            <select 
-                               value={po.status}
-                               onChange={(e) => {
-                                 const nextStatus = e.target.value;
-                                 if (statusOrder[nextStatus] < statusOrder[po.status] && !isOwner) {
-                                   toast.error(`Cannot change status backward to ${nextStatus}`);
-                                   return;
-                                 }
-                                 statusMutation.mutate({ id: po.id, status: nextStatus });
-                               }}
-                               className="px-2 py-1 text-xs rounded border border-slate-200 bg-white"
-                             >
-                                <option value="DRAFT">DRAFT</option>
-                                <option value="APPROVED">APPROVED</option>
-                                <option value="SENT">SENT</option>
-                                <option value="RECEIVED">RECEIVED</option>
-                                <option value="CLOSED">CLOSED</option>
-                             </select>
+                             <select 
+                                value={po.status}
+                                onChange={(e) => {
+                                  const nextStatus = e.target.value;
+                                  if (statusOrder[nextStatus] < statusOrder[po.status] && !isPrivileged) {
+                                    toast.error(`Cannot change status backward to ${nextStatus}`);
+                                    return;
+                                  }
+                                  statusMutation.mutate({ id: po.id, status: nextStatus });
+                                }}
+                                className="px-2 py-1 text-xs rounded border border-slate-200 bg-white"
+                              >
+                                 {['DRAFT', 'REJECTED', 'APPROVED', 'SENT', 'RECEIVED', 'CLOSED'].map(status => {
+                                   // 1. Privileged status check (APPROVED/CLOSED)
+                                   if ((status === 'APPROVED' || status === 'CLOSED') && !isPrivileged) return null;
+                                   
+                                   // 2. Backward move check (matching backend)
+                                   const isBackward = statusOrder[status] <= statusOrder[po.status];
+                                   if (isBackward && status !== po.status && !isPrivileged) return null;
+
+                                   // 3. Bypass Approval check (DRAFT -> SENT/RECEIVED)
+                                   if (po.status === 'DRAFT' && !['DRAFT', 'APPROVED', 'REJECTED'].includes(status) && !isPrivileged) return null;
+
+                                   return <option key={status} value={status}>{status}</option>;
+                                 })}
+                              </select>
                             {(po.status === 'DRAFT' || isOwner) && (
                               <>
                                 <button onClick={() => openModal(po)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>

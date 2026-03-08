@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { toast } from 'react-hot-toast';
+import { handleError } from '@/lib/error-handler';
 import { ArrowLeft, Ship, Landmark, Calendar, CheckCircle2, Package } from 'lucide-react';
 import Link from 'next/link';
 
@@ -50,7 +51,7 @@ export default function CreateImportLCPage() {
       toast.success('Import LC created successfully!');
       router.push(`/company/${companyId}/lc`);
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to create LC'),
+    onError: (err: any) => handleError(err, 'Failed to create LC'),
   });
 
   const handleSubmit = (e: React.FormEvent) => {

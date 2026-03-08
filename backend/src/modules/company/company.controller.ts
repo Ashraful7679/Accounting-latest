@@ -309,33 +309,24 @@ export class CompanyController {
     if (!po) throw new NotFoundError('Purchase Order not found');
 
     const role = await this.getUserRole(userId, companyId);
-    
-    // Status Order for Monotonicity
-    const statusOrder: Record<string, number> = {
-      'DRAFT': 0,
-      'REJECTED': 0,
-      'APPROVED': 1,
-      'SENT': 2,
-      'RECEIVED': 3,
-      'CLOSED': 4
+    const isPrivileged = ['Owner', 'Admin', 'Manager'].includes(role);
+
+    // Strict Transition Map
+    const allowedTransitions: Record<string, string[]> = {
+      'DRAFT': ['APPROVED', 'REJECTED'],
+      'REJECTED': ['DRAFT'],
+      'APPROVED': ['SENT', 'REJECTED'],
+      'SENT': ['RECEIVED', 'REJECTED'],
+      'RECEIVED': ['CLOSED', 'REJECTED'],
+      'CLOSED': []
     };
 
-    const privilegedRoles = ['Owner', 'Admin', 'Manager'];
-    const isPrivileged = privilegedRoles.includes(role);
-
-    // Status Monotonicity Guard (Backward move restricted for non-privileged)
-    if (statusOrder[newStatus] <= statusOrder[po.status] && !isPrivileged) {
-      throw new ForbiddenError(`Cannot change status backward from ${po.status} to ${newStatus}`);
-    }
-
-    // Role-based Status Restrictions
-    if ((newStatus === 'APPROVED' || newStatus === 'CLOSED') && !isPrivileged) {
-      throw new ForbiddenError(`Only Managers or Admins can set Purchase Order to ${newStatus}`);
-    }
-
-    // Protection against bypassing Approval for non-privileged
-    if (po.status === 'DRAFT' && !['APPROVED', 'REJECTED'].includes(newStatus) && !isPrivileged) {
-      throw new ForbiddenError(`Purchase Order must be APPROVED before moving to ${newStatus}`);
+    // Owners and Admins can bypass the transition map for emergency corrections,
+    // but others must follow it strictly.
+    const isCorrection = ['Owner', 'Admin'].includes(role);
+    
+    if (!isCorrection && (!allowedTransitions[po.status] || !allowedTransitions[po.status].includes(newStatus))) {
+      throw new ForbiddenError(`Transition from ${po.status} to ${newStatus} is not allowed for your role.`);
     }
 
     const updateData: any = { status: newStatus };

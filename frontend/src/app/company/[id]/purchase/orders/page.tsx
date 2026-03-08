@@ -7,7 +7,8 @@ import api from '@/lib/api';
 import { 
   Plus, Search, Edit2, Trash2, Eye, 
   Package, Calendar, DollarSign, Building2, 
-  Trash, ChevronDown, CheckCircle2, Clock
+  Trash, ChevronDown, CheckCircle2, Clock,
+  Printer, Check, X, Send, CornerDownLeft, Lock
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -188,8 +189,79 @@ export default function PurchaseOrdersPage() {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error?.message || 'Failed to update status');
-    }
+    },
   });
+
+  const handlePrint = (po: PurchaseOrder) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const content = `
+      <html>
+        <head>
+          <title>Purchase Order - ${po.poNumber}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; color: #1e293b; }
+            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #e2e8f0; pb: 20px; mb: 20px; }
+            .title { font-size: 24px; font-weight: 900; }
+            .info { margin-bottom: 30px; display: grid; grid-template-cols: 1fr 1fr; gap: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
+            th { bg-color: #f8fafc; font-weight: bold; }
+            .total { text-align: right; margin-top: 20px; font-size: 18px; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="title">PURCHASE ORDER</div>
+            <div>
+              <p><strong>PO Number:</strong> ${po.poNumber}</p>
+              <p><strong>Date:</strong> ${new Date(po.poDate).toLocaleDateString()}</p>
+            </div>
+          </div>
+          <div class="info">
+            <div>
+              <p><strong>Supplier:</strong> ${po.supplier?.name || po.vendor?.name || 'N/A'}</p>
+              <p><strong>LC Number:</strong> ${po.lc?.lcNumber || 'N/A'}</p>
+            </div>
+            <div>
+              <p><strong>Status:</strong> ${po.status}</p>
+              <p><strong>Expected Delivery:</strong> ${po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toLocaleDateString() : 'N/A'}</p>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Total (${po.currency})</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${po.lines.map(line => `
+                <tr>
+                  <td>${line.itemDescription}</td>
+                  <td>${line.quantity}</td>
+                  <td>${line.unitPrice.toLocaleString()}</td>
+                  <td>${line.total.toLocaleString()}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div class="total">
+            Total (${po.currency}): ${po.totalForeign.toLocaleString()}
+            <br/>
+            Total (BDT): ${po.totalBDT.toLocaleString()}
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(content);
+    printWindow.document.close();
+    printWindow.print();
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -389,41 +461,83 @@ export default function PurchaseOrdersPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex justify-center gap-2">
-                             <select 
-                                value={po.status}
-                                onChange={(e) => {
-                                  const nextStatus = e.target.value;
-                                  if (statusOrder[nextStatus] < statusOrder[po.status] && !isPrivileged) {
-                                    toast.error(`Cannot change status backward to ${nextStatus}`);
-                                    return;
-                                  }
-                                  statusMutation.mutate({ id: po.id, status: nextStatus });
-                                }}
-                                className="px-2 py-1 text-xs rounded border border-slate-200 bg-white"
+                          <div className="flex justify-center gap-1.5">
+                            {/* Action Buttons based on status */}
+                            {po.status === 'DRAFT' && (
+                              <>
+                                <button 
+                                  onClick={() => statusMutation.mutate({ id: po.id, status: 'APPROVED' })}
+                                  className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                  title="Approve"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={() => statusMutation.mutate({ id: po.id, status: 'REJECTED' })}
+                                  className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                  title="Reject"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+
+                            {po.status === 'REJECTED' && (
+                               <button 
+                                 onClick={() => statusMutation.mutate({ id: po.id, status: 'DRAFT' })}
+                                 className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                 title="Retrieve to Draft"
+                               >
+                                 <CornerDownLeft className="w-4 h-4" />
+                               </button>
+                            )}
+
+                            {po.status === 'APPROVED' && (
+                              <button 
+                                onClick={() => statusMutation.mutate({ id: po.id, status: 'SENT' })}
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Mark as Sent"
                               >
-                                 {['DRAFT', 'REJECTED', 'APPROVED', 'SENT', 'RECEIVED', 'CLOSED'].map(status => {
-                                   // 1. Privileged status check (APPROVED/CLOSED)
-                                   if ((status === 'APPROVED' || status === 'CLOSED') && !isPrivileged) return null;
-                                   
-                                   // 2. Backward move check (matching backend)
-                                   const isBackward = statusOrder[status] <= statusOrder[po.status];
-                                   if (isBackward && status !== po.status && !isPrivileged) return null;
+                                <Send className="w-4 h-4" />
+                              </button>
+                            )}
 
-                                   // 3. Bypass Approval check (DRAFT -> SENT/RECEIVED)
-                                   if (po.status === 'DRAFT' && !['DRAFT', 'APPROVED', 'REJECTED'].includes(status) && !isPrivileged) return null;
+                            {po.status === 'SENT' && (
+                              <button 
+                                onClick={() => statusMutation.mutate({ id: po.id, status: 'RECEIVED' })}
+                                className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                title="Mark as Received"
+                              >
+                                <Package className="w-4 h-4" />
+                              </button>
+                            )}
 
-                                   return <option key={status} value={status}>{status}</option>;
-                                 })}
-                              </select>
+                            {po.status === 'RECEIVED' && (
+                              <button 
+                                onClick={() => statusMutation.mutate({ id: po.id, status: 'CLOSED' })}
+                                className="p-1.5 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+                                title="Close Order"
+                              >
+                                <Lock className="w-4 h-4" />
+                              </button>
+                            )}
+
+                            <button 
+                              onClick={() => handlePrint(po)}
+                              className="p-1.5 text-slate-500 hover:bg-slate-50 rounded-lg transition-colors"
+                              title="Print PO"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </button>
+
                             {(po.status === 'DRAFT' || isOwner) && (
                               <>
-                                <button onClick={() => openModal(po)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
+                                <button onClick={() => openModal(po)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><Edit2 className="w-4 h-4" /></button>
                                 <button onClick={() => {
                                     if (window.confirm("Are you sure you want to delete this Purchase Order?")) {
                                         deleteMutation.mutate(po.id);
                                     }
-                                }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                                }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="w-4 h-4" /></button>
                               </>
                             )}
                           </div>

@@ -533,7 +533,8 @@ export default function CompanyDashboard() {
                       if (activity.entityType === 'journal') {
                         href = `/company/${companyId}/journals?edit=${activity.entityId}`;
                       } else if (activity.entityType === 'invoice') {
-                        href = `/company/${companyId}/sales/invoices?edit=${activity.entityId}`;
+                        const isPurchase = activity.metadata?.type === 'PURCHASE';
+                        href = `/company/${companyId}/${isPurchase ? 'purchase/invoices' : 'sales/invoices'}?edit=${activity.entityId}`;
                       } else if (activity.entityType === 'purchase_order') {
                         href = `/company/${companyId}/purchase/orders?edit=${activity.entityId}`;
                       } else if (activity.entityType === 'bill') {
@@ -542,6 +543,8 @@ export default function CompanyDashboard() {
                         href = `/company/${companyId}/lc/import?edit=${activity.entityId}`;
                       } else if (activity.entityType === 'lc_export') {
                         href = `/company/${companyId}/lc/export?edit=${activity.entityId}`;
+                      } else if (activity.entityType === 'pi') {
+                        href = `/company/${companyId}/purchase/pis?edit=${activity.entityId}`;
                       }
 
                       return (

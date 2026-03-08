@@ -9,6 +9,7 @@ import {
   FileText, Plus, Search, Edit2, Trash2, Eye,
   Calendar, DollarSign, CheckCircle2, AlertCircle
 } from 'lucide-react';
+import { AttachmentManager } from '@/components/AttachmentManager';
 import { toast } from 'react-hot-toast';
 
 interface Invoice {
@@ -461,6 +462,17 @@ export default function PurchaseInvoicesPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Attachments Section */}
+              {selectedInvoice && (
+                <div className="pt-6 border-t">
+                  <AttachmentManager 
+                    entityType="INVOICE" 
+                    entityId={selectedInvoice.id} 
+                    canEdit={selectedInvoice.status === 'DRAFT'} 
+                  />
+                </div>
+              )}
 
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={closeModal} className="flex-1 px-6 py-3 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50">Cancel</button>

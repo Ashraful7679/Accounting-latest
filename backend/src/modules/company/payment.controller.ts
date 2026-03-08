@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
 import { ValidationError, NotFoundError } from '../../middleware/errorHandler';
+import { NotificationController } from './notification.controller';
 
 export class PaymentController {
   async createPayment(request: FastifyRequest, reply: FastifyReply) {
@@ -201,6 +202,16 @@ export class PaymentController {
       }
 
       return pmt;
+    });
+
+    // Log Activity
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'payment',
+      entityId: payment.id,
+      action: 'CREATED',
+      performedById: userId,
+      metadata: { docNumber: payment.paymentNumber }
     });
 
     return reply.status(201).send({ success: true, data: payment });

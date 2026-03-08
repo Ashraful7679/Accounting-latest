@@ -12,8 +12,10 @@ export class SequenceService {
    */
   static async generateDocumentNumber(
     companyId: string,
-    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product'
+    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product',
+    prismaOverride?: any
   ): Promise<string> {
+    const client = prismaOverride || prisma;
     const prefixes: Record<string, string> = {
       invoice: 'INV',
       journal: 'JE',
@@ -33,28 +35,28 @@ export class SequenceService {
     let count = 0;
     switch (type) {
       case 'invoice':
-        count = await prisma.invoice.count({ where: { companyId, invoiceNumber: { startsWith: prefixYear } } });
+        count = await client.invoice.count({ where: { companyId, invoiceNumber: { startsWith: prefixYear } } });
         break;
       case 'journal':
-        count = await prisma.journalEntry.count({ where: { companyId, entryNumber: { startsWith: prefixYear } } });
+        count = await client.journalEntry.count({ where: { companyId, entryNumber: { startsWith: prefixYear } } });
         break;
       case 'po':
-        count = await prisma.purchaseOrder.count({ where: { companyId, poNumber: { startsWith: prefixYear } } });
+        count = await client.purchaseOrder.count({ where: { companyId, poNumber: { startsWith: prefixYear } } });
         break;
       case 'pi':
-        count = await (prisma as any).pI.count({ where: { companyId, piNumber: { startsWith: prefixYear } } });
+        count = await (client as any).pI.count({ where: { companyId, piNumber: { startsWith: prefixYear } } });
         break;
       case 'lc':
-        count = await (prisma as any).lC.count({ where: { companyId, lcNumber: { startsWith: prefixYear } } });
+        count = await (client as any).lC.count({ where: { companyId, lcNumber: { startsWith: prefixYear } } });
         break;
       case 'customer':
-        count = await prisma.customer.count({ where: { companyId, code: { startsWith: prefixYear } } });
+        count = await client.customer.count({ where: { companyId, code: { startsWith: prefixYear } } });
         break;
       case 'vendor':
-        count = await prisma.vendor.count({ where: { companyId, code: { startsWith: prefixYear } } });
+        count = await client.vendor.count({ where: { companyId, code: { startsWith: prefixYear } } });
         break;
       case 'product':
-        count = await (prisma as any).product.count({ where: { companyId, code: { startsWith: prefixYear } } });
+        count = await (client as any).product.count({ where: { companyId, code: { startsWith: prefixYear } } });
         break;
     }
 
@@ -68,28 +70,28 @@ export class SequenceService {
 
       switch (type) {
         case 'invoice':
-          alreadyExists = !!(await prisma.invoice.findUnique({ where: { invoiceNumber: candidate } }));
+          alreadyExists = !!(await client.invoice.findUnique({ where: { invoiceNumber: candidate } }));
           break;
         case 'journal':
-          alreadyExists = !!(await prisma.journalEntry.findUnique({ where: { entryNumber: candidate } }));
+          alreadyExists = !!(await client.journalEntry.findUnique({ where: { entryNumber: candidate } }));
           break;
         case 'po':
-          alreadyExists = !!(await prisma.purchaseOrder.findUnique({ where: { poNumber: candidate } }));
+          alreadyExists = !!(await client.purchaseOrder.findUnique({ where: { poNumber: candidate } }));
           break;
         case 'pi':
-          alreadyExists = !!(await (prisma as any).pI.findUnique({ where: { piNumber: candidate } }));
+          alreadyExists = !!(await (client as any).pI.findUnique({ where: { piNumber: candidate } }));
           break;
         case 'lc':
-          alreadyExists = !!(await (prisma as any).lC.findUnique({ where: { lcNumber: candidate } }));
+          alreadyExists = !!(await (client as any).lC.findUnique({ where: { lcNumber: candidate } }));
           break;
         case 'customer':
-          alreadyExists = !!(await prisma.customer.findUnique({ where: { code: candidate } }));
+          alreadyExists = !!(await client.customer.findUnique({ where: { code: candidate } }));
           break;
         case 'vendor':
-          alreadyExists = !!(await prisma.vendor.findUnique({ where: { code: candidate } }));
+          alreadyExists = !!(await client.vendor.findUnique({ where: { code: candidate } }));
           break;
         case 'product':
-          alreadyExists = !!(await (prisma as any).product.findUnique({ where: { companyId_code: { companyId, code: candidate } } }));
+          alreadyExists = !!(await (client as any).product.findUnique({ where: { companyId_code: { companyId, code: candidate } } }));
           break;
       }
 

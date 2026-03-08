@@ -6,8 +6,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
   FileText, Plus, Search, Edit2, Trash2,
-  Calendar, Building2
+  Calendar, Building2, Eye, X, Send, CheckCircle
 } from 'lucide-react';
+import { AttachmentManager } from '@/components/AttachmentManager';
 import { toast } from 'react-hot-toast';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -413,6 +414,17 @@ export default function ImportPIsPage() {
                 <label className="block text-sm font-medium mb-1">Description</label>
                 <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="input" rows={3} />
               </div>
+              {/* Attachments Section */}
+              {selectedPI && (
+                <div className="pt-6 border-t mt-4">
+                  <AttachmentManager 
+                    entityType="PI" 
+                    entityId={selectedPI.id} 
+                    canEdit={selectedPI.status === 'DRAFT'} 
+                  />
+                </div>
+              )}
+
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={closeModal} className="btn btn-secondary flex-1">Cancel</button>
                 <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="btn btn-primary flex-1">

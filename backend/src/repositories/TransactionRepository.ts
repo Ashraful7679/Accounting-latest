@@ -27,7 +27,12 @@ export class TransactionRepository {
       }
     }
     const companyId = (where as any).companyId;
-    return companyId ? offlineInvoices.filter(inv => inv.companyId === companyId) : offlineInvoices;
+    const type = (where as any).type;
+    let results = companyId ? offlineInvoices.filter(inv => inv.companyId === companyId) : offlineInvoices;
+    if (type) {
+      results = results.filter(inv => inv.type === type.toUpperCase());
+    }
+    return results;
   }
 
   static async findInvoiceById(id: string) {
@@ -58,7 +63,8 @@ export class TransactionRepository {
       try {
         return await prisma.invoice.create({ data });
       } catch (error) {
-        console.error('Invoice creation failed, saving to offline memory');
+        console.error('Invoice creation failed in LIVE mode:', error);
+        throw error; // Re-throw to prevent silent failure and offline fallback if unexpected
       }
     }
     

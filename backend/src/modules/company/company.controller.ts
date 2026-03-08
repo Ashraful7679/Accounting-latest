@@ -377,7 +377,7 @@ export class CompanyController {
 
   async createAccount(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { code, name, accountTypeId, parentId, openingBalance, cashFlowType } = request.body as any;
+    const { code, name, accountTypeId, parentId, openingBalance, cashFlowType, category } = request.body as any;
 
     let accountCode = code;
     
@@ -442,25 +442,31 @@ export class CompanyController {
       parentId: parentId || null, 
       openingBalance: openBal, 
       currentBalance: openBal,
-      cashFlowType
+      cashFlowType,
+      category: category || 'NONE'
     } as any);
     return reply.status(201).send({ success: true, data: account });
   }
 
   async updateAccount(request: FastifyRequest, reply: FastifyReply) {
     const { accountId } = request.params as { accountId: string };
-    const { name, isActive, cashFlowType, code, parentId, openingBalance } = request.body as any;
+    const { code, name, accountTypeId, parentId, openingBalance, isActive, cashFlowType, category } = request.body as any;
+
+    const existingAccount = await prisma.account.findUnique({ where: { id: accountId } });
+    if (!existingAccount) throw new NotFoundError('Account not found');
 
     const account = await prisma.account.update({
       where: { id: accountId },
       data: { 
-        name, 
-        isActive, 
-        cashFlowType,
-        code,
-        parentId: parentId || undefined,
-        openingBalance: openingBalance !== undefined ? parseFloat(openingBalance) : undefined,
-      } as any,
+        name: name ?? existingAccount.name, 
+        isActive: isActive ?? existingAccount.isActive, 
+        cashFlowType: cashFlowType ?? existingAccount.cashFlowType,
+        code: code ?? existingAccount.code,
+        accountTypeId: accountTypeId ?? existingAccount.accountTypeId,
+        parentId: parentId === null ? null : (parentId ?? existingAccount.parentId),
+        openingBalance: openingBalance !== undefined ? parseFloat(openingBalance) : existingAccount.openingBalance,
+        category: category ?? (existingAccount as any).category
+      },
     });
 
     return reply.send({ success: true, data: account });
@@ -565,34 +571,55 @@ export class CompanyController {
       throw new ValidationError('Future invoice dates are only allowed for owners');
     }
 
-    const invoice = await TransactionRepository.createInvoice({
-      invoiceNumber,
-      companyId,
-      customerId: data.customerId || null,
-      vendorId: data.vendorId || null,
-      type: data.type || 'SALES',
-      currency: data.currency || 'BDT',
-      exchangeRate: data.exchangeRate || 1,
-      invoiceDate: invoiceDate,
-      dueDate: data.dueDate ? new Date(data.dueDate) : null,
-      description: data.description,
-      subtotal,
-      taxAmount,
-      total: bdtAmount,
-      createdById: userId,
-      lines: {
-        create: data.lines.map((l: any) => ({
-          productId: l.productId || null,
-          description: l.description,
-          quantity: Number(l.quantity || 1),
-          unitPrice: Number(l.unitPrice || 0),
-          taxRate: Number(l.taxRate || 0),
-          amount: l.quantity * l.unitPrice * (1 + (l.taxRate || 0) / 100),
-        })),
-      },
-    });
+    try {
+      const invoice = await TransactionRepository.createInvoice({
+        invoiceNumber,
+        companyId,
+        customerId: data.customerId || null,
+        vendorId: data.vendorId || null,
+        type: data.type || 'SALES',
+        currency: data.currency || 'BDT',
+        exchangeRate: data.exchangeRate || 1,
+        invoiceDate: invoiceDate,
+        dueDate: data.dueDate ? new Date(data.dueDate) : null,
+        description: data.description,
+        subtotal,
+        taxAmount,
+        total: bdtAmount,
+        createdById: userId,
+        lines: {
+          create: data.lines.map((l: any) => ({
+            productId: l.productId || null,
+            description: l.description,
+            quantity: Number(l.quantity || 1),
+            unitPrice: Number(l.unitPrice || 0),
+            taxRate: Number(l.taxRate || 0),
+            amount: Number(l.quantity || 0) * Number(l.unitPrice || 0) * (1 + (Number(l.taxRate || 0) / 100)),
+          })),
+        },
+      });
 
-    return reply.status(201).send({ success: true, data: invoice });
+      // Log Activity
+      await NotificationController.logActivity({
+        companyId,
+        entityType: 'invoice',
+        entityId: (invoice as any).id,
+        action: 'CREATED',
+        performedById: userId,
+        metadata: { 
+          docNumber: invoiceNumber,
+          type: data.type || 'SALES' // Store type for correct dashboard linking
+        }
+      });
+
+      return reply.status(201).send({ success: true, data: invoice });
+    } catch (error: any) {
+      console.error('FAILED TO CREATE INVOICE:', error);
+      return reply.status(error.statusCode || 500).send({ 
+        success: false, 
+        error: { message: error.message || 'Failed to create invoice' } 
+      });
+    }
   }
 
   async updateInvoice(request: FastifyRequest, reply: FastifyReply) {
@@ -1508,24 +1535,37 @@ export class CompanyController {
       // Generate journal entry
       const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
       
-      // Get default accounts
-      const cashAccount = await prisma.account.findFirst({
-        where: { companyId, code: { endsWith: '1000' }, isActive: true },
-      });
+      // Get default accounts using categories and fallbacks
+      const cashAccount = await AccountRepository.findByCategory(companyId, 'CASH');
+      const bankAccount = await AccountRepository.findByCategory(companyId, 'BANK');
       
       const advanceAccount = await prisma.account.findFirst({
-        where: { companyId, name: { contains: 'Advance', mode: 'insensitive' }, isActive: true },
+        where: { 
+          companyId, 
+          OR: [
+            { category: 'ASSET' },
+            { name: { contains: 'Advance', mode: 'insensitive' } }
+          ],
+          isActive: true 
+        },
       });
 
       const employeePayableAccount = await prisma.account.findFirst({
-        where: { companyId, name: { contains: 'Employee', mode: 'insensitive' }, isActive: true },
+        where: { 
+          companyId, 
+          OR: [
+            { category: 'AP' },
+            { name: { contains: 'Employee', mode: 'insensitive' } }
+          ],
+          isActive: true 
+        },
       });
 
-      const debitAccountId = employeePayableAccount?.id || advanceAccount?.id || cashAccount?.id;
-      const creditAccountId = advance.accountId || cashAccount?.id;
+      const creditAccountId = (advance.accountId || cashAccount?.id || bankAccount?.id) as string;
+      const debitAccountId = (employeePayableAccount?.id || advanceAccount?.id || creditAccountId) as string;
 
       if (!debitAccountId || !creditAccountId) {
-        throw new Error('Required accounts not found. Please configure cash/employee accounts.');
+        throw new Error('Required accounts (Cash/Bank or Employee/Advance) not found. Please ensure accounts have correct categories (CASH, BANK, AP) assigned.');
       }
 
       // Create journal entry
@@ -1537,17 +1577,29 @@ export class CompanyController {
           companyId,
           createdById: userId,
           status: 'APPROVED',
+          totalDebit: advance.amount,
+          totalCredit: advance.amount,
           lines: {
             create: [
               {
                 accountId: debitAccountId,
                 debit: advance.amount,
                 credit: 0,
+                debitBase: advance.amount,
+                creditBase: 0,
+                debitForeign: advance.amount,
+                creditForeign: 0,
+                exchangeRate: 1,
               },
               {
                 accountId: creditAccountId,
                 debit: 0,
                 credit: advance.amount,
+                debitBase: 0,
+                creditBase: advance.amount,
+                debitForeign: 0,
+                creditForeign: advance.amount,
+                exchangeRate: 1,
               },
             ],
           },
@@ -1673,24 +1725,34 @@ export class CompanyController {
 
       // Generate journal entry for loan disbursement
       const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
-      
-      const cashAccount = await prisma.account.findFirst({
-        where: { companyId, code: { endsWith: '1000' }, isActive: true },
-      });
+      // Get default accounts using categories and regular lookups
+      const cashAccount = await AccountRepository.findByCategory(companyId, 'CASH');
+      const bankAccount = await AccountRepository.findByCategory(companyId, 'BANK');
       
       const loanAccount = await prisma.account.findFirst({
-        where: { companyId, code: 'A-1381', isActive: true },
+        where: { 
+          companyId, 
+          OR: [
+            { code: 'A-1381' },
+            { name: { contains: 'Loan', mode: 'insensitive' } }
+          ],
+          isActive: true 
+        },
       });
       
       const employeePayableAccount = await prisma.account.findFirst({
-        where: { companyId, name: { contains: 'Employee', mode: 'insensitive' }, isActive: true },
+        where: { 
+          companyId, 
+          name: { contains: 'Employee Payable', mode: 'insensitive' }, 
+          isActive: true 
+        },
       });
 
-      const debitAccountId = employeePayableAccount?.id || loanAccount?.id || cashAccount?.id;
-      const creditAccountId = loanAccount?.id || cashAccount?.id;
+      const creditAccountId = (cashAccount?.id || bankAccount?.id) as string;
+      const debitAccountId = (loanAccount?.id || employeePayableAccount?.id || creditAccountId) as string;
 
       if (!debitAccountId || !creditAccountId) {
-        throw new Error('Required accounts not found. Please configure loan/cash accounts.');
+        throw new Error('Required accounts (Cash/Bank or Loan) not found. Please ensure accounts have correct categories (CASH, BANK).');
       }
 
       // Create journal entry for loan disbursement
@@ -1702,17 +1764,29 @@ export class CompanyController {
           companyId,
           createdById: userId,
           status: 'APPROVED',
+          totalDebit: loan.principalAmount,
+          totalCredit: loan.principalAmount,
           lines: {
             create: [
               {
                 accountId: debitAccountId,
                 debit: loan.principalAmount,
                 credit: 0,
+                debitBase: loan.principalAmount,
+                creditBase: 0,
+                debitForeign: loan.principalAmount,
+                creditForeign: 0,
+                exchangeRate: 1,
               },
               {
                 accountId: creditAccountId,
                 debit: 0,
                 credit: loan.principalAmount,
+                debitBase: 0,
+                creditBase: loan.principalAmount,
+                debitForeign: 0,
+                creditForeign: loan.principalAmount,
+                exchangeRate: 1,
               },
             ],
           },
@@ -1776,27 +1850,41 @@ export class CompanyController {
     // Generate journal entry
     const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
     
-    const cashAccount = await prisma.account.findFirst({
-      where: { companyId, code: { endsWith: '1000' }, isActive: true },
-    });
+    // Get accounts using categories and fallbacks
+    const cashAccount = await AccountRepository.findByCategory(companyId, 'CASH');
+    const bankAccount = await AccountRepository.findByCategory(companyId, 'BANK');
     
     const loanAccount = await prisma.account.findFirst({
-      where: { companyId, name: { contains: 'Loan', mode: 'insensitive' }, isActive: true },
+      where: { 
+        companyId, 
+        OR: [
+          { code: 'A-1381' },
+          { name: { contains: 'Loan', mode: 'insensitive' } }
+        ],
+        isActive: true 
+      },
     });
 
     const interestAccount = await prisma.account.findFirst({
-      where: { companyId, name: { contains: 'Interest Income', mode: 'insensitive' }, isActive: true },
+      where: { 
+        companyId, 
+        OR: [
+          { category: 'INCOME' },
+          { name: { contains: 'Interest Income', mode: 'insensitive' } }
+        ],
+        isActive: true 
+      },
     });
 
-    const debitAccountId1 = loanAccount?.id || cashAccount?.id;
-    const debitAccountId2 = interestAccount?.id || loanAccount?.id || cashAccount?.id;
-    const creditAccountId = cashAccount?.id;
+    const cashAccountId = (cashAccount?.id || bankAccount?.id) as string;
+    const loanAccountId = (loanAccount?.id || cashAccountId) as string;
+    const interestAccountId = (interestAccount?.id || loanAccountId) as string;
 
-    if (!debitAccountId1 || !debitAccountId2 || !creditAccountId) {
-      throw new Error('Required accounts not found. Please configure cash/loan accounts.');
+    if (!cashAccountId || !loanAccountId) {
+      throw new Error('Required accounts (Cash/Bank or Loan) not found. Please ensure accounts have correct categories (CASH, BANK).');
     }
 
-    // Create journal entry for repayment
+    // Create journal entry for repayment (Debit Cash, Credit Loan & Interest)
     const journal = await prisma.journalEntry.create({
       data: {
         entryNumber,
@@ -1805,22 +1893,39 @@ export class CompanyController {
         companyId,
         createdById: userId,
         status: 'APPROVED',
+        totalDebit: repayment.amount,
+        totalCredit: repayment.amount,
         lines: {
           create: [
             {
-              accountId: debitAccountId1,
-              debit: repayment.principalPaid,
+              accountId: cashAccountId,
+              debit: repayment.amount,
               credit: 0,
+              debitBase: repayment.amount,
+              creditBase: 0,
+              debitForeign: repayment.amount,
+              creditForeign: 0,
+              exchangeRate: 1,
             },
             {
-              accountId: debitAccountId2,
-              debit: repayment.interestPaid,
-              credit: 0,
-            },
-            {
-              accountId: creditAccountId,
+              accountId: loanAccountId,
               debit: 0,
-              credit: repayment.amount,
+              credit: repayment.principalPaid,
+              debitBase: 0,
+              creditBase: repayment.principalPaid,
+              debitForeign: 0,
+              creditForeign: repayment.principalPaid,
+              exchangeRate: 1,
+            },
+            {
+              accountId: interestAccountId,
+              debit: 0,
+              credit: repayment.interestPaid,
+              debitBase: 0,
+              creditBase: repayment.interestPaid,
+              debitForeign: 0,
+              creditForeign: repayment.interestPaid,
+              exchangeRate: 1,
             },
           ],
         },
@@ -1940,12 +2045,12 @@ export class CompanyController {
 
     // Generate journal entry
     const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
-    
-    const cashAccount = await prisma.account.findFirst({
-      where: { companyId, code: { endsWith: '1000' }, isActive: true },
-    });
 
-    // Get expense account based on category
+    // Get accounts using structured discovery
+    const cashAccount = await AccountRepository.findByCategory(companyId, 'CASH');
+    const bankAccount = await AccountRepository.findByCategory(companyId, 'BANK');
+
+    // Get expense account based on category (from the expense entry)
     const expenseAccount = await prisma.account.findFirst({
       where: { 
         companyId, 
@@ -1955,14 +2060,21 @@ export class CompanyController {
     });
 
     const salaryAccount = await prisma.account.findFirst({
-      where: { companyId, name: { contains: 'Salary', mode: 'insensitive' }, isActive: true },
+      where: { 
+        companyId, 
+        OR: [
+          { name: { contains: 'Salary', mode: 'insensitive' } },
+          { name: { contains: 'Wage', mode: 'insensitive' } }
+        ],
+        isActive: true 
+      },
     });
 
-    const debitAccountId = expenseAccount?.id || salaryAccount?.id || cashAccount?.id;
-    const creditAccountId = expense.accountId || cashAccount?.id;
+    const debitAccountId = (expenseAccount?.id || salaryAccount?.id || (cashAccount?.id || bankAccount?.id)) as string;
+    const creditAccountId = (expense.accountId || cashAccount?.id || bankAccount?.id) as string;
 
     if (!debitAccountId || !creditAccountId) {
-      throw new Error('Required accounts not found. Please configure cash/expense accounts.');
+      throw new Error('Account discovery failed. Please ensure you have accounts categorized as CASH or BANK, or an expense account matching the category.');
     }
 
     // Create journal entry
@@ -1974,17 +2086,29 @@ export class CompanyController {
         companyId,
         createdById: userId,
         status: 'APPROVED',
+        totalDebit: expense.amount,
+        totalCredit: expense.amount,
         lines: {
           create: [
             {
               accountId: debitAccountId,
               debit: expense.amount,
               credit: 0,
+              debitBase: expense.amount,
+              creditBase: 0,
+              debitForeign: expense.amount,
+              creditForeign: 0,
+              exchangeRate: 1,
             },
             {
               accountId: creditAccountId,
               debit: 0,
               credit: expense.amount,
+              debitBase: 0,
+              creditBase: expense.amount,
+              debitForeign: 0,
+              creditForeign: expense.amount,
+              exchangeRate: 1,
             },
           ],
         },

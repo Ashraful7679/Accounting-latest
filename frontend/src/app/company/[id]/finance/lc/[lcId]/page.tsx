@@ -8,8 +8,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FileText, Calendar, DollarSign, ArrowLeft, Plus, 
   CheckCircle2, AlertCircle, Clock, CreditCard, 
-  Trash2, Landmark, Building2, User, HelpCircle
+  Trash2, Landmark, Building2, User, HelpCircle, X
 } from 'lucide-react';
+import { AttachmentManager } from '@/components/AttachmentManager';
 import { toast } from 'react-hot-toast';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -403,6 +404,19 @@ export default function LCDetailPage() {
                         </p>
                      </div>
                    </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
+                <div className="p-6 border-b border-slate-100 flex items-center gap-2">
+                   <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Document Drive</h4>
+                </div>
+                <div className="p-6">
+                   <AttachmentManager 
+                     entityType="LC" 
+                     entityId={lcId} 
+                     canEdit={lc.status === 'DRAFT' || isOwner} 
+                   />
                 </div>
               </div>
             </div>

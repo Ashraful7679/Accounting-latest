@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { Plus, FileText, Trash2, Check, X, ArrowLeft, LogOut, Eye, Edit, CreditCard, DollarSign, Bell, Send, CheckCheck, Printer } from 'lucide-react';
+import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
 import { AttachmentManager } from '@/components/AttachmentManager';
 
 interface Customer {
@@ -179,79 +180,67 @@ export default function CompanyInvoicesPage() {
     },
   });
 
-  const handlePrint = (invoice: any) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+  const handlePrint = async (invoice: any) => {
+    try {
+      const companyRes = await api.get(`/company/${companyId}`);
+      const c = companyRes.data.data;
+      const company = {
+        name: c.name, address: c.address, phone: c.phone,
+        email: c.email, taxId: c.taxId || c.tin,
+        registrationNumber: c.registrationNumber, website: c.website,
+      };
 
-    const content = `
-      <html>
-        <head>
-          <title>Invoice - ${invoice.invoiceNumber}</title>
-          <style>
-            body { font-family: sans-serif; padding: 40px; color: #1e293b; }
-            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #e2e8f0; pb: 20px; mb: 20px; }
-            .title { font-size: 24px; font-weight: 900; }
-            .info { margin-bottom: 30px; display: grid; grid-template-cols: 1fr 1fr; gap: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
-            th { bg-color: #f8fafc; font-weight: bold; }
-            .total { text-align: right; margin-top: 20px; font-size: 18px; font-weight: bold; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="title">INVOICE</div>
-            <div>
-              <p><strong>Invoice #:</strong> ${invoice.invoiceNumber}</p>
-              <p><strong>Date:</strong> ${new Date(invoice.invoiceDate).toLocaleDateString()}</p>
-              <p><strong>Due Date:</strong> ${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A'}</p>
-            </div>
+      const body = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px;">
+          <div>
+            <h1 style="margin:0 0 4px 0;">INVOICE</h1>
+            <span class="status-badge">${invoice.status}</span>
           </div>
-          <div class="info">
-            <div>
-              <p><strong>Customer:</strong> ${invoice.customer?.name || 'Walk-in Customer'}</p>
-              <p><strong>Status:</strong> ${invoice.status}</p>
-            </div>
-            <div>
-              <p><strong>Created By:</strong> ${invoice.createdBy?.firstName} ${invoice.createdBy?.lastName}</p>
-            </div>
+          <div style="text-align:right; font-size:13px;">
+            <p style="margin:2px 0;"><strong>Invoice #:</strong> ${invoice.invoiceNumber}</p>
+            <p style="margin:2px 0;"><strong>Date:</strong> ${new Date(invoice.invoiceDate).toLocaleDateString()}</p>
+            ${invoice.dueDate ? `<p style="margin:2px 0;"><strong>Due:</strong> ${new Date(invoice.dueDate).toLocaleDateString()}</p>` : ''}
           </div>
-          <table>
-            <thead>
+        </div>
+        <div class="meta-grid">
+          <div class="meta-field"><label>Customer</label><span>${invoice.customer?.name || 'Walk-in Customer'}</span></div>
+          <div class="meta-field"><label>Currency</label><span>${invoice.currency} (rate: ${invoice.exchangeRate})</span></div>
+          <div class="meta-field"><label>Created By</label><span>${invoice.createdBy?.firstName} ${invoice.createdBy?.lastName}</span></div>
+          ${invoice.approvedBy ? `<div class="meta-field"><label>Approved By</label><span>${invoice.approvedBy.firstName} ${invoice.approvedBy.lastName}</span></div>` : ''}
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th style="text-align:center;">Qty</th>
+              <th style="text-align:right;">Unit Price</th>
+              <th style="text-align:right;">Tax%</th>
+              <th style="text-align:right;">Total (${invoice.currency})</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(invoice.lines || []).map((line: any) => `
               <tr>
-                <th>Description</th>
-                <th style="text-align: center;">Qty</th>
-                <th style="text-align: right;">Unit Price</th>
-                <th style="text-align: right;">Tax%</th>
-                <th style="text-align: right;">Total (${invoice.currency})</th>
+                <td>${line.description}</td>
+                <td style="text-align:center;">${line.quantity}</td>
+                <td style="text-align:right;">${line.unitPrice.toLocaleString()}</td>
+                <td style="text-align:right;">${line.taxRate}%</td>
+                <td style="text-align:right;">${(line.quantity * line.unitPrice * (1 + line.taxRate/100)).toLocaleString()}</td>
               </tr>
-            </thead>
-            <tbody>
-              ${(invoice.lines || []).map((line: any) => `
-                <tr>
-                  <td>${line.description}</td>
-                  <td style="text-align: center;">${line.quantity}</td>
-                  <td style="text-align: right;">${line.unitPrice.toLocaleString()}</td>
-                  <td style="text-align: right;">${line.taxRate}%</td>
-                  <td style="text-align: right;">${(line.quantity * line.unitPrice * (1 + line.taxRate/100)).toLocaleString()}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <div class="total">
-            Subtotal: ${invoice.subtotal.toLocaleString()}
-            <br/>
-            Tax: ${invoice.taxAmount.toLocaleString()}
-            <br/>
-            Total: ${invoice.total.toLocaleString()}
-          </div>
-        </body>
-      </html>
-    `;
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="totals">
+          <p>Subtotal: ${invoice.subtotal.toLocaleString()}</p>
+          <p>Tax: ${invoice.taxAmount.toLocaleString()}</p>
+          <p class="grand-total">Total: ${invoice.total.toLocaleString()}</p>
+        </div>
+      `;
 
-    printWindow.document.write(content);
-    printWindow.document.close();
-    printWindow.print();
+      openPrintWindow(buildPrintDocument({ title: `Invoice - ${invoice.invoiceNumber}`, company, body }));
+    } catch {
+      toast.error('Could not load company info for printing.');
+    }
   };
 
   const approveMutation = useMutation({

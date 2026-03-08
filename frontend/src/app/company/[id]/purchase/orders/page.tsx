@@ -11,6 +11,7 @@ import {
   Printer, Check, X, Send, CornerDownLeft, Lock
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
 
 interface POLine {
   productId?: string;
@@ -192,75 +193,72 @@ export default function PurchaseOrdersPage() {
     },
   });
 
-  const handlePrint = (po: PurchaseOrder) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+  const handlePrint = async (po: PurchaseOrder) => {
+    try {
+      const companyRes = await api.get(`/company/${companyId}`);
+      const c = companyRes.data.data;
+      const company = {
+        name: c.name,
+        address: c.address,
+        phone: c.phone,
+        email: c.email,
+        taxId: c.taxId || c.tin,
+        registrationNumber: c.registrationNumber,
+        website: c.website,
+      };
 
-    const content = `
-      <html>
-        <head>
-          <title>Purchase Order - ${po.poNumber}</title>
-          <style>
-            body { font-family: sans-serif; padding: 40px; color: #1e293b; }
-            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #e2e8f0; pb: 20px; mb: 20px; }
-            .title { font-size: 24px; font-weight: 900; }
-            .info { margin-bottom: 30px; display: grid; grid-template-cols: 1fr 1fr; gap: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
-            th { bg-color: #f8fafc; font-weight: bold; }
-            .total { text-align: right; margin-top: 20px; font-size: 18px; font-weight: bold; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="title">PURCHASE ORDER</div>
-            <div>
-              <p><strong>PO Number:</strong> ${po.poNumber}</p>
-              <p><strong>Date:</strong> ${new Date(po.poDate).toLocaleDateString()}</p>
-            </div>
+      const body = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px;">
+          <div>
+            <h1 style="margin:0 0 4px 0;">PURCHASE ORDER</h1>
+            <span class="status-badge">${po.status}</span>
           </div>
-          <div class="info">
-            <div>
-              <p><strong>Supplier:</strong> ${po.supplier?.name || po.vendor?.name || 'N/A'}</p>
-              <p><strong>LC Number:</strong> ${po.lc?.lcNumber || 'N/A'}</p>
-            </div>
-            <div>
-              <p><strong>Status:</strong> ${po.status}</p>
-              <p><strong>Expected Delivery:</strong> ${po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toLocaleDateString() : 'N/A'}</p>
-            </div>
+          <div style="text-align:right; font-size:13px;">
+            <p style="margin:2px 0;"><strong>PO Number:</strong> ${po.poNumber}</p>
+            <p style="margin:2px 0;"><strong>Date:</strong> ${new Date(po.poDate).toLocaleDateString()}</p>
+            ${po.expectedDeliveryDate ? `<p style="margin:2px 0;"><strong>Expected Delivery:</strong> ${new Date(po.expectedDeliveryDate).toLocaleDateString()}</p>` : ''}
           </div>
-          <table>
-            <thead>
+        </div>
+        <div class="meta-grid">
+          <div class="meta-field"><label>Supplier</label><span>${po.supplier?.name || po.vendor?.name || 'N/A'}</span></div>
+          <div class="meta-field"><label>LC Number</label><span>${po.lc?.lcNumber || 'N/A'}</span></div>
+          <div class="meta-field"><label>Currency</label><span>${po.currency}</span></div>
+          <div class="meta-field"><label>Exchange Rate</label><span>${po.exchangeRate}</span></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th style="text-align:center;">Qty</th>
+              <th style="text-align:right;">Unit Price (${po.currency})</th>
+              <th style="text-align:right;">Total (${po.currency})</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${po.lines.map(line => `
               <tr>
-                <th>Description</th>
-                <th>Quantity</th>
-                <th>Unit Price</th>
-                <th>Total (${po.currency})</th>
+                <td>${line.itemDescription}</td>
+                <td style="text-align:center;">${line.quantity}</td>
+                <td style="text-align:right;">${line.unitPrice.toLocaleString()}</td>
+                <td style="text-align:right;">${line.total.toLocaleString()}</td>
               </tr>
-            </thead>
-            <tbody>
-              ${po.lines.map(line => `
-                <tr>
-                  <td>${line.itemDescription}</td>
-                  <td>${line.quantity}</td>
-                  <td>${line.unitPrice.toLocaleString()}</td>
-                  <td>${line.total.toLocaleString()}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <div class="total">
-            Total (${po.currency}): ${po.totalForeign.toLocaleString()}
-            <br/>
-            Total (BDT): ${po.totalBDT.toLocaleString()}
-          </div>
-        </body>
-      </html>
-    `;
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="totals">
+          <p>Total (${po.currency}): <strong>${po.totalForeign.toLocaleString()}</strong></p>
+          <p class="grand-total">Total (BDT): ${po.totalBDT.toLocaleString()}</p>
+        </div>
+      `;
 
-    printWindow.document.write(content);
-    printWindow.document.close();
-    printWindow.print();
+      openPrintWindow(buildPrintDocument({
+        title: `Purchase Order - ${po.poNumber}`,
+        company,
+        body,
+      }));
+    } catch {
+      toast.error('Could not load company info for printing.');
+    }
   };
 
   const deleteMutation = useMutation({

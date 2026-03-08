@@ -59,7 +59,7 @@ export class LCController {
 
     const result = await prisma.$transaction(async (tx: any) => {
       // 0. Automate LC Number if not provided
-      const lcNumber = data.lcNumber || await SequenceService.generateDocumentNumber(companyId, 'lc');
+      const lcNumber = data.lcNumber || await SequenceService.generateDocumentNumber(companyId, 'lc', tx);
 
       // 0a. Automated Bank COA Creation
       if (data.bankName) {
@@ -97,20 +97,33 @@ export class LCController {
         }
       }
 
+      // Robust date parsing (handle empty strings which cause "Invalid Date")
+      const parseDate = (d: any) => d && d !== '' ? new Date(d) : null;
+      const issueDate = parseDate(data.issueDate);
+      const expiryDate = parseDate(data.expiryDate);
+
+      if (!issueDate || isNaN(issueDate.getTime())) {
+        throw new Error('Valid Issue Date is required');
+      }
+      if (!expiryDate || isNaN(expiryDate.getTime())) {
+        throw new Error('Valid Expiry Date is required');
+      }
+
       // 1. Create the LC
       const lc = await tx.lC.create({
         data: {
           ...data,
           lcNumber,
           companyId,
-          issueDate: new Date(data.issueDate),
-          expiryDate: new Date(data.expiryDate),
+          issueDate,
+          expiryDate,
           amount: Number(data.amount),
           conversionRate: data.conversionRate ? Number(data.conversionRate) : 1,
           loanValue: data.loanValue ? Number(data.loanValue) : 0,
           customerId: data.customerId || null,
           vendorId: data.vendorId || null,
-          receivedDate: data.receivedDate ? new Date(data.receivedDate) : null
+          receivedDate: data.receivedDate ? parseDate(data.receivedDate) : null,
+          shipmentDate: data.shipmentDate ? parseDate(data.shipmentDate) : null
         }
       });
 

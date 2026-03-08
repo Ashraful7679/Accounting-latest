@@ -18,7 +18,8 @@ export class TransactionRepository {
             vendor: true,
             createdBy: { select: { firstName: true, lastName: true } },
             verifiedBy: { select: { firstName: true, lastName: true } },
-            approvedBy: { select: { firstName: true, lastName: true } }
+            approvedBy: { select: { firstName: true, lastName: true } },
+            lines: true
           },
           orderBy: { createdAt: 'desc' }
         });

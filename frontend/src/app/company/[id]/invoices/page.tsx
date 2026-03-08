@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Plus, FileText, Trash2, Check, X, ArrowLeft, LogOut, Eye, Edit, CreditCard, DollarSign, Bell, Send, CheckCheck } from 'lucide-react';
+import { Plus, FileText, Trash2, Check, X, ArrowLeft, LogOut, Eye, Edit, CreditCard, DollarSign, Bell, Send, CheckCheck, Printer } from 'lucide-react';
 import { AttachmentManager } from '@/components/AttachmentManager';
 
 interface Customer {
@@ -178,6 +178,81 @@ export default function CompanyInvoicesPage() {
       toast.error(error.response?.data?.error?.message || 'Failed to reject invoice');
     },
   });
+
+  const handlePrint = (invoice: any) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const content = `
+      <html>
+        <head>
+          <title>Invoice - ${invoice.invoiceNumber}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; color: #1e293b; }
+            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #e2e8f0; pb: 20px; mb: 20px; }
+            .title { font-size: 24px; font-weight: 900; }
+            .info { margin-bottom: 30px; display: grid; grid-template-cols: 1fr 1fr; gap: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
+            th { bg-color: #f8fafc; font-weight: bold; }
+            .total { text-align: right; margin-top: 20px; font-size: 18px; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="title">INVOICE</div>
+            <div>
+              <p><strong>Invoice #:</strong> ${invoice.invoiceNumber}</p>
+              <p><strong>Date:</strong> ${new Date(invoice.invoiceDate).toLocaleDateString()}</p>
+              <p><strong>Due Date:</strong> ${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A'}</p>
+            </div>
+          </div>
+          <div class="info">
+            <div>
+              <p><strong>Customer:</strong> ${invoice.customer?.name || 'Walk-in Customer'}</p>
+              <p><strong>Status:</strong> ${invoice.status}</p>
+            </div>
+            <div>
+              <p><strong>Created By:</strong> ${invoice.createdBy?.firstName} ${invoice.createdBy?.lastName}</p>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th style="text-align: center;">Qty</th>
+                <th style="text-align: right;">Unit Price</th>
+                <th style="text-align: right;">Tax%</th>
+                <th style="text-align: right;">Total (${invoice.currency})</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(invoice.lines || []).map((line: any) => `
+                <tr>
+                  <td>${line.description}</td>
+                  <td style="text-align: center;">${line.quantity}</td>
+                  <td style="text-align: right;">${line.unitPrice.toLocaleString()}</td>
+                  <td style="text-align: right;">${line.taxRate}%</td>
+                  <td style="text-align: right;">${(line.quantity * line.unitPrice * (1 + line.taxRate/100)).toLocaleString()}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div class="total">
+            Subtotal: ${invoice.subtotal.toLocaleString()}
+            <br/>
+            Tax: ${invoice.taxAmount.toLocaleString()}
+            <br/>
+            Total: ${invoice.total.toLocaleString()}
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(content);
+    printWindow.document.close();
+    printWindow.print();
+  };
 
   const approveMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
@@ -359,11 +434,19 @@ export default function CompanyInvoicesPage() {
                         {invoice.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => openViewModal(invoice)} className="p-1 text-gray-600 hover:text-gray-800" title="View">
-                          <Eye className="w-4 h-4" />
-                        </button>
+                        <td className="px-6 py-4">
+                          <div className="flex justify-center gap-2">
+                             <button onClick={() => openViewModal(invoice)} className="p-2 text-slate-400 hover:text-slate-900 bg-slate-50 hover:bg-white border border-transparent hover:border-slate-200 rounded-lg transition-all" title="View Details">
+                               <Eye className="w-4 h-4" />
+                             </button>
+
+                             <button 
+                               onClick={() => handlePrint(invoice)}
+                               className="p-2 text-slate-400 hover:text-slate-900 bg-slate-50 hover:bg-white border border-transparent hover:border-slate-200 rounded-lg transition-all"
+                               title="Print Invoice"
+                             >
+                               <Printer className="w-4 h-4" />
+                             </button>
                         {invoice.status === 'APPROVED' && (
                           <button 
                             onClick={() => {

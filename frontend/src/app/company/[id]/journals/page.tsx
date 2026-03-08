@@ -54,6 +54,79 @@ export default function CompanyJournalsPage() {
   const [page, setPage] = useState(1);
   const limit = 50;
 
+  const handlePrintVoucher = (journal: any) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const content = `
+      <html>
+        <head>
+          <title>Journal Voucher - ${journal.entryNumber}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; color: #1e293b; }
+            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #e2e8f0; pb: 20px; mb: 20px; }
+            .title { font-size: 24px; font-weight: 900; }
+            .info { margin-bottom: 30px; display: grid; grid-template-cols: 1fr 1fr; gap: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
+            th { bg-color: #f8fafc; font-weight: bold; }
+            .total { text-align: right; margin-top: 20px; font-size: 18px; font-weight: bold; }
+            .dr { color: #059669; font-weight: bold; }
+            .cr { color: #dc2626; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="title">JOURNAL VOUCHER</div>
+            <div>
+              <p><strong>Voucher #:</strong> ${journal.entryNumber}</p>
+              <p><strong>Date:</strong> ${new Date(journal.date).toLocaleDateString()}</p>
+            </div>
+          </div>
+          <div class="info">
+            <div>
+              <p><strong>Description:</strong> ${journal.description || 'N/A'}</p>
+              <p><strong>Status:</strong> ${journal.status}</p>
+            </div>
+            <div>
+              <p><strong>Created By:</strong> ${journal.createdBy.firstName} ${journal.createdBy.lastName}</p>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th style="text-align: right;">Debit</th>
+                <th style="text-align: right;">Credit</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(journal.lines || []).map((line: any) => `
+                <tr>
+                  <td>
+                    <div style="font-weight: bold;">${line.account?.name || 'Unknown Account'}</div>
+                    <div style="font-size: 10px; color: #64748b;">${line.account?.code || ''}</div>
+                  </td>
+                  <td style="text-align: right;">${line.debitCredit === 'debit' ? line.amount.toLocaleString() : '-'}</td>
+                  <td style="text-align: right;">${line.debitCredit === 'credit' ? line.amount.toLocaleString() : '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div class="total">
+            Total Debit: ${journal.totalDebit.toLocaleString()}
+            <br/>
+            Total Credit: ${journal.totalCredit.toLocaleString()}
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(content);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   const { data: journalsData, isLoading } = useQuery({
     queryKey: ['journals', companyId, page],
     queryFn: async () => {
@@ -535,6 +608,14 @@ export default function CompanyJournalsPage() {
                         <div className="flex items-center gap-2">
                           <button onClick={() => openViewModal(journal)} className="p-1.5 text-slate-400 hover:text-slate-900 bg-slate-50 hover:bg-white border border-transparent hover:border-slate-200 rounded-lg transition-all" title="View Details">
                             <Eye className="w-4 h-4" />
+                          </button>
+ 
+                          <button 
+                            onClick={() => handlePrintVoucher(journal)}
+                            className="p-1.5 text-slate-400 hover:text-slate-900 bg-slate-50 hover:bg-white border border-transparent hover:border-slate-200 rounded-lg transition-all"
+                            title="Print Voucher"
+                          >
+                            <Printer className="w-4 h-4" />
                           </button>
 
                           {(journal.status === 'DRAFT' || journal.status === 'REJECTED') && (

@@ -1,6 +1,6 @@
 /**
  * Shared print utility for all financial documents.
- * Generates a consistent company header and document wrapper for print views.
+ * Generates a consistent company header, signature block, and document wrapper.
  */
 
 export interface CompanyInfo {
@@ -11,6 +11,12 @@ export interface CompanyInfo {
   taxId?: string;
   website?: string;
   registrationNumber?: string;
+}
+
+export interface SignatureInfo {
+  createdBy?: string;
+  verifiedBy?: string;
+  approvedBy?: string;
 }
 
 /**
@@ -30,6 +36,26 @@ export function companyHeader(company: CompanyInfo): string {
         ${company.taxId ? `<p style="font-size: 11px; color: #94a3b8; margin: 2px 0;"><strong>TIN/Tax ID:</strong> ${company.taxId}</p>` : ''}
         ${company.registrationNumber ? `<p style="font-size: 11px; color: #94a3b8; margin: 2px 0;"><strong>Reg No:</strong> ${company.registrationNumber}</p>` : ''}
       </div>
+    </div>
+  `;
+}
+
+/**
+ * Returns the HTML string for the 3-column signature block at the bottom of each document.
+ */
+export function signatureBlock(sig: SignatureInfo): string {
+  const box = (label: string, name?: string) => `
+    <div style="flex:1; border-top: 1px solid #1e293b; padding-top: 10px; margin: 0 16px; text-align: center;">
+      <p style="font-size: 12px; font-weight: 700; color: #1e293b; margin: 0 0 28px 0;">${name || '-'}</p>
+      <p style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin: 0;">${label}</p>
+    </div>
+  `;
+
+  return `
+    <div style="display: flex; margin-top: 60px; padding-top: 8px;">
+      ${box('Created By', sig.createdBy)}
+      ${box('Verified By', sig.verifiedBy)}
+      ${box('Approved By', sig.approvedBy)}
     </div>
   `;
 }
@@ -61,12 +87,13 @@ export function printStyles(): string {
 }
 
 /**
- * Wraps document HTML in a full print page with company header and footer.
+ * Wraps document HTML in a full print page with company header, signature block, and footer.
  */
 export function buildPrintDocument(opts: {
   title: string;
   company: CompanyInfo;
   body: string;
+  signatures?: SignatureInfo;
 }): string {
   return `
     <html>
@@ -77,6 +104,7 @@ export function buildPrintDocument(opts: {
       <body>
         ${companyHeader(opts.company)}
         ${opts.body}
+        ${signatureBlock(opts.signatures || {})}
         <footer>
           <span>${opts.company.name}</span>
           <span>Printed on ${new Date().toLocaleString()}</span>

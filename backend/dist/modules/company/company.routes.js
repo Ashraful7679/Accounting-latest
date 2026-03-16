@@ -1,0 +1,172 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.companyRoutes = void 0;
+const company_controller_1 = require("./company.controller");
+const dashboard_controller_1 = require("./dashboard.controller");
+const lc_controller_1 = require("./lc.controller");
+const loan_controller_1 = require("./loan.controller");
+const report_controller_1 = require("./report.controller");
+const dimension_controller_1 = require("./dimension.controller");
+const attachment_controller_1 = require("./attachment.controller");
+const notification_controller_1 = require("./notification.controller");
+const reconcile_controller_1 = require("./reconcile.controller");
+const payment_controller_1 = require("./payment.controller");
+const pi_controller_1 = require("./pi.controller");
+const product_controller_1 = require("./product.controller");
+const backup_controller_1 = require("../backup/backup.controller");
+const auth_1 = require("../../middleware/auth");
+const companyRoutes = async (fastify) => {
+    const controller = new company_controller_1.CompanyController();
+    const dashboardController = new dashboard_controller_1.DashboardController();
+    const lcController = new lc_controller_1.LCController();
+    const loanController = new loan_controller_1.LoanController();
+    const reportController = new report_controller_1.ReportController();
+    const dimensionController = new dimension_controller_1.DimensionController();
+    const attachmentController = new attachment_controller_1.AttachmentController();
+    const notificationController = new notification_controller_1.NotificationController();
+    const reconcileController = new reconcile_controller_1.ReconcileController();
+    const paymentController = new payment_controller_1.PaymentController();
+    const piController = new pi_controller_1.PIController();
+    const productController = new product_controller_1.ProductController();
+    const backupController = new backup_controller_1.BackupController();
+    // All routes require authentication
+    fastify.addHook('preHandler', auth_1.authenticate);
+    // Dashboards
+    fastify.get('/:id/dashboard-stats', dashboardController.getStats.bind(dashboardController));
+    fastify.get('/:id/activities', dashboardController.getActivities.bind(dashboardController));
+    // Notifications
+    fastify.post('/:id/notifications/generate', notificationController.generate.bind(notificationController));
+    fastify.get('/:id/notifications', notificationController.list.bind(notificationController));
+    fastify.patch('/:id/notifications/read-all', notificationController.markAllRead.bind(notificationController));
+    fastify.patch('/notifications/:notifId/read', notificationController.markRead.bind(notificationController));
+    fastify.delete('/notifications/:notifId', notificationController.delete.bind(notificationController));
+    // LC Management
+    fastify.get('/:id/lcs', lcController.getLCs.bind(lcController));
+    fastify.post('/:id/lcs', lcController.createLC.bind(lcController));
+    fastify.put('/lcs/:lcId', lcController.updateLC.bind(lcController));
+    fastify.delete('/lcs/:lcId', lcController.deleteLC.bind(lcController));
+    fastify.post('/lcs/:lcId/approve', lcController.approveLC.bind(lcController));
+    fastify.get('/lcs/:lcId/detail', lcController.getLCDetail.bind(lcController));
+    // PI Management
+    fastify.get('/lcs/:id/pis', piController.getPIs.bind(piController));
+    fastify.post('/lcs/:id/pis', piController.createPI.bind(piController));
+    fastify.put('/pis/:piId', piController.updatePI.bind(piController));
+    fastify.get('/pis/:piId', piController.getPIDetail.bind(piController));
+    fastify.get('/:id/pis', piController.getAllPIs.bind(piController));
+    fastify.get('/:id/all-pis', piController.getAllPIs.bind(piController));
+    fastify.post('/:id/pis', piController.createPI.bind(piController));
+    fastify.delete('/pis/:piId', piController.deletePI.bind(piController));
+    // Loan Management
+    fastify.get('/:id/loans', loanController.getLoans.bind(loanController));
+    fastify.post('/:id/loans', loanController.createLoan.bind(loanController));
+    fastify.put('/loans/:loanId', loanController.updateLoan.bind(loanController));
+    fastify.delete('/loans/:loanId', loanController.deleteLoan.bind(loanController));
+    // Bank Reconciliation
+    fastify.get('/:id/bank/reconcile-lines', reconcileController.getReconcileLines.bind(reconcileController));
+    fastify.post('/:id/bank/mark-reconciled', reconcileController.markAsReconciled.bind(reconcileController));
+    // Get company info
+    fastify.get('/:id', controller.getCompany.bind(controller));
+    // Customers
+    fastify.get('/:id/customers', controller.getCustomers.bind(controller));
+    fastify.post('/:id/customers', controller.createCustomer.bind(controller));
+    fastify.put('/:id/customers/:customerId', controller.updateCustomer.bind(controller));
+    fastify.delete('/:id/customers/:customerId', controller.deleteCustomer.bind(controller));
+    // Vendors
+    fastify.get('/:id/vendors', controller.getVendors.bind(controller));
+    fastify.post('/:id/vendors', controller.createVendor.bind(controller));
+    fastify.put('/:id/vendors/:vendorId', controller.updateVendor.bind(controller));
+    fastify.delete('/:id/vendors/:vendorId', controller.deleteVendor.bind(controller));
+    // Purchase Orders
+    fastify.get('/:id/purchase-orders', controller.getPurchaseOrders.bind(controller));
+    fastify.post('/:id/purchase-orders', controller.createPurchaseOrder.bind(controller));
+    fastify.put('/:id/purchase-orders/:poId', controller.updatePurchaseOrder.bind(controller));
+    fastify.patch('/:id/purchase-orders/:poId/status', controller.updatePurchaseOrderStatus.bind(controller));
+    fastify.delete('/:id/purchase-orders/:poId', controller.deletePurchaseOrder.bind(controller));
+    // Accounts
+    fastify.get('/:id/accounts', controller.getAccounts.bind(controller));
+    fastify.post('/:id/accounts', controller.createAccount.bind(controller));
+    fastify.put('/:id/accounts/:accountId', controller.updateAccount.bind(controller));
+    fastify.get('/:id/account-types', controller.getAccountTypes.bind(controller));
+    fastify.post('/:id/heal-balances', controller.healBalances.bind(controller));
+    // Products
+    fastify.get('/:id/products', productController.getProducts.bind(productController));
+    fastify.post('/:id/products', productController.createProduct.bind(productController));
+    fastify.get('/:id/products/:productId', productController.getProduct.bind(productController));
+    fastify.put('/:id/products/:productId', productController.updateProduct.bind(productController));
+    fastify.delete('/:id/products/:productId', productController.deleteProduct.bind(productController));
+    // Employees
+    fastify.get('/:id/employees', controller.getEmployees.bind(controller));
+    fastify.post('/:id/employees', controller.createEmployee.bind(controller));
+    fastify.put('/:id/employees/:employeeId', controller.updateEmployee.bind(controller));
+    fastify.delete('/:id/employees/:employeeId', controller.deleteEmployee.bind(controller));
+    // Employee Advances
+    fastify.get('/:id/employee-advances', controller.getEmployeeAdvances.bind(controller));
+    fastify.post('/:id/employee-advances', controller.createEmployeeAdvance.bind(controller));
+    fastify.put('/:id/employee-advances/:advanceId', controller.updateEmployeeAdvance.bind(controller));
+    fastify.delete('/:id/employee-advances/:advanceId', controller.deleteEmployeeAdvance.bind(controller));
+    fastify.post('/:id/employee-advances/:advanceId/approve', controller.approveEmployeeAdvance.bind(controller));
+    // Employee Loans
+    fastify.get('/:id/employee-loans', controller.getEmployeeLoans.bind(controller));
+    fastify.post('/:id/employee-loans', controller.createEmployeeLoan.bind(controller));
+    fastify.put('/:id/employee-loans/:loanId', controller.updateEmployeeLoan.bind(controller));
+    fastify.delete('/:id/employee-loans/:loanId', controller.deleteEmployeeLoan.bind(controller));
+    fastify.post('/:id/employee-loans/:loanId/approve', controller.approveEmployeeLoan.bind(controller));
+    fastify.get('/:id/employee-loans/:loanId/repayments', controller.getLoanRepayments.bind(controller));
+    fastify.post('/:id/employee-loans/:loanId/repayments', controller.createLoanRepayment.bind(controller));
+    fastify.post('/:id/employee-loan-repayments/:repaymentId/approve', controller.approveLoanRepayment.bind(controller));
+    // Employee Expenses
+    fastify.get('/:id/employee-expenses', controller.getEmployeeExpenses.bind(controller));
+    fastify.post('/:id/employee-expenses', controller.createEmployeeExpense.bind(controller));
+    fastify.put('/:id/employee-expenses/:expenseId', controller.updateEmployeeExpense.bind(controller));
+    fastify.delete('/:id/employee-expenses/:expenseId', controller.deleteEmployeeExpense.bind(controller));
+    fastify.post('/:id/employee-expenses/:expenseId/approve', controller.approveEmployeeExpense.bind(controller));
+    // Invoices
+    fastify.get('/:id/invoices', controller.getInvoices.bind(controller));
+    fastify.get('/:id/invoices/:invoiceId', controller.getInvoice.bind(controller));
+    fastify.post('/:id/invoices', controller.createInvoice.bind(controller));
+    fastify.put('/:id/invoices/:invoiceId', controller.updateInvoice.bind(controller));
+    fastify.delete('/:id/invoices/:invoiceId', controller.deleteInvoice.bind(controller));
+    fastify.post('/:id/invoices/:invoiceId/verify', controller.verifyInvoice.bind(controller));
+    fastify.post('/:id/invoices/:invoiceId/reject', controller.rejectInvoice.bind(controller));
+    fastify.post('/:id/invoices/:invoiceId/retrieve', controller.retrieveInvoice.bind(controller));
+    fastify.post('/:id/invoices/:invoiceId/approve', controller.approveInvoice.bind(controller));
+    // Journals
+    fastify.get('/:id/journals', controller.getJournals.bind(controller));
+    fastify.get('/:id/journals/:journalId', controller.getJournal.bind(controller));
+    fastify.post('/:id/journals', controller.createJournal.bind(controller));
+    fastify.put('/:id/journals/:journalId', controller.updateJournal.bind(controller));
+    fastify.delete('/:id/journals/:journalId', controller.deleteJournal.bind(controller));
+    fastify.post('/:id/journals/:journalId/verify', controller.verifyJournal.bind(controller));
+    fastify.post('/:id/journals/:journalId/submit', controller.submitJournal.bind(controller));
+    fastify.post('/:id/journals/:journalId/reject', controller.rejectJournal.bind(controller));
+    fastify.post('/:id/journals/:journalId/retrieve', controller.retrieveJournal.bind(controller));
+    fastify.post('/:id/journals/:journalId/approve', controller.approveJournal.bind(controller));
+    // Payments
+    fastify.get('/:id/payments', paymentController.listPayments.bind(paymentController));
+    fastify.post('/:id/payments', paymentController.createPayment.bind(paymentController));
+    // Reports
+    fastify.get('/:id/reports/trial-balance', reportController.getTrialBalance.bind(reportController));
+    fastify.get('/:id/reports/ledger', reportController.getLedger.bind(reportController));
+    fastify.get('/:id/reports/profit-loss', reportController.getProfitLoss.bind(reportController));
+    fastify.get('/:id/reports/aging', reportController.getAgingReport.bind(reportController));
+    fastify.get('/:id/reports/receivables-search', reportController.searchReceivables.bind(reportController));
+    fastify.get('/:id/reports/lc-liability', reportController.getLCLiability.bind(reportController));
+    // Dimensions
+    fastify.get('/:id/projects', dimensionController.getProjects.bind(dimensionController));
+    fastify.post('/:id/projects', dimensionController.createProject.bind(dimensionController));
+    fastify.get('/:id/cost-centers', dimensionController.getCostCenters.bind(dimensionController));
+    fastify.post('/:id/cost-centers', dimensionController.createCostCenter.bind(dimensionController));
+    // Attachments (New Secure System)
+    fastify.post('/:id/attachments/upload', attachmentController.upload.bind(attachmentController));
+    fastify.get('/attachments/secure/:id', attachmentController.getSecureFile.bind(attachmentController));
+    fastify.get('/attachments/related/:type/:id', attachmentController.listByEntity.bind(attachmentController));
+    fastify.delete('/attachments/:id', attachmentController.deleteAttachment.bind(attachmentController));
+    // Backup & Restore (System Wide / Multi-Company Context)
+    fastify.post('/:id/backup/generate', backupController.generateBackup.bind(backupController));
+    fastify.get('/:id/backups', backupController.getBackups.bind(backupController));
+    fastify.get('/:id/backups/download/:fileName', backupController.downloadBackup.bind(backupController));
+    fastify.post('/:id/backup/restore/:fileName', backupController.restoreBackup.bind(backupController));
+    fastify.post('/:id/backup/restore/upload', backupController.uploadAndRestore.bind(backupController));
+};
+exports.companyRoutes = companyRoutes;
+//# sourceMappingURL=company.routes.js.map

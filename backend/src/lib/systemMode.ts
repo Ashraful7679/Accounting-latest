@@ -14,7 +14,7 @@ export async function checkDatabase() {
   try {
     // Force a small raw query with a 2-second timeout to verify actual DB connectivity
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Prisma connection timeout')), 2000)
+      setTimeout(() => reject(new Error('Prisma connection timeout')), 10000)
     );
     
     await Promise.race([

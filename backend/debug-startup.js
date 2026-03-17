@@ -1,28 +1,36 @@
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-async function debug() {
-  const logFile = path.join(__dirname, 'debug_error.log');
-  fs.writeFileSync(logFile, `Debug session started at ${new Date().toISOString()}\n`);
-  
+let debugInfo = "Starting debug session...\n";
+
+async function runTest() {
   try {
-    fs.appendFileSync(logFile, "Checking if dist/index.js exists...\n");
-    if (!fs.existsSync(path.join(__dirname, 'dist', 'index.js'))) {
-      fs.appendFileSync(logFile, "dist/index.js NOT FOUND\n");
+    debugInfo += `Checking path: ${path.join(__dirname, 'dist', 'index.js')}\n`;
+    if (fs.existsSync(path.join(__dirname, 'dist', 'index.js'))) {
+      debugInfo += "dist/index.js exists. Trying to require...\n";
+      // This will attempt to load all dependencies (including Prisma)
+      require('./dist/index.js');
+      debugInfo += "SUCCESS: Main app dependencies loaded successfully.\n";
+    } else {
+      debugInfo += "ERROR: dist/index.js NOT FOUND.\n";
     }
-
-    fs.appendFileSync(logFile, "Attempting to require main app...\n");
-    // We don't want to actually start the server on the same port here, 
-    // just try to load the dependencies and see if it crashes.
-    require('./dist/index.js');
-    fs.appendFileSync(logFile, "Main app required successfully (Dependencies OK)\n");
-
   } catch (err) {
-    fs.appendFileSync(logFile, `CRASH DETECTED: ${err.message}\n`);
+    debugInfo += `CRASH DETECTED: ${err.message}\n`;
     if (err.stack) {
-      fs.appendFileSync(logFile, `STACK TRACE: ${err.stack}\n`);
+      debugInfo += `STACK TRACE:\n${err.stack}\n`;
     }
   }
 }
 
-debug();
+// Start a server to display the results
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end(`DEBUG LOG:\n====================\n${debugInfo}\n====================\n`);
+});
+
+const port = process.env.PORT || 5002;
+server.listen(port, () => {
+  console.log('Debug server running');
+  runTest();
+});

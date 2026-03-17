@@ -55,7 +55,7 @@ export declare class NotificationController {
         entityType: string;
         entityId: string;
         action: string;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        metadata: import("../../generated/client/runtime/library").JsonValue | null;
         performedById: string;
         targetUserId: string | null;
         branchId: string | null;

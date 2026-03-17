@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-let API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5002/api';
+let API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.hurainjannatoyshee.com/api';
 if (!API_URL.endsWith('/api')) {
   API_URL = `${API_URL.replace(/\/$/, '')}/api`;
 }

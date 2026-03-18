@@ -19,8 +19,15 @@ const fastify = Fastify({
 
 // Register plugins
 fastify.register(cors, {
-  origin: true,
+  origin: ['https://hurainjannatoyshee.com', 'https://www.hurainjannatoyshee.com'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
+});
+
+// Explicitly handle OPTIONS preflight (as recommended for some environments)
+fastify.options('*', (request, reply) => {
+  reply.send();
 });
 
 fastify.register(jwt, {

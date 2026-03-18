@@ -22,8 +22,14 @@ const fastify = (0, fastify_1.default)({
 });
 // Register plugins
 fastify.register(cors_1.default, {
-    origin: true,
+    origin: ['https://hurainjannatoyshee.com', 'https://www.hurainjannatoyshee.com'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
+});
+// Explicitly handle OPTIONS preflight (as recommended for some environments)
+fastify.options('*', (request, reply) => {
+    reply.send();
 });
 fastify.register(jwt_1.default, {
     secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',

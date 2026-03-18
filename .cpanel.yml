@@ -1,5 +1,6 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/orgajyzd/accabiz
+    - export DEPLOYPATH=/home/orgajyzd/projects/accabiz
+    - /bin/mkdir -p $DEPLOYPATH
     - /bin/cp -R * $DEPLOYPATH/

@@ -2,7 +2,7 @@
   "name": "accounting-backend",
   "version": "1.0.0",
   "description": "Accounting System Backend API",
-  "main": "dist/index.js",
+  "main": "app.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc && npx prisma migrate deploy",

@@ -54,9 +54,14 @@ fastify.register(system_routes_1.systemRoutes, { prefix: '/api/system' });
 // Start server
 const start = async () => {
     try {
-        const port = parseInt(process.env.PORT || '5002', 10);
-        await fastify.listen({ port, host: '0.0.0.0' });
-        console.log(`Server running on http://localhost:${port}`);
+        // For Passenger/cPanel: PORT might be a Unix socket path or a dynamic port
+        const rawPort = process.env.PORT || '5002';
+        const port = isNaN(Number(rawPort)) ? rawPort : parseInt(rawPort, 10);
+        await fastify.listen({
+            port: port,
+            host: typeof port === 'number' ? '0.0.0.0' : undefined
+        });
+        console.log(`Server running on ${typeof port === 'number' ? `http://localhost:${port}` : `socket ${port}`}`);
         // --- Automated Backup Cron (Daily at 2 AM) ---
         const backupController = new backup_controller_1.BackupController();
         setInterval(async () => {

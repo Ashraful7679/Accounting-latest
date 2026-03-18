@@ -17,6 +17,12 @@ const system_routes_1 = require("./modules/system/system.routes");
 const backup_controller_1 = require("./modules/backup/backup.controller");
 const errorHandler_1 = require("./middleware/errorHandler");
 const offlineCheck_1 = require("./middleware/offlineCheck");
+const fs_1 = __importDefault(require("fs"));
+const path_2 = __importDefault(require("path"));
+// --- STARTUP LOGGING ---
+const startupLog = path_2.default.join(process.cwd(), 'startup.log');
+fs_1.default.appendFileSync(startupLog, `[${new Date().toISOString()}] Backend Starting... CWD: ${process.cwd()}\n`);
+fs_1.default.appendFileSync(startupLog, `[${new Date().toISOString()}] ENV: PORT=${process.env.PORT}, NODE_ENV=${process.env.NODE_ENV}\n`);
 const fastify = (0, fastify_1.default)({
     logger: true,
 });

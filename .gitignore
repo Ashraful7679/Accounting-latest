@@ -14,3 +14,7 @@ node_modules
 .env.development
 .env.production
 build
+frontend/out/
+.next/
+backend/dist/
+backend/src/generated/client/

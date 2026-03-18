@@ -13,7 +13,16 @@ import { BackupController } from './modules/backup/backup.controller';
 import { errorHandler } from './middleware/errorHandler';
 import { offlineCheck } from './middleware/offlineCheck';
 
+import fs from 'fs';
+import path from 'path';
+
+// --- STARTUP LOGGING ---
+const startupLog = path.join(process.cwd(), 'startup.log');
+fs.appendFileSync(startupLog, `[${new Date().toISOString()}] Backend Starting... CWD: ${process.cwd()}\n`);
+fs.appendFileSync(startupLog, `[${new Date().toISOString()}] ENV: PORT=${process.env.PORT}, NODE_ENV=${process.env.NODE_ENV}\n`);
+
 const fastify = Fastify({
+
   logger: true,
 });
 

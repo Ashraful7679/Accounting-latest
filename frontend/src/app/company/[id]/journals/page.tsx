@@ -1053,12 +1053,9 @@ export default function CompanyJournalsPage() {
               </div>
             </div>
 
-          </div>
-        </div>
-          
-          {/* Printable Section - ensuring it occupies the whole print view */}
-          <div className="hidden print:block print:p-0 print:m-0 w-full bg-white printable-content">
-            <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8">
+            {/* Printable Section - ensuring it occupies the whole print view */}
+            <div className="hidden print:block print:p-0 print:m-0 w-full bg-white printable-content">
+              <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8">
               <div className="flex items-center gap-4">
                 {companyData?.logoUrl && (
                   <img src={companyData.logoUrl} alt="Logo" className="w-20 h-20 object-contain" />
@@ -1137,7 +1134,8 @@ export default function CompanyJournalsPage() {
               This is a computer generated document. Printed on {new Date().toLocaleString()}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
       {/* Floating Action Button for mobile print */}
       {selectedJournal && showViewModal && (

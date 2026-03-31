@@ -592,7 +592,6 @@ export class CompanyController {
         exchangeRate: data.exchangeRate || 1,
         invoiceDate: invoiceDate,
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
-        description: data.description,
         subtotal,
         taxAmount,
         total: bdtAmount,
@@ -659,10 +658,13 @@ export class CompanyController {
       data.total = bdtAmount;
     }
 
+    // Omit fields not in the Prisma schema
+    const { description, ...sanitizedData } = data;
+
     const updated = await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
-        ...data,
+        ...sanitizedData,
         customerId: data.customerId || undefined,
         vendorId: data.vendorId || undefined,
         lines: data.lines ? {

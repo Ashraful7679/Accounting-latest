@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 
+
 export default function CreateJournalPage() {
   const router = useRouter();
   const params = useParams();

@@ -4,7 +4,7 @@ generator client {
   provider      = "prisma-client-js"
   output        = "../src/generated/client"
   engineType    = "binary"
-  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-1.1.x", "rhel-openssl-3.0.x", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "linux-musl", "linux-musl-openssl-3.0.x"]
+  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-1.1.x", "rhel-openssl-3.0.x", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "linux-musl", "linux-musl-openssl-3.0.x", "debian-openssl-1.0.x"]
 }
 
 
@@ -195,7 +195,7 @@ model UserCompany {
 model LC {
   id              String    @id @default(uuid())
   companyId       String
-  lcNumber        String    @unique
+  lcNumber        String
   bankName        String
   amount          Float
   currency        String    @default("USD")
@@ -235,11 +235,12 @@ model LC {
   @@index([companyId])
   @@index([lcNumber])
   @@index([customerId])
+  @@unique([companyId, lcNumber])
 }
 
 model PI {
   id              String    @id @default(uuid())
-  piNumber        String    @unique
+  piNumber        String
   lcId            String?
   piDate          DateTime  @default(now())
   amount          Float
@@ -274,6 +275,7 @@ model PI {
 
 
   @@index([lcId])
+  @@unique([companyId, piNumber])
 }
 
 model PILine {
@@ -293,7 +295,7 @@ model PILine {
 model Loan {
   id                  String    @id @default(uuid())
   companyId           String
-  loanNumber          String    @unique
+  loanNumber          String
   bankName            String
   principalAmount     Float
   interestRate        Float
@@ -309,6 +311,7 @@ model Loan {
 
   @@index([companyId])
   @@index([loanNumber])
+  @@unique([companyId, loanNumber])
 }
 
 // ============================================
@@ -325,7 +328,7 @@ model AccountType {
 
 model Account {
   id            String   @id @default(uuid())
-  code          String   @unique
+  code          String
   name          String
   companyId     String
   accountTypeId String
@@ -353,11 +356,12 @@ model Account {
   
   @@index([companyId])
   @@index([accountTypeId])
+  @@unique([companyId, code])
 }
 
 model Branch {
   id        String   @id @default(uuid())
-  code      String   @unique
+  code      String
   name      String
   companyId String
   isActive  Boolean  @default(true)
@@ -373,7 +377,7 @@ model Branch {
 
 model Project {
   id           String             @id @default(uuid())
-  code         String             @unique
+  code         String
   name         String
   companyId    String
   isActive     Boolean            @default(true)
@@ -387,7 +391,7 @@ model Project {
 
 model CostCenter {
   id           String             @id @default(uuid())
-  code         String             @unique
+  code         String
   name         String
   companyId    String
   isActive     Boolean            @default(true)
@@ -405,7 +409,7 @@ model CostCenter {
 
 model Customer {
   id          String   @id @default(uuid())
-  code        String   @unique
+  code        String
   name        String
   companyId   String
   email       String?
@@ -435,11 +439,12 @@ model Customer {
 
   
   @@index([companyId])
+  @@unique([companyId, code])
 }
 
 model Vendor {
   id          String   @id @default(uuid())
-  code        String   @unique
+  code        String
   name        String
   companyId   String
   country     String?
@@ -469,6 +474,7 @@ model Vendor {
   updatedAt   DateTime @updatedAt
   
   @@index([companyId])
+  @@unique([companyId, code])
 }
 
 // ============================================
@@ -477,7 +483,7 @@ model Vendor {
 
 model PurchaseOrder {
   id              String    @id @default(uuid())
-  poNumber        String    @unique
+  poNumber        String
   companyId       String
   supplierId      String
   lcId            String?
@@ -509,6 +515,7 @@ model PurchaseOrder {
   @@index([companyId])
   @@index([supplierId])
   @@index([lcId])
+  @@unique([companyId, poNumber])
 }
 
 model PurchaseOrderLine {
@@ -558,7 +565,7 @@ model Product {
 
 model Invoice {
   id              String    @id @default(uuid())
-  invoiceNumber   String    @unique
+  invoiceNumber   String
   companyId       String
   customerId      String?
   vendorId        String?
@@ -610,6 +617,7 @@ model Invoice {
   @@index([customerId])
   @@index([vendorId])
   @@index([status])
+  @@unique([companyId, invoiceNumber])
 }
 
 model InvoiceLine {
@@ -631,7 +639,7 @@ model InvoiceLine {
 
 model JournalEntry {
   id              String    @id @default(uuid())
-  entryNumber     String    @unique
+  entryNumber     String
   companyId       String
   date            DateTime  @default(now())
   description     String?
@@ -678,6 +686,7 @@ model JournalEntry {
   
   @@index([companyId])
   @@index([status])
+  @@unique([companyId, entryNumber])
 }
 
 model JournalEntryLine {
@@ -723,7 +732,7 @@ model JournalEntryLine {
 
 model Bill {
   id          String    @id @default(uuid())
-  billNumber  String    @unique
+  billNumber  String
   companyId   String
   vendorId    String
   status      String    @default("DRAFT")
@@ -739,6 +748,7 @@ model Bill {
   
   @@index([companyId])
   @@index([vendorId])
+  @@unique([companyId, billNumber])
 }
 
 // ============================================
@@ -877,7 +887,7 @@ model Notification {
 
 model Payment {
   id              String    @id @default(uuid())
-  paymentNumber   String    @unique
+  paymentNumber   String
   companyId       String
   date            DateTime  @default(now())
   amount          Float
@@ -909,6 +919,7 @@ model Payment {
   @@index([invoiceId])
   @@index([billId])
   @@index([lcId])
+  @@unique([companyId, paymentNumber])
 }
 
 model PaymentPI {
@@ -949,7 +960,7 @@ model CompanySettings {
 
 model Employee {
   id            String   @id @default(uuid())
-  employeeCode  String   @unique
+  employeeCode  String
   firstName     String
   lastName      String
   email         String?
@@ -971,6 +982,7 @@ model Employee {
   updatedAt     DateTime @updatedAt
   
   @@index([companyId])
+  @@unique([companyId, employeeCode])
 }
 
 model EmployeeAdvance {

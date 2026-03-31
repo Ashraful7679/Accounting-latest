@@ -50550,11 +50550,12 @@ export namespace Prisma {
 
   export type LCWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    lcNumber?: string
+    companyId_lcNumber?: LCCompanyIdLcNumberCompoundUniqueInput
     AND?: LCWhereInput | LCWhereInput[]
     OR?: LCWhereInput[]
     NOT?: LCWhereInput | LCWhereInput[]
     companyId?: StringFilter<"LC"> | string
+    lcNumber?: StringFilter<"LC"> | string
     bankName?: StringFilter<"LC"> | string
     amount?: FloatFilter<"LC"> | number
     currency?: StringFilter<"LC"> | string
@@ -50582,7 +50583,7 @@ export namespace Prisma {
     pis?: PIListRelationFilter
     purchaseOrders?: PurchaseOrderListRelationFilter
     payments?: PaymentListRelationFilter
-  }, "id" | "lcNumber">
+  }, "id" | "companyId_lcNumber">
 
   export type LCOrderByWithAggregationInput = {
     id?: SortOrder
@@ -50713,10 +50714,11 @@ export namespace Prisma {
 
   export type PIWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    piNumber?: string
+    companyId_piNumber?: PICompanyIdPiNumberCompoundUniqueInput
     AND?: PIWhereInput | PIWhereInput[]
     OR?: PIWhereInput[]
     NOT?: PIWhereInput | PIWhereInput[]
+    piNumber?: StringFilter<"PI"> | string
     lcId?: StringNullableFilter<"PI"> | string | null
     piDate?: DateTimeFilter<"PI"> | Date | string
     amount?: FloatFilter<"PI"> | number
@@ -50743,7 +50745,7 @@ export namespace Prisma {
     lc?: XOR<LCNullableRelationFilter, LCWhereInput> | null
     lines?: PILineListRelationFilter
     paymentAllocations?: PaymentPIListRelationFilter
-  }, "id" | "piNumber">
+  }, "id" | "companyId_piNumber">
 
   export type PIOrderByWithAggregationInput = {
     id?: SortOrder
@@ -50914,11 +50916,12 @@ export namespace Prisma {
 
   export type LoanWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    loanNumber?: string
+    companyId_loanNumber?: LoanCompanyIdLoanNumberCompoundUniqueInput
     AND?: LoanWhereInput | LoanWhereInput[]
     OR?: LoanWhereInput[]
     NOT?: LoanWhereInput | LoanWhereInput[]
     companyId?: StringFilter<"Loan"> | string
+    loanNumber?: StringFilter<"Loan"> | string
     bankName?: StringFilter<"Loan"> | string
     principalAmount?: FloatFilter<"Loan"> | number
     interestRate?: FloatFilter<"Loan"> | number
@@ -50931,7 +50934,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Loan"> | Date | string
     updatedAt?: DateTimeFilter<"Loan"> | Date | string
     company?: XOR<CompanyRelationFilter, CompanyWhereInput>
-  }, "id" | "loanNumber">
+  }, "id" | "companyId_loanNumber">
 
   export type LoanOrderByWithAggregationInput = {
     id?: SortOrder
@@ -51080,10 +51083,11 @@ export namespace Prisma {
 
   export type AccountWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    code?: string
+    companyId_code?: AccountCompanyIdCodeCompoundUniqueInput
     AND?: AccountWhereInput | AccountWhereInput[]
     OR?: AccountWhereInput[]
     NOT?: AccountWhereInput | AccountWhereInput[]
+    code?: StringFilter<"Account"> | string
     name?: StringFilter<"Account"> | string
     companyId?: StringFilter<"Account"> | string
     accountTypeId?: StringFilter<"Account"> | string
@@ -51104,7 +51108,7 @@ export namespace Prisma {
     payments?: PaymentListRelationFilter
     employeeAdvances?: EmployeeAdvanceListRelationFilter
     employeeExpenses?: EmployeeExpenseListRelationFilter
-  }, "id" | "code">
+  }, "id" | "companyId_code">
 
   export type AccountOrderByWithAggregationInput = {
     id?: SortOrder
@@ -51181,11 +51185,11 @@ export namespace Prisma {
 
   export type BranchWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    code?: string
     companyId_code?: BranchCompanyIdCodeCompoundUniqueInput
     AND?: BranchWhereInput | BranchWhereInput[]
     OR?: BranchWhereInput[]
     NOT?: BranchWhereInput | BranchWhereInput[]
+    code?: StringFilter<"Branch"> | string
     name?: StringFilter<"Branch"> | string
     companyId?: StringFilter<"Branch"> | string
     isActive?: BoolFilter<"Branch"> | boolean
@@ -51195,7 +51199,7 @@ export namespace Prisma {
     journalEntries?: JournalEntryListRelationFilter
     journalLines?: JournalEntryLineListRelationFilter
     activityLogs?: ActivityLogListRelationFilter
-  }, "id" | "code" | "companyId_code">
+  }, "id" | "companyId_code">
 
   export type BranchOrderByWithAggregationInput = {
     id?: SortOrder
@@ -51252,11 +51256,11 @@ export namespace Prisma {
 
   export type ProjectWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    code?: string
     companyId_code?: ProjectCompanyIdCodeCompoundUniqueInput
     AND?: ProjectWhereInput | ProjectWhereInput[]
     OR?: ProjectWhereInput[]
     NOT?: ProjectWhereInput | ProjectWhereInput[]
+    code?: StringFilter<"Project"> | string
     name?: StringFilter<"Project"> | string
     companyId?: StringFilter<"Project"> | string
     isActive?: BoolFilter<"Project"> | boolean
@@ -51264,7 +51268,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"Project"> | Date | string
     company?: XOR<CompanyRelationFilter, CompanyWhereInput>
     journalLines?: JournalEntryLineListRelationFilter
-  }, "id" | "code" | "companyId_code">
+  }, "id" | "companyId_code">
 
   export type ProjectOrderByWithAggregationInput = {
     id?: SortOrder
@@ -51321,11 +51325,11 @@ export namespace Prisma {
 
   export type CostCenterWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    code?: string
     companyId_code?: CostCenterCompanyIdCodeCompoundUniqueInput
     AND?: CostCenterWhereInput | CostCenterWhereInput[]
     OR?: CostCenterWhereInput[]
     NOT?: CostCenterWhereInput | CostCenterWhereInput[]
+    code?: StringFilter<"CostCenter"> | string
     name?: StringFilter<"CostCenter"> | string
     companyId?: StringFilter<"CostCenter"> | string
     isActive?: BoolFilter<"CostCenter"> | boolean
@@ -51333,7 +51337,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"CostCenter"> | Date | string
     company?: XOR<CompanyRelationFilter, CompanyWhereInput>
     journalLines?: JournalEntryLineListRelationFilter
-  }, "id" | "code" | "companyId_code">
+  }, "id" | "companyId_code">
 
   export type CostCenterOrderByWithAggregationInput = {
     id?: SortOrder
@@ -51420,10 +51424,11 @@ export namespace Prisma {
 
   export type CustomerWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    code?: string
+    companyId_code?: CustomerCompanyIdCodeCompoundUniqueInput
     AND?: CustomerWhereInput | CustomerWhereInput[]
     OR?: CustomerWhereInput[]
     NOT?: CustomerWhereInput | CustomerWhereInput[]
+    code?: StringFilter<"Customer"> | string
     name?: StringFilter<"Customer"> | string
     companyId?: StringFilter<"Customer"> | string
     email?: StringNullableFilter<"Customer"> | string | null
@@ -51446,7 +51451,7 @@ export namespace Prisma {
     journalLines?: JournalEntryLineListRelationFilter
     lcs?: LCListRelationFilter
     pis?: PIListRelationFilter
-  }, "id" | "code">
+  }, "id" | "companyId_code">
 
   export type CustomerOrderByWithAggregationInput = {
     id?: SortOrder
@@ -51563,10 +51568,11 @@ export namespace Prisma {
 
   export type VendorWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    code?: string
+    companyId_code?: VendorCompanyIdCodeCompoundUniqueInput
     AND?: VendorWhereInput | VendorWhereInput[]
     OR?: VendorWhereInput[]
     NOT?: VendorWhereInput | VendorWhereInput[]
+    code?: StringFilter<"Vendor"> | string
     name?: StringFilter<"Vendor"> | string
     companyId?: StringFilter<"Vendor"> | string
     country?: StringNullableFilter<"Vendor"> | string | null
@@ -51591,7 +51597,7 @@ export namespace Prisma {
     bills?: BillListRelationFilter
     pis?: PIListRelationFilter
     journalLines?: JournalEntryLineListRelationFilter
-  }, "id" | "code">
+  }, "id" | "companyId_code">
 
   export type VendorOrderByWithAggregationInput = {
     id?: SortOrder
@@ -51696,10 +51702,11 @@ export namespace Prisma {
 
   export type PurchaseOrderWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    poNumber?: string
+    companyId_poNumber?: PurchaseOrderCompanyIdPoNumberCompoundUniqueInput
     AND?: PurchaseOrderWhereInput | PurchaseOrderWhereInput[]
     OR?: PurchaseOrderWhereInput[]
     NOT?: PurchaseOrderWhereInput | PurchaseOrderWhereInput[]
+    poNumber?: StringFilter<"PurchaseOrder"> | string
     companyId?: StringFilter<"PurchaseOrder"> | string
     supplierId?: StringFilter<"PurchaseOrder"> | string
     lcId?: StringNullableFilter<"PurchaseOrder"> | string | null
@@ -51718,7 +51725,7 @@ export namespace Prisma {
     supplier?: XOR<VendorRelationFilter, VendorWhereInput>
     lc?: XOR<LCNullableRelationFilter, LCWhereInput> | null
     lines?: PurchaseOrderLineListRelationFilter
-  }, "id" | "poNumber">
+  }, "id" | "companyId_poNumber">
 
   export type PurchaseOrderOrderByWithAggregationInput = {
     id?: SortOrder
@@ -52022,10 +52029,11 @@ export namespace Prisma {
 
   export type InvoiceWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    invoiceNumber?: string
+    companyId_invoiceNumber?: InvoiceCompanyIdInvoiceNumberCompoundUniqueInput
     AND?: InvoiceWhereInput | InvoiceWhereInput[]
     OR?: InvoiceWhereInput[]
     NOT?: InvoiceWhereInput | InvoiceWhereInput[]
+    invoiceNumber?: StringFilter<"Invoice"> | string
     companyId?: StringFilter<"Invoice"> | string
     customerId?: StringNullableFilter<"Invoice"> | string | null
     vendorId?: StringNullableFilter<"Invoice"> | string | null
@@ -52058,7 +52066,7 @@ export namespace Prisma {
     rejectedBy?: XOR<UserNullableRelationFilter, UserWhereInput> | null
     lines?: InvoiceLineListRelationFilter
     payments?: PaymentListRelationFilter
-  }, "id" | "invoiceNumber">
+  }, "id" | "companyId_invoiceNumber">
 
   export type InvoiceOrderByWithAggregationInput = {
     id?: SortOrder
@@ -52274,10 +52282,11 @@ export namespace Prisma {
 
   export type JournalEntryWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    entryNumber?: string
+    companyId_entryNumber?: JournalEntryCompanyIdEntryNumberCompoundUniqueInput
     AND?: JournalEntryWhereInput | JournalEntryWhereInput[]
     OR?: JournalEntryWhereInput[]
     NOT?: JournalEntryWhereInput | JournalEntryWhereInput[]
+    entryNumber?: StringFilter<"JournalEntry"> | string
     companyId?: StringFilter<"JournalEntry"> | string
     date?: DateTimeFilter<"JournalEntry"> | Date | string
     description?: StringNullableFilter<"JournalEntry"> | string | null
@@ -52308,7 +52317,7 @@ export namespace Prisma {
     employeeAdvances?: EmployeeAdvanceListRelationFilter
     employeeLoanRepayments?: EmployeeLoanRepaymentListRelationFilter
     employeeExpenses?: EmployeeExpenseListRelationFilter
-  }, "id" | "entryNumber">
+  }, "id" | "companyId_entryNumber">
 
   export type JournalEntryOrderByWithAggregationInput = {
     id?: SortOrder
@@ -52545,10 +52554,11 @@ export namespace Prisma {
 
   export type BillWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    billNumber?: string
+    companyId_billNumber?: BillCompanyIdBillNumberCompoundUniqueInput
     AND?: BillWhereInput | BillWhereInput[]
     OR?: BillWhereInput[]
     NOT?: BillWhereInput | BillWhereInput[]
+    billNumber?: StringFilter<"Bill"> | string
     companyId?: StringFilter<"Bill"> | string
     vendorId?: StringFilter<"Bill"> | string
     status?: StringFilter<"Bill"> | string
@@ -52561,7 +52571,7 @@ export namespace Prisma {
     company?: XOR<CompanyRelationFilter, CompanyWhereInput>
     vendor?: XOR<VendorRelationFilter, VendorWhereInput>
     payments?: PaymentListRelationFilter
-  }, "id" | "billNumber">
+  }, "id" | "companyId_billNumber">
 
   export type BillOrderByWithAggregationInput = {
     id?: SortOrder
@@ -53148,10 +53158,11 @@ export namespace Prisma {
 
   export type PaymentWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    paymentNumber?: string
+    companyId_paymentNumber?: PaymentCompanyIdPaymentNumberCompoundUniqueInput
     AND?: PaymentWhereInput | PaymentWhereInput[]
     OR?: PaymentWhereInput[]
     NOT?: PaymentWhereInput | PaymentWhereInput[]
+    paymentNumber?: StringFilter<"Payment"> | string
     companyId?: StringFilter<"Payment"> | string
     date?: DateTimeFilter<"Payment"> | Date | string
     amount?: FloatFilter<"Payment"> | number
@@ -53171,7 +53182,7 @@ export namespace Prisma {
     lc?: XOR<LCNullableRelationFilter, LCWhereInput> | null
     piAllocations?: PaymentPIListRelationFilter
     account?: XOR<AccountNullableRelationFilter, AccountWhereInput> | null
-  }, "id" | "paymentNumber">
+  }, "id" | "companyId_paymentNumber">
 
   export type PaymentOrderByWithAggregationInput = {
     id?: SortOrder
@@ -53388,10 +53399,11 @@ export namespace Prisma {
 
   export type EmployeeWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    employeeCode?: string
+    companyId_employeeCode?: EmployeeCompanyIdEmployeeCodeCompoundUniqueInput
     AND?: EmployeeWhereInput | EmployeeWhereInput[]
     OR?: EmployeeWhereInput[]
     NOT?: EmployeeWhereInput | EmployeeWhereInput[]
+    employeeCode?: StringFilter<"Employee"> | string
     firstName?: StringFilter<"Employee"> | string
     lastName?: StringFilter<"Employee"> | string
     email?: StringNullableFilter<"Employee"> | string | null
@@ -53409,7 +53421,7 @@ export namespace Prisma {
     advances?: EmployeeAdvanceListRelationFilter
     loans?: EmployeeLoanListRelationFilter
     expenses?: EmployeeExpenseListRelationFilter
-  }, "id" | "employeeCode">
+  }, "id" | "companyId_employeeCode">
 
   export type EmployeeOrderByWithAggregationInput = {
     id?: SortOrder
@@ -59052,6 +59064,11 @@ export namespace Prisma {
     _count?: SortOrder
   }
 
+  export type LCCompanyIdLcNumberCompoundUniqueInput = {
+    companyId: string
+    lcNumber: string
+  }
+
   export type LCCountOrderByAggregateInput = {
     id?: SortOrder
     companyId?: SortOrder
@@ -59179,6 +59196,11 @@ export namespace Prisma {
 
   export type PaymentPIOrderByRelationAggregateInput = {
     _count?: SortOrder
+  }
+
+  export type PICompanyIdPiNumberCompoundUniqueInput = {
+    companyId: string
+    piNumber: string
   }
 
   export type PICountOrderByAggregateInput = {
@@ -59338,6 +59360,11 @@ export namespace Prisma {
     total?: SortOrder
   }
 
+  export type LoanCompanyIdLoanNumberCompoundUniqueInput = {
+    companyId: string
+    loanNumber: string
+  }
+
   export type LoanCountOrderByAggregateInput = {
     id?: SortOrder
     companyId?: SortOrder
@@ -59444,6 +59471,11 @@ export namespace Prisma {
 
   export type JournalEntryLineOrderByRelationAggregateInput = {
     _count?: SortOrder
+  }
+
+  export type AccountCompanyIdCodeCompoundUniqueInput = {
+    companyId: string
+    code: string
   }
 
   export type AccountCountOrderByAggregateInput = {
@@ -59612,6 +59644,11 @@ export namespace Prisma {
     updatedAt?: SortOrder
   }
 
+  export type CustomerCompanyIdCodeCompoundUniqueInput = {
+    companyId: string
+    code: string
+  }
+
   export type CustomerCountOrderByAggregateInput = {
     id?: SortOrder
     code?: SortOrder
@@ -59686,6 +59723,11 @@ export namespace Prisma {
   export type CustomerSumOrderByAggregateInput = {
     openingBalance?: SortOrder
     creditLimit?: SortOrder
+  }
+
+  export type VendorCompanyIdCodeCompoundUniqueInput = {
+    companyId: string
+    code: string
   }
 
   export type VendorCountOrderByAggregateInput = {
@@ -59777,6 +59819,11 @@ export namespace Prisma {
 
   export type PurchaseOrderLineOrderByRelationAggregateInput = {
     _count?: SortOrder
+  }
+
+  export type PurchaseOrderCompanyIdPoNumberCompoundUniqueInput = {
+    companyId: string
+    poNumber: string
   }
 
   export type PurchaseOrderCountOrderByAggregateInput = {
@@ -59992,6 +60039,11 @@ export namespace Prisma {
     not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
   }
 
+  export type InvoiceCompanyIdInvoiceNumberCompoundUniqueInput = {
+    companyId: string
+    invoiceNumber: string
+  }
+
   export type InvoiceCountOrderByAggregateInput = {
     id?: SortOrder
     invoiceNumber?: SortOrder
@@ -60175,6 +60227,11 @@ export namespace Prisma {
   export type BranchNullableRelationFilter = {
     is?: BranchWhereInput | null
     isNot?: BranchWhereInput | null
+  }
+
+  export type JournalEntryCompanyIdEntryNumberCompoundUniqueInput = {
+    companyId: string
+    entryNumber: string
   }
 
   export type JournalEntryCountOrderByAggregateInput = {
@@ -60362,6 +60419,11 @@ export namespace Prisma {
     debitForeign?: SortOrder
     creditForeign?: SortOrder
     exchangeRate?: SortOrder
+  }
+
+  export type BillCompanyIdBillNumberCompoundUniqueInput = {
+    companyId: string
+    billNumber: string
   }
 
   export type BillCountOrderByAggregateInput = {
@@ -60698,6 +60760,11 @@ export namespace Prisma {
     isNot?: BillWhereInput | null
   }
 
+  export type PaymentCompanyIdPaymentNumberCompoundUniqueInput = {
+    companyId: string
+    paymentNumber: string
+  }
+
   export type PaymentCountOrderByAggregateInput = {
     id?: SortOrder
     paymentNumber?: SortOrder
@@ -60825,6 +60892,11 @@ export namespace Prisma {
     approvalWorkflow?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+  }
+
+  export type EmployeeCompanyIdEmployeeCodeCompoundUniqueInput = {
+    companyId: string
+    employeeCode: string
   }
 
   export type EmployeeCountOrderByAggregateInput = {

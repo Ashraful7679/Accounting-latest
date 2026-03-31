@@ -115,13 +115,37 @@ export class DashboardController {
       }
     });
 
-    if (!userCompany) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { userRoles: { include: { role: true } } }
+    });
+
+    const isGlobalOwner = user?.userRoles.some((ur: any) => ur.role.name === 'Owner');
+    const isAdmin = user?.userRoles.some((ur: any) => ur.role.name === 'Admin') || (request.user as any).isAdmin;
+
+    if (!userCompany && !isAdmin && !isGlobalOwner) {
       console.warn(`[DashboardStats] Access Denied: User ${userId} not in Company ${companyId}`);
       return reply.status(403).send({ success: false, message: 'Access denied: You are not a member of this company' });
     }
 
-    const roleName = userCompany.user.userRoles[0]?.role?.name || 'User';
-    console.log(`[DashboardStats] User Role: ${roleName}`);
+    let company;
+    let roleName = 'User';
+
+    if (userCompany) {
+      company = userCompany.company;
+      roleName = userCompany.user.userRoles[0]?.role?.name || 'User';
+    } else {
+      // Global admin / owner bypass
+      company = await prisma.company.findUnique({ where: { id: companyId } });
+      roleName = isGlobalOwner ? 'Owner' : 'Admin'; 
+    }
+
+    if (!company) {
+      return reply.status(404).send({ success: false, message: 'Company not found' });
+    }
+
+    const companyName = company.name;
+    console.log(`[DashboardStats] User Role: ${roleName} (Global Admin/Owner bypass: ${!userCompany})`);
 
     try {
       // 2. Auto-generate real notifications from DB events
@@ -251,7 +275,7 @@ export class DashboardController {
         orderBy: { createdAt: 'desc' }
       });
 
-      const companyName = userCompany.company.name;
+      // companyName is already set correctly above (handles both normal and admin-bypass paths)
 
       // --- Enhanced Breakdown Data for Hover Popups ---
       

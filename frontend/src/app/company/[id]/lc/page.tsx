@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
+
 export default function LCPage() {
   const router = useRouter();
   const params = useParams();

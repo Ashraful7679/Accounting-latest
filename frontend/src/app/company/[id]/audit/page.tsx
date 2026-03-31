@@ -3,6 +3,7 @@
 import React from 'react';
 import { History, ShieldAlert } from 'lucide-react';
 
+
 export default function AuditTrailPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC]">

@@ -18,6 +18,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { ActivityLog, renderActivityMessage } from '@/utils/activityRenderer';
 
+
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -41,7 +42,9 @@ interface DashboardData {
 export default function CompanyDashboard() {
   const router = useRouter();
   const params = useParams();
-  const companyId = params.id as string;
+  // .htaccess rewrites /company/[uuid]/... → /company/placeholder/... for static export.
+  // useParams() always returns 'placeholder'. Read the real UUID from the browser URL instead.
+  const [companyId, setCompanyId] = useState(params.id as string);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -49,6 +52,22 @@ export default function CompanyDashboard() {
     const token = localStorage.getItem('token');
     if (!token) {
       router.push('/login');
+      return;
+    }
+    // Extract real UUID from actual browser URL
+    const match = window.location.pathname.match(/\/company\/([^/]+)/);
+    let realId = params.id as string;
+    
+    if (match && match[1] && !['placeholder', '[id]', '%5Bid%5D'].includes(match[1])) {
+      realId = match[1];
+      localStorage.setItem('active_company_id', realId);
+    } else {
+      const active = localStorage.getItem('active_company_id');
+      if (active) realId = active;
+    }
+    
+    if (realId !== companyId && !['placeholder', '[id]', '%5Bid%5D'].includes(realId)) {
+      setCompanyId(realId);
     }
   }, [router]);
 
@@ -68,7 +87,7 @@ export default function CompanyDashboard() {
         throw err;
       }
     },
-    enabled: !!companyId,
+    enabled: !!companyId && companyId !== 'placeholder',
     refetchInterval: 30000,
     retry: 1
   });

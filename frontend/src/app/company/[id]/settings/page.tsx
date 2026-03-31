@@ -3,6 +3,7 @@
 import React from 'react';
 import { Settings, ShieldAlert } from 'lucide-react';
 
+
 export default function CompanySettingsPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC]">

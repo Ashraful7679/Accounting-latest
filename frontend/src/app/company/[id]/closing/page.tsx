@@ -3,6 +3,7 @@
 import React from 'react';
 import { Calendar, ShieldAlert } from 'lucide-react';
 
+
 export default function PeriodClosingPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC]">

@@ -17,6 +17,7 @@ import { renderActivityMessage, type ActivityLog } from '@/utils/activityRendere
 import { handleError } from '@/lib/error-handler';
 import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
 
+
 interface Account {
   id: string;
   code: string;

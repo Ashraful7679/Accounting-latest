@@ -77,9 +77,7 @@ export default function CompanyJournalsPage() {
           </div>
         </div>
         <div class="meta-grid">
-          <div class="meta-field"><label>Created By</label><span>${journal.createdBy.firstName} ${journal.createdBy.lastName}</span></div>
-          ${journal.verifiedBy ? `<div class="meta-field"><label>Verified By</label><span>${journal.verifiedBy.firstName} ${journal.verifiedBy.lastName}</span></div>` : ''}
-          ${journal.approvedBy ? `<div class="meta-field"><label>Approved By</label><span>${journal.approvedBy.firstName} ${journal.approvedBy.lastName}</span></div>` : ''}
+          <div class="meta-field"><label>Description</label><span>${journal.description || '-'}</span></div>
         </div>
         <table>
           <thead>

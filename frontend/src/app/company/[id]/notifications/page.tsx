@@ -13,6 +13,7 @@ import Header from '@/components/Header';
 import { ActivityLog, renderActivityMessage } from '@/utils/activityRenderer';
 import { motion, AnimatePresence } from 'framer-motion';
 
+
 export default function ActivityHistoryPage() {
   const { id: companyId } = useParams() as { id: string };
   const router = useRouter();

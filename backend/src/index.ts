@@ -34,11 +34,6 @@ fastify.register(cors, {
   credentials: true,
 });
 
-// Explicitly handle OPTIONS preflight (as recommended for some environments)
-fastify.options('*', (request, reply) => {
-  reply.send();
-});
-
 fastify.register(jwt, {
   secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
 });

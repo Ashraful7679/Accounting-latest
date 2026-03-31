@@ -9,6 +9,7 @@ import { handleError } from '@/lib/error-handler';
 import { ArrowLeft, Ship, Landmark, Calendar, CheckCircle2, Package } from 'lucide-react';
 import Link from 'next/link';
 
+
 export default function CreateImportLCPage() {
   const router = useRouter();
   const params = useParams();

@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { Plus, Trash2, Edit, ArrowLeft, LogOut, Building2, Bell, X, Package, DollarSign } from 'lucide-react';
 import UserDropdown from '@/components/UserDropdown';
 
+
 interface Vendor {
   id: string;
   code: string;

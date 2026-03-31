@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useParams, usePathname } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import { 
   Building2, Users, FileText, Receipt, TrendingUp,
   CreditCard, Package, FileBarChart, Settings, DollarSign,
@@ -33,21 +33,40 @@ interface MenuItem {
 export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
   const params = useParams();
   const pathname = usePathname();
-  const companyId = params.id as string;
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
 
   // Derive role from prop or localStorage (client-side only)
   const [role, setRole] = React.useState(propRole || 'User');
   const [mounted, setMounted] = React.useState(false);
+  const [realCompanyId, setRealCompanyId] = useState<string | null>(null);
+
   React.useEffect(() => {
     setMounted(true);
     if (!propRole) {
       const roles = JSON.parse(localStorage.getItem('roles') || '[]');
       setRole(roles[0] || 'User');
     }
-  }, [propRole]);
 
+    // Extract real company UUID from the actual browser URL (bypassing .htaccess rewrite)
+    const match = window.location.pathname.match(/\/company\/([^/]+)/);
+    let idStr = params.id as string;
+    
+    if (match && match[1] && !['placeholder', '[id]', '%5Bid%5D'].includes(match[1])) {
+      idStr = match[1];
+      localStorage.setItem('active_company_id', idStr);
+    } else {
+      const active = localStorage.getItem('active_company_id');
+      if (active) idStr = active;
+    }
+    
+    if (!['placeholder', '[id]', '%5Bid%5D'].includes(idStr)) {
+      setRealCompanyId(idStr);
+    }
+  }, [propRole, params.id]);
+
+  const companyId = realCompanyId || params.id;
   const isOwner = role === 'Owner' || role === 'Admin';
 
   // Auto-expand menus when a submenu is active
@@ -173,7 +192,11 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="space-y-1">
-          {menuItems.map((item) => (
+          {(!mounted || !realCompanyId) ? (
+            <div className="flex justify-center p-8">
+              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : menuItems.map((item) => (
             <div key={item.name}>
               {item.children ? (
                 <div>

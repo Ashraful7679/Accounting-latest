@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
+
 interface Product {
   id: string;
   code: string;

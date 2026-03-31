@@ -10,6 +10,7 @@ import { Plus, ArrowLeft, LogOut, Building2, Bell, RefreshCw, Edit2, ChevronRigh
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }

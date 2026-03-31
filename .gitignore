@@ -16,5 +16,8 @@ node_modules
 build
 frontend/out/
 .next/
-backend/dist/
-backend/src/generated/client/
+# Allow backend dist and generated clients for Namecheap deployment
+!backend/dist/
+!backend/src/generated/client/
+!backend/node_modules/
+

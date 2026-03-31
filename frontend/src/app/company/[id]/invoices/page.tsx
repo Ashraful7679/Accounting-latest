@@ -10,6 +10,7 @@ import { Plus, FileText, Trash2, Check, X, ArrowLeft, LogOut, Eye, Edit, CreditC
 import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
 import { AttachmentManager } from '@/components/AttachmentManager';
 
+
 interface Customer {
   id: string;
   code: string;

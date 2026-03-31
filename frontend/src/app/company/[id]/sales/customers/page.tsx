@@ -8,6 +8,7 @@ import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, Edit2, Search, Building2, User, Mail, Phone, MapPin, DollarSign, CreditCard, ShieldCheck, ChevronDown } from 'lucide-react';
 
+
 interface Customer {
   id: string;
   code: string;

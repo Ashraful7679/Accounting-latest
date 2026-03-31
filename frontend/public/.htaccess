@@ -1,0 +1,17 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # 1. Handle dynamic company routes
+  # Rewrite /company/[id]/[any_path] to /company/placeholder/[any_path]
+  # This works because /company/placeholder/... is pre-rendered by Next.js
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^company/([^/]+)/(.*)$ company/placeholder/$2 [L]
+
+  # 2. Standard SPA fallback for other routes
+  # If a file or directory doesn't exist, serve index.html
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . index.html [L]
+</IfModule>

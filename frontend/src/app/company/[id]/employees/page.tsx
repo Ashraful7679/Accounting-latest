@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { handleError } from '@/lib/error-handler';
 import { Plus, Trash2, Edit2, Check, X, User, DollarSign, Wallet, CreditCard, FileText, ChevronRight } from 'lucide-react';
 
+
 interface Employee {
   id: string;
   employeeCode: string;

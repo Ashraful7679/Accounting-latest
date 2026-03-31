@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
+
 interface Invoice {
   id: string;
   invoiceNumber: string;

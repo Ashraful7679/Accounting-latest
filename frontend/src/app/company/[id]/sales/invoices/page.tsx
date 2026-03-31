@@ -13,6 +13,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { AttachmentManager } from '@/components/AttachmentManager';
 
+
 interface Invoice {
   id: string;
   invoiceNumber: string;

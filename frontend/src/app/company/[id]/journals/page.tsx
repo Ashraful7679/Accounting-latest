@@ -784,7 +784,6 @@ export default function CompanyJournalsPage() {
                   />
                 </div>
                 <div className="col-span-2">
-                <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Supporting Documents (Optional)</label>
                   <input
                     type="file"

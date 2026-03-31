@@ -48,6 +48,26 @@ export default function JournalsPage() {
   const [page, setPage] = useState(1);
   const limit = 50;
 
+  const numberToWords = (num: number): string => {
+    const ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+    const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+    
+    const convert = (n: number): string => {
+      if (n < 20) return ones[n];
+      if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? '-' + ones[n % 10] : '');
+      if (n < 1000) return ones[Math.floor(n / 100)] + ' hundred' + (n % 100 ? ' ' + convert(n % 100) : '');
+      if (n < 100000) return convert(Math.floor(n / 1000)) + ' thousand' + (n % 1000 ? ' ' + convert(n % 1000) : '');
+      if (n < 10000000) return convert(Math.floor(n / 100000)) + ' lakh' + (n % 100000 ? ' ' + convert(n % 100000) : '');
+      return convert(Math.floor(n / 10000000)) + ' crore' + (n % 10000000 ? ' ' + convert(n % 10000000) : '');
+    };
+
+    const main = Math.floor(num);
+    const decimal = Math.round((num - main) * 100);
+    
+    if (main === 0) return 'zero';
+    return convert(main) + (decimal > 0 ? ' and ' + (decimal < 20 ? ones[decimal] : tens[Math.floor(decimal / 10)] + (decimal % 10 ? '-' + ones[decimal % 10] : '')) + ' paisa' : '');
+  };
+
   const handlePrintVoucher = async (journal: any) => {
     try {
       const companyRes = await api.get(`/company/${companyId}`);
@@ -87,8 +107,8 @@ export default function JournalsPage() {
                   <div style="font-weight:bold;">${line.account?.name || 'Unknown'}</div>
                   <div style="font-size:11px; color:#64748b;">${line.account?.code || ''}</div>
                 </td>
-                <td style="text-align:right; color:#059669; font-weight:600;">${line.debitCredit === 'debit' ? line.amount.toLocaleString() : '-'}</td>
-                <td style="text-align:right; color:#dc2626; font-weight:600;">${line.debitCredit === 'credit' ? line.amount.toLocaleString() : '-'}</td>
+                <td style="text-align:right; color:#059669; font-weight:600;">${line.debit > 0 ? line.debit.toLocaleString() : '-'}</td>
+                <td style="text-align:right; color:#dc2626; font-weight:600;">${line.credit > 0 ? line.credit.toLocaleString() : '-'}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -97,18 +117,22 @@ export default function JournalsPage() {
           <p>Total Debit: <strong>${journal.totalDebit.toLocaleString()}</strong></p>
           <p class="grand-total">Total Credit: ${journal.totalCredit.toLocaleString()}</p>
         </div>
+        <div class="in-words" style="margin-top:24px; padding:16px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
+          <p style="font-size:12px; color:#64748b; margin-bottom:4px;">In Words</p>
+          <p style="font-size:14px; font-weight:600; color:#334155; text-transform:capitalize;">${numberToWords(journal.totalDebit)} Taka Only</p>
+        </div>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:32px; margin-top:48px; padding-top:24px; border-top:1px solid #e2e8f0;">
           <div style="text-align:center;">
             <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Prepared By</p>
-            <p style="font-size:12px; color:#64748b; margin-top:4px;">${journal.createdBy.firstName} ${journal.createdBy.lastName}</p>
+            <p style="font-size:12px; color:#64748b; margin-top:4px;">${journal.createdBy?.firstName || '-'} ${journal.createdBy?.lastName || ''}</p>
           </div>
           <div style="text-align:center;">
             <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Verified By</p>
-            <p style="font-size:12px; color:#64748b; margin-top:4px;">${journal.verifiedBy ? `${journal.verifiedBy.firstName} ${journal.verifiedBy.lastName}` : '...........................'}</p>
+            <p style="font-size:12px; color:#64748b; margin-top:4px;">${journal.verifiedBy?.firstName ? `${journal.verifiedBy.firstName} ${journal.verifiedBy.lastName}` : '...........................'}</p>
           </div>
           <div style="text-align:center;">
             <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Approved By</p>
-            <p style="font-size:12px; color:#64748b; margin-top:4px;">${journal.approvedBy ? `${journal.approvedBy.firstName} ${journal.approvedBy.lastName}` : '...........................'}</p>
+            <p style="font-size:12px; color:#64748b; margin-top:4px;">${journal.approvedBy?.firstName ? `${journal.approvedBy.firstName} ${journal.approvedBy.lastName}` : '...........................'}</p>
           </div>
         </div>
       `;

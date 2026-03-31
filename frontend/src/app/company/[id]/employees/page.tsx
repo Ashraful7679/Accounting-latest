@@ -194,26 +194,35 @@ export default function EmployeesPage() {
   });
 
   const approveMutation = useMutation({
-    mutationFn: async ({ type, id }: { type: string; id: string }) => {
+    mutationFn: async ({ type, id, action }: { type: string; id: string; action: 'verify' | 'approve' }) => {
       const endpoint = {
-        advance: `/company/${companyId}/employee-advances/${id}/approve`,
-        loan: `/company/${companyId}/employee-loans/${id}/approve`,
-        expense: `/company/${companyId}/employee-expenses/${id}/approve`,
-      }[type] as string;
+        advance: action === 'verify' 
+          ? `/company/${companyId}/employee-advances/${id}/verify`
+          : `/company/${companyId}/employee-advances/${id}/approve`,
+        loan: action === 'verify'
+          ? `/company/${companyId}/employee-loans/${id}/verify`
+          : `/company/${companyId}/employee-loans/${id}/approve`,
+        expense: action === 'verify'
+          ? `/company/${companyId}/employee-expenses/${id}/verify`
+          : `/company/${companyId}/employee-expenses/${id}/approve`,
+        repayment: action === 'verify'
+          ? `/company/${companyId}/employee-loan-repayments/${id}/verify`
+          : `/company/${companyId}/employee-loan-repayments/${id}/approve`,
+      }[`${type}`] as string;
       if (!endpoint) throw new Error('Invalid type');
       const response = await api.post(endpoint);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['employee-advances', companyId] });
       queryClient.invalidateQueries({ queryKey: ['employee-loans', companyId] });
       queryClient.invalidateQueries({ queryKey: ['employee-expenses', companyId] });
       queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
-      toast.success('Approved - Journal created automatically');
+      toast.success(variables.action === 'verify' ? 'Verified successfully' : 'Approved - Journal created');
       closeModal();
     },
     onError: (error: any) => {
-      handleError(error, 'Failed to approve');
+      handleError(error, `Failed to ${approveMutation.variables?.action || 'process'}`);
     },
   });
 
@@ -262,6 +271,8 @@ export default function EmployeesPage() {
     const styles: { [key: string]: string } = {
       DRAFT: 'bg-gray-100 text-gray-800',
       PENDING: 'bg-yellow-100 text-yellow-800',
+      PENDING_VERIFICATION: 'bg-yellow-100 text-yellow-800',
+      VERIFIED: 'bg-blue-100 text-blue-800',
       APPROVED: 'bg-blue-100 text-blue-800',
       PAID: 'bg-green-100 text-green-800',
       ACTIVE: 'bg-purple-100 text-purple-800',
@@ -373,9 +384,18 @@ export default function EmployeesPage() {
                         {adv.status === 'DRAFT' && (
                           <>
                             <button onClick={() => openModal('advance', adv)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="w-4 h-4" /></button>
-                            <button onClick={() => approveMutation.mutate({ type: 'advance', id: adv.id })} className="p-1 text-green-600 hover:bg-green-50 rounded ml-1" title="Approve & Create Journal"><Check className="w-4 h-4" /></button>
+                            <button onClick={() => approveMutation.mutate({ type: 'advance', id: adv.id, action: 'verify' })} className="p-1 text-yellow-600 hover:bg-yellow-50 rounded ml-1" title="Verify"><Check className="w-4 h-4" /></button>
                             <button onClick={() => deleteMutation.mutate({ type: 'advance', id: adv.id })} className="p-1 text-red-600 hover:bg-red-50 rounded ml-1"><Trash2 className="w-4 h-4" /></button>
                           </>
+                        )}
+                        {adv.status === 'PENDING_VERIFICATION' && (
+                          <>
+                            <button onClick={() => approveMutation.mutate({ type: 'advance', id: adv.id, action: 'verify' })} className="p-1 text-yellow-600 hover:bg-yellow-50 rounded" title="Verify"><Check className="w-4 h-4" /></button>
+                            <button onClick={() => approveMutation.mutate({ type: 'advance', id: adv.id, action: 'approve' })} className="p-1 text-green-600 hover:bg-green-50 rounded ml-1" title="Approve & Create Journal"><Check className="w-4 h-4" /></button>
+                          </>
+                        )}
+                        {adv.status === 'VERIFIED' && (
+                          <button onClick={() => approveMutation.mutate({ type: 'advance', id: adv.id, action: 'approve' })} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Approve & Create Journal"><Check className="w-4 h-4" /></button>
                         )}
                       </td>
                     </tr>
@@ -412,9 +432,18 @@ export default function EmployeesPage() {
                         {loan.status === 'DRAFT' && (
                           <>
                             <button onClick={() => openModal('loan', loan)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="w-4 h-4" /></button>
-                            <button onClick={() => approveMutation.mutate({ type: 'loan', id: loan.id })} className="p-1 text-green-600 hover:bg-green-50 rounded ml-1" title="Approve"><Check className="w-4 h-4" /></button>
+                            <button onClick={() => approveMutation.mutate({ type: 'loan', id: loan.id, action: 'verify' })} className="p-1 text-yellow-600 hover:bg-yellow-50 rounded ml-1" title="Verify"><Check className="w-4 h-4" /></button>
                             <button onClick={() => deleteMutation.mutate({ type: 'loan', id: loan.id })} className="p-1 text-red-600 hover:bg-red-50 rounded ml-1"><Trash2 className="w-4 h-4" /></button>
                           </>
+                        )}
+                        {loan.status === 'PENDING_VERIFICATION' && (
+                          <>
+                            <button onClick={() => approveMutation.mutate({ type: 'loan', id: loan.id, action: 'verify' })} className="p-1 text-yellow-600 hover:bg-yellow-50 rounded" title="Verify"><Check className="w-4 h-4" /></button>
+                            <button onClick={() => approveMutation.mutate({ type: 'loan', id: loan.id, action: 'approve' })} className="p-1 text-green-600 hover:bg-green-50 rounded ml-1" title="Approve & Create Journal"><Check className="w-4 h-4" /></button>
+                          </>
+                        )}
+                        {loan.status === 'VERIFIED' && (
+                          <button onClick={() => approveMutation.mutate({ type: 'loan', id: loan.id, action: 'approve' })} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Approve & Create Journal"><Check className="w-4 h-4" /></button>
                         )}
                       </td>
                     </tr>
@@ -449,9 +478,18 @@ export default function EmployeesPage() {
                         {exp.status === 'DRAFT' && (
                           <>
                             <button onClick={() => openModal('expense', exp)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="w-4 h-4" /></button>
-                            <button onClick={() => approveMutation.mutate({ type: 'expense', id: exp.id })} className="p-1 text-green-600 hover:bg-green-50 rounded ml-1" title="Approve & Create Journal"><Check className="w-4 h-4" /></button>
+                            <button onClick={() => approveMutation.mutate({ type: 'expense', id: exp.id, action: 'verify' })} className="p-1 text-yellow-600 hover:bg-yellow-50 rounded ml-1" title="Verify"><Check className="w-4 h-4" /></button>
                             <button onClick={() => deleteMutation.mutate({ type: 'expense', id: exp.id })} className="p-1 text-red-600 hover:bg-red-50 rounded ml-1"><Trash2 className="w-4 h-4" /></button>
                           </>
+                        )}
+                        {exp.status === 'PENDING_VERIFICATION' && (
+                          <>
+                            <button onClick={() => approveMutation.mutate({ type: 'expense', id: exp.id, action: 'verify' })} className="p-1 text-yellow-600 hover:bg-yellow-50 rounded" title="Verify"><Check className="w-4 h-4" /></button>
+                            <button onClick={() => approveMutation.mutate({ type: 'expense', id: exp.id, action: 'approve' })} className="p-1 text-green-600 hover:bg-green-50 rounded ml-1" title="Approve & Create Journal"><Check className="w-4 h-4" /></button>
+                          </>
+                        )}
+                        {exp.status === 'VERIFIED' && (
+                          <button onClick={() => approveMutation.mutate({ type: 'expense', id: exp.id, action: 'approve' })} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Approve & Create Journal"><Check className="w-4 h-4" /></button>
                         )}
                       </td>
                     </tr>

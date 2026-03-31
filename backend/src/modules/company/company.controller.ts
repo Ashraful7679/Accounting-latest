@@ -77,14 +77,22 @@ export class CompanyController {
   }
 
   private canVerify(status: string, role: string): boolean {
-    if (role === 'Owner') return status === 'PENDING_VERIFICATION';
-    if (role === 'Manager') return status === 'PENDING_VERIFICATION';
+    if (role === 'Owner' || role === 'Manager') return status === 'PENDING_VERIFICATION';
     return false;
   }
 
   private canApprove(status: string, role: string): boolean {
-    if (role === 'Owner') return status === 'PENDING_APPROVAL' || status === 'VERIFIED';
+    if (role === 'Owner') return status === 'VERIFIED';
+    if (role === 'Manager') return status === 'VERIFIED';
     return false;
+  }
+
+  private getNextStatusAfterVerify(): string {
+    return 'VERIFIED';
+  }
+
+  private getNextStatusAfterApprove(): string {
+    return 'APPROVED';
   }
 
   async getCompany(request: FastifyRequest, reply: FastifyReply) {
@@ -1540,6 +1548,26 @@ export class CompanyController {
     return reply.send({ success: true });
   }
 
+  async verifyEmployeeAdvance(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, advanceId } = request.params as { id: string; advanceId: string };
+    const userId = (request.user as any).id;
+
+    const advance = await prisma.employeeAdvance.findUnique({ where: { id: advanceId } });
+    if (!advance) throw new NotFoundError('Advance not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canVerify(advance.status, role)) {
+      throw new ForbiddenError(`Cannot verify this advance from current status: ${advance.status}`);
+    }
+
+    const updated = await prisma.employeeAdvance.update({
+      where: { id: advanceId },
+      data: { status: 'VERIFIED' },
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
   async approveEmployeeAdvance(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id: companyId, advanceId } = request.params as { id: string; advanceId: string };
@@ -1598,7 +1626,6 @@ export class CompanyController {
         data: {
           entryNumber,
           date: advance.date,
-          description: `Advance for ${advance.employee.firstName} ${advance.employee.lastName} - ${advance.purpose || ''}`,
           companyId,
           createdById: userId,
           status: 'APPROVED',
@@ -1734,6 +1761,26 @@ export class CompanyController {
     return reply.send({ success: true });
   }
 
+  async verifyEmployeeLoan(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, loanId } = request.params as { id: string; loanId: string };
+    const userId = (request.user as any).id;
+
+    const loan = await prisma.employeeLoan.findUnique({ where: { id: loanId } });
+    if (!loan) throw new NotFoundError('Loan not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canVerify(loan.status, role)) {
+      throw new ForbiddenError(`Cannot verify this loan from current status: ${loan.status}`);
+    }
+
+    const updated = await prisma.employeeLoan.update({
+      where: { id: loanId },
+      data: { status: 'VERIFIED' },
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
   async approveEmployeeLoan(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id: companyId, loanId } = request.params as { id: string; loanId: string };
@@ -1783,17 +1830,29 @@ export class CompanyController {
         );
       }
 
-      // Create journal entry for loan disbursement
+      // Create journal entry for loan disbursement (principal + interest)
+      const totalDisbursement = loan.principalAmount + loan.interestAmount;
+      
+      const interestIncomeAccount = await prisma.account.findFirst({
+        where: { 
+          companyId, 
+          OR: [
+            { code: 'I-4101' },
+            { name: { contains: 'Interest Income', mode: 'insensitive' } }
+          ],
+          isActive: true 
+        },
+      });
+
       await prisma.journalEntry.create({
         data: {
           entryNumber,
           date: loan.startDate,
-          description: `Employee Loan for ${loan.employee.firstName} ${loan.employee.lastName} - ${loan.purpose || ''}`,
           companyId,
           createdById: userId,
           status: 'APPROVED',
-          totalDebit: loan.principalAmount,
-          totalCredit: loan.principalAmount,
+          totalDebit: totalDisbursement,
+          totalCredit: totalDisbursement,
           lines: {
             create: [
               {
@@ -1807,13 +1866,23 @@ export class CompanyController {
                 exchangeRate: 1,
               },
               {
+                accountId: debitAccountId,
+                debit: loan.interestAmount,
+                credit: 0,
+                debitBase: loan.interestAmount,
+                creditBase: 0,
+                debitForeign: loan.interestAmount,
+                creditForeign: 0,
+                exchangeRate: 1,
+              },
+              {
                 accountId: creditAccountId,
                 debit: 0,
-                credit: loan.principalAmount,
+                credit: totalDisbursement,
                 debitBase: 0,
-                creditBase: loan.principalAmount,
+                creditBase: totalDisbursement,
                 debitForeign: 0,
-                creditForeign: loan.principalAmount,
+                creditForeign: totalDisbursement,
                 exchangeRate: 1,
               },
             ],
@@ -1860,6 +1929,26 @@ export class CompanyController {
     });
 
     return reply.send({ success: true, data: repayment });
+  }
+
+  async verifyLoanRepayment(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, repaymentId } = request.params as { id: string; repaymentId: string };
+    const userId = (request.user as any).id;
+
+    const repayment = await prisma.employeeLoanRepayment.findUnique({ where: { id: repaymentId } });
+    if (!repayment) throw new NotFoundError('Repayment not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canVerify(repayment.status, role)) {
+      throw new ForbiddenError(`Cannot verify this repayment from current status: ${repayment.status}`);
+    }
+
+    const updated = await prisma.employeeLoanRepayment.update({
+      where: { id: repaymentId },
+      data: { status: 'VERIFIED' },
+    });
+
+    return reply.send({ success: true, data: updated });
   }
 
   async approveLoanRepayment(request: FastifyRequest, reply: FastifyReply) {
@@ -1920,7 +2009,6 @@ export class CompanyController {
       data: {
         entryNumber,
         date: repayment.paymentDate,
-        description: `Loan Repayment for ${repayment.loan.employee.firstName} ${repayment.loan.employee.lastName}`,
         companyId,
         createdById: userId,
         status: 'APPROVED',
@@ -2061,6 +2149,26 @@ export class CompanyController {
     return reply.send({ success: true });
   }
 
+  async verifyEmployeeExpense(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, expenseId } = request.params as { id: string; expenseId: string };
+    const userId = (request.user as any).id;
+
+    const expense = await prisma.employeeExpense.findUnique({ where: { id: expenseId } });
+    if (!expense) throw new NotFoundError('Expense not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canVerify(expense.status, role)) {
+      throw new ForbiddenError(`Cannot verify this expense from current status: ${expense.status}`);
+    }
+
+    const updated = await prisma.employeeExpense.update({
+      where: { id: expenseId },
+      data: { status: 'VERIFIED' },
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
   async approveEmployeeExpense(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, expenseId } = request.params as { id: string; expenseId: string };
     const userId = (request.user as any).id;
@@ -2116,7 +2224,6 @@ export class CompanyController {
       data: {
         entryNumber,
         date: expense.date,
-        description: `${expense.category} - ${expense.employee.firstName} ${expense.employee.lastName} - ${expense.description || ''}`,
         companyId,
         createdById: userId,
         status: 'APPROVED',

@@ -77,7 +77,6 @@ export default function CompanyJournalsPage() {
           </div>
         </div>
         <div class="meta-grid">
-          <div class="meta-field"><label>Description</label><span>${journal.description || 'N/A'}</span></div>
           <div class="meta-field"><label>Created By</label><span>${journal.createdBy.firstName} ${journal.createdBy.lastName}</span></div>
           ${journal.verifiedBy ? `<div class="meta-field"><label>Verified By</label><span>${journal.verifiedBy.firstName} ${journal.verifiedBy.lastName}</span></div>` : ''}
           ${journal.approvedBy ? `<div class="meta-field"><label>Approved By</label><span>${journal.approvedBy.firstName} ${journal.approvedBy.lastName}</span></div>` : ''}
@@ -586,7 +585,6 @@ export default function CompanyJournalsPage() {
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Entry #</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Description</th>
                     <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Amount</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Actions</th>
@@ -599,7 +597,6 @@ export default function CompanyJournalsPage() {
                       <td className="px-6 py-4 text-sm text-slate-500 font-medium">
                         {new Date(journal.date).toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-400 italic max-w-xs truncate">{journal.description || '-'}</td>
                       <td className="px-6 py-4 text-sm text-slate-700 text-right font-mono font-bold">{journal.totalDebit.toLocaleString()}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-md ${getStatusBadge(journal.status)}`}>
@@ -788,15 +785,7 @@ export default function CompanyJournalsPage() {
                     required
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <input
-                    type="text"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="input"
-                  />
-                </div>
+                <div className="col-span-2">
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Supporting Documents (Optional)</label>
                   <input
@@ -930,14 +919,9 @@ export default function CompanyJournalsPage() {
                     {selectedJournal.status}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Description:</span>
-                  <span className="text-slate-700 text-right">{selectedJournal.description || '-'}</span>
-                </div>
               </div>
-            </div>
 
-            <div className="border border-slate-100 rounded-lg overflow-hidden mb-8 print-hide">
+              <div className="border border-slate-100 rounded-lg overflow-hidden mb-8 print-hide">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr className="text-left text-slate-500">
@@ -1098,11 +1082,6 @@ export default function CompanyJournalsPage() {
                 <div className="text-2xl font-mono font-bold text-slate-900">{selectedJournal.entryNumber}</div>
                 <div className="text-slate-500 text-sm mt-1">Date: {new Date(selectedJournal.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</div>
               </div>
-            </div>
-
-            <div className="mb-8 p-4 bg-slate-50 rounded border border-slate-200">
-              <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Description</span>
-              <p className="text-slate-800 font-medium">{selectedJournal.description || 'No description provided'}</p>
             </div>
 
             <table className="w-full mb-12 border-collapse">

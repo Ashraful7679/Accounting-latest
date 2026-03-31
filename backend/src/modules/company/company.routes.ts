@@ -124,6 +124,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/employee-advances', controller.createEmployeeAdvance.bind(controller));
   fastify.put('/:id/employee-advances/:advanceId', controller.updateEmployeeAdvance.bind(controller));
   fastify.delete('/:id/employee-advances/:advanceId', controller.deleteEmployeeAdvance.bind(controller));
+  fastify.post('/:id/employee-advances/:advanceId/verify', controller.verifyEmployeeAdvance.bind(controller));
   fastify.post('/:id/employee-advances/:advanceId/approve', controller.approveEmployeeAdvance.bind(controller));
 
   // Employee Loans
@@ -131,9 +132,11 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/employee-loans', controller.createEmployeeLoan.bind(controller));
   fastify.put('/:id/employee-loans/:loanId', controller.updateEmployeeLoan.bind(controller));
   fastify.delete('/:id/employee-loans/:loanId', controller.deleteEmployeeLoan.bind(controller));
+  fastify.post('/:id/employee-loans/:loanId/verify', controller.verifyEmployeeLoan.bind(controller));
   fastify.post('/:id/employee-loans/:loanId/approve', controller.approveEmployeeLoan.bind(controller));
   fastify.get('/:id/employee-loans/:loanId/repayments', controller.getLoanRepayments.bind(controller));
   fastify.post('/:id/employee-loans/:loanId/repayments', controller.createLoanRepayment.bind(controller));
+  fastify.post('/:id/employee-loan-repayments/:repaymentId/verify', controller.verifyLoanRepayment.bind(controller));
   fastify.post('/:id/employee-loan-repayments/:repaymentId/approve', controller.approveLoanRepayment.bind(controller));
 
   // Employee Expenses
@@ -141,6 +144,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/employee-expenses', controller.createEmployeeExpense.bind(controller));
   fastify.put('/:id/employee-expenses/:expenseId', controller.updateEmployeeExpense.bind(controller));
   fastify.delete('/:id/employee-expenses/:expenseId', controller.deleteEmployeeExpense.bind(controller));
+  fastify.post('/:id/employee-expenses/:expenseId/verify', controller.verifyEmployeeExpense.bind(controller));
   fastify.post('/:id/employee-expenses/:expenseId/approve', controller.approveEmployeeExpense.bind(controller));
 
   // Invoices

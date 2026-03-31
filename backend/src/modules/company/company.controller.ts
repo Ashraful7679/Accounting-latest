@@ -592,9 +592,9 @@ export class CompanyController {
         exchangeRate: data.exchangeRate || 1,
         invoiceDate: invoiceDate,
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
-        description: data.description,
         subtotal,
         taxAmount,
+        discountAmount: 0,
         total: bdtAmount,
         createdById: userId,
         lines: {

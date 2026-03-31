@@ -602,6 +602,7 @@ model Invoice {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   
+  @@unique([companyId, invoiceNumber])
   @@index([companyId])
   @@index([customerId])
   @@index([vendorId])

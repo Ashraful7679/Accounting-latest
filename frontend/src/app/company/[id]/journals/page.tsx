@@ -107,6 +107,20 @@ export default function CompanyJournalsPage() {
           <p>Total Debit: <strong>${journal.totalDebit.toLocaleString()}</strong></p>
           <p class="grand-total">Total Credit: ${journal.totalCredit.toLocaleString()}</p>
         </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:32px; margin-top:48px; padding-top:24px; border-top:1px solid #e2e8f0;">
+          <div style="text-align:center;">
+            <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Prepared By</p>
+            <p style="font-size:12px; color:#64748b; margin-top:4px;">${journal.createdBy.firstName} ${journal.createdBy.lastName}</p>
+          </div>
+          <div style="text-align:center;">
+            <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Verified By</p>
+            <p style="font-size:12px; color:#64748b; margin-top:4px;">${journal.verifiedBy ? `${journal.verifiedBy.firstName} ${journal.verifiedBy.lastName}` : '...........................'}</p>
+          </div>
+          <div style="text-align:center;">
+            <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Approved By</p>
+            <p style="font-size:12px; color:#64748b; margin-top:4px;">${journal.approvedBy ? `${journal.approvedBy.firstName} ${journal.approvedBy.lastName}` : '...........................'}</p>
+          </div>
+        </div>
       `;
 
       openPrintWindow(buildPrintDocument({ title: `Journal Voucher - ${journal.entryNumber}`, company, body }));

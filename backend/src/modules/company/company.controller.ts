@@ -894,8 +894,8 @@ export class CompanyController {
       throw new ValidationError('Journal lines are required');
     }
 
-    const totalDebit = data.lines.reduce((sum: number, line: any) => sum + (Number(line.debit) || 0), 0);
-    const totalCredit = data.lines.reduce((sum: number, line: any) => sum + (Number(line.credit) || 0), 0);
+    const totalDebit = data.lines.reduce((sum: number, line: any) => sum + (line.debitCredit === 'debit' ? Number(line.amount) : 0), 0);
+    const totalCredit = data.lines.reduce((sum: number, line: any) => sum + (line.debitCredit === 'credit' ? Number(line.amount) : 0), 0);
 
     if (Math.abs(totalDebit - totalCredit) > 0.01) {
       throw new ValidationError('Debit and Credit must be equal');

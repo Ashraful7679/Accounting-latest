@@ -1056,26 +1056,26 @@ export default function CompanyJournalsPage() {
             {/* Printable Section - ensuring it occupies the whole print view */}
             <div className="hidden print:block print:p-0 print:m-0 w-full bg-white printable-content">
               <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8">
-              <div className="flex items-center gap-4">
-                {companyData?.logoUrl && (
-                  <img src={companyData.logoUrl} alt="Logo" className="w-20 h-20 object-contain" />
-                )}
-                <div>
-                  <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">{companyData?.name || 'Voucher'}</h1>
-                  <p className="text-sm text-slate-500 max-w-[300px] leading-relaxed">
-                    {companyData?.address}<br />
-                    {companyData?.city}, {companyData?.country}<br />
-                    Tel: {companyData?.phone} | Email: {companyData?.email}
-                  </p>
+                <div className="flex items-center gap-4">
+                  {companyData?.logoUrl && (
+                    <img src={companyData.logoUrl} alt="Logo" className="w-20 h-20 object-contain" />
+                  )}
+                  <div>
+                    <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">{companyData?.name || 'Voucher'}</h1>
+                    <p className="text-sm text-slate-500 max-w-[300px] leading-relaxed">
+                      {companyData?.address}<br />
+                      {companyData?.city}, {companyData?.country}<br />
+                      Tel: {companyData?.phone} | Email: {companyData?.email}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="text-right">
-                <div className="bg-slate-900 text-white px-4 py-1 text-xs font-bold uppercase tracking-widest mb-2 inline-block">
-                  Journal Voucher
+                <div className="text-right">
+                  <div className="bg-slate-900 text-white px-4 py-1 text-xs font-bold uppercase tracking-widest mb-2 inline-block">
+                    Journal Voucher
+                  </div>
+                  <div className="text-2xl font-mono font-bold text-slate-900">{selectedJournal.entryNumber}</div>
+                  <div className="text-slate-500 text-sm mt-1">Date: {new Date(selectedJournal.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</div>
                 </div>
-                <div className="text-2xl font-mono font-bold text-slate-900">{selectedJournal.entryNumber}</div>
-                <div className="text-slate-500 text-sm mt-1">Date: {new Date(selectedJournal.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-              </div>
             </div>
 
             <table className="w-full mb-12 border-collapse">

@@ -931,14 +931,26 @@ export class CompanyController {
       createdById: userId,
       status,
       lines: {
-        create: data.lines.map((l: any) => ({
-          ...l,
-          debitBase: l.debit * (data.exchangeRate || 1),
-          creditBase: l.credit * (data.exchangeRate || 1),
-          debitForeign: l.debit,
-          creditForeign: l.credit,
-          exchangeRate: data.exchangeRate || 1,
-        })),
+        create: data.lines.map((l: any) => {
+          const debit = l.debitCredit === 'debit' ? Number(l.amount) : 0;
+          const credit = l.debitCredit === 'credit' ? Number(l.amount) : 0;
+          return {
+            accountId: l.accountId,
+            branchId: l.branchId || null,
+            projectId: l.projectId || null,
+            costCenterId: l.costCenterId || null,
+            customerId: l.customerId || null,
+            vendorId: l.vendorId || null,
+            description: l.description || null,
+            debit,
+            credit,
+            debitBase: debit * (data.exchangeRate || 1),
+            creditBase: credit * (data.exchangeRate || 1),
+            debitForeign: debit,
+            creditForeign: credit,
+            exchangeRate: data.exchangeRate || 1,
+          };
+        }),
       },
     });
 

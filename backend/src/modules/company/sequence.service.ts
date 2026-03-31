@@ -70,7 +70,7 @@ export class SequenceService {
 
       switch (type) {
         case 'invoice':
-          alreadyExists = !!(await client.invoice.findUnique({ where: { invoiceNumber: candidate } }));
+          alreadyExists = !!(await client.invoice.findUnique({ where: { companyId_invoiceNumber: { companyId, invoiceNumber: candidate } } }));
           break;
         case 'journal':
           alreadyExists = !!(await client.journalEntry.findUnique({ where: { entryNumber: candidate } }));

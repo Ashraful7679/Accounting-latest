@@ -871,7 +871,6 @@ export default function CompanyJournalsPage() {
       )}
 
       {showViewModal && selectedJournal && (
-        <>
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 print:hidden no-print">
           <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto no-print">
             <div className="flex justify-between items-center mb-6 print-hide">
@@ -917,8 +916,9 @@ export default function CompanyJournalsPage() {
                   </span>
                 </div>
               </div>
+            </div>
 
-              <div className="border border-slate-100 rounded-lg overflow-hidden mb-8 print-hide">
+            <div className="border border-slate-100 rounded-lg overflow-hidden mb-8 print-hide">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr className="text-left text-slate-500">
@@ -1137,8 +1137,7 @@ export default function CompanyJournalsPage() {
               This is a computer generated document. Printed on {new Date().toLocaleString()}
             </div>
           </div>
-        </>
-      )}
+        )}
 
       {/* Floating Action Button for mobile print */}
       {selectedJournal && showViewModal && (

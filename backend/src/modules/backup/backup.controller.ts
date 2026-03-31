@@ -60,11 +60,11 @@ export class BackupController {
         }
       }
 
-      // 1. Database Dump (Custom Format)
-      // Use double quotes for password to handle special characters on Windows
+      // 1. Database Dump (Plain SQL Format - easier to restore without advanced privileges)
+      // Using -Fc (custom format) still works but restore might need adjustments
       const pgDumpCmd = process.platform === 'win32'
-        ? `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${pgDumpPath} -U ${user} -h ${host} -p ${port} -F c -b -v -f "${dbFilePath}" ${database}`
-        : `PGPASSWORD='${password.replace(/'/g, "'\\''")}' pg_dump -U ${user} -h ${host} -p ${port} -F c -b -v -f "${dbFilePath}" ${database}`;
+        ? `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${pgDumpPath} -U ${user} -h ${host} -p ${port} -F p -b -v -f "${dbFilePath}" ${database}`
+        : `PGPASSWORD='${password.replace(/'/g, "'\\''")}' pg_dump -U ${user} -h ${host} -p ${port} -F p -b -v -f "${dbFilePath}" ${database}`;
       
       console.log('Running Backup Command:', pgDumpCmd.replace(password, '****'));
 
@@ -178,22 +178,38 @@ export class BackupController {
         }
       }
 
-      // 5. Run pg_restore
-      // --clean drops database objects before recreating them
-      // --if-exists used with --clean
-      // -c is short for --clean
-      const pgRestoreCmd = process.platform === 'win32'
-        ? `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${pgRestorePath} -U ${user} -h ${host} -p ${port} -d ${database} -c --if-exists -v "${dumpPath}"`
-        : `PGPASSWORD='${password.replace(/'/g, "'\\''")}' pg_restore -U ${user} -h ${host} -p ${port} -d ${database} -c --if-exists -v "${dumpPath}"`;
+      // 5. Run restore based on dump format
+      // Since we use plain SQL format (-F p), use psql to restore
+      let restoreCmd: string;
+      if (process.platform === 'win32') {
+        // For Windows, find psql path
+        let psqlPath = 'psql';
+        const commonPaths = [
+          'C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe',
+          'C:\\Program Files\\PostgreSQL\\17\\bin\\psql.exe',
+          'C:\\Program Files\\PostgreSQL\\16\\bin\\psql.exe',
+          'C:\\Program Files\\PostgreSQL\\15\\bin\\psql.exe',
+          'C:\\Program Files\\PostgreSQL\\14\\bin\\psql.exe',
+        ];
+        for (const p of commonPaths) {
+          if (fs.existsSync(p)) {
+            psqlPath = `"${p}"`;
+            break;
+          }
+        }
+        restoreCmd = `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${psqlPath} -U ${user} -h ${host} -p ${port} -d ${database} -f "${dumpPath}"`;
+      } else {
+        restoreCmd = `PGPASSWORD='${password.replace(/'/g, "'\\''")}' psql -U ${user} -h ${host} -p ${port} -d ${database} -f "${dumpPath}"`;
+      }
 
-      console.log('Running Restore Command:', pgRestoreCmd.replace(password, '****'));
+      console.log('Running Restore Command:', restoreCmd.replace(password, '****'));
       
       try {
-        await execPromise(pgRestoreCmd);
+        await execPromise(restoreCmd);
       } catch (cmdError: any) {
         const errorMsg = cmdError.stderr || cmdError.stdout || cmdError.message;
-        console.error('pg_restore execution failed:', errorMsg);
-        throw new Error(`pg_restore failed: ${errorMsg}`);
+        console.error('psql execution failed:', errorMsg);
+        throw new Error(`psql failed: ${errorMsg}`);
       }
 
       // 6. Restore uploads directory if it exists in backup

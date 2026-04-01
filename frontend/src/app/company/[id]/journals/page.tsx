@@ -652,6 +652,13 @@ export default function JournalsPage() {
                   {createMutation.isPending || updateMutation.isPending ? 'Saving...' : (editingJournalId ? 'Update Journal' : 'Create Journal')}
                 </button>
               </div>
+              
+              {/* Attachments - Show when editing existing journal */}
+              {editingJournalId && (
+                <div className="mt-4 pt-4 border-t">
+                  <AttachmentManager entityType="VOUCHER" entityId={editingJournalId} canEdit={true} />
+                </div>
+              )}
             </form>
           </div>
         </div>

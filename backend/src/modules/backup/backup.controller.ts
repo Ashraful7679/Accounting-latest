@@ -65,48 +65,53 @@ export class BackupController {
   private async createSimpleBackup(outputPath: string): Promise<void> {
     console.log('Using Prisma-based backup fallback...');
     
-    const tables = await prisma.$queryRawUnsafe<{ tablename: string }[]>(`
-      SELECT tablename FROM pg_tables 
-      WHERE schemaname = 'public' AND tablename NOT LIKE '_prisma_%'
-    ` as any);
-    
-    let sqlContent = '-- Database Backup created at ' + new Date().toISOString() + '\n\n';
-    
-    for (const table of tables) {
-      const tableName = table.tablename;
+    try {
+      const tables = await prisma.$queryRawUnsafe<{ tablename: string }[]>(
+        "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename NOT LIKE '_prisma_%'"
+      );
+      console.log('Found tables:', tables.length);
       
-      const columns = await prisma.$queryRawUnsafe<{ column_name: string }[]>(`
-        SELECT column_name FROM information_schema.columns 
-        WHERE table_name = $1 AND table_schema = 'public'
-      ` as any, tableName);
+      let sqlContent = '-- Database Backup created at ' + new Date().toISOString() + '\n\n';
       
-      if (columns.length === 0) continue;
-      
-      const rows = await prisma.$queryRawUnsafe<any[]>(`SELECT * FROM "${tableName}"`);
-      
-      if (rows.length > 0) {
-        sqlContent += `-- Data for ${tableName}\n`;
-        const colNames = columns.map(c => `"${c.column_name}"`).join(', ');
+      for (const table of tables) {
+        const tableName = table.tablename;
         
-        for (const row of rows) {
-          const values = columns.map(col => {
-            const val = row[col.column_name];
-            if (val === null) return 'NULL';
-            if (typeof val === 'number') return val.toString();
-            if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
-            if (val instanceof Date || (val && val.toISOString)) {
-              return `'${new Date(val).toISOString()}'`;
-            }
-            return `'${val.toString().replace(/'/g, "''").replace(/\\/g, '\\\\')}'`;
-          });
-          sqlContent += `INSERT INTO "${tableName}" (${colNames}) VALUES (${values.join(', ')});\n`;
+        const columns = await prisma.$queryRawUnsafe<{ column_name: string }[]>(
+          "SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public'",
+          [tableName]
+        );
+        
+        if (columns.length === 0) continue;
+        
+        const rows = await prisma.$queryRawUnsafe<any[]>(`SELECT * FROM "${tableName}"`);
+        
+        if (rows.length > 0) {
+          sqlContent += `-- Data for ${tableName}\n`;
+          const colNames = columns.map(c => `"${c.column_name}"`).join(', ');
+          
+          for (const row of rows) {
+            const values = columns.map(col => {
+              const val = row[col.column_name];
+              if (val === null) return 'NULL';
+              if (typeof val === 'number') return val.toString();
+              if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
+              if (val instanceof Date || (val && val.toISOString)) {
+                return `'${new Date(val).toISOString()}'`;
+              }
+              return `'${val.toString().replace(/'/g, "''").replace(/\\/g, '\\\\')}'`;
+            });
+            sqlContent += `INSERT INTO "${tableName}" (${colNames}) VALUES (${values.join(', ')});\n`;
+          }
+          sqlContent += '\n';
         }
-        sqlContent += '\n';
       }
+      
+      fs.writeFileSync(outputPath, sqlContent, 'utf8');
+      console.log('Simple backup written to:', outputPath, 'Size:', fs.statSync(outputPath).size);
+    } catch (error: any) {
+      console.error('Simple backup failed:', error.message);
+      throw error;
     }
-    
-    fs.writeFileSync(outputPath, sqlContent, 'utf8');
-    console.log('Simple backup written to:', outputPath);
   }
 
   async generateBackup(request: FastifyRequest, reply: FastifyReply) {
@@ -123,6 +128,13 @@ export class BackupController {
       // Use Prisma-based backup (more reliable for remote DBs)
       console.log('Starting Prisma-based backup...');
       await this.createSimpleBackup(dbFilePath);
+      console.log('Backup file created at:', dbFilePath);
+
+      // Check if backup file exists
+      if (!fs.existsSync(dbFilePath)) {
+        throw new Error('Backup file was not created');
+      }
+      console.log('Backup file exists, size:', fs.statSync(dbFilePath).size);
 
       // Create ZIP archive (using PowerShell or zip command)
       let zipCmd: string;
@@ -133,21 +145,17 @@ export class BackupController {
       }
       
       try {
+        console.log('Running ZIP command:', zipCmd);
         await execPromise(zipCmd);
       } catch (zipError: any) {
-        // If zip fails, just use the SQL file directly
+        console.log('ZIP creation failed, using SQL file directly:', zipError.message);
         zipFilePath = dbFilePath;
         zipFileName = dbFileName;
-        console.log('ZIP creation failed, using SQL file directly');
-      }
-
-      // Clean up the standalone DB file after zipping (if zip succeeded)
-      if (fs.existsSync(dbFilePath) && zipFilePath !== dbFilePath) {
-        fs.unlinkSync(dbFilePath);
       }
 
       // Log Success
       const stats = fs.statSync(zipFilePath);
+      console.log('Final backup file:', zipFilePath, 'Size:', stats.size);
       const log = await prisma.backupLog.create({
         data: {
           fileName: zipFileName,

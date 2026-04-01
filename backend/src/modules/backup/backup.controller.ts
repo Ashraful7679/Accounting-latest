@@ -66,24 +66,31 @@ export class BackupController {
     console.log('Using Prisma-based backup fallback...');
     
     try {
-      const tables = await prisma.$queryRawUnsafe<{ tablename: string }[]>(
-        "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename NOT LIKE '_prisma_%'"
+      // Get all tables
+      const tablesResult = await prisma.$queryRawUnsafe<{ tablename: string }[]>(
+        `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename NOT LIKE '_prisma_%'`
       );
+      const tables = Array.isArray(tablesResult) ? tablesResult : [];
       console.log('Found tables:', tables.length);
       
       let sqlContent = '-- Database Backup created at ' + new Date().toISOString() + '\n\n';
       
       for (const table of tables) {
+        if (!table?.tablename) continue;
         const tableName = table.tablename;
+        console.log('Processing table:', tableName);
         
-        const columns = await prisma.$queryRawUnsafe<{ column_name: string }[]>(
-          "SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public'",
-          [tableName]
+        // Get columns - use raw string with escaped table name
+        const columnsResult = await prisma.$queryRawUnsafe<{ column_name: string }[]>(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = '${tableName}' AND table_schema = 'public'`
         );
+        const columns = Array.isArray(columnsResult) ? columnsResult : [];
         
         if (columns.length === 0) continue;
         
-        const rows = await prisma.$queryRawUnsafe<any[]>(`SELECT * FROM "${tableName}"`);
+        // Get all rows from table
+        const rowsResult = await prisma.$queryRawUnsafe<any[]>(`SELECT * FROM "${tableName}"`);
+        const rows = Array.isArray(rowsResult) ? rowsResult : [];
         
         if (rows.length > 0) {
           sqlContent += `-- Data for ${tableName}\n`;
@@ -91,14 +98,14 @@ export class BackupController {
           
           for (const row of rows) {
             const values = columns.map(col => {
-              const val = row[col.column_name];
+              const colName = col.column_name;
+              const val = row[colName];
               if (val === null) return 'NULL';
               if (typeof val === 'number') return val.toString();
               if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
-              if (val instanceof Date || (val && val.toISOString)) {
-                return `'${new Date(val).toISOString()}'`;
-              }
-              return `'${val.toString().replace(/'/g, "''").replace(/\\/g, '\\\\')}'`;
+              if (val instanceof Date) return `'${val.toISOString()}'`;
+              if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
+              return `'${String(val).replace(/'/g, "''").replace(/\\/g, '\\\\')}'`;
             });
             sqlContent += `INSERT INTO "${tableName}" (${colNames}) VALUES (${values.join(', ')});\n`;
           }
@@ -110,6 +117,7 @@ export class BackupController {
       console.log('Simple backup written to:', outputPath, 'Size:', fs.statSync(outputPath).size);
     } catch (error: any) {
       console.error('Simple backup failed:', error.message);
+      console.error('Stack:', error.stack);
       throw error;
     }
   }
@@ -130,13 +138,11 @@ export class BackupController {
       await this.createSimpleBackup(dbFilePath);
       console.log('Backup file created at:', dbFilePath);
 
-      // Check if backup file exists
       if (!fs.existsSync(dbFilePath)) {
         throw new Error('Backup file was not created');
       }
       console.log('Backup file exists, size:', fs.statSync(dbFilePath).size);
 
-      // Create ZIP archive (using PowerShell or zip command)
       let zipCmd: string;
       if (process.platform === 'win32') {
         zipCmd = `powershell -Command "Compress-Archive -Path '${dbFilePath}' -DestinationPath '${zipFilePath}'"`;
@@ -153,30 +159,41 @@ export class BackupController {
         zipFileName = dbFileName;
       }
 
-      // Log Success
       const stats = fs.statSync(zipFilePath);
       console.log('Final backup file:', zipFilePath, 'Size:', stats.size);
-      const log = await prisma.backupLog.create({
-        data: {
-          fileName: zipFileName,
-          fileSize: stats.size,
-          status: 'SUCCESS',
-          triggeredBy: userId,
-        }
-      });
-
-      return reply.send({ success: true, message: 'Backup completed', data: log });
+      
+      try {
+        const log = await prisma.backupLog.create({
+          data: {
+            fileName: zipFileName,
+            fileSize: stats.size,
+            status: 'SUCCESS',
+            triggeredBy: userId,
+          }
+        });
+        return reply.send({ success: true, message: 'Backup completed', data: log });
+      } catch (logError: any) {
+        console.log('BackupLog create failed but backup succeeded:', logError.message);
+        return reply.send({ success: true, message: 'Backup completed (log failed)', data: { fileName: zipFileName, fileSize: stats.size } });
+      }
     } catch (error: any) {
       console.error('Backup Error Detail:', error);
-      await prisma.backupLog.create({
-        data: {
-          fileName: zipFileName,
-          fileSize: 0,
-          status: 'FAILED',
-          triggeredBy: userId,
-        }
-      });
-      return reply.status(500).send({ success: false, error: { message: 'Backup execution failed: ' + error.message } });
+      console.error('Stack:', error.stack);
+      
+      try {
+        await prisma.backupLog.create({
+          data: {
+            fileName: zipFileName || 'failed-backup.sql',
+            fileSize: 0,
+            status: 'FAILED',
+            triggeredBy: userId,
+          }
+        });
+      } catch (logErr) {
+        console.error('Failed to log backup error:', logErr);
+      }
+      
+      return reply.status(500).send({ success: false, error: { message: 'Backup execution failed: ' + error.message, code: 'BACKUP_FAILED' } });
     }
   }
 

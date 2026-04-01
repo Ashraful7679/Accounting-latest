@@ -47,24 +47,26 @@ export class BackupController {
   private async createSimpleBackup(outputPath: string): Promise<void> {
     console.log('Using Prisma-based backup fallback...');
     
-    const tables = await prisma.$queryRawUnsafe<{ tablename: string }[]>(`
-      SELECT tablename FROM pg_tables 
-      WHERE schemaname = 'public' AND tablename NOT LIKE '_prisma_%'
-    ` as any);
+    const tablesResult = await prisma.$queryRawUnsafe<{ tablename: string }[]>(
+      `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename NOT LIKE '_prisma_%'`
+    );
+    const tables = Array.isArray(tablesResult) ? tablesResult : [];
     
     let sqlContent = '-- Database Backup created at ' + new Date().toISOString() + '\n\n';
     
     for (const table of tables) {
+      if (!table?.tablename) continue;
       const tableName = table.tablename;
       
-      const columns = await prisma.$queryRawUnsafe<{ column_name: string }[]>(`
-        SELECT column_name FROM information_schema.columns 
-        WHERE table_name = $1 AND table_schema = 'public'
-      ` as any, tableName);
+      const columnsResult = await prisma.$queryRawUnsafe<{ column_name: string }[]>(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = '${tableName}' AND table_schema = 'public'`
+      );
+      const columns = Array.isArray(columnsResult) ? columnsResult : [];
       
       if (columns.length === 0) continue;
       
-      const rows = await prisma.$queryRawUnsafe<any[]>(`SELECT * FROM "${tableName}"`);
+      const rowsResult = await prisma.$queryRawUnsafe<any[]>(`SELECT * FROM "${tableName}"`);
+      const rows = Array.isArray(rowsResult) ? rowsResult : [];
       
       if (rows.length > 0) {
         sqlContent += `-- Data for ${tableName}\n`;
@@ -76,10 +78,9 @@ export class BackupController {
             if (val === null) return 'NULL';
             if (typeof val === 'number') return val.toString();
             if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
-            if (val instanceof Date || (val && val.toISOString)) {
-              return `'${new Date(val).toISOString()}'`;
-            }
-            return `'${val.toString().replace(/'/g, "''").replace(/\\/g, '\\\\')}'`;
+            if (val instanceof Date) return `'${val.toISOString()}'`;
+            if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
+            return `'${String(val).replace(/'/g, "''").replace(/\\/g, '\\\\')}'`;
           });
           sqlContent += `INSERT INTO "${tableName}" (${colNames}) VALUES (${values.join(', ')});\n`;
         }
@@ -171,26 +172,6 @@ export class BackupController {
     const psqlPath = this.findPostgresBin('psql');
 
     try {
-      // Pre-restore backup
-      const preRestoreBackup = `pre-restore-${Date.now()}.sql`;
-      const preRestorePath = path.join(this.BACKUP_DIR, preRestoreBackup);
-      let preRestoreCmd: string;
-      if (process.platform === 'win32') {
-        preRestoreCmd = `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${psqlPath} -U ${user} -h ${host} -p ${port} -d ${database} -f "${preRestorePath}"`;
-      } else {
-        preRestoreCmd = `PGPASSWORD='${password.replace(/'/g, "'\\''")}' ${psqlPath} -U ${user} -h ${host} -p ${port} -d ${database} -f "${preRestorePath}"`;
-      }
-
-      try {
-        const { exec } = await import('child_process');
-        const { promisify } = await import('util');
-        const execPromise = promisify(exec);
-        await execPromise(preRestoreCmd);
-      } catch (e) {
-        console.log('Pre-restore backup skipped (pg_dump unavailable)');
-      }
-
-      // Restore
       let restoreCmd: string;
       if (process.platform === 'win32') {
         restoreCmd = `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${psqlPath} -U ${user} -h ${host} -p ${port} -d ${database} -f "${filePath}"`;

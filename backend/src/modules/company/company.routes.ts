@@ -12,6 +12,7 @@ import { PaymentController } from './payment.controller';
 import { PIController } from './pi.controller';
 import { ProductController } from './product.controller';
 import { BackupController } from '../backup/backup.controller';
+import { BillsController } from './bills.controller';
 
 import { authenticate } from '../../middleware/auth';
 
@@ -29,7 +30,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   const piController = new PIController();
   const productController = new ProductController();
   const backupController = new BackupController();
-
+  const billsController = new BillsController();
 
   // All routes require authentication
   fastify.addHook('preHandler', authenticate);
@@ -178,6 +179,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/:id/reports/trial-balance', reportController.getTrialBalance.bind(reportController));
   fastify.get('/:id/reports/ledger', reportController.getLedger.bind(reportController));
   fastify.get('/:id/reports/profit-loss', reportController.getProfitLoss.bind(reportController));
+  fastify.get('/:id/reports/balance-sheet', reportController.getBalanceSheet.bind(reportController));
   fastify.get('/:id/reports/aging', reportController.getAgingReport.bind(reportController));
   fastify.get('/:id/reports/receivables-search', reportController.searchReceivables.bind(reportController));
   fastify.get('/:id/reports/lc-liability', reportController.getLCLiability.bind(reportController));
@@ -200,4 +202,16 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/:id/backups/download/:fileName', backupController.downloadBackup.bind(backupController));
   fastify.post('/:id/backup/restore/:fileName', backupController.restoreBackup.bind(backupController));
   fastify.post('/:id/backup/restore/upload', backupController.uploadAndRestore.bind(backupController));
+
+  // Company Settings
+  fastify.get('/:id/settings', controller.getSettings.bind(controller));
+  fastify.put('/:id/settings', controller.updateSettings.bind(controller));
+
+  // Bills (Accounts Payable Documents)
+  fastify.get('/:id/bills', billsController.getBills.bind(billsController));
+  fastify.post('/:id/bills', billsController.createBill.bind(billsController));
+  fastify.get('/:id/bills/:billId', billsController.getBill.bind(billsController));
+  fastify.put('/:id/bills/:billId', billsController.updateBill.bind(billsController));
+  fastify.delete('/:id/bills/:billId', billsController.deleteBill.bind(billsController));
+  fastify.post('/:id/bills/:billId/approve', billsController.approveBill.bind(billsController));
 };

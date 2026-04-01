@@ -245,9 +245,9 @@ export class DashboardController {
 
       const unreadCount = await prisma.notification.count({ where: { companyId, isRead: false } });
       
-      // Last Backup Info
+      // Last Backup Info (scoped to this company via fileName pattern)
       const lastBackup = await prisma.backupLog.findFirst({
-        where: { status: 'SUCCESS' },
+        where: { status: 'SUCCESS', fileName: { contains: companyId } },
         orderBy: { createdAt: 'desc' }
       });
 

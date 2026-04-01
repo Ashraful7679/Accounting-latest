@@ -78,34 +78,68 @@ export class BackupController {
     console.log('Backup written:', outputPath, 'Size:', fs.statSync(outputPath).size);
   }
 
+  private async createZipWithUploads(jsonPath: string, uploadsDir: string, outputZipPath: string): Promise<boolean> {
+    const sources: string[] = [jsonPath];
+    if (fs.existsSync(uploadsDir)) sources.push(uploadsDir);
+
+    if (process.platform === 'win32') {
+      const srcArray = sources.map(s => `'${s.replace(/'/g, "''")}'`).join(',');
+      await execPromise(
+        `powershell -NoProfile -Command "Compress-Archive -Force -Path @(${srcArray}) -DestinationPath '${outputZipPath}'"`
+      );
+    } else {
+      const srcList = sources.map(s => `"${s}"`).join(' ');
+      await execPromise(`zip -r "${outputZipPath}" ${srcList}`);
+    }
+
+    return fs.existsSync(outputZipPath);
+  }
+
   async generateBackup(request: FastifyRequest, reply: FastifyReply) {
     const companyId = (request.params as any)?.id || 'default';
     const userId = (request.user as any)?.id || 'system';
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const fileName = `backup_${companyId}_${timestamp}.json`;
-    const filePath = path.join(this.BACKUP_DIR, fileName);
+    const jsonFileName = `backup_${companyId}_${timestamp}.json`;
+    const zipFileName = `backup_${companyId}_${timestamp}.zip`;
+    const jsonFilePath = path.join(this.BACKUP_DIR, jsonFileName);
+    const zipFilePath = path.join(this.BACKUP_DIR, zipFileName);
 
     try {
       console.log('Starting backup for company:', companyId);
-      
-      // Try to create JSON backup using Prisma directly
-      await this.createModuleBackup(companyId, filePath);
+      await this.createModuleBackup(companyId, jsonFilePath);
 
-      if (!fs.existsSync(filePath)) {
-        throw new Error('Backup file was not created');
+      if (!fs.existsSync(jsonFilePath)) {
+        throw new Error('JSON backup file was not created');
       }
 
-      const stats = fs.statSync(filePath);
-      console.log('Backup completed:', filePath, 'Size:', stats.size);
+      // Attempt to bundle DB JSON + uploads folder into a ZIP
+      const uploadsDir = path.resolve(process.cwd(), 'uploads');
+      let finalFileName = jsonFileName;
+      let finalPath = jsonFilePath;
 
-      return reply.send({ 
-        success: true, 
-        message: 'Backup completed', 
-        data: { 
-          fileName, 
+      try {
+        const zipped = await this.createZipWithUploads(jsonFilePath, uploadsDir, zipFilePath);
+        if (zipped) {
+          fs.unlinkSync(jsonFilePath); // remove the raw JSON — it lives inside the ZIP
+          finalFileName = zipFileName;
+          finalPath = zipFilePath;
+          console.log('ZIP backup created:', zipFilePath);
+        }
+      } catch (zipErr: any) {
+        console.warn('ZIP creation failed, falling back to JSON backup:', zipErr.message);
+      }
+
+      const stats = fs.statSync(finalPath);
+      console.log('Backup completed:', finalPath, 'Size:', stats.size);
+
+      return reply.send({
+        success: true,
+        message: 'Backup completed',
+        data: {
+          fileName: finalFileName,
           size: stats.size,
-          downloadUrl: `/api/company/${companyId}/backups/download/${fileName}`
-        } 
+          downloadUrl: `/api/company/${companyId}/backups/download/${finalFileName}`,
+        },
       });
     } catch (error: any) {
       console.error('Backup Error:', error);

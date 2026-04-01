@@ -2265,4 +2265,46 @@ export class CompanyController {
 
     return reply.send({ success: true, data: { expense, journal } });
   }
+
+  // ============ COMPANY SETTINGS ============
+
+  async getSettings(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const settings = await prisma.companySettings.findUnique({ where: { companyId } });
+    if (!settings) {
+      return reply.send({
+        success: true,
+        data: { companyId, disallowFutureDates: true, lockPreviousMonths: false, approvalWorkflow: true },
+      });
+    }
+    return reply.send({ success: true, data: settings });
+  }
+
+  async updateSettings(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+    const { disallowFutureDates, lockPreviousMonths, approvalWorkflow } = request.body as any;
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!['Owner', 'Admin'].includes(role)) {
+      throw new ForbiddenError('Only Owner or Admin can update company settings');
+    }
+
+    const settings = await prisma.companySettings.upsert({
+      where: { companyId },
+      update: {
+        ...(disallowFutureDates !== undefined && { disallowFutureDates }),
+        ...(lockPreviousMonths !== undefined && { lockPreviousMonths }),
+        ...(approvalWorkflow !== undefined && { approvalWorkflow }),
+      },
+      create: {
+        companyId,
+        disallowFutureDates: disallowFutureDates ?? true,
+        lockPreviousMonths: lockPreviousMonths ?? false,
+        approvalWorkflow: approvalWorkflow ?? true,
+      },
+    });
+
+    return reply.send({ success: true, data: settings });
+  }
 }

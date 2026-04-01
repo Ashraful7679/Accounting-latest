@@ -87,8 +87,14 @@ export class ReportController {
   async getBalanceSheet(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
     const filters = this.buildLineFilters(request.query);
-    const bsFilters = { ...filters };
-    delete bsFilters.journalEntry?.date?.gte; // Balance sheet is cumulative, ignore startDate for transactions
+    // Balance sheet is cumulative — deep-copy and strip the startDate lower bound
+    const bsFilters = JSON.parse(JSON.stringify(filters));
+    if (bsFilters.journalEntry?.date?.gte) {
+      delete bsFilters.journalEntry.date.gte;
+      if (Object.keys(bsFilters.journalEntry.date).length === 0) {
+        delete bsFilters.journalEntry.date;
+      }
+    }
 
     const accounts = await prisma.account.findMany({
       where: { 
@@ -157,29 +163,58 @@ export class ReportController {
   async getAgingReport(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
     const { type } = request.query as { type: 'CUSTOMER' | 'VENDOR' };
-    
-    const entities = type === 'CUSTOMER' 
-      ? await prisma.customer.findMany({ where: { companyId }, include: { journalLines: { include: { account: { include: { accountType: true } } } } } })
-      : await prisma.vendor.findMany({ where: { companyId }, include: { journalLines: { include: { account: { include: { accountType: true } } } } } });
+    const today = new Date();
+    const isCust = type === 'CUSTOMER';
 
-    const data = entities.map(e => {
-      const balance = e.journalLines.reduce((sum, l) => {
-        return sum + (l.account.accountType.type === 'DEBIT' ? (l.debitBase - l.creditBase) : (l.creditBase - l.debitBase));
-      }, 0);
+    // Fetch approved invoices with their payments and due dates for proper bucketing
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        companyId,
+        status: 'APPROVED',
+        type: isCust ? 'SALES' : 'PURCHASE',
+      },
+      include: {
+        customer: isCust ? true : false,
+        vendor: !isCust ? true : false,
+        payments: { select: { amount: true, status: true } },
+      },
+    });
 
-      return {
-        id: e.id,
-        name: e.name,
-        balance,
-        // Simplified aging for now (could expand with date buckets)
-        dueCurrent: balance > 0 ? balance : 0,
-        due30: 0,
-        due60: 0,
-        due90Plus: 0
-      };
-    }).filter(d => d.balance !== 0);
+    const entityMap = new Map<string, {
+      id: string; name: string; balance: number;
+      dueCurrent: number; due30: number; due60: number; due90Plus: number;
+    }>();
 
-    return reply.send({ success: true, data });
+    for (const invoice of invoices) {
+      const entity = isCust ? (invoice as any).customer : (invoice as any).vendor;
+      if (!entity) continue;
+
+      const totalPaid = ((invoice as any).payments as any[])
+        .filter((p: any) => p.status !== 'CANCELLED')
+        .reduce((s: number, p: any) => s + Number(p.amount), 0);
+      const outstanding = Number(invoice.total) - totalPaid;
+      if (outstanding <= 0.01) continue;
+
+      if (!entityMap.has(entity.id)) {
+        entityMap.set(entity.id, { id: entity.id, name: entity.name, balance: 0, dueCurrent: 0, due30: 0, due60: 0, due90Plus: 0 });
+      }
+      const row = entityMap.get(entity.id)!;
+      row.balance += outstanding;
+
+      if (!(invoice as any).dueDate) {
+        row.dueCurrent += outstanding;
+      } else {
+        const daysOverdue = Math.floor(
+          (today.getTime() - new Date((invoice as any).dueDate).getTime()) / (1000 * 60 * 60 * 24)
+        );
+        if (daysOverdue <= 0) row.dueCurrent += outstanding;
+        else if (daysOverdue <= 30) row.due30 += outstanding;
+        else if (daysOverdue <= 60) row.due60 += outstanding;
+        else row.due90Plus += outstanding;
+      }
+    }
+
+    return reply.send({ success: true, data: Array.from(entityMap.values()) });
   }
 
   async searchReceivables(request: FastifyRequest, reply: FastifyReply) {

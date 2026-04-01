@@ -192,16 +192,20 @@ export default function JournalsPage() {
   };
 
   const openModal = (journal?: JournalEntry) => {
-    console.log('openModal called with:', journal);
     if (journal) {
       setEditingJournalId(journal.id);
-      const lines = (journal.lines || []).map((l: any) => ({
-        accountId: l.accountId || '',
-        amount: (l.debit > 0 ? l.debit : l.credit) || 0,
-        debitCredit: (l.debit > 0 ? 'debit' : 'credit') as 'debit' | 'credit',
-        description: l.description || '',
-      }));
-      console.log('Loaded lines:', lines);
+      const lines = (journal.lines || []).map((l: any) => {
+        const debit = Number(l.debit) || 0;
+        const credit = Number(l.credit) || 0;
+        const amount = debit > 0 ? debit : credit;
+        const debitCredit = debit > 0 ? 'debit' : (credit > 0 ? 'credit' : 'debit');
+        return {
+          accountId: l.accountId || '',
+          amount,
+          debitCredit: debitCredit as 'debit' | 'credit',
+          description: l.description || '',
+        };
+      });
       setFormData({
         date: journal.date ? new Date(journal.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         description: journal.description || '',
@@ -288,10 +292,7 @@ export default function JournalsPage() {
         await uploadAttachments(data.data.id);
       }
       toast.success('Journal created successfully');
-      setNewJournalId(data?.data?.id || null);
-      if (attachments.length === 0) {
-        closeModal();
-      }
+      closeModal();
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error?.message || 'Failed to create journal');
@@ -413,17 +414,21 @@ export default function JournalsPage() {
       description: formData.description || null,
       lines: formData.lines
         .filter(line => line.accountId && line.amount > 0)
-        .map(line => ({
-          accountId: line.accountId,
-          debit: line.debitCredit === 'debit' ? line.amount : 0,
-          credit: line.debitCredit === 'credit' ? line.amount : 0,
-          debitBase: line.debitCredit === 'debit' ? line.amount : 0,
-          creditBase: line.debitCredit === 'credit' ? line.amount : 0,
-          debitForeign: line.debitCredit === 'debit' ? line.amount : 0,
-          creditForeign: line.debitCredit === 'credit' ? line.amount : 0,
-          exchangeRate: 1,
-          description: line.description || null,
-        })),
+        .map(line => {
+          const amount = Number(line.amount) || 0;
+          const isDebit = line.debitCredit === 'debit';
+          return {
+            accountId: line.accountId,
+            debit: isDebit ? amount : 0,
+            credit: isDebit ? 0 : amount,
+            debitBase: isDebit ? amount : 0,
+            creditBase: isDebit ? 0 : amount,
+            debitForeign: isDebit ? amount : 0,
+            creditForeign: isDebit ? 0 : amount,
+            exchangeRate: 1,
+            description: line.description || null,
+          };
+        }),
     };
 
     if (editingJournalId) {

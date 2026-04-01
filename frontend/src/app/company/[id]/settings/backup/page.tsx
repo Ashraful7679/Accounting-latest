@@ -69,8 +69,16 @@ export default function BackupRestorePage() {
     }
   };
 
-  const handleDownload = async (fileName: string) => {
-    window.open(`${BASE_URL}/api/company/${companyId}/backups/download/${fileName}`, '_blank');
+  const handleDownload = (fileName: string) => {
+    // Append token as query param — the auth middleware already accepts ?token=
+    const token = localStorage.getItem('token');
+    const url = `${BASE_URL}/api/company/${companyId}/backups/download/${encodeURIComponent(fileName)}?token=${token}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const handleRestore = async (fileName: string) => {
@@ -203,20 +211,24 @@ export default function BackupRestorePage() {
                 
                 <div className="space-y-4">
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Create a manual backup of your database and uploaded files. You can download it for safekeeping.
+                    Creates a single <span className="font-bold">.zip</span> archive containing:
                   </p>
+                  <ul className="text-xs text-slate-500 space-y-1 pl-1">
+                    <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> All accounting data (JSON)</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> All uploaded file attachments</li>
+                  </ul>
                   <button
                     onClick={handleGenerateBackup}
                     disabled={isGenerating}
                     className={cn(
                       "w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all",
-                      isGenerating 
-                        ? "bg-slate-100 text-slate-400 cursor-not-allowed" 
+                      isGenerating
+                        ? "bg-slate-100 text-slate-400 cursor-not-allowed"
                         : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm active:scale-95"
                     )}
                   >
                     <Database className="w-5 h-5" />
-                    {isGenerating ? 'Creating Backup...' : 'Generate Backup'}
+                    {isGenerating ? 'Creating Backup...' : 'Generate Full Backup (DB + Files)'}
                   </button>
                 </div>
               </div>

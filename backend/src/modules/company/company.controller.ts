@@ -902,8 +902,16 @@ export class CompanyController {
       throw new ValidationError('Journal lines are required');
     }
 
-    const totalDebit = data.lines.reduce((sum: number, line: any) => sum + (line.debitCredit === 'debit' ? Number(line.amount) : 0), 0);
-    const totalCredit = data.lines.reduce((sum: number, line: any) => sum + (line.debitCredit === 'credit' ? Number(line.amount) : 0), 0);
+    // Support two payload formats:
+    //   a) { debitCredit: 'debit'|'credit', amount: N }  (modal form)
+    //   b) { debit: N, credit: N }                       (pre-computed from frontend)
+    const lineDebit = (l: any): number =>
+      l.debitCredit !== undefined ? (l.debitCredit === 'debit' ? Number(l.amount) : 0) : Number(l.debit || 0);
+    const lineCredit = (l: any): number =>
+      l.debitCredit !== undefined ? (l.debitCredit === 'credit' ? Number(l.amount) : 0) : Number(l.credit || 0);
+
+    const totalDebit = data.lines.reduce((sum: number, line: any) => sum + lineDebit(line), 0);
+    const totalCredit = data.lines.reduce((sum: number, line: any) => sum + lineCredit(line), 0);
 
     if (Math.abs(totalDebit - totalCredit) > 0.01) {
       throw new ValidationError('Debit and Credit must be equal');
@@ -940,8 +948,9 @@ export class CompanyController {
       status,
       lines: {
         create: data.lines.map((l: any) => {
-          const debit = l.debitCredit === 'debit' ? Number(l.amount) : 0;
-          const credit = l.debitCredit === 'credit' ? Number(l.amount) : 0;
+          const debit = lineDebit(l);
+          const credit = lineCredit(l);
+          const rate = Number(l.exchangeRate || data.exchangeRate || 1);
           return {
             accountId: l.accountId,
             branchId: l.branchId || null,
@@ -952,11 +961,11 @@ export class CompanyController {
             description: l.description || null,
             debit,
             credit,
-            debitBase: debit * (data.exchangeRate || 1),
-            creditBase: credit * (data.exchangeRate || 1),
-            debitForeign: debit,
-            creditForeign: credit,
-            exchangeRate: data.exchangeRate || 1,
+            debitBase: l.debitBase != null ? Number(l.debitBase) : debit * rate,
+            creditBase: l.creditBase != null ? Number(l.creditBase) : credit * rate,
+            debitForeign: l.debitForeign != null ? Number(l.debitForeign) : debit,
+            creditForeign: l.creditForeign != null ? Number(l.creditForeign) : credit,
+            exchangeRate: rate,
           };
         }),
       },

@@ -45,4 +45,7 @@ export const ownerRoutes = async (fastify: FastifyInstance) => {
 
   // Delete employee
   fastify.delete('/employees/:id', controller.deleteEmployee.bind(controller));
+
+  // One-shot: seed default permissions for ALL employees based on their current role
+  fastify.post('/employees/sync-permissions', controller.syncAllPermissions.bind(controller));
 };

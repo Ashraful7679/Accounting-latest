@@ -9,17 +9,25 @@ import { NotFoundError } from '../../middleware/errorHandler';
 const execPromise = util.promisify(exec);
 
 export class BackupController {
-  private BACKUP_DIR = path.join(process.cwd(), 'backups');
+  private BACKUP_DIR: string;
 
   constructor() {
+    // Use /tmp on Linux/cloud, or local backups folder
+    this.BACKUP_DIR = process.env.BACKUP_DIR || (process.platform === 'win32' 
+      ? path.join(process.cwd(), 'backups') 
+      : '/tmp/accabiz_backups');
+    
     if (!fs.existsSync(this.BACKUP_DIR)) {
       fs.mkdirSync(this.BACKUP_DIR, { recursive: true });
     }
+    console.log('Backup directory:', this.BACKUP_DIR);
   }
 
   // Helper to extract DB config from DATABASE_URL
   private getDbConfig() {
     const url = process.env.DATABASE_URL || '';
+    console.log('DATABASE_URL:', url.replace(/\/\/[^:]+:[^@]+@/, '//****:****@'));
+    
     const matches = url.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
     if (!matches) throw new Error('Invalid DATABASE_URL format in environment');
     return {
@@ -31,42 +39,51 @@ export class BackupController {
     };
   }
 
+  // Helper to find PostgreSQL binaries
+  private findPostgresBin(binName: string): string {
+    const platform = process.platform;
+    
+    if (platform === 'win32') {
+      // Check common Windows paths
+      const versions = ['18', '17', '16', '15', '14', '13', '12', '11'];
+      for (const ver of versions) {
+        const p = `C:\\Program Files\\PostgreSQL\\${ver}\\bin\\${binName}.exe`;
+        if (fs.existsSync(p)) {
+          console.log(`Found ${binName} at: ${p}`);
+          return `"${p}"`;
+        }
+      }
+    }
+    
+    // On Linux/cloud, try PATH
+    return binName;
+  }
+
   async generateBackup(request: FastifyRequest, reply: FastifyReply) {
     const userId = (request.user as any)?.id || 'system';
     const { user, password, host, port, database } = this.getDbConfig();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const dbFileName = `db_${timestamp}.dump`;
+    const dbFileName = `db_${timestamp}.sql`;
     const zipFileName = `backup_${timestamp}.zip`;
     
     const dbFilePath = path.join(this.BACKUP_DIR, dbFileName);
     const zipFilePath = path.join(this.BACKUP_DIR, zipFileName);
 
     try {
-      // Find pg_dump path on Windows
-      let pgDumpPath = 'pg_dump';
-      if (process.platform === 'win32') {
-        const commonPaths = [
-          'C:\\Program Files\\PostgreSQL\\18\\bin\\pg_dump.exe',
-          'C:\\Program Files\\PostgreSQL\\17\\bin\\pg_dump.exe',
-          'C:\\Program Files\\PostgreSQL\\16\\bin\\pg_dump.exe',
-          'C:\\Program Files\\PostgreSQL\\15\\bin\\pg_dump.exe',
-          'C:\\Program Files\\PostgreSQL\\14\\bin\\pg_dump.exe',
-        ];
-        for (const p of commonPaths) {
-          if (fs.existsSync(p)) {
-            pgDumpPath = `"${p}"`;
-            break;
-          }
-        }
-      }
+      // Find pg_dump
+      const pgDumpPath = this.findPostgresBin('pg_dump');
+      console.log('Using pg_dump path:', pgDumpPath);
 
-      // 1. Database Dump (Plain SQL Format - easier to restore without advanced privileges)
-      // Using -Fc (custom format) still works but restore might need adjustments
-      const pgDumpCmd = process.platform === 'win32'
-        ? `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${pgDumpPath} -U ${user} -h ${host} -p ${port} -F p -b -v -f "${dbFilePath}" ${database}`
-        : `PGPASSWORD='${password.replace(/'/g, "'\\''")}' pg_dump -U ${user} -h ${host} -p ${port} -F p -b -v -f "${dbFilePath}" ${database}`;
+      // 1. Database Dump (Plain SQL Format)
+      let pgDumpCmd: string;
+      if (process.platform === 'win32') {
+        pgDumpCmd = `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${pgDumpPath} -U ${user} -h ${host} -p ${port} -F p -b -v -f "${dbFilePath}" ${database}`;
+      } else {
+        // For Linux/cloud platforms
+        pgDumpCmd = `PGPASSWORD='${password.replace(/'/g, "'\\''")}' ${pgDumpPath} -U ${user} -h ${host} -p ${port} -F p -b -v -f "${dbFilePath}" ${database}`;
+      }
       
-      console.log('Running Backup Command:', pgDumpCmd.replace(password, '****'));
+      console.log('Running Backup Command...');
 
       try {
         await execPromise(pgDumpCmd);
@@ -76,12 +93,19 @@ export class BackupController {
         throw new Error(`pg_dump failed: ${errorMsg}`);
       }
 
-      // 2. Archive everything (DB Dump + Uploads)
-      // Standard Windows 'tar' command
-      const zipCmd = `tar -a -cf "${zipFilePath}" -C "${this.BACKUP_DIR}" "${dbFileName}" -C "${process.cwd()}" "uploads"`;
+      // 2. Create ZIP archive (using zip command or tar)
+      let zipCmd: string;
+      if (process.platform === 'win32') {
+        // Use PowerShell to create zip
+        zipCmd = `powershell -Command "Compress-Archive -Path '${dbFilePath}' -DestinationPath '${zipFilePath}'"`;
+      } else {
+        // Linux - try zip command first, fallback to tar
+        zipCmd = `zip -j "${zipFilePath}" "${dbFilePath}" 2>/dev/null || tar -a -cf "${zipFilePath}" "${dbFilePath}"`;
+      }
+      
       await execPromise(zipCmd);
 
-      // 3. Clean up the standalone DB dump after zipping
+      // 3. Clean up the standalone DB file after zipping
       if (fs.existsSync(dbFilePath)) {
         fs.unlinkSync(dbFilePath);
       }
@@ -149,60 +173,42 @@ export class BackupController {
       // 1. Create temp directory
       if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-      // 2. Extract archive
+      // 2. Extract archive (handle both .zip and .tar formats)
       console.log(`Extracting backup ${fileName} to ${tempDir}...`);
-      const unzipCmd = `tar -xf "${filePath}" -C "${tempDir}"`;
-      await execPromise(unzipCmd);
-
-      // 3. Find the .dump file
-      const files = fs.readdirSync(tempDir);
-      const dumpFile = files.find(f => f.endsWith('.dump'));
-      if (!dumpFile) throw new Error('No database dump found in archive');
-      const dumpPath = path.join(tempDir, dumpFile);
-
-      // 4. Find pg_restore path on Windows
-      let pgRestorePath = 'pg_restore';
-      if (process.platform === 'win32') {
-        const commonPaths = [
-          'C:\\Program Files\\PostgreSQL\\18\\bin\\pg_restore.exe',
-          'C:\\Program Files\\PostgreSQL\\17\\bin\\pg_restore.exe',
-          'C:\\Program Files\\PostgreSQL\\16\\bin\\pg_restore.exe',
-          'C:\\Program Files\\PostgreSQL\\15\\bin\\pg_restore.exe',
-          'C:\\Program Files\\PostgreSQL\\14\\bin\\pg_restore.exe',
-        ];
-        for (const p of commonPaths) {
-          if (fs.existsSync(p)) {
-            pgRestorePath = `"${p}"`;
-            break;
-          }
+      let extractCmd: string;
+      
+      if (fileName.endsWith('.zip')) {
+        if (process.platform === 'win32') {
+          extractCmd = `powershell -Command "Expand-Archive -Path '${filePath}' -DestinationPath '${tempDir}' -Force"`;
+        } else {
+          extractCmd = `unzip -o "${filePath}" -d "${tempDir}"`;
         }
+      } else {
+        extractCmd = `tar -xf "${filePath}" -C "${tempDir}"`;
       }
+      
+      await execPromise(extractCmd);
 
-      // 5. Run restore based on dump format
-      // Since we use plain SQL format (-F p), use psql to restore
+      // 3. Find the SQL file (supports both .sql and .dump)
+      const files = fs.readdirSync(tempDir);
+      const dumpFile = files.find(f => f.endsWith('.sql') || f.endsWith('.dump'));
+      if (!dumpFile) throw new Error('No database dump found in archive (looking for .sql or .dump files)');
+      const dumpPath = path.join(tempDir, dumpFile);
+      console.log('Found dump file:', dumpFile);
+
+      // 4. Find psql path
+      const psqlPath = this.findPostgresBin('psql');
+      console.log('Using psql path:', psqlPath);
+
+      // 5. Run restore using psql
       let restoreCmd: string;
       if (process.platform === 'win32') {
-        // For Windows, find psql path
-        let psqlPath = 'psql';
-        const commonPaths = [
-          'C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe',
-          'C:\\Program Files\\PostgreSQL\\17\\bin\\psql.exe',
-          'C:\\Program Files\\PostgreSQL\\16\\bin\\psql.exe',
-          'C:\\Program Files\\PostgreSQL\\15\\bin\\psql.exe',
-          'C:\\Program Files\\PostgreSQL\\14\\bin\\psql.exe',
-        ];
-        for (const p of commonPaths) {
-          if (fs.existsSync(p)) {
-            psqlPath = `"${p}"`;
-            break;
-          }
-        }
         restoreCmd = `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${psqlPath} -U ${user} -h ${host} -p ${port} -d ${database} -f "${dumpPath}"`;
       } else {
-        restoreCmd = `PGPASSWORD='${password.replace(/'/g, "'\\''")}' psql -U ${user} -h ${host} -p ${port} -d ${database} -f "${dumpPath}"`;
+        restoreCmd = `PGPASSWORD='${password.replace(/'/g, "'\\''")}' ${psqlPath} -U ${user} -h ${host} -p ${port} -d ${database} -f "${dumpPath}"`;
       }
 
-      console.log('Running Restore Command:', restoreCmd.replace(password, '****'));
+      console.log('Running Restore Command...');
       
       try {
         await execPromise(restoreCmd);
@@ -217,11 +223,9 @@ export class BackupController {
       if (fs.existsSync(uploadsSource)) {
         console.log('Restoring uploads directory...');
         const uploadsDest = path.join(process.cwd(), 'uploads');
-        // Simple way to "merge" or overwrite: copy files. 
-        // Caution: This doesn't delete files that exist in dest but not in source.
         const copyCmd = process.platform === 'win32'
           ? `xcopy "${uploadsSource}" "${uploadsDest}" /E /I /Y`
-          : `cp -R "${uploadsSource}/." "${uploadsDest}/"`;
+          : `cp -R "${uploadsSource}/." "${uploadsDest}/" 2>/dev/null || true`;
         await execPromise(copyCmd);
       }
 

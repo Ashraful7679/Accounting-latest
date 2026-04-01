@@ -156,6 +156,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.put('/:id/invoices/:invoiceId', controller.updateInvoice.bind(controller));
   fastify.delete('/:id/invoices/:invoiceId', controller.deleteInvoice.bind(controller));
   fastify.post('/:id/invoices/:invoiceId/verify', controller.verifyInvoice.bind(controller));
+  fastify.post('/:id/invoices/:invoiceId/submit', controller.submitInvoice.bind(controller));
   fastify.post('/:id/invoices/:invoiceId/reject', controller.rejectInvoice.bind(controller));
   fastify.post('/:id/invoices/:invoiceId/retrieve', controller.retrieveInvoice.bind(controller));
   fastify.post('/:id/invoices/:invoiceId/approve', controller.approveInvoice.bind(controller));
@@ -187,6 +188,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/:id/reports/lc-liability', reportController.getLCLiability.bind(reportController));
 
   // Dimensions
+  fastify.get('/:id/branches', dimensionController.getBranches.bind(dimensionController));
   fastify.get('/:id/projects', dimensionController.getProjects.bind(dimensionController));
   fastify.post('/:id/projects', dimensionController.createProject.bind(dimensionController));
   fastify.get('/:id/cost-centers', dimensionController.getCostCenters.bind(dimensionController));

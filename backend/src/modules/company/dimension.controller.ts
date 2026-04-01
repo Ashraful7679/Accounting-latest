@@ -2,7 +2,13 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
 
 export class DimensionController {
-  
+  // Branches
+  async getBranches(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const branches = await prisma.branch.findMany({ where: { companyId } });
+    return reply.send({ success: true, data: branches });
+  }
+
   // Projects
   async getProjects(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };

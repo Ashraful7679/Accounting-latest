@@ -58,6 +58,10 @@ export class BackupController {
       { name: 'purchase_orders', key: 'purchaseOrder' },
       { name: 'employees', key: 'employee' },
       { name: 'lcs', key: 'lc' },
+      { name: 'attachments', key: 'attachment' },
+      { name: 'backup_logs', key: 'backupLog' },
+      { name: 'activity_logs', key: 'activityLog' },
+      { name: 'notifications', key: 'notification' },
     ];
 
     for (const mod of modules) {

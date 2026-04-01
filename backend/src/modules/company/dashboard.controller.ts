@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
+import { NotFoundError } from '../../middleware/errorHandler';
 
 /**
  * Auto-generate notifications from real database events.
@@ -107,7 +108,7 @@ export class DashboardController {
     console.log(`[DashboardStats] Fetching for User: ${userId}, Company: ${companyId}`);
 
     // 1. Get User's Role & Access in this Company
-    const userCompany = await prisma.userCompany.findUnique({
+    let userCompany = await prisma.userCompany.findUnique({
       where: { userId_companyId: { userId, companyId } },
       include: {
         user: { include: { userRoles: { include: { role: true } } } },
@@ -116,11 +117,34 @@ export class DashboardController {
     });
 
     if (!userCompany) {
-      console.warn(`[DashboardStats] Access Denied: User ${userId} not in Company ${companyId}`);
-      return reply.status(403).send({ success: false, message: 'Access denied: You are not a member of this company' });
+      // Check if user is a Global Admin
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { userRoles: { include: { role: true } } }
+      });
+      
+      const isAdmin = user?.userRoles.some(ur => ur.role.name === 'Admin');
+      
+      if (isAdmin) {
+        // Mock a userCompany object for admins to allow access
+        const company = await prisma.company.findUnique({ where: { id: companyId } });
+        if (!company) throw new NotFoundError('Company not found');
+        
+        userCompany = {
+          userId,
+          companyId,
+          user,
+          company,
+          isMainOwner: true, // Admins get full view
+          ownershipPercentage: 0,
+        } as any;
+      } else {
+        console.warn(`[DashboardStats] Access Denied: User ${userId} not in Company ${companyId}`);
+        return reply.status(403).send({ success: false, message: 'Access denied: You are not a member of this company' });
+      }
     }
 
-    const roleName = userCompany.user.userRoles[0]?.role?.name || 'User';
+    const roleName = userCompany!.user.userRoles[0]?.role?.name || 'User';
     console.log(`[DashboardStats] User Role: ${roleName}`);
 
     try {
@@ -225,22 +249,25 @@ export class DashboardController {
         ? (cashBalance + totalReceivables) / (totalPayables + totalLoanOutstanding) 
         : 0;
 
-      // Recent Activity Log (previously Priority Alerts)
-      const recentActivities = await prisma.notification.findMany({
+      // Recent Activity Log (Using ActivityLog for actual audit trail)
+      const activityLogs = await prisma.activityLog.findMany({
         where: { companyId },
+        include: { 
+          performedBy: { select: { firstName: true, lastName: true } }
+        },
         orderBy: { createdAt: 'desc' },
-        take: 15,
+        take: 20
       });
 
-      const activities = recentActivities.map((n: any) => ({
-        id: n.id,
-        type: n.severity === 'DANGER' ? 'danger' : n.severity === 'WARNING' ? 'warning' : 'info',
-        title: n.title,
-        message: n.message,
-        entityType: n.entityType,
-        entityId: n.entityId,
-        createdAt: n.createdAt,
-        isRead: n.isRead,
+      const activities = activityLogs.map((log: any) => ({
+        id: log.id,
+        type: 'info',
+        title: `${log.action.replace(/_/g, ' ')} by ${log.performedBy.firstName}`,
+        message: `${log.entityType} ${log.metadata && (log.metadata as any).entityNumber ? (log.metadata as any).entityNumber : log.entityId} was ${log.action.toLowerCase().replace(/_/g, ' ')}`,
+        entityType: log.entityType,
+        entityId: log.entityId,
+        createdAt: log.createdAt,
+        user: `${log.performedBy.firstName} ${log.performedBy.lastName}`,
       }));
 
       const unreadCount = await prisma.notification.count({ where: { companyId, isRead: false } });
@@ -251,7 +278,7 @@ export class DashboardController {
         orderBy: { createdAt: 'desc' }
       });
 
-      const companyName = userCompany.company.name;
+      const companyName = userCompany!.company.name;
 
       // --- Enhanced Breakdown Data for Hover Popups ---
       

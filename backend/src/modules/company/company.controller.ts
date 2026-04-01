@@ -723,6 +723,40 @@ export class CompanyController {
     return reply.send({ success: true, message: 'Invoice deleted' });
   }
 
+  async submitInvoice(request: FastifyRequest, reply: FastifyReply) {
+    const { invoiceId } = request.params as { invoiceId: string };
+    const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+
+    const role = await this.getUserRole(userId, companyId);
+    if (role !== 'Accountant' && role !== 'Owner') {
+      throw new ForbiddenError('Only Accountants or Owners can submit invoices');
+    }
+
+    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+    if (!invoice) throw new NotFoundError('Invoice not found');
+    if (invoice.status !== 'DRAFT' && invoice.status !== 'REJECTED') {
+      throw new ValidationError('Only DRAFT or REJECTED invoices can be submitted');
+    }
+
+    const updated = await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { status: 'PENDING_VERIFICATION' },
+    });
+
+    await NotificationController.notifyStatusChange({
+      companyId,
+      entityType: 'Invoice',
+      entityId: invoiceId,
+      entityNumber: updated.invoiceNumber,
+      oldStatus: invoice.status,
+      newStatus: 'PENDING_VERIFICATION',
+      performedById: userId
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
   async verifyInvoice(request: FastifyRequest, reply: FastifyReply) {
     const { invoiceId } = request.params as { invoiceId: string };
     const { id: companyId } = request.params as { id: string };

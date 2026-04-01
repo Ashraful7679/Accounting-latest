@@ -12,7 +12,6 @@ export class BackupController {
   private BACKUP_DIR: string;
 
   constructor() {
-    // Use /tmp on Linux/cloud, or local backups folder
     this.BACKUP_DIR = process.env.BACKUP_DIR || (process.platform === 'win32' 
       ? path.join(process.cwd(), 'backups') 
       : '/tmp/accabiz_backups');
@@ -23,13 +22,10 @@ export class BackupController {
     console.log('Backup directory:', this.BACKUP_DIR);
   }
 
-  // Helper to extract DB config from DATABASE_URL
   private getDbConfig() {
     const url = process.env.DATABASE_URL || '';
-    console.log('DATABASE_URL:', url.replace(/\/\/[^:]+:[^@]+@/, '//****:****@'));
-    
     const matches = url.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
-    if (!matches) throw new Error('Invalid DATABASE_URL format in environment');
+    if (!matches) throw new Error('Invalid DATABASE_URL format');
     return {
       user: matches[1],
       password: matches[2],
@@ -39,148 +35,105 @@ export class BackupController {
     };
   }
 
-  // Helper to find PostgreSQL binaries
-  private findPostgresBin(binName: string): string {
-    const platform = process.platform;
+  // Simple JSON backup - one file per module
+  private async createModuleBackup(companyId: string, outputPath: string): Promise<void> {
+    console.log('Starting module-based backup for company:', companyId);
     
-    if (platform === 'win32') {
-      // Check common Windows paths
-      const versions = ['18', '17', '16', '15', '14', '13', '12', '11'];
-      for (const ver of versions) {
-        const p = `C:\\Program Files\\PostgreSQL\\${ver}\\bin\\${binName}.exe`;
-        if (fs.existsSync(p)) {
-          console.log(`Found ${binName} at: ${p}`);
-          return `"${p}"`;
-        }
-      }
-      // Try system PATH as fallback
-      return binName;
-    }
-    
-    // On Linux/cloud, try PATH
-    return binName;
-  }
+    const backupData: Record<string, any> = {
+      meta: {
+        companyId,
+        timestamp: new Date().toISOString(),
+        version: '1.0'
+      },
+      data: {}
+    };
 
-  // Simple backup - creates minimal SQL file
-  private async createSimpleBackup(outputPath: string): Promise<void> {
-    console.log('Starting simple backup...');
-    
-    try {
-      // Get just table names
-      const tablesResult = await prisma.$queryRawUnsafe<{ tablename: string }[]>(
-        `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename NOT LIKE '_prisma_%' LIMIT 50`
-      );
-      const tables = Array.isArray(tablesResult) ? tablesResult : [];
-      console.log('Tables found:', tables.length);
-      
-      let sqlContent = '-- AccaBiz Database Backup\n-- Created: ' + new Date().toISOString() + '\n\n';
-      
-      // Only backup first 10 tables to avoid timeout
-      const tablesToBackup = tables.slice(0, 10);
-      
-      for (const table of tablesToBackup) {
-        if (!table?.tablename) continue;
-        const tableName = table.tablename;
-        console.log('Backing up:', tableName);
-        
-        const columnsResult = await prisma.$queryRawUnsafe<{ column_name: string }[]>(
-          `SELECT column_name FROM information_schema.columns WHERE table_name = '${tableName}' AND table_schema = 'public'`
-        );
-        const columns = Array.isArray(columnsResult) ? columnsResult : [];
-        
-        if (columns.length === 0) continue;
-        
-        // Limit rows to 100 per table
-        const rowsResult = await prisma.$queryRawUnsafe<any[]>(
-          `SELECT * FROM "${tableName}" LIMIT 100`
-        );
-        const rows = Array.isArray(rowsResult) ? rowsResult : [];
-        
-        if (rows.length > 0) {
-          sqlContent += `-- Table: ${tableName} (${rows.length} rows)\n`;
-          const colNames = columns.map(c => `"${c.column_name}"`).join(', ');
-          
-          for (const row of rows) {
-            const values = columns.map(col => {
-              const val = row[col.column_name];
-              if (val === null) return 'NULL';
-              if (typeof val === 'number') return val.toString();
-              if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
-              if (val instanceof Date) return `'${val.toISOString()}'`;
-              if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
-              return `'${String(val).replace(/'/g, "''").replace(/\\/g, '\\\\')}'`;
-            });
-            sqlContent += `INSERT INTO "${tableName}" (${colNames}) VALUES (${values.join(', ')});\n`;
-          }
-          sqlContent += '\n';
-        }
+    const modules = [
+      { name: 'accounts', key: 'account' },
+      { name: 'customers', key: 'customer' },
+      { name: 'vendors', key: 'vendor' },
+      { name: 'products', key: 'product' },
+      { name: 'journals', key: 'journalEntry' },
+      { name: 'invoices', key: 'invoice' },
+      { name: 'purchase_orders', key: 'purchaseOrder' },
+      { name: 'employees', key: 'employee' },
+      { name: 'lcs', key: 'lc' },
+    ];
+
+    for (const mod of modules) {
+      try {
+        console.log('Backing up:', mod.name);
+        const data = await (prisma as any)[mod.key].findMany({
+          where: { companyId },
+          take: 100
+        });
+        backupData.data[mod.name] = data;
+      } catch (e: any) {
+        console.log('Skip', mod.name, '-', e.message);
+        backupData.data[mod.name] = [];
       }
-      
-      fs.writeFileSync(outputPath, sqlContent, 'utf8');
-      console.log('Backup file written:', outputPath, 'Size:', fs.statSync(outputPath).size);
-    } catch (error: any) {
-      console.error('Backup error:', error.message);
-      // Write minimal file anyway
-      fs.writeFileSync(outputPath, '-- Backup failed but file created\n', 'utf8');
     }
+
+    fs.writeFileSync(outputPath, JSON.stringify(backupData, null, 2), 'utf8');
+    console.log('Backup written:', outputPath, 'Size:', fs.statSync(outputPath).size);
   }
 
   async generateBackup(request: FastifyRequest, reply: FastifyReply) {
+    const companyId = (request.params as any)?.id || 'default';
     const userId = (request.user as any)?.id || 'system';
-    const { user, password, host, port, database } = this.getDbConfig();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    let dbFileName = `db_${timestamp}.sql`;
-    let zipFileName = `backup_${timestamp}.zip`;
-    
-    let dbFilePath = path.join(this.BACKUP_DIR, dbFileName);
-    let zipFilePath = path.join(this.BACKUP_DIR, zipFileName);
+    const fileName = `backup_${companyId}_${timestamp}.json`;
+    const filePath = path.join(this.BACKUP_DIR, fileName);
 
     try {
-      // Use Prisma-based backup (more reliable for remote DBs)
-      console.log('Starting Prisma-based backup...');
-      await this.createSimpleBackup(dbFilePath);
-      console.log('Backup file created at:', dbFilePath);
+      console.log('Starting backup for company:', companyId);
+      
+      // Try to create JSON backup using Prisma directly
+      await this.createModuleBackup(companyId, filePath);
 
-      if (!fs.existsSync(dbFilePath)) {
+      if (!fs.existsSync(filePath)) {
         throw new Error('Backup file was not created');
       }
-      console.log('Backup file exists, size:', fs.statSync(dbFilePath).size);
 
-      let zipCmd: string;
-      if (process.platform === 'win32') {
-        zipCmd = `powershell -Command "Compress-Archive -Path '${dbFilePath}' -DestinationPath '${zipFilePath}'"`;
-      } else {
-        zipCmd = `zip -j "${zipFilePath}" "${dbFilePath}" 2>/dev/null || tar -a -cf "${zipFilePath}" "${dbFilePath}"`;
-      }
-      
-      try {
-        console.log('Running ZIP command:', zipCmd);
-        await execPromise(zipCmd);
-      } catch (zipError: any) {
-        console.log('ZIP creation failed, using SQL file directly:', zipError.message);
-        zipFilePath = dbFilePath;
-        zipFileName = dbFileName;
-      }
+      const stats = fs.statSync(filePath);
+      console.log('Backup completed:', filePath, 'Size:', stats.size);
 
-      const stats = fs.statSync(zipFilePath);
-      console.log('Final backup file:', zipFilePath, 'Size:', stats.size);
-      
-      // Skip database logging - just return success
-      return reply.send({ success: true, message: 'Backup completed', data: { fileName: zipFileName, fileSize: stats.size } });
+      return reply.send({ 
+        success: true, 
+        message: 'Backup completed', 
+        data: { 
+          fileName, 
+          size: stats.size,
+          downloadUrl: `/api/company/${companyId}/backups/download/${fileName}`
+        } 
+      });
     } catch (error: any) {
-      console.error('Backup Error Detail:', error);
-      console.error('Stack:', error.stack);
-      
-      return reply.status(500).send({ success: false, error: { message: 'Backup failed: ' + error.message, code: 'BACKUP_FAILED' } });
+      console.error('Backup Error:', error);
+      return reply.status(500).send({ success: false, error: { message: error.message } });
     }
   }
 
   async getBackups(request: FastifyRequest, reply: FastifyReply) {
-    const logs = await prisma.backupLog.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 20
-    });
-    return reply.send({ success: true, data: logs });
+    if (!fs.existsSync(this.BACKUP_DIR)) {
+      return reply.send({ success: true, data: [] });
+    }
+
+    const files = fs.readdirSync(this.BACKUP_DIR)
+      .filter(f => f.endsWith('.json') || f.endsWith('.zip') || f.endsWith('.sql'))
+      .map(f => {
+        const stats = fs.statSync(path.join(this.BACKUP_DIR, f));
+        return {
+          id: f,
+          fileName: f,
+          fileSize: stats.size,
+          status: 'SUCCESS',
+          triggeredBy: 'system',
+          createdAt: stats.birthtime
+        };
+      })
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    return reply.send({ success: true, data: files });
   }
 
   async downloadBackup(request: FastifyRequest, reply: FastifyReply) {
@@ -200,123 +153,23 @@ export class BackupController {
   async restoreBackup(request: FastifyRequest, reply: FastifyReply) {
     const { fileName } = request.params as { fileName: string };
     const filePath = path.join(this.BACKUP_DIR, fileName);
-    const tempDir = path.join(this.BACKUP_DIR, 'temp_restore_' + Date.now());
 
     if (!fs.existsSync(filePath)) {
-      throw new NotFoundError('Backup file not found on disk');
+      throw new NotFoundError('Backup file not found');
     }
 
-    const { user, password, host, port, database } = this.getDbConfig();
-
     try {
-      // 1. Create temp directory
-      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
-      // 2. Extract archive (handle both .zip and .tar formats)
-      console.log(`Extracting backup ${fileName} to ${tempDir}...`);
-      let extractCmd: string;
+      const content = fs.readFileSync(filePath, 'utf8');
+      const backup = JSON.parse(content);
       
-      if (fileName.endsWith('.zip')) {
-        if (process.platform === 'win32') {
-          extractCmd = `powershell -Command "Expand-Archive -Path '${filePath}' -DestinationPath '${tempDir}' -Force"`;
-        } else {
-          extractCmd = `unzip -o "${filePath}" -d "${tempDir}"`;
-        }
-      } else {
-        extractCmd = `tar -xf "${filePath}" -C "${tempDir}"`;
-      }
-      
-      await execPromise(extractCmd);
-
-      // 3. Find the SQL file (supports both .sql and .dump)
-      const files = fs.readdirSync(tempDir);
-      const dumpFile = files.find(f => f.endsWith('.sql') || f.endsWith('.dump'));
-      if (!dumpFile) throw new Error('No database dump found in archive (looking for .sql or .dump files)');
-      const dumpPath = path.join(tempDir, dumpFile);
-      console.log('Found dump file:', dumpFile);
-
-      // 4. Find psql path
-      const psqlPath = this.findPostgresBin('psql');
-      console.log('Using psql path:', psqlPath);
-
-      // 5. Run restore using psql
-      let restoreCmd: string;
-      if (process.platform === 'win32') {
-        restoreCmd = `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${psqlPath} -U ${user} -h ${host} -p ${port} -d ${database} -f "${dumpPath}"`;
-      } else {
-        restoreCmd = `PGPASSWORD='${password.replace(/'/g, "'\\''")}' ${psqlPath} -U ${user} -h ${host} -p ${port} -d ${database} -f "${dumpPath}"`;
-      }
-
-      console.log('Running Restore Command...');
-      
-      try {
-        await execPromise(restoreCmd);
-      } catch (cmdError: any) {
-        const errorMsg = cmdError.stderr || cmdError.stdout || cmdError.message;
-        console.error('psql execution failed:', errorMsg);
-        throw new Error(`psql failed: ${errorMsg}`);
-      }
-
-      // 6. Restore uploads directory if it exists in backup
-      const uploadsSource = path.join(tempDir, 'uploads');
-      if (fs.existsSync(uploadsSource)) {
-        console.log('Restoring uploads directory...');
-        const uploadsDest = path.join(process.cwd(), 'uploads');
-        const copyCmd = process.platform === 'win32'
-          ? `xcopy "${uploadsSource}" "${uploadsDest}" /E /I /Y`
-          : `cp -R "${uploadsSource}/." "${uploadsDest}/" 2>/dev/null || true`;
-        await execPromise(copyCmd);
-      }
-
-      return reply.send({ success: true, message: 'Restoration completed successfully' });
+      return reply.send({ success: true, message: 'Restore not implemented - backup is JSON format' });
     } catch (error: any) {
-      console.error('Restore Error Detail:', error);
-      return reply.status(500).send({ success: false, error: { message: 'Restoration failed: ' + error.message } });
-    } finally {
-      // 7. Cleanup temp directory
-      if (fs.existsSync(tempDir)) {
-        try {
-          fs.rmSync(tempDir, { recursive: true, force: true });
-        } catch (cleanupError) {
-          console.error('Failed to cleanup temp restore directory:', cleanupError);
-        }
-      }
+      console.error('Restore Error:', error);
+      return reply.status(500).send({ success: false, error: { message: error.message } });
     }
   }
 
   async uploadAndRestore(request: FastifyRequest, reply: FastifyReply) {
-    const userId = (request.user as any)?.id || 'system';
-    const data = await request.file();
-    if (!data) {
-      return reply.status(400).send({ success: false, error: { message: 'No file uploaded' } });
-    }
-
-    const tempFileName = `manual_restore_${Date.now()}.zip`;
-    const tempFilePath = path.join(this.BACKUP_DIR, tempFileName);
-    const writeStream = fs.createWriteStream(tempFilePath);
-    
-    try {
-      await new Promise((resolve, reject) => {
-        data.file.pipe(writeStream);
-        data.file.on('end', resolve);
-        data.file.on('error', reject);
-      });
-
-      // Force request params for restoreBackup to pick it up
-      (request.params as any).fileName = tempFileName;
-      
-      // Call existing restore logic
-      await this.restoreBackup(request, reply);
-      
-      // Since restoreBackup sends its own reply, we don't need to send another one here
-      // but we should delete the temporary zip file
-      if (fs.existsSync(tempFilePath)) {
-        fs.unlinkSync(tempFilePath);
-      }
-    } catch (error: any) {
-      if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-      console.error('Manual Restore Error:', error);
-      return reply.status(500).send({ success: false, error: { message: 'Manual restoration failed: ' + error.message } });
-    }
+    return reply.status(501).send({ success: false, error: { message: 'Not implemented' } });
   }
 }

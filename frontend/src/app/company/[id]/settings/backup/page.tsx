@@ -189,6 +189,38 @@ export default function BackupRestorePage() {
                 </div>
               </div>
 
+              {/* Manual Generate Backup */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+                    <Database className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 leading-none">Manual Backup</h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-wider">Create Snapshot</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Create a manual backup of your database and uploaded files. You can download it for safekeeping.
+                  </p>
+                  <button
+                    onClick={handleGenerateBackup}
+                    disabled={isGenerating}
+                    className={cn(
+                      "w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all",
+                      isGenerating 
+                        ? "bg-slate-100 text-slate-400 cursor-not-allowed" 
+                        : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm active:scale-95"
+                    )}
+                  >
+                    <Database className="w-5 h-5" />
+                    {isGenerating ? 'Creating Backup...' : 'Generate Backup'}
+                  </button>
+                </div>
+              </div>
+
               {/* Manual Restore Upload */}
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
                 <div className="flex items-center gap-3 mb-6">

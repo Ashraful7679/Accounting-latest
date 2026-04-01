@@ -653,12 +653,20 @@ export default function JournalsPage() {
                 </button>
               </div>
               
-              {/* Attachments - Show when editing existing journal */}
-              {editingJournalId && (
-                <div className="mt-4 pt-4 border-t">
-                  <AttachmentManager entityType="VOUCHER" entityId={editingJournalId} canEdit={true} />
+              {/* Attachments Section - Show when editing existing journal */}
+              <div className="mt-4 pt-4 border-t">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Attachments</label>
+                <div className="bg-slate-50 p-3 rounded-lg">
+                  <AttachmentManager 
+                    entityType="VOUCHER" 
+                    entityId={editingJournalId || 'temp'} 
+                    canEdit={!!editingJournalId}
+                  />
                 </div>
-              )}
+                {!editingJournalId && (
+                  <p className="text-xs text-gray-500 mt-1">Save the journal first to add attachments</p>
+                )}
+              </div>
             </form>
           </div>
         </div>

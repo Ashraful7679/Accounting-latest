@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import api, { BASE_URL } from '@/lib/api';
 import { 
   Database, 
   Download, 
@@ -36,13 +37,9 @@ export default function BackupRestorePage() {
 
   const fetchLogs = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5002/api/company/${companyId}/backups`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (data.success) {
-        setLogs(data.data);
+      const response = await api.get(`/company/${companyId}/backups`);
+      if (response.data.success) {
+        setLogs(response.data.data);
       }
     } catch (error) {
       console.error('Failed to fetch backup logs:', error);
@@ -58,17 +55,12 @@ export default function BackupRestorePage() {
   const handleGenerateBackup = async () => {
     setIsGenerating(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5002/api/company/${companyId}/backup/generate`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (data.success) {
+      const response = await api.post(`/company/${companyId}/backup/generate`);
+      if (response.data.success) {
         alert('Backup generated successfully!');
         fetchLogs();
       } else {
-        alert('Backup failed: ' + (data.error?.message || 'Unknown error'));
+        alert('Backup failed: ' + (response.data.error?.message || 'Unknown error'));
       }
     } catch (error) {
       alert('Error triggering backup');
@@ -78,8 +70,7 @@ export default function BackupRestorePage() {
   };
 
   const handleDownload = async (fileName: string) => {
-    const token = localStorage.getItem('token');
-    window.open(`http://localhost:5002/api/company/${companyId}/backups/download/${fileName}?token=${token}`, '_blank');
+    window.open(`${BASE_URL}/api/company/${companyId}/backups/download/${fileName}`, '_blank');
   };
 
   const handleRestore = async (fileName: string) => {
@@ -95,17 +86,12 @@ export default function BackupRestorePage() {
 
     setIsGenerating(true); // Re-use loading state
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5002/api/company/${companyId}/backup/restore/${fileName}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (data.success) {
+      const response = await api.post(`/company/${companyId}/backup/restore/${fileName}`);
+      if (response.data.success) {
         alert('System restored successfully! The application will now reload.');
         window.location.reload();
       } else {
-        alert('Restore failed: ' + (data.error?.message || 'Unknown error'));
+        alert('Restore failed: ' + (response.data.error?.message || 'Unknown error'));
       }
     } catch (error) {
       alert('Error triggering restore');
@@ -127,22 +113,18 @@ export default function BackupRestorePage() {
 
     setIsGenerating(true);
     try {
-      const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch(`http://localhost:5002/api/company/${companyId}/backup/restore/upload`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
+      const response = await api.post(`/company/${companyId}/backup/restore/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      const data = await response.json();
-      if (data.success) {
+      if (response.data.success) {
         alert('System restored successfully! The application will now reload.');
         window.location.reload();
       } else {
-        alert('Restore failed: ' + (data.error?.message || 'Unknown error'));
+        alert('Restore failed: ' + (response.data.error?.message || 'Unknown error'));
       }
     } catch (error) {
       alert('Error uploading or restoring backup');

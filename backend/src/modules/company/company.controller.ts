@@ -2283,25 +2283,59 @@ export class CompanyController {
   async updateSettings(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
     const userId = (request.user as any).id;
-    const { disallowFutureDates, lockPreviousMonths, approvalWorkflow } = request.body as any;
+    const body = request.body as any;
 
     const role = await this.getUserRole(userId, companyId);
     if (!['Owner', 'Admin'].includes(role)) {
       throw new ForbiddenError('Only Owner or Admin can update company settings');
     }
 
+    const pick = (key: string, fallback: any) =>
+      body[key] !== undefined ? body[key] : fallback;
+
     const settings = await prisma.companySettings.upsert({
       where: { companyId },
       update: {
-        ...(disallowFutureDates !== undefined && { disallowFutureDates }),
-        ...(lockPreviousMonths !== undefined && { lockPreviousMonths }),
-        ...(approvalWorkflow !== undefined && { approvalWorkflow }),
+        ...(body.disallowFutureDates !== undefined && { disallowFutureDates: body.disallowFutureDates }),
+        ...(body.lockPreviousMonths !== undefined && { lockPreviousMonths: body.lockPreviousMonths }),
+        ...(body.approvalWorkflow !== undefined && { approvalWorkflow: body.approvalWorkflow }),
+        ...(body.requireVerification !== undefined && { requireVerification: body.requireVerification }),
+        ...(body.autoPostJournals !== undefined && { autoPostJournals: body.autoPostJournals }),
+        ...(body.fiscalYearStart !== undefined && { fiscalYearStart: Number(body.fiscalYearStart) }),
+        ...(body.lockedBeforeDate !== undefined && { lockedBeforeDate: body.lockedBeforeDate ? new Date(body.lockedBeforeDate) : null }),
+        ...(body.defaultCurrency !== undefined && { defaultCurrency: body.defaultCurrency }),
+        ...(body.dateFormat !== undefined && { dateFormat: body.dateFormat }),
+        ...(body.decimalPlaces !== undefined && { decimalPlaces: Number(body.decimalPlaces) }),
+        ...(body.enableVAT !== undefined && { enableVAT: body.enableVAT }),
+        ...(body.defaultVATRate !== undefined && { defaultVATRate: Number(body.defaultVATRate) }),
+        ...(body.vatRegistrationNumber !== undefined && { vatRegistrationNumber: body.vatRegistrationNumber }),
+        ...(body.tin !== undefined && { tin: body.tin }),
+        ...(body.alertOverdueInvoices !== undefined && { alertOverdueInvoices: body.alertOverdueInvoices }),
+        ...(body.alertLCExpiry !== undefined && { alertLCExpiry: body.alertLCExpiry }),
+        ...(body.alertLoanDue !== undefined && { alertLoanDue: body.alertLoanDue }),
+        ...(body.lcExpiryAlertDays !== undefined && { lcExpiryAlertDays: Number(body.lcExpiryAlertDays) }),
+        ...(body.loanDueAlertDays !== undefined && { loanDueAlertDays: Number(body.loanDueAlertDays) }),
       },
       create: {
         companyId,
-        disallowFutureDates: disallowFutureDates ?? true,
-        lockPreviousMonths: lockPreviousMonths ?? false,
-        approvalWorkflow: approvalWorkflow ?? true,
+        disallowFutureDates: pick('disallowFutureDates', false),
+        lockPreviousMonths: pick('lockPreviousMonths', false),
+        approvalWorkflow: pick('approvalWorkflow', true),
+        requireVerification: pick('requireVerification', true),
+        autoPostJournals: pick('autoPostJournals', true),
+        fiscalYearStart: pick('fiscalYearStart', 1),
+        defaultCurrency: pick('defaultCurrency', 'BDT'),
+        dateFormat: pick('dateFormat', 'DD/MM/YYYY'),
+        decimalPlaces: pick('decimalPlaces', 2),
+        enableVAT: pick('enableVAT', false),
+        defaultVATRate: pick('defaultVATRate', 15),
+        vatRegistrationNumber: pick('vatRegistrationNumber', null),
+        tin: pick('tin', null),
+        alertOverdueInvoices: pick('alertOverdueInvoices', true),
+        alertLCExpiry: pick('alertLCExpiry', true),
+        alertLoanDue: pick('alertLoanDue', true),
+        lcExpiryAlertDays: pick('lcExpiryAlertDays', 7),
+        loanDueAlertDays: pick('loanDueAlertDays', 30),
       },
     });
 

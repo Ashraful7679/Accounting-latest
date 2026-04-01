@@ -923,24 +923,6 @@ model PaymentPI {
 
 
 // ============================================
-// COMPANY SETTINGS (Global Controls)
-// ============================================
-
-model CompanySettings {
-  id                  String   @id @default(uuid())
-  companyId           String   @unique
-  disallowFutureDates Boolean  @default(true)
-  lockPreviousMonths  Boolean  @default(false)
-  approvalWorkflow    Boolean  @default(true)
-  
-  // Relations
-  company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-}
-
-// ============================================
 // EMPLOYEE MANAGEMENT
 // ============================================
 

@@ -190,9 +190,9 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
 
   // Attachments (New Secure System)
   fastify.post('/:id/attachments/upload', attachmentController.upload.bind(attachmentController));
-  fastify.get('/attachments/secure/:id', attachmentController.getSecureFile.bind(attachmentController));
-  fastify.get('/attachments/related/:type/:id', attachmentController.listByEntity.bind(attachmentController));
-  fastify.delete('/attachments/:id', attachmentController.deleteAttachment.bind(attachmentController));
+  fastify.get('/:id/attachments/related/:type/:id', attachmentController.listByEntity.bind(attachmentController));
+  fastify.get('/:id/attachments/secure/:id', attachmentController.getSecureFile.bind(attachmentController));
+  fastify.delete('/:id/attachments/:attachmentId', attachmentController.deleteAttachment.bind(attachmentController));
 
   // Backup & Restore (System Wide / Multi-Company Context)
   fastify.post('/:id/backup/generate', backupController.generateBackup.bind(backupController));

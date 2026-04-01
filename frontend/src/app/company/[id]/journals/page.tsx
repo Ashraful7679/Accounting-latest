@@ -192,17 +192,20 @@ export default function JournalsPage() {
   };
 
   const openModal = (journal?: JournalEntry) => {
+    console.log('openModal called with:', journal);
     if (journal) {
       setEditingJournalId(journal.id);
+      const lines = (journal.lines || []).map((l: any) => ({
+        accountId: l.accountId || '',
+        amount: (l.debit > 0 ? l.debit : l.credit) || 0,
+        debitCredit: l.debit > 0 ? 'debit' : 'credit',
+        description: l.description || '',
+      }));
+      console.log('Loaded lines:', lines);
       setFormData({
-        date: new Date(journal.date).toISOString().split('T')[0],
+        date: journal.date ? new Date(journal.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         description: journal.description || '',
-        lines: journal.lines.map((l: any) => ({
-          accountId: l.accountId,
-          amount: l.debit > 0 ? l.debit : l.credit,
-          debitCredit: l.debit > 0 ? 'debit' : 'credit',
-          description: l.description || '',
-        })),
+        lines: lines.length > 0 ? lines : [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }],
       });
     } else {
       setEditingJournalId(null);

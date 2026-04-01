@@ -177,6 +177,19 @@ export default function JournalsPage() {
     lines: [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }] as Line[],
   });
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [newJournalId, setNewJournalId] = useState<string | null>(null);
+
+  const uploadAttachments = async (journalId: string) => {
+    for (const file of attachments) {
+      const formData = new FormData();
+      formData.append('file', file);
+      await api.post(
+        `/company/${companyId}/attachments/upload?entityType=VOUCHER&entityId=${journalId}&documentType=GENERAL`,
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+    }
+  };
 
   const openModal = (journal?: JournalEntry) => {
     if (journal) {
@@ -207,6 +220,7 @@ export default function JournalsPage() {
   const closeModal = () => {
     setShowModal(false);
     setEditingJournalId(null);
+    setNewJournalId(null);
     setFormData({
       date: new Date().toISOString().split('T')[0],
       description: '',
@@ -265,10 +279,16 @@ export default function JournalsPage() {
       const response = await api.post(`/company/${companyId}/journals`, data);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
+      if (attachments.length > 0 && data?.data?.id) {
+        await uploadAttachments(data.data.id);
+      }
       toast.success('Journal created successfully');
-      closeModal();
+      setNewJournalId(data?.data?.id || null);
+      if (attachments.length === 0) {
+        closeModal();
+      }
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error?.message || 'Failed to create journal');
@@ -280,8 +300,11 @@ export default function JournalsPage() {
       const response = await api.put(`/company/${companyId}/journals/${id}`, data);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
+      if (editingJournalId && attachments.length > 0) {
+        await uploadAttachments(editingJournalId);
+      }
       toast.success('Journal updated successfully');
       closeModal();
     },
@@ -653,17 +676,20 @@ export default function JournalsPage() {
                 </button>
               </div>
               
-              {/* Attachments Section - Show when editing existing journal */}
+              {/* Attachments Section */}
               <div className="mt-4 pt-4 border-t">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Attachments</label>
                 <div className="bg-slate-50 p-3 rounded-lg">
                   <AttachmentManager 
                     entityType="VOUCHER" 
-                    entityId={editingJournalId || 'temp'} 
-                    canEdit={!!editingJournalId}
+                    entityId={editingJournalId || newJournalId || 'temp'} 
+                    canEdit={!!(editingJournalId || newJournalId)}
                   />
                 </div>
-                {!editingJournalId && (
+                {createMutation.isPending && (
+                  <p className="text-xs text-blue-500 mt-1">Saving journal...</p>
+                )}
+                {!editingJournalId && !newJournalId && !createMutation.isPending && (
                   <p className="text-xs text-gray-500 mt-1">Save the journal first to add attachments</p>
                 )}
               </div>

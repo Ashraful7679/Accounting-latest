@@ -34,7 +34,7 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ entityType
 
   const fetchAttachments = async () => {
     try {
-      const response = await api.get(`/company/attachments/related/${entityType}/${entityId}`);
+      const response = await api.get(`/company/${companyId}/attachments/related/${entityType}/${entityId}`);
       if (response.data.success) {
         setAttachments(response.data.data);
       }

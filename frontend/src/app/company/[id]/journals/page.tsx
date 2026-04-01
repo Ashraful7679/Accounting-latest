@@ -198,7 +198,7 @@ export default function JournalsPage() {
       const lines = (journal.lines || []).map((l: any) => ({
         accountId: l.accountId || '',
         amount: (l.debit > 0 ? l.debit : l.credit) || 0,
-        debitCredit: l.debit > 0 ? 'debit' : 'credit',
+        debitCredit: (l.debit > 0 ? 'debit' : 'credit') as 'debit' | 'credit',
         description: l.description || '',
       }));
       console.log('Loaded lines:', lines);

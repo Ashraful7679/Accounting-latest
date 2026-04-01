@@ -23,6 +23,23 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Show detailed error notification
+const showDetailedError = (error: any) => {
+  const errorData = error.response?.data?.error;
+  const serverMessage = error.response?.data?.message;
+  const statusCode = error.response?.status;
+  const message = errorData?.message || serverMessage || error.message || 'An error occurred';
+  const code = errorData?.code;
+  const details = errorData?.details;
+
+  let displayMessage = message;
+  if (statusCode) displayMessage += ` [${statusCode}]`;
+  if (code) displayMessage += ` (${code})`;
+  if (details) displayMessage += ` - ${JSON.stringify(details).substring(0, 100)}`;
+
+  toast.error(displayMessage, { duration: 5000 });
+};
+
 // Handle auth errors and system mode detection
 api.interceptors.response.use(
   (response) => {
@@ -44,46 +61,7 @@ api.interceptors.response.use(
       window.dispatchEvent(new CustomEvent('system-mode-change', { detail: systemMode }));
     }
 
-    // Show detailed error notification for all errors
-    const errorData = error.response?.data?.error;
-    const serverMessage = error.response?.data?.message;
-    const statusCode = error.response?.status;
-    const message = errorData?.message || serverMessage || error.message || 'An error occurred';
-    const code = errorData?.code;
-    const details = errorData?.details;
-
-    const errorContent = (
-      <div className="flex flex-col gap-1 max-w-sm">
-        <span className="font-bold">{message}</span>
-        {statusCode && (
-          <span className="text-xs text-yellow-300">
-            Status: {statusCode}
-          </span>
-        )}
-        {code && (
-          <span className="text-xs text-blue-300">
-            Code: {code}
-          </span>
-        )}
-        {details && (
-          <details className="text-xs text-slate-400 mt-1">
-            <summary className="cursor-pointer hover:text-slate-300">View details</summary>
-            <pre className="text-[10px] mt-1 whitespace-pre-wrap break-all max-h-24 overflow-auto">
-              {JSON.stringify(details, null, 2)}
-            </pre>
-          </details>
-        )}
-        {!errorData && !serverMessage && (
-          <span className="text-xs text-red-300">
-            Network error - please check your connection
-          </span>
-        )}
-      </div>
-    );
-
-    toast.error(errorContent, {
-      duration: 6000,
-    });
+    showDetailedError(error);
     
     return Promise.reject(error);
   }

@@ -15,6 +15,34 @@ export class PaymentController {
 
     const { invoiceId, billId, lcId, piAllocations, accountId, date, amount, method, reference, description } = data;
 
+    const paymentDate = date ? new Date(date) : new Date();
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    const userRecord = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { userRoles: { include: { role: true } } }
+    });
+    const isOwnerOrAdmin = userRecord?.userRoles.some((ur: any) => ['Owner', 'Admin'].includes(ur.role.name)) || false;
+
+    // Settings-driven Compliance Checks
+    const settings = await prisma.companySettings.findUnique({ where: { companyId } });
+    if (settings) {
+      if (settings.disallowFutureDates && paymentDate > today) {
+        throw new ValidationError('Company settings strictly disallow posting transactions with a future date.');
+      }
+      if (settings.lockPreviousMonths) {
+        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        if (paymentDate < firstDayOfMonth && !isOwnerOrAdmin) {
+          throw new ValidationError('Company settings restrict posting to previous months based on period lock rules.');
+        }
+      }
+    } else {
+      if (paymentDate > today && !isOwnerOrAdmin) {
+        throw new ValidationError('Future payment dates are only allowed for owners');
+      }
+    }
+
     const payment = await prisma.$transaction(async (tx) => {
       // 1. Create the Payment record
       const pmt = await (tx as any).payment.create({
@@ -194,11 +222,28 @@ export class PaymentController {
           }
         });
 
-        // Update balances: 
-        // Sales: Cash/Bank + (Debit), AR - (Credit)
-        // Purchase: Cash/Bank - (Credit), AP + (Debit) -> AP is liability, Debit reduces balance
         await tx.account.update({ where: { id: accountId }, data: { currentBalance: { increment: isSales ? Number(amount) : -Number(amount) } } });
         await tx.account.update({ where: { id: arApAccount.id }, data: { currentBalance: { increment: isSales ? -Number(amount) : Number(amount) } } });
+        
+        // Calculate total previously paid
+        const previousPayments = await tx.payment.aggregate({
+          where: { invoiceId: invoice.id },
+          _sum: { amount: true }
+        });
+        
+        const totalPaid = (previousPayments._sum.amount || 0) + Number(amount);
+        let newStatus = invoice.status;
+        
+        if (totalPaid >= invoice.total) {
+          newStatus = 'PAID';
+        } else if (totalPaid > 0) {
+          newStatus = 'PARTIALLY_PAID';
+        }
+        
+        await tx.invoice.update({
+          where: { id: invoice.id },
+          data: { status: newStatus }
+        });
       }
 
       return pmt;
@@ -233,6 +278,101 @@ export class PaymentController {
       orderBy: { date: 'desc' }
     });
     return reply.send({ success: true, data: payments });
+  }
+
+  async createTransfer(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const data = request.body as any;
+    const userId = (request.user as any).id;
+
+    const { fromAccountId, toAccountId, amount, date, reference, description } = data;
+
+    if (!amount || amount <= 0) {
+      throw new ValidationError('Valid transfer amount is required');
+    }
+    if (!fromAccountId || !toAccountId) {
+      throw new ValidationError('Source and destination accounts are required');
+    }
+    if (fromAccountId === toAccountId) {
+      throw new ValidationError('Source and destination accounts must be different');
+    }
+
+    const transfer = await prisma.$transaction(async (tx) => {
+      // Create a Payment record for the transfer history
+      const pmt = await (tx as any).payment.create({
+        data: {
+          paymentNumber: `TRF-${Date.now()}`,
+          companyId,
+          date: date ? new Date(date) : new Date(),
+          amount: Number(amount),
+          method: 'TRANSFER', // Use TRANSFER as the method
+          reference,
+          description: description || 'Account Transfer',
+          accountId: fromAccountId, // Store source here
+          status: 'APPROVED'
+        }
+      });
+
+      // Create the Journal Entry for the transfer
+      await tx.journalEntry.create({
+        data: {
+          entryNumber: `JV-TRF-${pmt.id.substring(0,8)}`,
+          companyId,
+          date: date ? new Date(date) : new Date(),
+          description: description || `Transfer from ${fromAccountId} to ${toAccountId}`,
+          reference: reference || pmt.paymentNumber,
+          totalDebit: Number(amount),
+          totalCredit: Number(amount),
+          status: 'APPROVED',
+          createdById: userId,
+          approvedById: userId,
+          approvedAt: new Date(),
+          lines: {
+            create: [
+              { 
+                accountId: toAccountId,     // Receiving account is debited (Assets increase)
+                debit: Number(amount), 
+                credit: 0, 
+                debitBase: Number(amount), 
+                creditBase: 0 
+              },
+              { 
+                accountId: fromAccountId,   // Giving account is credited (Assets decrease)
+                debit: 0, 
+                credit: Number(amount), 
+                debitBase: 0, 
+                creditBase: Number(amount) 
+              }
+            ]
+          }
+        }
+      });
+
+      // Update balances
+      // Assumes both are asset accounts (Cash/Bank), normal balance is Debit.
+      // Debit increases balance, Credit decreases balance.
+      await tx.account.update({ 
+        where: { id: toAccountId }, 
+        data: { currentBalance: { increment: Number(amount) } } 
+      });
+      await tx.account.update({ 
+        where: { id: fromAccountId }, 
+        data: { currentBalance: { decrement: Number(amount) } } 
+      });
+
+      return pmt;
+    });
+
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'payment',
+      entityId: transfer.id,
+      action: 'CREATED',
+      performedById: userId,
+      metadata: { docNumber: transfer.paymentNumber, isTransfer: true }
+    });
+
+    return reply.status(201).send({ success: true, data: transfer });
   }
 
 }

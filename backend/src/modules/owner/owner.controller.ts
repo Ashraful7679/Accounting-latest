@@ -383,6 +383,18 @@ export class OwnerController {
       throw new ConflictError('Company code already exists');
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { userCompanies: true }
+    });
+
+    if (user) {
+      const mainBaseCompanies = user.userCompanies.filter(c => c.isMainOwner).length;
+      if (mainBaseCompanies >= user.maxCompanies) {
+        throw new ForbiddenError(`You have reached your limit of ${user.maxCompanies} companies.`);
+      }
+    }
+
     const company = await (prisma.company as any).create({
       data: {
         name,

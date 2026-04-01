@@ -39,12 +39,13 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/:id/dashboard-stats', dashboardController.getStats.bind(dashboardController));
   fastify.get('/:id/activities', dashboardController.getActivities.bind(dashboardController));
 
-  // Notifications
+  // Notifications & Audit Trail
   fastify.post('/:id/notifications/generate', notificationController.generate.bind(notificationController));
   fastify.get('/:id/notifications', notificationController.list.bind(notificationController));
   fastify.patch('/:id/notifications/read-all', notificationController.markAllRead.bind(notificationController));
   fastify.patch('/notifications/:notifId/read', notificationController.markRead.bind(notificationController));
   fastify.delete('/notifications/:notifId', notificationController.delete.bind(notificationController));
+  fastify.get('/:id/audit', notificationController.listActivities.bind(notificationController));
 
   // LC Management
   fastify.get('/:id/lcs', lcController.getLCs.bind(lcController));
@@ -174,6 +175,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   // Payments
   fastify.get('/:id/payments', paymentController.listPayments.bind(paymentController));
   fastify.post('/:id/payments', paymentController.createPayment.bind(paymentController));
+  fastify.post('/:id/payments/transfer', paymentController.createTransfer.bind(paymentController));
 
   // Reports
   fastify.get('/:id/reports/trial-balance', reportController.getTrialBalance.bind(reportController));
@@ -203,9 +205,10 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/backup/restore/:fileName', backupController.restoreBackup.bind(backupController));
   fastify.post('/:id/backup/restore/upload', backupController.uploadAndRestore.bind(backupController));
 
-  // Company Settings
+  // Company Settings & Period Closing
   fastify.get('/:id/settings', controller.getSettings.bind(controller));
   fastify.put('/:id/settings', controller.updateSettings.bind(controller));
+  fastify.post('/:id/close-period', controller.closePeriod.bind(controller));
 
   // Bills (Accounts Payable Documents)
   fastify.get('/:id/bills', billsController.getBills.bind(billsController));

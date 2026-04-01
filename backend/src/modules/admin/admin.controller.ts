@@ -121,6 +121,17 @@ export class AdminController {
 
     // Assign owner to company if provided
     if (ownerId) {
+      const user = await prisma.user.findUnique({
+        where: { id: ownerId },
+        include: { userCompanies: true }
+      });
+      if (!user) throw new NotFoundError('Owner not found');
+      
+      const mainBaseCompanies = user.userCompanies.filter(c => c.isMainOwner).length;
+      if (mainBaseCompanies >= user.maxCompanies) {
+        throw new ConflictError(`This owner has reached their maximum limit of ${user.maxCompanies} companies.`);
+      }
+
       // Ensure user has Owner role
       const ownerRole = await prisma.role.findFirst({ where: { name: 'Owner' } });
       if (ownerRole) {

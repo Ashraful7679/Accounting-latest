@@ -170,7 +170,7 @@ export class ReportController {
     const invoices = await prisma.invoice.findMany({
       where: {
         companyId,
-        status: 'APPROVED',
+        status: { in: ['APPROVED', 'PARTIALLY_PAID'] },
         type: isCust ? 'SALES' : 'PURCHASE',
       },
       include: {

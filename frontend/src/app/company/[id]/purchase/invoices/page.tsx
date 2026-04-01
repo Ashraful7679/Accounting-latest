@@ -52,6 +52,15 @@ export default function PurchaseInvoicesPage() {
   const searchParams = useSearchParams();
   const editId = searchParams.get('edit');
 
+  const { data: invoicesData, isLoading } = useQuery({
+    queryKey: ['purchase-invoices', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/invoices?type=purchase`);
+      return response.data.data as Invoice[];
+    },
+    enabled: !!companyId,
+  });
+
   useEffect(() => {
     setMounted(true);
     const token = localStorage.getItem('token');

@@ -47,20 +47,20 @@ export class BackupController {
   private async createSimpleBackup(outputPath: string): Promise<void> {
     console.log('Using Prisma-based backup fallback...');
     
-    const tables = await prisma.$queryRaw<{ tablename: string }[]`
+    const tables = await prisma.$queryRawUnsafe<{ tablename: string }[]>(`
       SELECT tablename FROM pg_tables 
       WHERE schemaname = 'public' AND tablename NOT LIKE '_prisma_%'
-    `;
+    ` as any);
     
     let sqlContent = '-- Database Backup created at ' + new Date().toISOString() + '\n\n';
     
     for (const table of tables) {
       const tableName = table.tablename;
       
-      const columns = await prisma.$queryRaw<{ column_name: string }[]`
+      const columns = await prisma.$queryRawUnsafe<{ column_name: string }[]>(`
         SELECT column_name FROM information_schema.columns 
-        WHERE table_name = ${tableName} AND table_schema = 'public'
-      `;
+        WHERE table_name = $1 AND table_schema = 'public'
+      ` as any, tableName);
       
       if (columns.length === 0) continue;
       

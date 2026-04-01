@@ -53,10 +53,59 @@ export class BackupController {
           return `"${p}"`;
         }
       }
+      // Try system PATH as fallback
+      return binName;
     }
     
     // On Linux/cloud, try PATH
     return binName;
+  }
+
+  // Fallback: Create simple SQL backup using Prisma query
+  private async createSimpleBackup(outputPath: string): Promise<void> {
+    console.log('Using Prisma-based backup fallback...');
+    
+    // Get all tables
+    const tables = await prisma.$queryRaw<{ tablename: string }[]`
+      SELECT tablename FROM pg_tables 
+      WHERE schemaname = 'public'
+    `;
+    
+    let sqlContent = '-- Database Backup created at ' + new Date().toISOString() + '\n\n';
+    
+    for (const table of tables) {
+      const tableName = table.tablename;
+      
+      // Get table schema
+      const columns = await prisma.$queryRaw<{ column_name: string, data_type: string }[]`
+        SELECT column_name, data_type 
+        FROM information_schema.columns 
+        WHERE table_name = ${tableName}
+      `;
+      
+      // Get all data
+      const rows = await prisma.$queryRawUnsafe<any[]>(`SELECT * FROM "${tableName}"`);
+      
+      if (rows.length > 0) {
+        sqlContent += `-- Data for ${tableName}\n`;
+        sqlContent += `COPY "${tableName}" (${columns.map(c => c.column_name).join(', ')}) FROM stdin;\n`;
+        
+        for (const row of rows) {
+          const values = columns.map(col => {
+            const val = row[col.column_name];
+            if (val === null) return '\\N';
+            if (typeof val === 'number') return val.toString();
+            if (val instanceof Date) return val.toISOString();
+            return val.toString().replace(/\\/g, '\\\\').replace(/\t/g, '\\t').replace(/\n/g, '\\n');
+          });
+          sqlContent += values.join('\t') + '\n';
+        }
+        sqlContent += '\\.\n\n';
+      }
+    }
+    
+    fs.writeFileSync(outputPath, sqlContent, 'utf8');
+    console.log('Simple backup written to:', outputPath);
   }
 
   async generateBackup(request: FastifyRequest, reply: FastifyReply) {
@@ -74,32 +123,30 @@ export class BackupController {
       const pgDumpPath = this.findPostgresBin('pg_dump');
       console.log('Using pg_dump path:', pgDumpPath);
 
-      // 1. Database Dump (Plain SQL Format)
-      let pgDumpCmd: string;
-      if (process.platform === 'win32') {
-        pgDumpCmd = `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${pgDumpPath} -U ${user} -h ${host} -p ${port} -F p -b -v -f "${dbFilePath}" ${database}`;
-      } else {
-        // For Linux/cloud platforms
-        pgDumpCmd = `PGPASSWORD='${password.replace(/'/g, "'\\''")}' ${pgDumpPath} -U ${user} -h ${host} -p ${port} -F p -b -v -f "${dbFilePath}" ${database}`;
-      }
-      
-      console.log('Running Backup Command...');
-
+      // 1. Try pg_dump first, fallback to Prisma-based backup
+      let usingPgDump = true;
       try {
+        // 1. Database Dump (Plain SQL Format)
+        let pgDumpCmd: string;
+        if (process.platform === 'win32') {
+          pgDumpCmd = `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${pgDumpPath} -U ${user} -h ${host} -p ${port} -F p -b -v -f "${dbFilePath}" ${database}`;
+        } else {
+          pgDumpCmd = `PGPASSWORD='${password.replace(/'/g, "'\\''")}' ${pgDumpPath} -U ${user} -h ${host} -p ${port} -F p -b -v -f "${dbFilePath}" ${database}`;
+        }
+        
+        console.log('Running pg_dump...');
         await execPromise(pgDumpCmd);
       } catch (cmdError: any) {
-        const errorMsg = cmdError.stderr || cmdError.stdout || cmdError.message;
-        console.error('pg_dump execution failed:', errorMsg);
-        throw new Error(`pg_dump failed: ${errorMsg}`);
+        console.log('pg_dump not available, falling back to Prisma-based backup...');
+        usingPgDump = false;
+        await this.createSimpleBackup(dbFilePath);
       }
 
-      // 2. Create ZIP archive (using zip command or tar)
+      // 2. Create ZIP archive (using PowerShell or zip command)
       let zipCmd: string;
       if (process.platform === 'win32') {
-        // Use PowerShell to create zip
         zipCmd = `powershell -Command "Compress-Archive -Path '${dbFilePath}' -DestinationPath '${zipFilePath}'"`;
       } else {
-        // Linux - try zip command first, fallback to tar
         zipCmd = `zip -j "${zipFilePath}" "${dbFilePath}" 2>/dev/null || tar -a -cf "${zipFilePath}" "${dbFilePath}"`;
       }
       

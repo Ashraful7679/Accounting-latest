@@ -676,21 +676,39 @@ export default function JournalsPage() {
                 </button>
               </div>
               
-              {/* Attachments Section */}
+              {/* Attachments Section - Allow upload during creation */}
               <div className="mt-4 pt-4 border-t">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Attachments</label>
                 <div className="bg-slate-50 p-3 rounded-lg">
-                  <AttachmentManager 
-                    entityType="VOUCHER" 
-                    entityId={editingJournalId || newJournalId || 'temp'} 
-                    canEdit={!!(editingJournalId || newJournalId)}
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      setAttachments(prev => [...prev, ...files]);
+                    }}
+                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
+                  {attachments.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {attachments.map((file, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs bg-white p-2 rounded">
+                          <span className="truncate max-w-[200px]">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {createMutation.isPending && (
-                  <p className="text-xs text-blue-500 mt-1">Saving journal...</p>
-                )}
-                {!editingJournalId && !newJournalId && !createMutation.isPending && (
-                  <p className="text-xs text-gray-500 mt-1">Save the journal first to add attachments</p>
+                  <p className="text-xs text-blue-500 mt-1">Saving journal and attachments...</p>
                 )}
               </div>
             </form>

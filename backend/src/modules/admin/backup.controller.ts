@@ -45,56 +45,47 @@ export class BackupController {
   }
 
   private async createSimpleBackup(outputPath: string): Promise<void> {
-    console.log('Using Prisma-based backup fallback...');
+    console.log('Creating JSON backup...');
     
-    const tablesResult = await prisma.$queryRawUnsafe<{ tablename: string }[]>(
-      `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename NOT LIKE '_prisma_%'`
-    );
-    const tables = Array.isArray(tablesResult) ? tablesResult : [];
-    
-    let sqlContent = '-- Database Backup created at ' + new Date().toISOString() + '\n\n';
-    
-    for (const table of tables) {
-      if (!table?.tablename) continue;
-      const tableName = table.tablename;
-      
-      const columnsResult = await prisma.$queryRawUnsafe<{ column_name: string }[]>(
-        `SELECT column_name FROM information_schema.columns WHERE table_name = '${tableName}' AND table_schema = 'public'`
-      );
-      const columns = Array.isArray(columnsResult) ? columnsResult : [];
-      
-      if (columns.length === 0) continue;
-      
-      const rowsResult = await prisma.$queryRawUnsafe<any[]>(`SELECT * FROM "${tableName}"`);
-      const rows = Array.isArray(rowsResult) ? rowsResult : [];
-      
-      if (rows.length > 0) {
-        sqlContent += `-- Data for ${tableName}\n`;
-        const colNames = columns.map(c => `"${c.column_name}"`).join(', ');
-        
-        for (const row of rows) {
-          const values = columns.map(col => {
-            const val = row[col.column_name];
-            if (val === null) return 'NULL';
-            if (typeof val === 'number') return val.toString();
-            if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
-            if (val instanceof Date) return `'${val.toISOString()}'`;
-            if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
-            return `'${String(val).replace(/'/g, "''").replace(/\\/g, '\\\\')}'`;
-          });
-          sqlContent += `INSERT INTO "${tableName}" (${colNames}) VALUES (${values.join(', ')});\n`;
-        }
-        sqlContent += '\n';
+    const backupData: Record<string, any> = {
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: '1.0'
+      },
+      data: {}
+    };
+
+    const modules = [
+      { name: 'users', key: 'user' },
+      { name: 'roles', key: 'role' },
+      { name: 'companies', key: 'company' },
+      { name: 'accounts', key: 'account' },
+      { name: 'customers', key: 'customer' },
+      { name: 'vendors', key: 'vendor' },
+      { name: 'products', key: 'product' },
+      { name: 'journals', key: 'journalEntry' },
+      { name: 'invoices', key: 'invoice' },
+      { name: 'purchase_orders', key: 'purchaseOrder' },
+      { name: 'lcs', key: 'lc' },
+      { name: 'attachments', key: 'attachment' },
+    ];
+
+    for (const mod of modules) {
+      try {
+        const data = await (prisma as any)[mod.key].findMany({ take: 100 });
+        backupData.data[mod.name] = data;
+      } catch (e: any) {
+        backupData.data[mod.name] = [];
       }
     }
-    
-    fs.writeFileSync(outputPath, sqlContent, 'utf8');
-    console.log('Simple backup written to:', outputPath);
+
+    fs.writeFileSync(outputPath, JSON.stringify(backupData, null, 2), 'utf8');
+    console.log('Backup written to:', outputPath);
   }
 
   async createBackup(request: FastifyRequest, reply: FastifyReply) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const fileName = `backup-${timestamp}.sql`;
+    const fileName = `backup-${timestamp}.json`;
     const filePath = path.join(this.BACKUP_DIR, fileName);
 
     if (!fs.existsSync(this.BACKUP_DIR)) {
@@ -102,25 +93,8 @@ export class BackupController {
     }
 
     try {
-      const { user, password, host, port, database } = this.getDbConfig();
-      const pgDumpPath = this.findPostgresBin('pg_dump');
-      
-      let pgDumpCmd: string;
-      if (process.platform === 'win32') {
-        pgDumpCmd = `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${pgDumpPath} -U ${user} -h ${host} -p ${port} -F p -f "${filePath}" ${database}`;
-      } else {
-        pgDumpCmd = `PGPASSWORD='${password.replace(/'/g, "'\\''")}' ${pgDumpPath} -U ${user} -h ${host} -p ${port} -F p -f "${filePath}" ${database}`;
-      }
-
-      try {
-        const { exec } = await import('child_process');
-        const { promisify } = await import('util');
-        const execPromise = promisify(exec);
-        await execPromise(pgDumpCmd);
-      } catch (cmdError: any) {
-        console.log('pg_dump failed, using Prisma fallback...');
-        await this.createSimpleBackup(filePath);
-      }
+      // Direct JSON backup (simpler and works on cloud)
+      await this.createSimpleBackup(filePath);
       
       const stats = fs.statSync(filePath);
       
@@ -130,7 +104,7 @@ export class BackupController {
           fileName, 
           size: stats.size,
           timestamp: new Date().toISOString(),
-          downloadUrl: `/api/admin/backups/${fileName}`
+          downloadUrl: `/api/admin/backups/download/${fileName}`
         } 
       });
     } catch (error: any) {
@@ -143,7 +117,7 @@ export class BackupController {
     if (!fs.existsSync(this.BACKUP_DIR)) return reply.send({ success: true, data: [] });
 
     const files = fs.readdirSync(this.BACKUP_DIR)
-      .filter(f => f.endsWith('.sql'))
+      .filter(f => f.endsWith('.json') || f.endsWith('.sql') || f.endsWith('.zip'))
       .map(f => {
         const stats = fs.statSync(path.join(this.BACKUP_DIR, f));
         return {
@@ -189,5 +163,19 @@ export class BackupController {
       console.error('Restore Error:', error);
       return reply.status(500).send({ success: false, message: 'Restoration failed', error: error.message });
     }
+  }
+
+  async downloadBackup(request: FastifyRequest, reply: FastifyReply) {
+    const { fileName } = request.params as { fileName: string };
+    const filePath = path.join(this.BACKUP_DIR, fileName);
+
+    if (!fs.existsSync(filePath)) {
+      return reply.status(404).send({ success: false, message: 'Backup file not found' });
+    }
+
+    const stream = fs.createReadStream(filePath);
+    reply.header('Content-Type', 'application/octet-stream');
+    reply.header('Content-Disposition', `attachment; filename="${fileName}"`);
+    return reply.send(stream);
   }
 }

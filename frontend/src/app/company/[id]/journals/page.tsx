@@ -495,8 +495,8 @@ export default function JournalsPage() {
   };
 
   useEffect(() => {
-    const role = localStorage.getItem('userRole');
-    if (role) setUserRole(role);
+    const role = localStorage.getItem('userRole') || JSON.parse(localStorage.getItem('roles') || '[]')[0] || '';
+    setUserRole(role);
   }, []);
 
   if (!companyId) return <div>Loading...</div>;
@@ -507,13 +507,9 @@ export default function JournalsPage() {
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-8 flex gap-8 items-start print-hide">
         <div className="flex-1 space-y-8">
-          <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">Transaction Engine</h2>
             <div className="flex items-center gap-3">
-              <button onClick={() => setShowGuide(!showGuide)} className={`p-3 rounded-xl font-bold flex items-center gap-2 transition-all border ${showGuide ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                <Info className="w-5 h-5" />
-                {showGuide ? 'Hide Guide' : 'Accounting Guide'}
-              </button>
               {(userRole === 'Accountant' || userRole === 'Owner' || userRole === 'Admin') && (
                 <button onClick={() => openModal()} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20">
                   <Plus className="w-5 h-5" />

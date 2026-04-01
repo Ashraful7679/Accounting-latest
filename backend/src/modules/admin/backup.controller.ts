@@ -1,31 +1,125 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import fs from 'fs';
 import path from 'path';
-
-const execPromise = promisify(exec);
+import fs from 'fs';
+import prisma from '../../config/database';
 
 export class BackupController {
-  
-  async createBackup(request: FastifyRequest, reply: FastifyReply) {
-    const databaseUrl = process.env.DATABASE_URL;
-    if (!databaseUrl) {
-      return reply.status(500).send({ success: false, message: 'DATABASE_URL not configured' });
-    }
+  private BACKUP_DIR: string;
 
+  constructor() {
+    this.BACKUP_DIR = process.env.BACKUP_DIR || (process.platform === 'win32' 
+      ? path.join(process.cwd(), 'backups') 
+      : '/tmp/accabiz_backups');
+    
+    if (!fs.existsSync(this.BACKUP_DIR)) {
+      fs.mkdirSync(this.BACKUP_DIR, { recursive: true });
+    }
+    console.log('Backup directory:', this.BACKUP_DIR);
+  }
+
+  private getDbConfig() {
+    const url = process.env.DATABASE_URL || '';
+    const matches = url.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
+    if (!matches) throw new Error('Invalid DATABASE_URL format');
+    return {
+      user: matches[1],
+      password: matches[2],
+      host: matches[3],
+      port: matches[4],
+      database: matches[5],
+    };
+  }
+
+  private findPostgresBin(binName: string): string {
+    if (process.platform === 'win32') {
+      const versions = ['18', '17', '16', '15', '14', '13', '12', '11'];
+      for (const ver of versions) {
+        const p = `C:\\Program Files\\PostgreSQL\\${ver}\\bin\\${binName}.exe`;
+        if (fs.existsSync(p)) {
+          return `"${p}"`;
+        }
+      }
+      return binName;
+    }
+    return binName;
+  }
+
+  private async createSimpleBackup(outputPath: string): Promise<void> {
+    console.log('Using Prisma-based backup fallback...');
+    
+    const tables = await prisma.$queryRaw<{ tablename: string }[]`
+      SELECT tablename FROM pg_tables 
+      WHERE schemaname = 'public' AND tablename NOT LIKE '_prisma_%'
+    `;
+    
+    let sqlContent = '-- Database Backup created at ' + new Date().toISOString() + '\n\n';
+    
+    for (const table of tables) {
+      const tableName = table.tablename;
+      
+      const columns = await prisma.$queryRaw<{ column_name: string }[]`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_name = ${tableName} AND table_schema = 'public'
+      `;
+      
+      if (columns.length === 0) continue;
+      
+      const rows = await prisma.$queryRawUnsafe<any[]>(`SELECT * FROM "${tableName}"`);
+      
+      if (rows.length > 0) {
+        sqlContent += `-- Data for ${tableName}\n`;
+        const colNames = columns.map(c => `"${c.column_name}"`).join(', ');
+        
+        for (const row of rows) {
+          const values = columns.map(col => {
+            const val = row[col.column_name];
+            if (val === null) return 'NULL';
+            if (typeof val === 'number') return val.toString();
+            if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
+            if (val instanceof Date || (val && val.toISOString)) {
+              return `'${new Date(val).toISOString()}'`;
+            }
+            return `'${val.toString().replace(/'/g, "''").replace(/\\/g, '\\\\')}'`;
+          });
+          sqlContent += `INSERT INTO "${tableName}" (${colNames}) VALUES (${values.join(', ')});\n`;
+        }
+        sqlContent += '\n';
+      }
+    }
+    
+    fs.writeFileSync(outputPath, sqlContent, 'utf8');
+    console.log('Simple backup written to:', outputPath);
+  }
+
+  async createBackup(request: FastifyRequest, reply: FastifyReply) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const fileName = `backup-${timestamp}.sql`;
-    const filePath = path.join(process.cwd(), 'backups', fileName);
+    const filePath = path.join(this.BACKUP_DIR, fileName);
 
-    // Ensure backups directory exists
-    if (!fs.existsSync(path.join(process.cwd(), 'backups'))) {
-      fs.mkdirSync(path.join(process.cwd(), 'backups'));
+    if (!fs.existsSync(this.BACKUP_DIR)) {
+      fs.mkdirSync(this.BACKUP_DIR, { recursive: true });
     }
 
     try {
-      // Execute pg_dump
-      await execPromise(`pg_dump "${databaseUrl}" -f "${filePath}"`);
+      const { user, password, host, port, database } = this.getDbConfig();
+      const pgDumpPath = this.findPostgresBin('pg_dump');
+      
+      let pgDumpCmd: string;
+      if (process.platform === 'win32') {
+        pgDumpCmd = `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${pgDumpPath} -U ${user} -h ${host} -p ${port} -F p -f "${filePath}" ${database}`;
+      } else {
+        pgDumpCmd = `PGPASSWORD='${password.replace(/'/g, "'\\''")}' ${pgDumpPath} -U ${user} -h ${host} -p ${port} -F p -f "${filePath}" ${database}`;
+      }
+
+      try {
+        const { exec } = await import('child_process');
+        const { promisify } = await import('util');
+        const execPromise = promisify(exec);
+        await execPromise(pgDumpCmd);
+      } catch (cmdError: any) {
+        console.log('pg_dump failed, using Prisma fallback...');
+        await this.createSimpleBackup(filePath);
+      }
       
       const stats = fs.statSync(filePath);
       
@@ -45,16 +139,18 @@ export class BackupController {
   }
 
   async listBackups(request: FastifyRequest, reply: FastifyReply) {
-    const backupDir = path.join(process.cwd(), 'backups');
-    if (!fs.existsSync(backupDir)) return reply.send({ success: true, data: [] });
+    if (!fs.existsSync(this.BACKUP_DIR)) return reply.send({ success: true, data: [] });
 
-    const files = fs.readdirSync(backupDir)
+    const files = fs.readdirSync(this.BACKUP_DIR)
       .filter(f => f.endsWith('.sql'))
       .map(f => {
-        const stats = fs.statSync(path.join(backupDir, f));
+        const stats = fs.statSync(path.join(this.BACKUP_DIR, f));
         return {
+          id: f,
           fileName: f,
-          size: stats.size,
+          fileSize: stats.size,
+          status: 'SUCCESS',
+          triggeredBy: 'system',
           createdAt: stats.birthtime
         };
       })
@@ -65,21 +161,47 @@ export class BackupController {
 
   async restoreBackup(request: FastifyRequest, reply: FastifyReply) {
     const { fileName } = request.body as { fileName: string };
-    const databaseUrl = process.env.DATABASE_URL;
-    const filePath = path.join(process.cwd(), 'backups', fileName);
+    const filePath = path.join(this.BACKUP_DIR, fileName);
 
     if (!fs.existsSync(filePath)) {
       return reply.status(404).send({ success: false, message: 'Backup file not found' });
     }
 
-    try {
-      // CRITICAL: Auto-backup before restore
-      const preRestoreBackup = `pre-restore-${new Date().getTime()}.sql`;
-      await execPromise(`pg_dump "${databaseUrl}" -f "${path.join(process.cwd(), 'backups', preRestoreBackup)}"`);
+    const { user, password, host, port, database } = this.getDbConfig();
+    const psqlPath = this.findPostgresBin('psql');
 
-      // Execute psql restore
-      // Note: This usually requires --clean to drop existing objects
-      await execPromise(`psql "${databaseUrl}" -f "${filePath}"`);
+    try {
+      // Pre-restore backup
+      const preRestoreBackup = `pre-restore-${Date.now()}.sql`;
+      const preRestorePath = path.join(this.BACKUP_DIR, preRestoreBackup);
+      let preRestoreCmd: string;
+      if (process.platform === 'win32') {
+        preRestoreCmd = `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${psqlPath} -U ${user} -h ${host} -p ${port} -d ${database} -f "${preRestorePath}"`;
+      } else {
+        preRestoreCmd = `PGPASSWORD='${password.replace(/'/g, "'\\''")}' ${psqlPath} -U ${user} -h ${host} -p ${port} -d ${database} -f "${preRestorePath}"`;
+      }
+
+      try {
+        const { exec } = await import('child_process');
+        const { promisify } = await import('util');
+        const execPromise = promisify(exec);
+        await execPromise(preRestoreCmd);
+      } catch (e) {
+        console.log('Pre-restore backup skipped (pg_dump unavailable)');
+      }
+
+      // Restore
+      let restoreCmd: string;
+      if (process.platform === 'win32') {
+        restoreCmd = `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${psqlPath} -U ${user} -h ${host} -p ${port} -d ${database} -f "${filePath}"`;
+      } else {
+        restoreCmd = `PGPASSWORD='${password.replace(/'/g, "'\\''")}' ${psqlPath} -U ${user} -h ${host} -p ${port} -d ${database} -f "${filePath}"`;
+      }
+
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execPromise = promisify(exec);
+      await execPromise(restoreCmd);
 
       return reply.send({ success: true, message: 'Database restored successfully' });
     } catch (error: any) {

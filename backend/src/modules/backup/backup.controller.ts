@@ -65,10 +65,9 @@ export class BackupController {
   private async createSimpleBackup(outputPath: string): Promise<void> {
     console.log('Using Prisma-based backup fallback...');
     
-    // Get all tables
     const tables = await prisma.$queryRaw<{ tablename: string }[]`
       SELECT tablename FROM pg_tables 
-      WHERE schemaname = 'public'
+      WHERE schemaname = 'public' AND tablename NOT LIKE '_prisma_%'
     `;
     
     let sqlContent = '-- Database Backup created at ' + new Date().toISOString() + '\n\n';
@@ -76,31 +75,33 @@ export class BackupController {
     for (const table of tables) {
       const tableName = table.tablename;
       
-      // Get table schema
-      const columns = await prisma.$queryRaw<{ column_name: string, data_type: string }[]`
-        SELECT column_name, data_type 
-        FROM information_schema.columns 
-        WHERE table_name = ${tableName}
+      const columns = await prisma.$queryRaw<{ column_name: string }[]`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_name = ${tableName} AND table_schema = 'public'
       `;
       
-      // Get all data
+      if (columns.length === 0) continue;
+      
       const rows = await prisma.$queryRawUnsafe<any[]>(`SELECT * FROM "${tableName}"`);
       
       if (rows.length > 0) {
         sqlContent += `-- Data for ${tableName}\n`;
-        sqlContent += `COPY "${tableName}" (${columns.map(c => c.column_name).join(', ')}) FROM stdin;\n`;
+        const colNames = columns.map(c => `"${c.column_name}"`).join(', ');
         
         for (const row of rows) {
           const values = columns.map(col => {
             const val = row[col.column_name];
-            if (val === null) return '\\N';
+            if (val === null) return 'NULL';
             if (typeof val === 'number') return val.toString();
-            if (val instanceof Date) return val.toISOString();
-            return val.toString().replace(/\\/g, '\\\\').replace(/\t/g, '\\t').replace(/\n/g, '\\n');
+            if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
+            if (val instanceof Date || (val && val.toISOString)) {
+              return `'${new Date(val).toISOString()}'`;
+            }
+            return `'${val.toString().replace(/'/g, "''").replace(/\\/g, '\\\\')}'`;
           });
-          sqlContent += values.join('\t') + '\n';
+          sqlContent += `INSERT INTO "${tableName}" (${colNames}) VALUES (${values.join(', ')});\n`;
         }
-        sqlContent += '\\.\n\n';
+        sqlContent += '\n';
       }
     }
     
@@ -119,30 +120,11 @@ export class BackupController {
     const zipFilePath = path.join(this.BACKUP_DIR, zipFileName);
 
     try {
-      // Find pg_dump
-      const pgDumpPath = this.findPostgresBin('pg_dump');
-      console.log('Using pg_dump path:', pgDumpPath);
+      // Use Prisma-based backup (more reliable for remote DBs)
+      console.log('Starting Prisma-based backup...');
+      await this.createSimpleBackup(dbFilePath);
 
-      // 1. Try pg_dump first, fallback to Prisma-based backup
-      let usingPgDump = true;
-      try {
-        // 1. Database Dump (Plain SQL Format)
-        let pgDumpCmd: string;
-        if (process.platform === 'win32') {
-          pgDumpCmd = `set "PGPASSWORD=${password.replace(/"/g, '""')}" && ${pgDumpPath} -U ${user} -h ${host} -p ${port} -F p -b -v -f "${dbFilePath}" ${database}`;
-        } else {
-          pgDumpCmd = `PGPASSWORD='${password.replace(/'/g, "'\\''")}' ${pgDumpPath} -U ${user} -h ${host} -p ${port} -F p -b -v -f "${dbFilePath}" ${database}`;
-        }
-        
-        console.log('Running pg_dump...');
-        await execPromise(pgDumpCmd);
-      } catch (cmdError: any) {
-        console.log('pg_dump not available, falling back to Prisma-based backup...');
-        usingPgDump = false;
-        await this.createSimpleBackup(dbFilePath);
-      }
-
-      // 2. Create ZIP archive (using PowerShell or zip command)
+      // Create ZIP archive (using PowerShell or zip command)
       let zipCmd: string;
       if (process.platform === 'win32') {
         zipCmd = `powershell -Command "Compress-Archive -Path '${dbFilePath}' -DestinationPath '${zipFilePath}'"`;
@@ -150,14 +132,21 @@ export class BackupController {
         zipCmd = `zip -j "${zipFilePath}" "${dbFilePath}" 2>/dev/null || tar -a -cf "${zipFilePath}" "${dbFilePath}"`;
       }
       
-      await execPromise(zipCmd);
+      try {
+        await execPromise(zipCmd);
+      } catch (zipError: any) {
+        // If zip fails, just use the SQL file directly
+        zipFilePath = dbFilePath;
+        zipFileName = dbFileName;
+        console.log('ZIP creation failed, using SQL file directly');
+      }
 
-      // 3. Clean up the standalone DB file after zipping
-      if (fs.existsSync(dbFilePath)) {
+      // Clean up the standalone DB file after zipping (if zip succeeded)
+      if (fs.existsSync(dbFilePath) && zipFilePath !== dbFilePath) {
         fs.unlinkSync(dbFilePath);
       }
 
-      // 4. Log Success
+      // Log Success
       const stats = fs.statSync(zipFilePath);
       const log = await prisma.backupLog.create({
         data: {

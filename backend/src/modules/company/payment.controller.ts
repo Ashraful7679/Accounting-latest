@@ -25,22 +25,8 @@ export class PaymentController {
     });
     const isOwnerOrAdmin = userRecord?.userRoles.some((ur: any) => ['Owner', 'Admin'].includes(ur.role.name)) || false;
 
-    // Settings-driven Compliance Checks
-    const settings = await prisma.companySettings.findUnique({ where: { companyId } });
-    if (settings) {
-      if (settings.disallowFutureDates && paymentDate > today) {
-        throw new ValidationError('Company settings strictly disallow posting transactions with a future date.');
-      }
-      if (settings.lockPreviousMonths) {
-        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        if (paymentDate < firstDayOfMonth && !isOwnerOrAdmin) {
-          throw new ValidationError('Company settings restrict posting to previous months based on period lock rules.');
-        }
-      }
-    } else {
-      if (paymentDate > today && !isOwnerOrAdmin) {
-        throw new ValidationError('Future payment dates are only allowed for owners');
-      }
+    if (paymentDate > today && !isOwnerOrAdmin) {
+      throw new ValidationError('Future payment dates are only allowed for owners');
     }
 
     const payment = await prisma.$transaction(async (tx) => {

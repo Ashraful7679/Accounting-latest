@@ -1060,7 +1060,6 @@ model CompanySettings {
   company               Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   // Fiscal & Period Controls
-  fiscalYearStart       Int      @default(1)
   lockPreviousMonths    Boolean  @default(false)
   lockedBeforeDate      DateTime?
   disallowFutureDates   Boolean  @default(false)

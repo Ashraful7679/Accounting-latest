@@ -130,7 +130,7 @@ export default function PurchaseOrdersPage() {
     enabled: !!companyId,
   });
 
-  const { data: productsData } = useQuery({
+  const { data: allProductsData } = useQuery({
     queryKey: ['products', companyId],
     queryFn: async () => {
       const response = await api.get(`/company/${companyId}/products`);
@@ -138,6 +138,19 @@ export default function PurchaseOrdersPage() {
     },
     enabled: !!companyId,
   });
+
+  const { data: vendorProductsData } = useQuery({
+    queryKey: ['vendor-products', companyId, formData.supplierId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/products/entity?vendorId=${formData.supplierId}`);
+      return response.data.data;
+    },
+    enabled: !!companyId && !!formData.supplierId,
+  });
+
+  const productsData = vendorProductsData?.length > 0 
+    ? vendorProductsData.map((m: any) => ({ ...m.product, customPrice: m.price, customCurrency: m.currency }))
+    : allProductsData;
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -319,7 +332,13 @@ export default function PurchaseOrdersPage() {
       const product = productsData?.find((p: any) => p.id === value);
       if (product) {
         line.itemDescription = product.name;
-        line.unitPrice = Number((product.unitPrice / exchangeRate).toFixed(2));
+        // Task 6: Use custom price if available, otherwise fallback to BDT conversion
+        if (product.customPrice) {
+          line.unitPrice = product.customPrice;
+          setFormData(prev => ({ ...prev, currency: product.customCurrency || prev.currency }));
+        } else {
+          line.unitPrice = Number((product.unitPrice / exchangeRate).toFixed(2));
+        }
       }
     }
     
@@ -619,7 +638,15 @@ export default function PurchaseOrdersPage() {
                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Supplier *</label>
                     <select 
                       value={formData.supplierId} 
-                      onChange={(e) => setFormData({...formData, supplierId: e.target.value})}
+                      onChange={(e) => {
+                        const vendorId = e.target.value;
+                        const vendor = vendorsData?.find((v: any) => v.id === vendorId);
+                        setFormData({
+                          ...formData, 
+                          supplierId: vendorId,
+                          currency: vendor?.preferredCurrency || formData.currency
+                        });
+                      }}
                       className="w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold text-sm"
                       required
                     >
@@ -627,6 +654,15 @@ export default function PurchaseOrdersPage() {
                       {vendorsData?.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
                     </select>
                   </div>
+
+                  {vendorProductsData?.length > 0 && (
+                    <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-100 mb-4 animate-in fade-in duration-300">
+                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3" /> Custom Sourcing Table
+                      </p>
+                      <p className="text-[9px] text-slate-500 mt-1">This supplier has {vendorProductsData.length} specialized items mapped with custom pricing.</p>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">LC Link (Optional)</label>

@@ -145,7 +145,8 @@ export class CompanyController {
       }, tx);
 
       // Automated Ledger Account
-      await TransactionRepository.ensureEntityAccount(tx, companyId, c.id, c.name, c.code, 'AR');
+      // Automated Ledger Account
+      await TransactionRepository.ensureEntityAccount(tx, companyId, c.id, c.name, c.code, 'AR', Number(openingBalance || 0));
       
       return c;
     });
@@ -205,7 +206,8 @@ export class CompanyController {
       }, tx);
 
       // Automated Ledger Account
-      await TransactionRepository.ensureEntityAccount(tx, companyId, v.id, v.name, v.code, 'AP');
+      // Automated Ledger Account
+      await TransactionRepository.ensureEntityAccount(tx, companyId, v.id, v.name, v.code, 'AP', Number(openingBalance || 0));
       
       return v;
     });
@@ -1675,8 +1677,7 @@ export class CompanyController {
         return reply.status(400).send({ success: false, error: 'First name and last name are required' });
       }
 
-      const count = await prisma.employee.count({ where: { companyId } });
-      const employeeCode = `EMP-${String(count + 1).padStart(4, '0')}`;
+      const employeeCode = await SequenceService.generateDocumentNumber(companyId, 'employee');
 
       const employee = await prisma.$transaction(async (tx) => {
         const emp = await tx.employee.create({

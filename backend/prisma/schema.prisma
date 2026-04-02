@@ -425,6 +425,7 @@ model Customer {
   journalLines JournalEntryLine[]
   lcs         LC[]
   pis         PI[]
+  productPrices ProductEntityPrice[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -460,6 +461,7 @@ model Vendor {
   lcs         LC[]
   bills       Bill[]
   pis         PI[]
+  productPrices ProductEntityPrice[]
   journalLines JournalEntryLine[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -543,6 +545,7 @@ model Product {
   invoiceLines   InvoiceLine[]
   poLines        PurchaseOrderLine[]
   piLines        PILine[]
+  entityPrices   ProductEntityPrice[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -1061,4 +1064,32 @@ model CompanySettings {
 
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// PRODUCT-ENTITY PRICING
+// ============================================
+
+model ProductEntityPrice {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  vendorId    String?
+  vendor      Vendor?   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  price       Float
+  currency    String   @default("BDT")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([productId, customerId])
+  @@unique([productId, vendorId])
+  @@index([productId])
+  @@index([customerId])
+  @@index([vendorId])
 }

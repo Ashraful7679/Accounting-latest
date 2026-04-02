@@ -419,7 +419,8 @@ export class TransactionRepository {
    * Ensures a dedicated ledger account exists for a Customer, Vendor, or Employee.
    * Scoped to the company.
    */
-  static async ensureEntityAccount(tx: any, companyId: string, entityId: string, entityName: string, entityCode: string, category: 'AR' | 'AP' | 'PAYABLE') {
+  static async ensureEntityAccount(tx: any, companyId: string, entityId: string, entityName: string, entityCode: string, category: 'AR' | 'AP' | 'PAYABLE', openingBalance: number = 0) {
+    // Check if an account already exists for this entity (by entityCode in name)
     const existing = await tx.account.findFirst({
       where: { companyId, name: { contains: entityCode, mode: 'insensitive' } }
     });
@@ -427,7 +428,28 @@ export class TransactionRepository {
 
     const typeName = category === 'AR' ? 'ASSET' : 'LIABILITY';
     const accountTypeId = await this.getAccountTypeId(typeName);
-    const code = await SequenceService.generateDocumentNumber(companyId, category === 'AR' ? 'customer' : 'vendor', tx);
+
+    // Generate a unique account code by checking the Account table directly.
+    // This prevents global unique constraint violations that occur when another
+    // sequence (e.g., Vendor codes) conflicts with an existing Account code.
+    const prefix = category === 'AR' ? 'ACC-AR' : category === 'AP' ? 'ACC-AP' : 'ACC-PAY';
+    const year = new Date().getFullYear();
+    const prefixYear = `${prefix}-${year}-`;
+
+    const countResult = await tx.account.count({
+      where: { companyId, code: { startsWith: prefixYear } }
+    });
+
+    let counter = countResult + 1;
+    let code = '';
+    let attempts = 0;
+    while (true) {
+      const candidate = `${prefixYear}${counter.toString().padStart(4, '0')}`;
+      const codeExists = await tx.account.findUnique({ where: { code: candidate } });
+      if (!codeExists) { code = candidate; break; }
+      counter++;
+      if (++attempts > 200) throw new Error(`Cannot generate unique account code for category "${category}" after 200 attempts`);
+    }
 
     return await tx.account.create({
       data: {
@@ -436,6 +458,8 @@ export class TransactionRepository {
         companyId,
         accountTypeId,
         category,
+        openingBalance: Number(openingBalance),
+        currentBalance: Number(openingBalance),
         isActive: true,
       }
     });

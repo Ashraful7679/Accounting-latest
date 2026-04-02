@@ -120,6 +120,11 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.put('/:id/products/:productId', productController.updateProduct.bind(productController));
   fastify.delete('/:id/products/:productId', productController.deleteProduct.bind(productController));
 
+  // Product Pricing & Entity Mapping
+  fastify.post('/:id/products/prices', productController.assignEntityPrice.bind(productController));
+  fastify.get('/:id/products/entity', productController.getEntityProducts.bind(productController));
+  fastify.delete('/:id/products/prices/:id', productController.removeEntityPrice.bind(productController));
+
   // Employees
   fastify.get('/:id/employees', controller.getEmployees.bind(controller));
   fastify.post('/:id/employees', controller.createEmployee.bind(controller));

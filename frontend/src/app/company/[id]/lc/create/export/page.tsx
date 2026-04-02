@@ -46,6 +46,12 @@ export default function CreateExportLCPage() {
     enabled: !!companyId,
   });
 
+  const { data: bankAccounts } = useQuery({
+    queryKey: ['bank-accounts', companyId],
+    queryFn: () => api.get(`/company/${companyId}/accounts`, { params: { category: 'BANK' } }).then(res => res.data.data),
+    enabled: !!companyId,
+  });
+
   const { data: openPIs, isLoading: isLoadingPIs } = useQuery({
     queryKey: ['open-pis', companyId, formData.customerId],
     queryFn: () => api.get(`/company/${companyId}/pis`, { 
@@ -182,13 +188,20 @@ export default function CreateExportLCPage() {
 
             <div>
               <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Issuing Bank *</label>
-              <input
+              <select
                 required
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800"
-                placeholder="e.g. HSBC Bangladesh"
                 value={formData.bankName}
                 onChange={e => set('bankName', e.target.value)}
-              />
+              >
+                <option value="">— Select Issuing Bank —</option>
+                {(bankAccounts || []).map((b: any) => (
+                  <option key={b.id} value={b.name}>{b.name} ({b.code})</option>
+                ))}
+                {(!bankAccounts || bankAccounts.length === 0) && (
+                  <option disabled>No bank accounts found — add one in Chart of Accounts</option>
+                )}
+              </select>
             </div>
 
           </div>

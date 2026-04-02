@@ -106,7 +106,7 @@ export default function ExportPIsPage() {
     enabled: !!companyId,
   });
 
-  const { data: productsData } = useQuery({
+  const { data: allProductsData } = useQuery({
     queryKey: ['products', companyId],
     queryFn: async () => {
       const response = await api.get(`/company/${companyId}/products`);
@@ -114,6 +114,19 @@ export default function ExportPIsPage() {
     },
     enabled: !!companyId,
   });
+
+  const { data: customerProductsData } = useQuery({
+    queryKey: ['customer-products', companyId, formData.customerId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/products/entity?customerId=${formData.customerId}`);
+      return response.data.data;
+    },
+    enabled: !!companyId && !!formData.customerId,
+  });
+
+  const productsData = customerProductsData?.length > 0 
+    ? customerProductsData.map((m: any) => ({ ...m.product, customPrice: m.price, customCurrency: m.currency }))
+    : allProductsData;
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -198,8 +211,13 @@ export default function ExportPIsPage() {
       const product = productsData?.find((p: any) => p.id === value);
       if (product) {
         line.description = product.name;
-        // Convert BDT price to selected currency
-        line.unitPrice = Number((product.unitPrice / exchangeRate).toFixed(2));
+        // Task 6: Use custom price if available, otherwise fallback to BDT conversion
+        if (product.customPrice) {
+          line.unitPrice = product.customPrice;
+          setFormData(prev => ({ ...prev, currency: product.customCurrency || prev.currency }));
+        } else {
+          line.unitPrice = Number((product.unitPrice / exchangeRate).toFixed(2));
+        }
       }
     }
     
@@ -486,7 +504,15 @@ export default function ExportPIsPage() {
                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Buyer / Client *</label>
                     <select 
                       value={formData.customerId} 
-                      onChange={(e) => setFormData({...formData, customerId: e.target.value})}
+                      onChange={(e) => {
+                        const customerId = e.target.value;
+                        const customer = customersData?.find((c: any) => c.id === customerId);
+                        setFormData({
+                          ...formData, 
+                          customerId,
+                          currency: customer?.preferredCurrency || formData.currency
+                        });
+                      }}
                       className="w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-black text-sm"
                       required
                     >
@@ -494,6 +520,15 @@ export default function ExportPIsPage() {
                       {customersData?.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
                     </select>
                   </div>
+
+                  {customerProductsData?.length > 0 && (
+                    <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-100 mb-4 animate-in fade-in duration-300">
+                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3" /> Custom Pricing Enabled
+                      </p>
+                      <p className="text-[9px] text-slate-500 mt-1">This buyer has {customerProductsData.length} products assigned with specialized pricing.</p>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Export LC Link</label>

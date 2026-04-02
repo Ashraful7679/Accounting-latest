@@ -429,9 +429,32 @@ export class TransactionRepository {
     const typeName = category === 'AR' ? 'ASSET' : 'LIABILITY';
     const accountTypeId = await this.getAccountTypeId(typeName);
 
-    // Generate a unique account code by checking the Account table directly.
-    // This prevents global unique constraint violations that occur when another
-    // sequence (e.g., Vendor codes) conflicts with an existing Account code.
+    // Automation: Find or Create Parent Account for better organization (like the bank)
+    let parentId: string | null = null;
+    const parentName = category === 'AR' ? 'Accounts Receivable' : category === 'AP' ? 'Accounts Payable' : 'Employee Payables & Salaries';
+    const parentCategory = category === 'AR' ? 'AR_PARENT' : category === 'AP' ? 'AP_PARENT' : 'PAYABLE_PARENT';
+
+    let parentAcc = await tx.account.findFirst({
+      where: { companyId, category: parentCategory }
+    });
+
+    if (!parentAcc) {
+      // Create a logical parent if it doesn't exist
+      const parentCode = category === 'AR' ? '1200' : category === 'AP' ? '2100' : '2200';
+      parentAcc = await tx.account.create({
+        data: {
+          code: `${parentCode}-BASE`,
+          name: parentName,
+          companyId,
+          accountTypeId,
+          category: parentCategory,
+          isActive: true
+        }
+      });
+    }
+    parentId = parentAcc.id;
+
+    // Generate a unique account code
     const prefix = category === 'AR' ? 'ACC-AR' : category === 'AP' ? 'ACC-AP' : 'ACC-PAY';
     const year = new Date().getFullYear();
     const prefixYear = `${prefix}-${year}-`;
@@ -457,6 +480,7 @@ export class TransactionRepository {
         name: `${entityCode} - ${entityName}`,
         companyId,
         accountTypeId,
+        parentId,
         category,
         openingBalance: Number(openingBalance),
         currentBalance: Number(openingBalance),

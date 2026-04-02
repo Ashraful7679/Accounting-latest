@@ -77,13 +77,14 @@ export class CompanyController {
   }
 
   private canVerify(status: string, role: string): boolean {
-    if (role === 'Owner' || role === 'Manager') return status === 'PENDING_VERIFICATION';
+    if (role === 'Owner' || role === 'Manager' || role === 'Admin') {
+      return status === 'PENDING_VERIFICATION' || status === 'DRAFT' || status === 'OPEN';
+    }
     return false;
   }
 
   private canApprove(status: string, role: string): boolean {
-    if (role === 'Owner') return status === 'VERIFIED';
-    if (role === 'Manager') return status === 'VERIFIED';
+    if (role === 'Owner' || role === 'Admin' || role === 'Manager') return status === 'VERIFIED';
     return false;
   }
 

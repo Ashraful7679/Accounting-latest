@@ -133,13 +133,21 @@ export class CompanyController {
     } = request.body as any;
 
     const code = await this.generateDocumentNumber(companyId, 'customer');
-    const customer = await CustomerRepository.create({ 
-      code, name, companyId, email, phone, address, city, country,
-      contactPerson, tinVat, 
-      openingBalance: Number(openingBalance || 0), 
-      balanceType, 
-      creditLimit: Number(creditLimit || 0), 
-      preferredCurrency: preferredCurrency || 'BDT'
+    
+    const customer = await prisma.$transaction(async (tx) => {
+      const c = await CustomerRepository.create({ 
+        code, name, companyId, email, phone, address, city, country,
+        contactPerson, tinVat, 
+        openingBalance: Number(openingBalance || 0), 
+        balanceType, 
+        creditLimit: Number(creditLimit || 0), 
+        preferredCurrency: preferredCurrency || 'BDT'
+      }, tx);
+
+      // Automated Ledger Account
+      await TransactionRepository.ensureEntityAccount(tx, companyId, c.id, c.name, c.code, 'AR');
+      
+      return c;
     });
 
     // Log Activity
@@ -189,9 +197,17 @@ export class CompanyController {
     } = request.body as any;
 
     const code = await this.generateDocumentNumber(companyId, 'vendor');
-    const vendor = await VendorRepository.create({ 
-      code, name, companyId, email, phone, address, city, country,
-      contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency
+    
+    const vendor = await prisma.$transaction(async (tx) => {
+      const v = await VendorRepository.create({ 
+        code, name, companyId, email, phone, address, city, country,
+        contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency
+      }, tx);
+
+      // Automated Ledger Account
+      await TransactionRepository.ensureEntityAccount(tx, companyId, v.id, v.name, v.code, 'AP');
+      
+      return v;
     });
 
     // Log Activity
@@ -1662,25 +1678,66 @@ export class CompanyController {
       const count = await prisma.employee.count({ where: { companyId } });
       const employeeCode = `EMP-${String(count + 1).padStart(4, '0')}`;
 
-      const employee = await prisma.employee.create({
-        data: {
-          employeeCode,
-          firstName: String(firstName),
-          lastName: String(lastName),
-          email: email || null,
-          phone: phone || null,
-          designation: designation || null,
-          department: department || null,
-          joinDate: joinDate ? new Date(joinDate) : null,
-          salary: salary ? parseFloat(salary) : 0,
-          companyId,
-        },
+      const employee = await prisma.$transaction(async (tx) => {
+        const emp = await tx.employee.create({
+          data: {
+            employeeCode,
+            firstName: String(firstName),
+            lastName: String(lastName),
+            email: email || null,
+            phone: phone || null,
+            designation: designation || null,
+            department: department || null,
+            joinDate: joinDate ? new Date(joinDate) : null,
+            salary: salary ? parseFloat(salary) : 0,
+            companyId,
+          },
+        });
+
+        // Automated Ledger Account (Salary Payable)
+        await TransactionRepository.ensureEntityAccount(tx, companyId, emp.id, `${emp.firstName} ${emp.lastName}`, emp.employeeCode, 'PAYABLE');
+
+        return emp;
       });
 
       return reply.send({ success: true, data: employee });
     } catch (error: any) {
       console.error('Error creating employee:', error);
       return reply.status(500).send({ success: false, error: error.message || 'Internal server error' });
+    }
+  }
+
+  async paySalary(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, employeeId } = request.params as { id: string; employeeId: string };
+    const { amount, date, description } = request.body as any;
+    const userId = (request.user as any).id;
+
+    try {
+      const journal = await prisma.$transaction(async (tx) => {
+        return await TransactionRepository.generateSalaryJournal(tx, {
+          companyId,
+          employeeId,
+          amount,
+          date: date || new Date(),
+          description,
+          userId
+        });
+      });
+
+      // Log Activity
+      await NotificationController.logActivity({
+        companyId,
+        entityType: 'Employee',
+        entityId: employeeId,
+        action: 'PAY_SALARY_DRAFT',
+        performedById: userId,
+        metadata: { amount, journalId: journal.id }
+      });
+
+      return reply.send({ success: true, data: journal, message: 'Draft Salary Journal created successfully' });
+    } catch (error: any) {
+      console.error('Salary payment failed:', error);
+      return reply.status(500).send({ success: false, message: error.message || 'Internal server error' });
     }
   }
 

@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
 import { ValidationError, NotFoundError, ForbiddenError } from '../../middleware/errorHandler';
+import { TransactionRepository } from '../../repositories/TransactionRepository';
 
 export class BillsController {
   async getBills(request: FastifyRequest, reply: FastifyReply) {
@@ -100,42 +101,10 @@ export class BillsController {
 
     const updated = await prisma.$transaction(async (tx: any) => {
       const b = await tx.bill.update({ where: { id: billId }, data: { status: 'APPROVED' } });
-
+      
       // Auto-journal: Dr Expense / Cr Accounts Payable
-      const apAccount = await tx.account.findFirst({ where: { companyId, category: 'AP' } });
-      const expAccount = await tx.account.findFirst({ where: { companyId, category: 'EXPENSE' } });
-
-      if (apAccount && expAccount) {
-        const entryNumber = `JV-BILL-${billId.slice(0, 8)}`;
-        const existing = await tx.journalEntry.findFirst({ where: { entryNumber, companyId } });
-        if (existing) await tx.journalEntry.delete({ where: { id: existing.id } });
-
-        await tx.journalEntry.create({
-          data: {
-            entryNumber,
-            companyId,
-            date: new Date(),
-            description: `Auto-journal: Bill ${bill.billNumber}`,
-            reference: bill.billNumber,
-            totalDebit: Number(bill.total),
-            totalCredit: Number(bill.total),
-            status: 'APPROVED',
-            createdById: userId,
-            approvedById: userId,
-            approvedAt: new Date(),
-            lines: {
-              create: [
-                { accountId: expAccount.id, debit: Number(bill.total), credit: 0, debitBase: Number(bill.total), creditBase: 0 },
-                { accountId: apAccount.id, debit: 0, credit: Number(bill.total), debitBase: 0, creditBase: Number(bill.total) },
-              ],
-            },
-          },
-        });
-
-        await tx.account.update({ where: { id: expAccount.id }, data: { currentBalance: { increment: Number(bill.total) } } });
-        await tx.account.update({ where: { id: apAccount.id }, data: { currentBalance: { increment: Number(bill.total) } } });
-      }
-
+      await TransactionRepository.generateBillJournal(tx, bill, companyId, userId);
+      
       return b;
     });
 

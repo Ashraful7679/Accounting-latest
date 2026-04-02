@@ -230,12 +230,14 @@ export default function PurchaseInvoicesPage() {
   const handleLineChange = (index: number, field: string, value: any) => {
     const newLines = [...formData.lines];
     const line = { ...newLines[index], [field]: value };
+    const exchangeRate = Number(formData.exchangeRate) || 1;
     
     // Auto-fill price if product changes
     if (field === 'productId' && value) {
       const product = productsData?.find((p: any) => p.id === value);
       if (product) {
-        line.unitPrice = product.unitPrice;
+        // Convert BDT price to selected currency
+        line.unitPrice = Number((product.unitPrice / exchangeRate).toFixed(2));
         line.description = product.name;
       }
     }

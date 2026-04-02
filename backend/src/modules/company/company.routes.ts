@@ -125,6 +125,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/employees', controller.createEmployee.bind(controller));
   fastify.put('/:id/employees/:employeeId', controller.updateEmployee.bind(controller));
   fastify.delete('/:id/employees/:employeeId', controller.deleteEmployee.bind(controller));
+  fastify.post('/:id/employees/:employeeId/pay-salary', controller.paySalary.bind(controller));
 
   // Employee Advances
   fastify.get('/:id/employee-advances', controller.getEmployeeAdvances.bind(controller));

@@ -21,10 +21,11 @@ export class VendorRepository {
     return demoVendors;
   }
 
-  static async create(data: any) {
+  static async create(data: any, tx?: any) {
+    const client = tx || prisma;
     if (SYSTEM_MODE === "LIVE") {
       try {
-        return await prisma.vendor.create({ data });
+        return await client.vendor.create({ data });
       } catch (error) {
         console.error('Vendor creation failed');
       }

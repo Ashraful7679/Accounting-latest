@@ -289,18 +289,20 @@ export default function PurchaseOrdersPage() {
   const updateLine = (index: number, field: keyof POLine, value: any) => {
     const newLines = [...formData.lines];
     const line = { ...newLines[index], [field]: value };
+    const exchangeRate = Number(formData.exchangeRate) || 1;
     
     // Auto-fill from product
     if (field === 'productId' && value) {
       const product = productsData?.find((p: any) => p.id === value);
       if (product) {
         line.itemDescription = product.name;
-        line.unitPrice = product.unitPrice;
+        // BUG FIX: Convert product BDT price to selected currency
+        line.unitPrice = Number((product.unitPrice / exchangeRate).toFixed(2));
       }
     }
     
     if (field === 'quantity' || field === 'unitPrice' || field === 'productId') {
-      line.total = line.quantity * line.unitPrice;
+      line.total = Number((line.quantity * line.unitPrice).toFixed(2));
     }
     
     newLines[index] = line;

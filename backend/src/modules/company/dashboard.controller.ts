@@ -373,8 +373,40 @@ export class DashboardController {
       });
       const buyerDistribution = buyers.map((b: any) => ({
         name: b.name,
-        value: b.journalLines.reduce((sum: number, l: any) => sum + (l.creditBase - l.debitBase), 0)
+        value: Math.abs(b.journalLines.reduce((sum: number, l: any) => sum + (l.creditBase - l.debitBase), 0))
       })).filter((b: any) => b.value > 0).sort((a: any, b: any) => b.value - a.value);
+
+      // --- New: Revenue vs Expense Bar Chart Data (Last 6 Months) ---
+      const revExpTrend: any[] = [];
+      for (let i = 0; i < 6; i++) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - (5 - i));
+        const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+        const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+        const monthName = d.toLocaleString('default', { month: 'short' });
+
+        const income = await prisma.journalEntryLine.aggregate({
+          where: {
+            journalEntry: { companyId, status: 'APPROVED', date: { gte: monthStart, lte: monthEnd } },
+            account: { accountType: { name: 'INCOME' } }
+          },
+          _sum: { creditBase: true, debitBase: true }
+        });
+
+        const expense = await prisma.journalEntryLine.aggregate({
+          where: {
+            journalEntry: { companyId, status: 'APPROVED', date: { gte: monthStart, lte: monthEnd } },
+            account: { accountType: { name: 'EXPENSE' } }
+          },
+          _sum: { debitBase: true, creditBase: true }
+        });
+
+        revExpTrend.push({
+          name: monthName,
+          revenue: (Number(income._sum.creditBase || 0) - Number(income._sum.debitBase || 0)),
+          expense: (Number(expense._sum.debitBase || 0) - Number(expense._sum.creditBase || 0))
+        });
+      }
 
       // 4. --- RMG Monthly Cash Flow Overhaul ---
       const cashFlowData = await (async () => {
@@ -555,17 +587,31 @@ export class DashboardController {
       });
       const dailyCollection = todayLines.reduce((sum: number, l: any) => sum + Number(l.debitBase), 0);
 
+      // --- Enhance Activities with Links ---
+      const enrichedActivities = activities.map((act: any) => {
+        let link = null;
+        const eType = String(act.entityType).toLowerCase();
+        if (eType === 'invoice') link = `/company/${companyId}/sales/invoices`;
+        else if (eType === 'po') link = `/company/${companyId}/purchase/orders`;
+        else if (eType === 'journal') link = `/company/${companyId}/journals`;
+        else if (eType === 'pi') link = `/company/${companyId}/purchase/pis`; // default to import
+        else if (eType === 'lc') link = `/company/${companyId}/finance/lcs`;
+        else if (eType === 'employee') link = `/company/${companyId}/employees`;
+        
+        return { ...act, link };
+      });
+
       let dashboardData: any = {
         role: roleName,
         companyName,
         kpis: {},
         charts: [
-          { name: 'Monthly Net Cash Flow', data: cashFlowTrend, type: 'BAR' },
-          { name: 'Cash Flow Breakdown', data: breakdownSeries, type: 'STACKED_BAR' },
-          { name: 'Liquidity Trend (Cumulative)', data: liquidityTrend, type: 'LINE' },
-          { name: 'Revenue by Buyer', data: buyerDistribution, type: 'PIE' }
+          { name: 'Revenue vs Expenses', data: revExpTrend, type: 'BAR' },
+          { name: 'Revenue by Buyer', data: buyerDistribution, type: 'PIE' },
+          { name: 'Monthly Net Cash Flow', data: cashFlowTrend, type: 'LINE' },
+          { name: 'Cash Position', data: cashBreakdown.map(c => ({ name: c.name, value: c.currentBalance })), type: 'PIE' }
         ],
-        alerts: activities, // Send activities here, frontend uses this array 
+        alerts: enrichedActivities, 
         unreadCount,
         lastBackup: lastBackup ? {
           timestamp: lastBackup.createdAt,

@@ -68,6 +68,7 @@ export default function ExportPIsPage() {
     description: '',
     lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }] as PILine[]
   });
+  const [isAutoPI, setIsAutoPI] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
@@ -141,7 +142,11 @@ export default function ExportPIsPage() {
       closeModal();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to update PI');
+      const msg = error.response?.data?.error?.message || 'Failed to update PI';
+      toast.error(msg);
+      if (msg.toLowerCase().includes('already exists')) {
+        // Highlight PI number field error if needed
+      }
     },
   });
 
@@ -162,18 +167,20 @@ export default function ExportPIsPage() {
   const handleLineChange = (index: number, field: string, value: any) => {
     const newLines = [...formData.lines];
     const line = { ...newLines[index], [field]: value };
+    const exchangeRate = Number(formData.exchangeRate) || 1;
     
     // Auto-fill from product
     if (field === 'productId' && value) {
       const product = productsData?.find((p: any) => p.id === value);
       if (product) {
         line.description = product.name;
-        line.unitPrice = product.unitPrice;
+        // Convert BDT price to selected currency
+        line.unitPrice = Number((product.unitPrice / exchangeRate).toFixed(2));
       }
     }
     
     if (field === 'quantity' || field === 'unitPrice' || field === 'productId') {
-      line.total = line.quantity * line.unitPrice;
+      line.total = Number((line.quantity * (line.unitPrice || 0)).toFixed(2));
     }
     
     newLines[index] = line;
@@ -230,6 +237,7 @@ export default function ExportPIsPage() {
         bankAcceptanceDate: '', maturityDate: '', customerId: '', lcId: '', description: '',
         lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }]
       });
+      setIsAutoPI(true);
     }
     setShowModal(true);
   };
@@ -381,7 +389,7 @@ export default function ExportPIsPage() {
                   <Globe className="w-6 h-6 text-blue-600" />
                   {selectedPI ? 'Update Proforma Invoice' : 'New Export PI Generation'}
                 </h3>
-                <p className="text-sm text-slate-500">Configure export value and banking timelines</p>
+                <p className="text-sm text-slate-500 font-medium">Configure export value and banking timelines</p>
               </div>
               <button onClick={closeModal} className="p-2 hover:bg-white rounded-xl transition-all border border-transparent hover:border-slate-100">
                 <ChevronDown className="w-6 h-6 text-slate-400" />
@@ -399,8 +407,27 @@ export default function ExportPIsPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">PI Number *</label>
-                      <input type="text" value={formData.piNumber} onChange={(e) => setFormData({...formData, piNumber: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold" required />
+                      <div className="flex items-center justify-between mb-1.5 ml-1">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">PI Number *</label>
+                        {!selectedPI && (
+                          <label className="flex items-center gap-1 cursor-pointer group">
+                            <input type="checkbox" checked={isAutoPI} onChange={(e) => setIsAutoPI(e.target.checked)} className="w-3 h-3 rounded" />
+                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-tighter opacity-70 group-hover:opacity-100">Auto</span>
+                          </label>
+                        )}
+                      </div>
+                      <input 
+                        type="text" 
+                        value={isAutoPI && !selectedPI ? 'AUTO-GENERATED' : formData.piNumber} 
+                        onChange={(e) => setFormData({...formData, piNumber: e.target.value})} 
+                        disabled={isAutoPI && !selectedPI}
+                        placeholder={isAutoPI ? 'Auto-generated' : 'Enter PI Number'}
+                        className={cn(
+                          "w-full bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold",
+                          isAutoPI && !selectedPI && "opacity-50 cursor-not-allowed bg-slate-100"
+                        )} 
+                        required={!isAutoPI || !!selectedPI} 
+                      />
                     </div>
                     <div>
                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">PI Date *</label>

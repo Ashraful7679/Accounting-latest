@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -52,6 +52,18 @@ export default function ReportCenterPage() {
     costCenterId: '',
     status: 'APPROVED'
   });
+
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const reportId = searchParams.get('id');
+    if (reportId) {
+      const report = REPORTS.find(r => r.id === reportId);
+      if (report) {
+        setSelectedReport(report);
+      }
+    }
+  }, [searchParams]);
 
   const { data: company } = useQuery({
     queryKey: ['company', companyId],

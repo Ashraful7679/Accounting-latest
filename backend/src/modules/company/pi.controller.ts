@@ -102,8 +102,22 @@ export class PIController {
         }
       }
 
-      console.log(`[CreatePI] Checkpoint 3: Generating PI number...`);
-      const piNumber = data.piNumber || await SequenceService.generateDocumentNumber(companyId, 'pi');
+      console.log(`[CreatePI] Checkpoint 3: Handling PI number...`);
+      let piNumber = data.piNumber;
+      if (!piNumber || piNumber === 'AUTO-GENERATED') {
+        piNumber = await SequenceService.generateDocumentNumber(companyId, 'pi');
+      } else {
+        // Uniqueness check for manual numbers
+        const existing = await (prisma as any).pI.findFirst({
+          where: { piNumber: piNumber, companyId: companyId }
+        });
+        if (existing) {
+          return reply.status(400).send({ 
+            success: false, 
+            message: `Proforma Invoice with number ${piNumber} already exists in this company.` 
+          });
+        }
+      }
 
       console.log(`[CreatePI] Checkpoint 4: Saving to database...`);
       const pi = await (prisma as any).pI.create({
@@ -179,6 +193,23 @@ export class PIController {
           success: false, 
           message: `Cannot modify a proforma invoice with status: ${pi.status}` 
         });
+      }
+
+      // Handle PI number update with uniqueness check
+      if (data.piNumber && data.piNumber !== pi.piNumber && data.piNumber !== 'AUTO-GENERATED') {
+        const existing = await (prisma as any).pI.findFirst({
+          where: { 
+            piNumber: data.piNumber, 
+            companyId: pi.companyId,
+            id: { not: piId }
+          }
+        });
+        if (existing) {
+          return reply.status(400).send({ 
+            success: false, 
+            message: `Proforma Invoice with number ${data.piNumber} already exists.` 
+          });
+        }
       }
 
       if (data.amount) {

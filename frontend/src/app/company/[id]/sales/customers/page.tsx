@@ -147,7 +147,8 @@ export default function CompanyCustomersPage() {
     mutationFn: async (data: any) => {
       const response = await api.post(`/company/${companyId}/products/prices`, {
         ...data,
-        customerId: selectedEntityId
+        entityId: selectedEntityId,
+        type: 'customer'
       });
       return response.data;
     },
@@ -224,7 +225,7 @@ export default function CompanyCustomersPage() {
     const { data: mappings, isLoading: loadingMappings } = useQuery({
       queryKey: ['customer-products', customerId],
       queryFn: async () => {
-        const resp = await api.get(`/company/${companyId}/products/entity?customerId=${customerId}`);
+        const resp = await api.get(`/company/${companyId}/products/entity?entityId=${customerId}&type=customer`);
         return resp.data.data as ProductPriceMapping[];
       }
     });

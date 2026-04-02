@@ -151,7 +151,8 @@ export default function CompanyVendorsPage() {
     mutationFn: async (data: any) => {
       const response = await api.post(`/company/${companyId}/products/prices`, {
         ...data,
-        vendorId: selectedEntityId
+        entityId: selectedEntityId,
+        type: 'vendor'
       });
       return response.data;
     },
@@ -229,7 +230,7 @@ export default function CompanyVendorsPage() {
     const { data: mappings, isLoading: loadingMappings } = useQuery({
       queryKey: ['vendor-products', vendorId],
       queryFn: async () => {
-        const resp = await api.get(`/company/${companyId}/products/entity?vendorId=${vendorId}`);
+        const resp = await api.get(`/company/${companyId}/products/entity?entityId=${vendorId}&type=vendor`);
         return resp.data.data as ProductPriceMapping[];
       }
     });

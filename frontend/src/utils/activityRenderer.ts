@@ -27,10 +27,11 @@ export function renderActivityMessage(activity: ActivityLog, currentUserId: stri
   switch (action) {
     case 'CREATED':
     case 'STATUS_REACHED_DRAFT':
+    case 'STATUS_REACHED_PENDING_VERIFICATION':
       if (isPerformer) {
-        return `${entityLabel} ${docNo} created by you, waiting for verification.`;
+        return `${entityLabel} ${docNo} created by you, pending verification.`;
       }
-      return `${entityLabel} ${docNo} created by ${performerName}, waiting for verification by you.`;
+      return `${entityLabel} ${docNo} created by ${performerName}, pending verification.`;
 
     case 'VERIFIED':
     case 'STATUS_REACHED_VERIFIED':

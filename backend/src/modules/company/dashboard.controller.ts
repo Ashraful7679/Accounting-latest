@@ -367,7 +367,12 @@ export class DashboardController {
           journalLines: {
             where: {
               journalEntry: { status: 'APPROVED', date: { gte: startOfMonth } },
-              account: { accountType: { name: 'INCOME' } }
+              account: { 
+                OR: [
+                  { accountType: { name: 'INCOME' } },
+                  { accountType: { name: 'REVENUE' } }
+                ]
+              }
             }
           }
         }
@@ -389,7 +394,12 @@ export class DashboardController {
         const income = await prisma.journalEntryLine.aggregate({
           where: {
             journalEntry: { companyId, status: 'APPROVED', date: { gte: monthStart, lte: monthEnd } },
-            account: { accountType: { name: 'INCOME' } }
+            account: { 
+              OR: [
+                { accountType: { name: 'INCOME' } },
+                { accountType: { name: 'REVENUE' } }
+              ]
+            }
           },
           _sum: { creditBase: true, debitBase: true }
         });

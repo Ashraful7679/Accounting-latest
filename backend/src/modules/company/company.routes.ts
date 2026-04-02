@@ -58,12 +58,17 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   // PI Management
   fastify.get('/lcs/:id/pis', piController.getPIs.bind(piController));
   fastify.post('/lcs/:id/pis', piController.createPI.bind(piController));
-  fastify.put('/pis/:piId', piController.updatePI.bind(piController));
-  fastify.get('/pis/:piId', piController.getPIDetail.bind(piController));
+  fastify.put('/:id/pis/:piId', piController.updatePI.bind(piController));
+  fastify.get('/:id/pis/:piId', piController.getPIDetail.bind(piController));
   fastify.get('/:id/pis', piController.getAllPIs.bind(piController));
   fastify.get('/:id/all-pis', piController.getAllPIs.bind(piController));
   fastify.post('/:id/pis', piController.createPI.bind(piController));
-  fastify.delete('/pis/:piId', piController.deletePI.bind(piController));
+  fastify.delete('/:id/pis/:piId', piController.deletePI.bind(piController));
+
+  // PI Status Workflow
+  fastify.post('/:id/pis/:piId/verify', piController.verifyPI.bind(piController));
+  fastify.post('/:id/pis/:piId/approve', piController.approvePI.bind(piController));
+  fastify.post('/:id/pis/:piId/reject', piController.rejectPI.bind(piController));
 
 
 
@@ -156,6 +161,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.put('/:id/invoices/:invoiceId', controller.updateInvoice.bind(controller));
   fastify.delete('/:id/invoices/:invoiceId', controller.deleteInvoice.bind(controller));
   fastify.post('/:id/invoices/:invoiceId/verify', controller.verifyInvoice.bind(controller));
+  fastify.post('/:id/invoices/:invoiceId/approve', controller.approveInvoice.bind(controller));
   fastify.post('/:id/invoices/:invoiceId/submit', controller.submitInvoice.bind(controller));
   fastify.post('/:id/invoices/:invoiceId/reject', controller.rejectInvoice.bind(controller));
   fastify.post('/:id/invoices/:invoiceId/retrieve', controller.retrieveInvoice.bind(controller));

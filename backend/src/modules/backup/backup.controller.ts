@@ -86,17 +86,47 @@ export class BackupController {
     const sources: string[] = [jsonPath];
     if (fs.existsSync(uploadsDir)) sources.push(uploadsDir);
 
-    if (process.platform === 'win32') {
-      const srcArray = sources.map(s => `'${s.replace(/'/g, "''")}'`).join(',');
-      await execPromise(
-        `powershell -NoProfile -Command "Compress-Archive -Force -Path @(${srcArray}) -DestinationPath '${outputZipPath}'"`
-      );
-    } else {
-      const srcList = sources.map(s => `"${s}"`).join(' ');
-      await execPromise(`zip -r "${outputZipPath}" ${srcList}`);
+    try {
+      if (process.platform === 'win32') {
+        const srcList = sources.map(s => `"${s}"`).join(' ');
+        const password = process.env.BACKUP_PASSWORD ? `-p"${process.env.BACKUP_PASSWORD}"` : '';
+        // 7z a (add) -tzip (zip format) -mx=9 (ultra compression)
+        await execPromise(`7z a -tzip -mx=9 ${password} "${outputZipPath}" ${srcList}`);
+      } else {
+        const srcList = sources.map(s => `"${s}"`).join(' ');
+        await execPromise(`zip -r "${outputZipPath}" ${srcList}`);
+      }
+      return fs.existsSync(outputZipPath);
+    } catch (err) {
+      console.error('Zipping failed:', err);
+      return false;
     }
+  }
 
-    return fs.existsSync(outputZipPath);
+  private async cleanupOldBackups(): Promise<void> {
+    try {
+      if (!fs.existsSync(this.BACKUP_DIR)) return;
+      
+      const files = fs.readdirSync(this.BACKUP_DIR)
+        .filter(f => f.endsWith('.json') || f.endsWith('.zip') || f.endsWith('.7z'))
+        .map(f => ({
+          name: f,
+          path: path.join(this.BACKUP_DIR, f),
+          time: fs.statSync(path.join(this.BACKUP_DIR, f)).mtime.getTime()
+        }))
+        .sort((a, b) => b.time - a.time); // Newest first
+
+      const keepCount = 10;
+      if (files.length > keepCount) {
+        const toDelete = files.slice(keepCount);
+        console.log(`Cleaning up ${toDelete.length} old backups...`);
+        for (const file of toDelete) {
+          fs.unlinkSync(file.path);
+        }
+      }
+    } catch (err) {
+      console.error('Backup cleanup failed:', err);
+    }
   }
 
   async generateBackup(request: FastifyRequest, reply: FastifyReply) {
@@ -127,11 +157,12 @@ export class BackupController {
           fs.unlinkSync(jsonFilePath); // remove the raw JSON — it lives inside the ZIP
           finalFileName = zipFileName;
           finalPath = zipFilePath;
-          console.log('ZIP backup created:', zipFilePath);
         }
       } catch (zipErr: any) {
         console.warn('ZIP creation failed, falling back to JSON backup:', zipErr.message);
       }
+
+      await this.cleanupOldBackups();
 
       const stats = fs.statSync(finalPath);
       console.log('Backup completed:', finalPath, 'Size:', stats.size);

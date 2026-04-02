@@ -562,48 +562,49 @@ export class CompanyController {
     const data = request.body as any;
     const userId = (request.user as any).id;
 
-    // Generate invoice number
-    const invoiceNumber = await this.generateDocumentNumber(companyId, 'invoice');
+    try {
+      console.log(`[CreateInvoice] Starting for company: ${companyId}`);
+      
+      console.log(`[CreateInvoice] Checkpoint 1: Generating invoice number...`);
+      const invoiceNumber = await this.generateDocumentNumber(companyId, 'invoice');
 
-    // Calculate totals
-    const subtotal = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice), 0);
-    const taxAmount = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice * line.taxRate / 100), 0);
-    const total = subtotal + taxAmount;
-
-    // BDT amount
-    const bdtAmount = total * (data.exchangeRate || 1);
-
-    // Transaction Date Validation
-    if (!data.invoiceDate) {
-      throw new ValidationError('Invoice date is required');
-    }
-
-    const invoiceDate = new Date(data.invoiceDate);
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-
-    const role = await this.getUserRole(userId, companyId);
-    const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
-
-    // Settings-driven Compliance Checks
-    const settings = await prisma.companySettings.findUnique({ where: { companyId } });
-    if (settings) {
-      if (settings.disallowFutureDates && invoiceDate > today) {
-        throw new ValidationError('Company settings strictly disallow posting transactions with a future date.');
+      console.log(`[CreateInvoice] Checkpoint 2: Calculating totals...`);
+      if (!data.lines || !Array.isArray(data.lines)) {
+        throw new ValidationError('Invoice lines are required');
       }
-      if (settings.lockPreviousMonths) {
-        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        if (invoiceDate < firstDayOfMonth && !isOwnerOrAdmin) {
-          throw new ValidationError('Company settings restrict posting to previous months based on period lock rules.');
+      const subtotal = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice), 0);
+      const taxAmount = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice * (line.taxRate || 0) / 100), 0);
+      const total = subtotal + taxAmount;
+      const bdtAmount = total * (data.exchangeRate || 1);
+
+      if (!data.invoiceDate) {
+        throw new ValidationError('Invoice date is required');
+      }
+
+      console.log(`[CreateInvoice] Checkpoint 3: Validating compliance and roles...`);
+      const invoiceDate = new Date(data.invoiceDate);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+
+      const role = await this.getUserRole(userId, companyId);
+      const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
+
+      const settings = await prisma.companySettings.findUnique({ where: { companyId } });
+      if (settings) {
+        if (settings.disallowFutureDates && invoiceDate > today) {
+          throw new ValidationError('Company settings strictly disallow posting transactions with a future date.');
         }
-      }
-    } else {
-      if (invoiceDate > today && !isOwnerOrAdmin) {
+        if (settings.lockPreviousMonths) {
+          const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+          if (invoiceDate < firstDayOfMonth && !isOwnerOrAdmin) {
+            throw new ValidationError('Company settings restrict posting to previous months based on period lock rules.');
+          }
+        }
+      } else if (invoiceDate > today && !isOwnerOrAdmin) {
         throw new ValidationError('Future invoice dates are only allowed for owners');
       }
-    }
 
-    try {
+      console.log(`[CreateInvoice] Checkpoint 4: Calling repository...`);
       const invoice = await TransactionRepository.createInvoice({
         invoiceNumber,
         companyId,
@@ -631,7 +632,7 @@ export class CompanyController {
         },
       });
 
-      // Log Activity
+      console.log(`[CreateInvoice] Success! ID: ${invoice.id}`);
       await NotificationController.logActivity({
         companyId,
         entityType: 'invoice',
@@ -640,16 +641,20 @@ export class CompanyController {
         performedById: userId,
         metadata: { 
           docNumber: invoiceNumber,
-          type: data.type || 'SALES' // Store type for correct dashboard linking
+          type: data.type || 'SALES'
         }
       });
 
       return reply.status(201).send({ success: true, data: invoice });
     } catch (error: any) {
-      console.error('FAILED TO CREATE INVOICE:', error);
+      console.error('[CreateInvoice] CRITICAL ERROR:', error);
       return reply.status(error.statusCode || 500).send({ 
         success: false, 
-        error: { message: error.message || 'Failed to create invoice' } 
+        error: { 
+          message: error.message || 'Failed to create invoice',
+          checkpoint: 'Check server logs for [CreateInvoice] tags',
+          detail: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        } 
       });
     }
   }
@@ -762,45 +767,43 @@ export class CompanyController {
     const { id: companyId } = request.params as { id: string };
     const userId = (request.user as any).id;
 
-    const role = await this.getUserRole(userId, companyId);
-    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+    try {
+      console.log(`[VerifyInvoice] Starting for invoice: ${invoiceId}`);
+      const role = await this.getUserRole(userId, companyId);
+      const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
 
-    if (!invoice) throw new NotFoundError('Invoice not found');
+      if (!invoice) throw new NotFoundError('Invoice not found');
 
-    // Manager can only verify their subordinates' invoices
-    if (role === 'Manager') {
-      // Assuming getSubordinateIds is defined elsewhere or needs to be implemented
-      // const subordinateIds = await this.getSubordinateIds(userId);
-      // if (!subordinateIds.includes(invoice.createdById)) {
-      //   throw new ForbiddenError('You can only verify invoices from your team');
-      // }
-      // Temporarily bypass until subordinate logic is clear
+      if (!this.canVerify(invoice.status, role)) {
+        throw new ForbiddenError(`Cannot verify this invoice from current status: ${invoice.status}`);
+      }
+
+      console.log(`[VerifyInvoice] Checkpoint 1: Updating status...`);
+      const updated = await prisma.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          status: 'VERIFIED',
+          verifiedById: userId,
+          verifiedAt: new Date(),
+        },
+      });
+
+      await NotificationController.notifyStatusChange({
+        companyId,
+        entityType: 'Invoice',
+        entityId: invoiceId,
+        entityNumber: invoice.invoiceNumber,
+        oldStatus: invoice.status,
+        newStatus: 'VERIFIED',
+        performedById: userId
+      });
+
+      console.log(`[VerifyInvoice] Success!`);
+      return reply.send({ success: true, data: updated });
+    } catch (error: any) {
+      console.error('[VerifyInvoice] ERROR:', error);
+      return reply.status(error.statusCode || 500).send({ success: false, error: { message: error.message } });
     }
-
-    if (!this.canVerify(invoice.status, role)) {
-      throw new ForbiddenError(`Cannot verify this invoice from current status: ${invoice.status}`);
-    }
-
-    const updated = await prisma.invoice.update({
-      where: { id: invoiceId },
-      data: {
-        status: 'VERIFIED',
-        verifiedById: userId,
-        verifiedAt: new Date(),
-      },
-    });
-
-    await NotificationController.notifyStatusChange({
-      companyId,
-      entityType: 'Invoice',
-      entityId: invoiceId,
-      entityNumber: invoice.invoiceNumber,
-      oldStatus: invoice.status,
-      newStatus: 'VERIFIED',
-      performedById: userId
-    });
-
-    return reply.send({ success: true, data: updated });
   }
 
   async rejectInvoice(request: FastifyRequest, reply: FastifyReply) {
@@ -887,37 +890,51 @@ export class CompanyController {
     const { id: companyId } = request.params as { id: string };
     const userId = (request.user as any).id;
 
-    const role = await this.getUserRole(userId, companyId);
-    // Include lines to get total and find accounts
-    const invoice = await prisma.invoice.findUnique({ 
-      where: { id: invoiceId },
-      include: { lines: true } 
-    });
-
-    if (!invoice) throw new NotFoundError('Invoice not found');
-
-    if (!this.canApprove(invoice.status, role)) {
-      throw new ForbiddenError(`Cannot approve this invoice from current status: ${invoice.status}`);
-    }
-
-    const updated = await prisma.$transaction(async (tx: any) => {
-      // 1. Update Status
-      const inv = await tx.invoice.update({
+    try {
+      console.log(`[ApproveInvoice] Starting for invoice: ${invoiceId}`);
+      const role = await this.getUserRole(userId, companyId);
+      const invoice = await prisma.invoice.findUnique({ 
         where: { id: invoiceId },
-        data: {
-          status: 'APPROVED',
-          approvedById: userId,
-          approvedAt: new Date(),
-        },
+        include: { lines: true } 
       });
 
-      // 2. Generate Multi-Line Journal Entry (Split-Payment Aware)
-      await TransactionRepository.generateInvoiceJournal(tx, invoice, companyId, userId);
+      if (!invoice) throw new NotFoundError('Invoice not found');
 
-      return inv;
-    });
+      if (!this.canApprove(invoice.status, role)) {
+        throw new ForbiddenError(`Cannot approve this invoice from current status: ${invoice.status}`);
+      }
 
-    return reply.send({ success: true, data: updated });
+      console.log(`[ApproveInvoice] Checkpoint 1: Starting transaction...`);
+      const updated = await prisma.$transaction(async (tx: any) => {
+        // 1. Update Status
+        const inv = await tx.invoice.update({
+          where: { id: invoiceId },
+          data: {
+            status: 'APPROVED',
+            approvedById: userId,
+            approvedAt: new Date(),
+          },
+        });
+
+        // 2. Generate Multi-Line Journal Entry
+        console.log(`[ApproveInvoice] Checkpoint 2: Generating ledger entry...`);
+        await TransactionRepository.generateInvoiceJournal(tx, invoice, companyId, userId);
+
+        return inv;
+      });
+
+      console.log(`[ApproveInvoice] Success!`);
+      return reply.send({ success: true, data: updated });
+    } catch (error: any) {
+      console.error('[ApproveInvoice] CRITICAL ERROR:', error);
+      return reply.status(error.statusCode || 500).send({ 
+        success: false, 
+        error: { 
+          message: error.message || 'Failed to approve invoice',
+          detail: error.stack
+        } 
+      });
+    }
   }
 
   // ============ JOURNALS ============
@@ -942,64 +959,67 @@ export class CompanyController {
   async createJournal(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
     const data = request.body as any;
-    const userId = (request.user as any).id;
-
-    const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
-
-    if (!data.lines || !Array.isArray(data.lines)) {
-      throw new ValidationError('Journal lines are required');
-    }
-
-    // Support two payload formats:
-    //   a) { debitCredit: 'debit'|'credit', amount: N }  (modal form)
-    //   b) { debit: N, credit: N }                       (pre-computed from frontend)
-    const lineDebit = (l: any): number =>
-      l.debitCredit !== undefined ? (l.debitCredit === 'debit' ? Number(l.amount) : 0) : Number(l.debit || 0);
-    const lineCredit = (l: any): number =>
-      l.debitCredit !== undefined ? (l.debitCredit === 'credit' ? Number(l.amount) : 0) : Number(l.credit || 0);
-
-    const totalDebit = data.lines.reduce((sum: number, line: any) => sum + lineDebit(line), 0);
-    const totalCredit = data.lines.reduce((sum: number, line: any) => sum + lineCredit(line), 0);
-
-    if (Math.abs(totalDebit - totalCredit) > 0.01) {
-      throw new ValidationError('Debit and Credit must be equal');
-    }
-
-    // Transaction Date Validation
-    if (!data.date) {
-      throw new ValidationError('Transaction date is required');
-    }
-
-    const journalDate = new Date(data.date);
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-
-    const role = await this.getUserRole(userId, companyId);
-    const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
-
-    // Settings-driven Compliance Checks
-    const settings = await prisma.companySettings.findUnique({ where: { companyId } });
-    if (settings) {
-      if (settings.disallowFutureDates && journalDate > today) {
-        throw new ValidationError('Company settings strictly disallow posting transactions with a future date.');
+    
+    try {
+      console.log(`[CreateJournal] Starting for company: ${companyId}`);
+      
+      if (!request.user) {
+        throw new ValidationError('User not authenticated - request.user is missing');
       }
-      if (settings.lockPreviousMonths) {
-        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        if (journalDate < firstDayOfMonth && !isOwnerOrAdmin) {
-          throw new ValidationError('Company settings restrict posting to previous months based on period lock rules.');
+      const userId = (request.user as any).id;
+      console.log(`[CreateJournal] User identified: ${userId}`);
+
+      console.log(`[CreateJournal] Checkpoint 1: Generating document number...`);
+      const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
+      console.log(`[CreateJournal] Checkpoint 2: entryNumber generated: ${entryNumber}`);
+
+      if (!data.lines || !Array.isArray(data.lines)) {
+        throw new ValidationError('Journal lines are required and must be an array');
+      }
+
+      const lineDebit = (l: any): number =>
+        l.debitCredit !== undefined ? (l.debitCredit === 'debit' ? Number(l.amount) : 0) : Number(l.debit || 0);
+      const lineCredit = (l: any): number =>
+        l.debitCredit !== undefined ? (l.debitCredit === 'credit' ? Number(l.amount) : 0) : Number(l.credit || 0);
+
+      const totalDebit = data.lines.reduce((sum: number, line: any) => sum + lineDebit(line), 0);
+      const totalCredit = data.lines.reduce((sum: number, line: any) => sum + lineCredit(line), 0);
+
+      if (Math.abs(totalDebit - totalCredit) > 0.01) {
+        throw new ValidationError(`Debit (${totalDebit}) and Credit (${totalCredit}) must be equal`);
+      }
+
+      if (!data.date) {
+        throw new ValidationError('Transaction date is required');
+      }
+
+      const journalDate = new Date(data.date);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+
+      console.log(`[CreateJournal] Checkpoint 3: Fetching user role and company settings...`);
+      const role = await this.getUserRole(userId, companyId);
+      const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
+      console.log(`[CreateJournal] User role: ${role}`);
+
+      const settings = await prisma.companySettings.findUnique({ where: { companyId } });
+      if (settings) {
+        if (settings.disallowFutureDates && journalDate > today) {
+          throw new ValidationError('Company settings strictly disallow posting transactions with a future date.');
         }
-      }
-    } else {
-      if (journalDate > today && !isOwnerOrAdmin) {
+        if (settings.lockPreviousMonths) {
+          const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+          if (journalDate < firstDayOfMonth && !isOwnerOrAdmin) {
+            throw new ValidationError('Company settings restrict posting to previous months based on period lock rules.');
+          }
+        }
+      } else if (journalDate > today && !isOwnerOrAdmin) {
         throw new ValidationError('Future transaction dates are only allowed for owners');
       }
-    }
 
-    // Accountants/Owners create as PENDING_VERIFICATION to make them visible to Managers immediately
-    const status = (role === 'Accountant' || isOwnerOrAdmin) ? 'PENDING_VERIFICATION' : 'DRAFT';
+      const status = (role === 'Accountant' || isOwnerOrAdmin) ? 'PENDING_VERIFICATION' : 'DRAFT';
 
-    try {
-      // Pick only relevant fields to avoid Prisma errors from extra fields
+      console.log(`[CreateJournal] Checkpoint 4: Preparing data and calling repository...`);
       const sanitizedData = {
         description: data.description || null,
         reference: data.reference || null,
@@ -1012,19 +1032,20 @@ export class CompanyController {
         date: journalDate,
         entryNumber,
         companyId,
-        branchId: data.branchId || null,
         totalDebit,
         totalCredit,
         createdById: userId,
         status,
         lines: {
-          create: (data.lines || []).map((l: any) => {
+          create: (data.lines || []).map((l: any, idx: number) => {
             const debit = lineDebit(l);
             const credit = lineCredit(l);
             const rate = Number(l.exchangeRate || data.exchangeRate || 1);
+            if (!l.accountId) {
+              throw new ValidationError(`Line ${idx + 1} is missing an Account ID`);
+            }
             return {
               accountId: l.accountId,
-              branchId: l.branchId || null,
               projectId: l.projectId || null,
               costCenterId: l.costCenterId || null,
               customerId: l.customerId || null,
@@ -1042,6 +1063,8 @@ export class CompanyController {
         },
       });
 
+      console.log(`[CreateJournal] Checkpoint 5: Success! Journal ID: ${journal.id}. Logging activities...`);
+      
       // Log Structured Activity
       await NotificationController.logActivity({
         companyId,
@@ -1049,7 +1072,6 @@ export class CompanyController {
         entityId: journal.id,
         action: 'CREATED',
         performedById: userId,
-        branchId: data.branchId || null,
         metadata: { docNumber: entryNumber }
       });
 
@@ -1068,13 +1090,20 @@ export class CompanyController {
         });
       }
 
+      console.log(`[CreateJournal] All operations completed.`);
       return reply.status(201).send({ success: true, data: journal });
     } catch (error: any) {
-      console.error('[CreateJournal] ERROR:', error);
-      return reply.status(500).send({ 
+      console.error('[CreateJournal] CRITICAL ERROR:', error);
+      console.error('[CreateJournal] Stack Trace:', error.stack);
+      
+      const statusCode = error.statusCode || 500;
+      return reply.status(statusCode).send({ 
         success: false, 
-        message: 'Internal server error while creating journal',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error: {
+          message: error.message || 'Internal server error during journal creation',
+          checkpoint: 'Check server logs for [CreateJournal] tags',
+          detail: process.env.NODE_ENV === 'development' ? error.stack : 'Please check server logs for full stack trace.'
+        }
       });
     }
   }

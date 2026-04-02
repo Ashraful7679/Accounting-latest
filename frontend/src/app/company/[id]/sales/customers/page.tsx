@@ -133,6 +133,43 @@ export default function CompanyCustomersPage() {
     },
   });
 
+  // --- Product Mapping Mutations ---
+  const { data: allProducts } = useQuery({
+    queryKey: ['company-products', companyId],
+    queryFn: async () => {
+      const resp = await api.get(`/company/${companyId}/products`);
+      return resp.data.data as Product[];
+    },
+    enabled: showProductModal
+  });
+
+  const assignProductMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await api.post(`/company/${companyId}/products/prices`, {
+        ...data,
+        customerId: selectedEntityId
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customer-products', selectedEntityId] });
+      toast.success('Product price assigned');
+      setShowProductModal(false);
+      setProductFormData({ productId: '', price: 0, currency: 'USD' });
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error?.message || 'Failed to assign product')
+  });
+
+  const removeProductMutation = useMutation({
+    mutationFn: async (mappingId: string) => {
+      await api.delete(`/company/${companyId}/products/prices/${mappingId}`);
+    },
+    onSuccess: (_, mappingId) => {
+      queryClient.invalidateQueries({ queryKey: ['customer-products', selectedEntityId] });
+      toast.success('Mapping removed');
+    }
+  });
+
   if (!mounted) return null;
 
   const openModal = (customer?: Customer) => {
@@ -182,43 +219,6 @@ export default function CompanyCustomersPage() {
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     c.code.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
-
-  // --- Product Mapping Mutations ---
-  const { data: allProducts } = useQuery({
-    queryKey: ['company-products', companyId],
-    queryFn: async () => {
-      const resp = await api.get(`/company/${companyId}/products`);
-      return resp.data.data as Product[];
-    },
-    enabled: showProductModal
-  });
-
-  const assignProductMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await api.post(`/company/${companyId}/products/prices`, {
-        ...data,
-        customerId: selectedEntityId
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['customer-products', selectedEntityId] });
-      toast.success('Product price assigned');
-      setShowProductModal(false);
-      setProductFormData({ productId: '', price: 0, currency: 'USD' });
-    },
-    onError: (err: any) => toast.error(err.response?.data?.error?.message || 'Failed to assign product')
-  });
-
-  const removeProductMutation = useMutation({
-    mutationFn: async (mappingId: string) => {
-      await api.delete(`/company/${companyId}/products/prices/${mappingId}`);
-    },
-    onSuccess: (_, mappingId) => {
-      queryClient.invalidateQueries({ queryKey: ['customer-products', selectedEntityId] });
-      toast.success('Mapping removed');
-    }
-  });
 
   const CustomerProducts = ({ customerId }: { customerId: string }) => {
     const { data: mappings, isLoading: loadingMappings } = useQuery({

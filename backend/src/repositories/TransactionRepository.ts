@@ -134,6 +134,7 @@ export class TransactionRepository {
         });
       } catch (error) {
         console.error('Journal creation failed in LIVE mode:', error);
+        console.error('Data attempted:', JSON.stringify(data, null, 2));
         throw error; // Don't fall back to offline if we intended to save to DB
       }
     }

@@ -998,68 +998,85 @@ export class CompanyController {
     // Accountants/Owners create as PENDING_VERIFICATION to make them visible to Managers immediately
     const status = (role === 'Accountant' || isOwnerOrAdmin) ? 'PENDING_VERIFICATION' : 'DRAFT';
 
-    const journal = await TransactionRepository.createJournal({
-      ...data,
-      date: journalDate,
-      entryNumber,
-      companyId,
-      branchId: data.branchId || null,
-      totalDebit,
-      totalCredit,
-      createdById: userId,
-      status,
-      lines: {
-        create: data.lines.map((l: any) => {
-          const debit = lineDebit(l);
-          const credit = lineCredit(l);
-          const rate = Number(l.exchangeRate || data.exchangeRate || 1);
-          return {
-            accountId: l.accountId,
-            branchId: l.branchId || null,
-            projectId: l.projectId || null,
-            costCenterId: l.costCenterId || null,
-            customerId: l.customerId || null,
-            vendorId: l.vendorId || null,
-            description: l.description || null,
-            debit,
-            credit,
-            debitBase: l.debitBase != null ? Number(l.debitBase) : debit * rate,
-            creditBase: l.creditBase != null ? Number(l.creditBase) : credit * rate,
-            debitForeign: l.debitForeign != null ? Number(l.debitForeign) : debit,
-            creditForeign: l.creditForeign != null ? Number(l.creditForeign) : credit,
-            exchangeRate: rate,
-          };
-        }),
-      },
-    });
+    try {
+      // Pick only relevant fields to avoid Prisma errors from extra fields
+      const sanitizedData = {
+        description: data.description || null,
+        reference: data.reference || null,
+        currencyId: data.currencyId || null,
+        exchangeRate: Number(data.exchangeRate || 1),
+      };
 
-    // Log Structured Activity
-    await NotificationController.logActivity({
-      companyId,
-      entityType: 'journal',
-      entityId: journal.id,
-      action: 'CREATED',
-      performedById: userId,
-      branchId: data.branchId || null,
-      metadata: { docNumber: entryNumber }
-    });
+      const journal = await TransactionRepository.createJournal({
+        ...sanitizedData,
+        date: journalDate,
+        entryNumber,
+        companyId,
+        branchId: data.branchId || null,
+        totalDebit,
+        totalCredit,
+        createdById: userId,
+        status,
+        lines: {
+          create: (data.lines || []).map((l: any) => {
+            const debit = lineDebit(l);
+            const credit = lineCredit(l);
+            const rate = Number(l.exchangeRate || data.exchangeRate || 1);
+            return {
+              accountId: l.accountId,
+              branchId: l.branchId || null,
+              projectId: l.projectId || null,
+              costCenterId: l.costCenterId || null,
+              customerId: l.customerId || null,
+              vendorId: l.vendorId || null,
+              description: l.description || null,
+              debit,
+              credit,
+              debitBase: l.debitBase != null ? Number(l.debitBase) : debit * rate,
+              creditBase: l.creditBase != null ? Number(l.creditBase) : credit * rate,
+              debitForeign: l.debitForeign != null ? Number(l.debitForeign) : debit,
+              creditForeign: l.creditForeign != null ? Number(l.creditForeign) : credit,
+              exchangeRate: rate,
+            };
+          }),
+        },
+      });
 
-    // Create Notification if it's pending verification
-    if (status === 'PENDING_VERIFICATION') {
-      await prisma.notification.create({
-        data: {
-          companyId,
-          type: 'PENDING_JOURNAL',
-          severity: 'WARNING',
-          title: 'New Voucher Awaiting Verification',
-          message: `Journal ${entryNumber} has been created and is awaiting verification.`,
-          entityType: 'JournalEntry',
-          entityId: journal.id
-        }
+      // Log Structured Activity
+      await NotificationController.logActivity({
+        companyId,
+        entityType: 'journal',
+        entityId: journal.id,
+        action: 'CREATED',
+        performedById: userId,
+        branchId: data.branchId || null,
+        metadata: { docNumber: entryNumber }
+      });
+
+      // Create Notification if it's pending verification
+      if (status === 'PENDING_VERIFICATION') {
+        await prisma.notification.create({
+          data: {
+            companyId,
+            type: 'PENDING_JOURNAL',
+            severity: 'WARNING',
+            title: 'New Voucher Awaiting Verification',
+            message: `Journal ${entryNumber} has been created and is awaiting verification.`,
+            entityType: 'JournalEntry',
+            entityId: journal.id
+          }
+        });
+      }
+
+      return reply.status(201).send({ success: true, data: journal });
+    } catch (error: any) {
+      console.error('[CreateJournal] ERROR:', error);
+      return reply.status(500).send({ 
+        success: false, 
+        message: 'Internal server error while creating journal',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-
-    return reply.status(201).send({ success: true, data: journal });
   }
 
   async updateJournal(request: FastifyRequest, reply: FastifyReply) {

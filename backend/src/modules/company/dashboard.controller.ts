@@ -249,11 +249,12 @@ export class DashboardController {
         ? (cashBalance + totalReceivables) / (totalPayables + totalLoanOutstanding) 
         : 0;
 
-      // Recent Activity Log (Using ActivityLog for actual audit trail)
+      // 253: Recent Activity Log (Using ActivityLog for actual audit trail)
       const activityLogs = await prisma.activityLog.findMany({
         where: { companyId },
         include: { 
-          performedBy: { select: { firstName: true, lastName: true } }
+          performedBy: { select: { id: true, firstName: true, lastName: true } },
+          targetUser: { select: { id: true, firstName: true, lastName: true } }
         },
         orderBy: { createdAt: 'desc' },
         take: 20
@@ -261,13 +262,13 @@ export class DashboardController {
 
       const activities = activityLogs.map((log: any) => ({
         id: log.id,
-        type: 'info',
-        title: `${log.action.replace(/_/g, ' ')} by ${log.performedBy.firstName}`,
-        message: `${log.entityType} ${log.metadata && (log.metadata as any).entityNumber ? (log.metadata as any).entityNumber : log.entityId} was ${log.action.toLowerCase().replace(/_/g, ' ')}`,
+        action: log.action,
         entityType: log.entityType,
         entityId: log.entityId,
+        performedBy: log.performedBy,
+        targetUser: log.targetUser,
+        metadata: log.metadata,
         createdAt: log.createdAt,
-        user: `${log.performedBy.firstName} ${log.performedBy.lastName}`,
       }));
 
       const unreadCount = await prisma.notification.count({ where: { companyId, isRead: false } });

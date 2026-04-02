@@ -12,13 +12,17 @@ export interface ActivityLog {
 }
 
 export function renderActivityMessage(activity: ActivityLog, currentUserId: string, currentUserRole: string): string {
+  if (!activity) return 'Unknown activity';
   const { action, performedBy, targetUser, metadata } = activity;
+  
+  if (!performedBy) return `An action was performed on ${activity.entityType || 'a document'}`;
+
   const isPerformer = performedBy.id === currentUserId;
   const isTarget = targetUser?.id === currentUserId;
-  const performerName = isPerformer ? 'You' : `${performedBy.firstName} ${performedBy.lastName}`;
-  const targetName = isTarget ? 'you' : (targetUser ? `${targetUser.firstName} ${targetUser.lastName}` : '');
-  const entityLabel = activity.entityType?.replace('_', ' ').charAt(0).toUpperCase() + activity.entityType?.slice(1).replace('_', ' ') || 'Document';
-  const docNo = metadata?.docNumber || 'document';
+  const performerName = isPerformer ? 'You' : `${performedBy.firstName || 'Someone'} ${performedBy.lastName || ''}`;
+  const targetName = isTarget ? 'you' : (targetUser ? `${targetUser.firstName || ''} ${targetUser.lastName || ''}` : '');
+  const entityLabel = activity.entityType?.replace(/_/g, ' ').charAt(0).toUpperCase() + activity.entityType?.slice(1).replace(/_/g, ' ') || 'Document';
+  const docNo = metadata?.docNumber || metadata?.entityNumber || 'document';
 
   switch (action) {
     case 'CREATED':

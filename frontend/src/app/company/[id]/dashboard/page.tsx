@@ -322,8 +322,18 @@ export default function CompanyDashboard() {
               <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
                 <AnimatePresence>
                   {alerts.map((activity, idx) => {
-                    const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-                    const userId = userStr ? JSON.parse(userStr).id : '';
+                    // Safe userId extraction to prevent 'Cannot read properties of undefined (reading id)'
+                    let userId = '';
+                    try {
+                      const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+                      if (userStr && userStr !== 'undefined' && userStr !== 'null') {
+                        const userObj = JSON.parse(userStr);
+                        userId = userObj?.id || '';
+                      }
+                    } catch (e) {
+                      console.error('Error parsing user from localStorage', e);
+                    }
+
                     const message = renderActivityMessage(activity, userId, dashboardResponse.role || '');
                     
                     return (
@@ -336,7 +346,7 @@ export default function CompanyDashboard() {
                       >
                         <div className="flex items-start gap-4">
                           <div className="w-8 h-8 rounded-full bg-slate-700 font-bold text-[10px] flex items-center justify-center text-white shrink-0">
-                            {activity.user?.firstName?.[0] || 'A'}
+                            {(activity.performedBy?.firstName?.[0] || activity.user?.[0] || 'A').toUpperCase()}
                           </div>
                           <div className="flex-1">
                             <p className="text-xs font-bold text-slate-200 leading-snug">{message}</p>

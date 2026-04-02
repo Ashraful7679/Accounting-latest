@@ -286,17 +286,39 @@ export default function PurchaseOrdersPage() {
     setFormData({ ...formData, lines: newLines });
   };
 
+  // Task 2.1: Reactive Currency Sync
+  useEffect(() => {
+    if (!mounted || !productsData) return;
+    
+    setFormData(prev => {
+      const rate = Number(prev.exchangeRate) || 1;
+      const updatedLines = prev.lines.map(line => {
+        if (line.productId) {
+          const product = productsData.find((p: any) => p.id === line.productId);
+          if (product) {
+            // Recalculate price in new currency from base BDT price
+            const newPrice = Number((product.unitPrice / rate).toFixed(2));
+            return { ...line, unitPrice: newPrice, total: Number((line.quantity * newPrice).toFixed(2)) };
+          }
+        }
+        return line;
+      });
+      
+      // Only update if lines actually changed to avoid infinite loops
+      if (JSON.stringify(updatedLines) === JSON.stringify(prev.lines)) return prev;
+      return { ...prev, lines: updatedLines };
+    });
+  }, [formData.currency, formData.exchangeRate, productsData, mounted]);
+
   const updateLine = (index: number, field: keyof POLine, value: any) => {
     const newLines = [...formData.lines];
     const line = { ...newLines[index], [field]: value };
     const exchangeRate = Number(formData.exchangeRate) || 1;
     
-    // Auto-fill from product
     if (field === 'productId' && value) {
       const product = productsData?.find((p: any) => p.id === value);
       if (product) {
         line.itemDescription = product.name;
-        // BUG FIX: Convert product BDT price to selected currency
         line.unitPrice = Number((product.unitPrice / exchangeRate).toFixed(2));
       }
     }
@@ -554,13 +576,27 @@ export default function PurchaseOrdersPage() {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
             {/* Modal Header */}
-            <div className="px-8 py-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+            <div className="px-8 py-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
               <div>
                 <h3 className="text-2xl font-black text-slate-900 flex items-center gap-2">
                   <Package className="w-6 h-6 text-blue-600" />
                   {selectedPO ? `Edit Purchase Order ${selectedPO.poNumber}` : 'New Purchase Order'}
                 </h3>
-                <p className="text-sm text-slate-500">{selectedPO ? 'Update existing procurement request' : 'Draft a new procurement request'}</p>
+                <div className="flex items-center gap-4 mt-1">
+                  <p className="text-sm text-slate-500">{selectedPO ? 'Update existing procurement request' : 'Draft a new procurement request'}</p>
+                  {selectedPO && isPrivileged && (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 rounded-lg border border-amber-100">
+                      <Lock className="w-3 h-3 text-amber-600" />
+                      <select 
+                        value={formData.status} 
+                        onChange={(e) => setFormData({...formData, status: e.target.value})}
+                        className="bg-transparent text-[10px] font-black text-amber-600 uppercase tracking-widest border-none outline-none cursor-pointer"
+                      >
+                        {Object.keys(statusOrder).map(s => <option key={s} value={s}>{s} (OVERRIDE)</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
               </div>
               <button onClick={closeModal} className="p-2 hover:bg-white rounded-xl transition-all border border-transparent hover:border-slate-100">
                 <ChevronDown className="w-6 h-6 text-slate-400" />
@@ -584,7 +620,7 @@ export default function PurchaseOrdersPage() {
                     <select 
                       value={formData.supplierId} 
                       onChange={(e) => setFormData({...formData, supplierId: e.target.value})}
-                      className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold"
+                      className="w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold text-sm"
                       required
                     >
                       <option value="">Select Company</option>
@@ -597,7 +633,7 @@ export default function PurchaseOrdersPage() {
                     <select 
                       value={formData.lcId} 
                       onChange={(e) => setFormData({...formData, lcId: e.target.value})}
-                      className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold"
+                      className="w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold text-sm"
                     >
                       <option value="">Standard Purchase</option>
                       {lcsData?.map((l: any) => <option key={l.id} value={l.id}>{l.lcNumber}</option>)}
@@ -607,25 +643,25 @@ export default function PurchaseOrdersPage() {
                   <div className="grid grid-cols-1 gap-4">
                     <div>
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Order Date</label>
-                      <input type="date" value={formData.poDate} onChange={(e) => setFormData({...formData, poDate: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold" required />
+                      <input type="date" value={formData.poDate} onChange={(e) => setFormData({...formData, poDate: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold text-sm" required />
                     </div>
                     <div>
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Exp. Delivery</label>
-                      <input type="date" value={formData.expectedDeliveryDate} onChange={(e) => setFormData({...formData, expectedDeliveryDate: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold" />
+                      <input type="date" value={formData.expectedDeliveryDate} onChange={(e) => setFormData({...formData, expectedDeliveryDate: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold text-sm" />
                     </div>
                   </div>
 
-                  <div className="p-4 bg-blue-50 rounded-2xl space-y-3">
+                  <div className="p-4 bg-blue-50/50 rounded-[2rem] border border-blue-100 space-y-3">
                     <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
                       <DollarSign className="w-4 h-4" /> Currency Sync
                     </h4>
                     <div className="grid grid-cols-2 gap-2">
-                      <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="bg-white rounded-xl px-2 py-2 text-sm font-bold border-none outline-none">
+                      <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="bg-white rounded-xl px-2 py-2 text-sm font-bold border border-blue-100 outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="USD">USD</option>
                         <option value="BDT">BDT</option>
                         <option value="EUR">EUR</option>
                       </select>
-                      <input type="number" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value)})} className="bg-white rounded-xl px-2 py-2 text-sm font-bold border-none outline-none w-full" placeholder="Rate" />
+                      <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})} className="bg-white rounded-xl px-2 py-2 text-sm font-bold border border-blue-100 outline-none w-full focus:ring-2 focus:ring-blue-500" placeholder="Rate" />
                     </div>
                   </div>
                 </div>
@@ -634,53 +670,60 @@ export default function PurchaseOrdersPage() {
                 <div className="lg:col-span-3">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Order Items</h4>
-                    <button type="button" onClick={addLine} className="text-blue-600 text-xs font-bold hover:underline flex items-center gap-1">
-                      <Plus className="w-3 h-3" /> Add Item
+                    <button type="button" onClick={addLine} className="text-blue-600 text-xs font-black hover:underline flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                      <Plus className="w-3 h-3" /> Add New Item
                     </button>
                   </div>
 
                   <div className="space-y-3">
-                    <div className="grid grid-cols-12 gap-2 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      <div className="col-span-6">Product</div>
-                      <div className="col-span-2 text-center">Qty</div>
-                      <div className="col-span-2 text-right">Price</div>
-                      <div className="col-span-2 text-right">Total</div>
+                    <div className="grid grid-cols-12 gap-2 px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                      <div className="col-span-6">Product & Description</div>
+                      <div className="col-span-2 text-center">Quantity</div>
+                      <div className="col-span-2 text-right">Unit Price</div>
+                      <div className="col-span-2 text-right">Ext. Total</div>
                     </div>
 
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="space-y-2 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
                       {formData.lines.map((line, idx) => (
-                        <div key={idx} className="group grid grid-cols-12 gap-2 bg-slate-50 p-2 rounded-2xl hover:bg-slate-100 transition-colors">
+                        <div key={idx} className="group grid grid-cols-12 gap-2 bg-slate-50/50 p-3 rounded-2xl hover:bg-white hover:shadow-md transition-all border border-slate-100 hover:border-blue-200">
                           <div className="col-span-6">
                             <select 
                               value={line.productId} 
                               onChange={(e) => updateLine(idx, 'productId', e.target.value)}
-                              className="w-full bg-transparent border-none outline-none font-bold text-slate-700 px-2 text-sm"
+                              className="w-full bg-transparent border-none outline-none font-bold text-slate-900 px-2 text-sm focus:ring-0"
                             >
-                              <option value="">Select Product</option>
+                              <option value="">Select Product...</option>
                               {productsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                             </select>
-                          </div>
-                          <div className="col-span-2">
                             <input 
-                              type="number" value={line.quantity}
-                              onChange={(e) => updateLine(idx, 'quantity', parseFloat(e.target.value))}
-                              className="w-full bg-transparent border-none outline-none font-bold text-center text-slate-700 text-sm"
+                              type="text"
+                              value={line.itemDescription}
+                              onChange={(e) => updateLine(idx, 'itemDescription', e.target.value)}
+                              placeholder="Special requirements or notes..."
+                              className="w-full bg-transparent border-none outline-none text-[10px] font-bold text-slate-500 px-2 mt-0.5 focus:ring-0"
+                            />
+                          </div>
+                          <div className="col-span-2 border-x border-slate-100">
+                            <input 
+                              type="number" step="any" value={line.quantity}
+                              onChange={(e) => updateLine(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                              className="w-full bg-transparent border-none outline-none font-black text-center text-slate-900 text-sm focus:ring-0"
                             />
                           </div>
                           <div className="col-span-2">
                             <input 
-                              type="number" value={line.unitPrice}
-                              onChange={(e) => updateLine(idx, 'unitPrice', parseFloat(e.target.value))}
-                              className="w-full bg-transparent border-none outline-none font-bold text-right text-slate-700 text-sm"
+                              type="number" step="any" value={line.unitPrice}
+                              onChange={(e) => updateLine(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
+                              className="w-full bg-transparent border-none outline-none font-black text-right text-slate-900 text-sm focus:ring-0"
                             />
                           </div>
-                          <div className="col-span-2 relative pr-8">
-                            <div className="w-full text-right font-bold text-slate-900 mt-1 text-sm">
-                              {line.total.toLocaleString()}
+                          <div className="col-span-2 relative pr-10">
+                            <div className="w-full text-right font-black text-blue-600 mt-1.5 text-sm tabular-nums">
+                              {line.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </div>
                             <button 
                               type="button" onClick={() => removeLine(idx)}
-                              className="absolute right-0 top-1 p-1 text-slate-300 hover:text-red-500 transition-colors"
+                              className="absolute right-0 top-1.5 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                             >
                               <Trash className="w-4 h-4" />
                             </button>
@@ -704,17 +747,53 @@ export default function PurchaseOrdersPage() {
               </div>
 
               {/* Footer */}
-              <div className="flex justify-end gap-3 pt-8 mt-4">
-                <button type="button" onClick={closeModal} className="px-8 py-3 rounded-2xl text-slate-500 font-bold hover:bg-slate-50 transition-all active:scale-95">
-                  Discard Draft
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={createMutation.isPending || updateMutation.isPending}
-                  className="px-12 py-3 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 active:scale-95 disabled:bg-slate-200"
-                >
-                  {createMutation.isPending || updateMutation.isPending ? 'Saving...' : 'Save Purchase Order'}
-                </button>
+              <div className="flex justify-between items-center pt-8 mt-4 border-t border-slate-100">
+                <div className="flex gap-2">
+                  {selectedPO && (
+                    <>
+                      {formData.status === 'OPEN' && (
+                        <button 
+                          type="button" 
+                          onClick={() => setFormData({...formData, status: 'RECEIVED'})}
+                          className="px-4 py-2 bg-amber-50 text-amber-700 rounded-xl text-xs font-black hover:bg-amber-100 transition-all border border-amber-200 uppercase tracking-widest"
+                        >
+                          Mark as Received
+                        </button>
+                      )}
+                      {(formData.status === 'RECEIVED' || formData.status === 'PARTIALLY_PAID') && (
+                        <button 
+                          type="button" 
+                          onClick={() => setFormData({...formData, status: 'PAID'})}
+                          className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all border border-emerald-200 uppercase tracking-widest"
+                        >
+                          Record Full Payment
+                        </button>
+                      )}
+                      {formData.status !== 'CLOSED' && formData.status !== 'CANCELLED' && (
+                        <button 
+                          type="button" 
+                          onClick={() => setFormData({...formData, status: 'CLOSED'})}
+                          className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-black hover:bg-slate-200 transition-all border border-slate-200 uppercase tracking-widest"
+                        >
+                          Close Order
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+                
+                <div className="flex gap-3">
+                  <button type="button" onClick={closeModal} className="px-8 py-3 rounded-2xl text-slate-500 font-bold hover:bg-slate-50 transition-all active:scale-95 uppercase text-[10px] tracking-widest">
+                    Discard Draft
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                    className="px-12 py-3 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 active:scale-95 disabled:bg-slate-200 uppercase text-[10px] tracking-widest"
+                  >
+                    {createMutation.isPending || updateMutation.isPending ? 'Syncing...' : (selectedPO ? 'Confirm & Update Order' : 'Initialize Purchase Order')}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

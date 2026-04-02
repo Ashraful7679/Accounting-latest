@@ -16,10 +16,15 @@ export class BackupController {
       ? path.join(process.cwd(), 'backups') 
       : '/tmp/accabiz_backups');
     
-    if (!fs.existsSync(this.BACKUP_DIR)) {
-      fs.mkdirSync(this.BACKUP_DIR, { recursive: true });
+    try {
+      if (!fs.existsSync(this.BACKUP_DIR)) {
+        console.log(`Creating backup directory at: ${this.BACKUP_DIR}`);
+        fs.mkdirSync(this.BACKUP_DIR, { recursive: true });
+      }
+    } catch (err: any) {
+      console.warn(`Warning: Could not create backup directory [${this.BACKUP_DIR}]. Backup functionality may fail, but server will continue to start.`, err.message);
     }
-    console.log('Backup directory:', this.BACKUP_DIR);
+    console.log('Backup configuration:', { directory: this.BACKUP_DIR });
   }
 
   private getDbConfig() {

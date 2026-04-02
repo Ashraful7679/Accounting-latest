@@ -165,7 +165,6 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/invoices/:invoiceId/submit', controller.submitInvoice.bind(controller));
   fastify.post('/:id/invoices/:invoiceId/reject', controller.rejectInvoice.bind(controller));
   fastify.post('/:id/invoices/:invoiceId/retrieve', controller.retrieveInvoice.bind(controller));
-  fastify.post('/:id/invoices/:invoiceId/approve', controller.approveInvoice.bind(controller));
 
   // Journals
   fastify.get('/:id/journals', controller.getJournals.bind(controller));

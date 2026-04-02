@@ -4,6 +4,7 @@ import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import { join } from 'path';
+import fs from 'fs';
 import { authRoutes } from './modules/auth/auth.routes';
 import { adminRoutes } from './modules/admin/admin.routes';
 import { ownerRoutes } from './modules/owner/owner.routes';
@@ -27,6 +28,12 @@ fastify.register(jwt, {
   secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
 });
 
+// Ensure required directories exist
+const uploadsDir = join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 fastify.register(multipart, {
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB
@@ -34,7 +41,7 @@ fastify.register(multipart, {
 });
 
 fastify.register(fastifyStatic, {
-  root: join(__dirname, '../uploads'),
+  root: uploadsDir,
   prefix: '/uploads/',
 });
 

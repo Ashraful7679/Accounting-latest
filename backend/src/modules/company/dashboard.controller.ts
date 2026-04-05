@@ -249,6 +249,38 @@ export class DashboardController {
         ? (cashBalance + totalReceivables) / (totalPayables + totalLoanOutstanding) 
         : 0;
 
+      // --- NEW: Full Accounting Equation (Lifetime) ---
+      const allAssetLines = await prisma.journalEntryLine.findMany({
+        where: { journalEntry: { companyId, status: 'APPROVED' }, account: { accountType: { name: 'ASSET' } } }
+      });
+      const totalAssets = allAssetLines.reduce((sum, l) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
+
+      const allLiabilityLines = await prisma.journalEntryLine.findMany({
+        where: { journalEntry: { companyId, status: 'APPROVED' }, account: { accountType: { name: 'LIABILITY' } } }
+      });
+      const totalLiabilities = allLiabilityLines.reduce((sum, l) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
+
+      const allEquityLines = await prisma.journalEntryLine.findMany({
+        where: { journalEntry: { companyId, status: 'APPROVED' }, account: { accountType: { name: 'EQUITY' } } }
+      });
+      const totalEquity = allEquityLines.reduce((sum, l) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
+
+      const allExpenseLines = await prisma.journalEntryLine.findMany({
+        where: { journalEntry: { companyId, status: 'APPROVED' }, account: { accountType: { name: 'EXPENSE' } } }
+      });
+      const totalExpensesOverview = allExpenseLines.reduce((sum, l) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
+
+      const accountingEquation = {
+        assets: totalAssets,
+        liabilities: totalLiabilities,
+        ap: totalPayables,
+        equity: totalEquity,
+        revenue: totalRevenue,
+        expenses: totalExpensesOverview,
+        netIncome: totalRevenue - totalExpensesOverview,
+        isBalanced: Math.abs(totalAssets - (totalLiabilities + totalEquity + (totalRevenue - totalExpensesOverview))) < 1
+      };
+
       // 253: Recent Activity Log (Using ActivityLog for actual audit trail)
       const activityLogs = await prisma.activityLog.findMany({
         where: { companyId },
@@ -620,8 +652,9 @@ export class DashboardController {
           { name: 'Revenue vs Expenses', data: revExpTrend, type: 'BAR' },
           { name: 'Revenue by Buyer', data: buyerDistribution, type: 'PIE' },
           { name: 'Monthly Net Cash Flow', data: cashFlowTrend, type: 'LINE' },
-          { name: 'Cash Position', data: cashBreakdown.map(c => ({ name: c.name, value: c.currentBalance })), type: 'PIE' }
+          { name: 'Cash Position', data: cashBreakdown.map(c => ({ name: c.name, value: c.currentBalance })), type: 'BAR' } // Changed to BAR
         ],
+        accountingEquation,
         alerts: enrichedActivities, 
         unreadCount,
         lastBackup: lastBackup ? {

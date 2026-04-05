@@ -231,13 +231,15 @@ export default function EmployeesPage() {
   const openModal = (type: 'employee' | 'advance' | 'loan' | 'expense', item?: any) => {
     setModalType(type);
     setSelectedItem(item);
-    if (item) {
-      setFormData({ ...item });
-    } else {
-      setFormData(type === 'employee' ? { firstName: '', lastName: '', email: '', phone: '', designation: '', department: '', salary: 0 } :
+    const initialData = type === 'employee' ? { firstName: '', lastName: '', email: '', phone: '', designation: '', department: '', salary: 0, joiningDate: new Date().toISOString() } :
                  type === 'advance' ? { employeeId: '', amount: 0, purpose: '', date: new Date().toISOString().split('T')[0], paymentMethod: 'CASH' } :
-                 type === 'loan' ? { employeeId: '', principalAmount: 0, interestRate: 0, installments: 1, startDate: new Date().toISOString().split('T')[0], purpose: '' } :
-                 { employeeId: '', amount: 0, description: '', category: 'SALARY', date: new Date().toISOString().split('T')[0], paymentMethod: 'CASH' });
+                 type === 'loan' ? { employeeId: '', principalAmount: 0, interestRate: 0, termMonths: 12, startDate: new Date().toISOString().split('T')[0], monthlyInstallment: 0 } :
+                 { employeeId: '', amount: 0, purpose: '', date: new Date().toISOString().split('T')[0], category: 'TRAVEL' };
+    
+    if (item && type === 'advance') {
+      setFormData({ ...item, date: new Date().toISOString().split('T')[0] });
+    } else {
+      setFormData(item ? { ...item } : initialData);
     }
     setShowModal(true);
   };

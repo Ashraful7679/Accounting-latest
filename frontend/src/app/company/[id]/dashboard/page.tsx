@@ -41,6 +41,16 @@ interface DashboardData {
     status: string;
   } | null;
   actions: { label: string; href: string; icon?: string }[];
+  accountingEquation?: {
+    assets: number;
+    liabilities: number;
+    ap: number;
+    equity: number;
+    revenue: number;
+    expenses: number;
+    netIncome: number;
+    isBalanced: boolean;
+  };
 }
 
 export default function CompanyDashboard() {
@@ -129,6 +139,65 @@ export default function CompanyDashboard() {
           
           {/* Main Content Area (75%) */}
           <div className="lg:col-span-3 space-y-8">
+            
+            {/* Accounting Equation Section (New) */}
+            {dashboardResponse.accountingEquation && (
+              <div className="bg-slate-900 rounded-[32px] p-8 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl -mr-32 -mt-32" />
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <h3 className="text-lg font-black text-white tracking-tight uppercase">Accounting Equation</h3>
+                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1">Expanded Balance Formula</p>
+                    </div>
+                    <div className={cn(
+                      "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2",
+                      dashboardResponse.accountingEquation.isBalanced ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                    )}>
+                      <div className={cn("w-2 h-2 rounded-full", dashboardResponse.accountingEquation.isBalanced ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-rose-400 animate-pulse")} />
+                      {dashboardResponse.accountingEquation.isBalanced ? "Ledger Balanced" : "Balance Mismatch"}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                    {/* Left Side: Assets */}
+                    <div className="space-y-4">
+                      <div className="p-6 bg-white/5 rounded-2xl border border-white/10 hover:border-blue-500/50 transition-all group">
+                         <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Total Assets</p>
+                         <h2 className="text-3xl font-black text-white">{formatCurrency(dashboardResponse.accountingEquation.assets)}</h2>
+                      </div>
+                    </div>
+
+                    {/* Right Side: Equation Parts */}
+                    <div className="relative">
+                      <div className="absolute left-[-2rem] top-1/2 -translate-y-1/2 text-3xl font-black text-slate-700 hidden md:block">=</div>
+                      <div className="grid grid-cols-2 gap-4">
+                         <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Accounts Payable</p>
+                            <p className="text-sm font-black text-rose-400">{formatCurrency(dashboardResponse.accountingEquation.ap)}</p>
+                         </div>
+                         <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Equity</p>
+                            <p className="text-sm font-black text-emerald-400">{formatCurrency(dashboardResponse.accountingEquation.equity)}</p>
+                         </div>
+                         <div className="p-4 bg-white/5 rounded-xl border border-white/5 col-span-2">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Net Income (Rev - Exp)</p>
+                                <p className="text-sm font-black text-blue-400">{formatCurrency(dashboardResponse.accountingEquation.netIncome)}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[8px] font-bold text-slate-600 uppercase">Rev: {formatCurrency(dashboardResponse.accountingEquation.revenue)}</p>
+                                <p className="text-[8px] font-bold text-slate-600 uppercase">Exp: {formatCurrency(dashboardResponse.accountingEquation.expenses)}</p>
+                              </div>
+                            </div>
+                         </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* KPI Row (Compact) */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -245,39 +314,35 @@ export default function CompanyDashboard() {
                 </div>
               </div>
 
-              {/* Liquidity Breakdown Pie */}
+              {/* Liquidity Breakdown Chart (Enhanced to Bar) */}
               <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm">
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-8">Liquidity Position</h3>
-                <div className="h-[300px] flex items-center">
-                  <div className="w-1/2 h-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={charts.find(c => c.name === 'Cash Position')?.data || []}
-                          innerRadius={60}
-                          outerRadius={90}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {charts.find(c => c.name === 'Cash Position')?.data?.map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} stroke="none" />
-                          ))}
-                        </Pie>
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Liquidity Position</h3>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Bank vs Cash Comparison</p>
+                </div>
+                <div className="h-[300px]">
+                   <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={charts.find(c => c.name === 'Cash Position')?.data || []} layout="vertical" margin={{ left: 40 }}>
+                        <XAxis type="number" hide />
+                        <YAxis 
+                          dataKey="name" 
+                          type="category" 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fontSize: 9, fontWeight: 800, fill: '#64748B' }} 
+                        />
                         <Tooltip content={<CustomTooltip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="w-1/2 space-y-3">
-                    {charts.find(c => c.name === 'Cash Position')?.data?.map((entry, idx) => (
-                      <div key={idx} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[(idx + 2) % COLORS.length] }} />
-                          <span className="text-[10px] font-black text-slate-600 truncate max-w-[100px]">{entry.name}</span>
-                        </div>
-                        <span className="text-[10px] font-black text-slate-900">{formatCurrency(entry.value)}</span>
-                      </div>
-                    ))}
-                  </div>
+                        <Bar 
+                          dataKey="value" 
+                          radius={[0, 4, 4, 0]} 
+                          barSize={16}
+                        >
+                          {(charts.find(c => c.name === 'Cash Position')?.data || []).map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                   </ResponsiveContainer>
                 </div>
               </div>
             </div>

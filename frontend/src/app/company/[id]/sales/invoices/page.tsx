@@ -9,10 +9,11 @@ import {
   FileText, Plus, Search, Edit2, Trash2, Eye,
   Calendar, DollarSign, CheckCircle2, AlertCircle,
   Layers, Send, CheckCheck, X as CloseIcon, ArrowLeft,
-  Lock
+  Lock, RefreshCw
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { AttachmentManager } from '@/components/AttachmentManager';
+import { cn } from '@/lib/utils';
 
 interface Invoice {
   id: string;
@@ -398,36 +399,109 @@ export default function SalesInvoicesPage() {
 
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200 border-none">
-            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
+          <div className="bg-white rounded-[40px] shadow-[0_20px_50px_rgba(0,0,0,0.2)] w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 animate-in fade-in zoom-in duration-200">
+            {/* STICKY HEADER WITH ACTIONS */}
+            <div className="px-8 py-6 border-b border-slate-100 bg-white/80 backdrop-blur-md sticky top-0 z-20 flex flex-wrap gap-4 items-center justify-between">
               <div>
-                <h3 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
                   <FileText className="w-6 h-6 text-indigo-600" />
-                  {selectedInvoice ? `Review Invoice: ${selectedInvoice.invoiceNumber}` : 'Draft New Sales Invoice'}
+                  {selectedInvoice ? `Edit Invoice: ${selectedInvoice.invoiceNumber}` : 'Create New Invoice'}
                 </h3>
-                <div className="flex items-center gap-4 mt-1">
-                  <p className="text-sm text-slate-500 font-medium">{selectedInvoice ? 'Finalize or modify transaction details' : 'Initiate a new client billing record'}</p>
-                  {selectedInvoice && ['Owner', 'Admin', 'Manager'].includes(userRole) && (
-                    <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 rounded-lg border border-amber-100 shadow-sm">
-                      <Lock className="w-3 h-3 text-amber-600" />
-                      <select 
-                        value={formData.status} 
-                        onChange={(e) => setFormData({...formData, status: e.target.value})}
-                        className="bg-transparent text-[10px] font-black text-amber-600 uppercase tracking-widest border-none outline-none cursor-pointer focus:ring-0"
-                      >
-                        {['DRAFT', 'PENDING', 'VERIFIED', 'APPROVED', 'PAID', 'PARTIAL', 'OVERDUE', 'REJECTED'].map(s => <option key={s} value={s}>{s} (OVERRIDE)</option>)}
-                      </select>
-                    </div>
-                  )}
+                <div className="flex items-center gap-3 mt-1 px-1">
+                  <span className={cn(
+                    "text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md",
+                    formData.status === 'APPROVED' ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
+                  )}>
+                    {formData.status}
+                  </span>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest tracking-[0.1em]">Commercial Billing Hub</p>
                 </div>
               </div>
-              <button onClick={closeModal} className="p-2 hover:bg-slate-100 rounded-xl transition-all group">
-                <CloseIcon className="w-6 h-6 text-slate-300 group-hover:text-slate-600" />
-              </button>
+
+              <div className="flex gap-2">
+                <button 
+                  type="submit" 
+                  form="invoice-form"
+                  disabled={createMutation.isPending}
+                  className="px-6 py-3 bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all flex items-center gap-2 disabled:bg-slate-300 active:scale-95"
+                >
+                  <RefreshCw className={cn("w-4 h-4", createMutation.isPending && "animate-spin")} />
+                  {selectedInvoice ? (createMutation.isPending ? 'Syncing...' : 'Update Record') : (createMutation.isPending ? 'Saving...' : 'Create Record')}
+                </button>
+
+                <div className="h-10 w-px bg-slate-200 mx-2 hidden sm:block" />
+
+                {selectedInvoice && (
+                  <div className="flex gap-2">
+                    {(selectedInvoice.status === 'DRAFT' || selectedInvoice.status === 'REJECTED') && (
+                      <button
+                        type="button"
+                        onClick={() => submitMutation.mutate(selectedInvoice.id)}
+                        className="px-6 py-3 bg-indigo-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-indigo-600 shadow-lg shadow-indigo-500/30 transition-all active:scale-95"
+                      >
+                        Submit For Verification
+                      </button>
+                    )}
+
+                    {selectedInvoice.status === 'PENDING' && ['Manager', 'Owner', 'Admin'].includes(userRole) && (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => verifyMutation.mutate(selectedInvoice.id)}
+                          className="px-6 py-3 bg-emerald-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all active:scale-95"
+                        >
+                          Verify
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const reason = window.prompt('Provide rejection reason:') ?? '';
+                            rejectMutation.mutate({ id: selectedInvoice.id, reason });
+                          }}
+                          className="px-6 py-3 bg-rose-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-rose-600 shadow-lg shadow-rose-500/30 transition-all active:scale-95"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+
+                    {(['VERIFIED', 'PENDING_APPROVAL'].includes(selectedInvoice.status)) && ['Owner', 'Admin'].includes(userRole) && (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => approveMutation.mutate(selectedInvoice.id)}
+                          className="px-6 py-3 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 transition-all active:scale-95"
+                        >
+                          Final Approve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const reason = window.prompt('Provide rejection reason:') ?? '';
+                            rejectMutation.mutate({ id: selectedInvoice.id, reason });
+                          }}
+                          className="px-6 py-3 bg-rose-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-rose-600 shadow-lg shadow-rose-500/30 transition-all active:scale-95"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <button 
+                  type="button" 
+                  onClick={closeModal} 
+                  className="p-3 bg-slate-100 text-slate-500 rounded-2xl hover:bg-slate-200 transition-all active:scale-90"
+                  title="Close Model"
+                >
+                  <Plus className="w-6 h-6 rotate-45" />
+                </button>
+              </div>
             </div>
-            
-            <div className="flex-1 overflow-y-auto p-8 bg-white">
-              <form onSubmit={handleSubmit} id="invoice-form" className="space-y-8">
+
+            <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-white custom-scrollbar">
+              <form onSubmit={handleSubmit} id="invoice-form" className="space-y-12">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 font-medium">
                   <div>
                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Customer Selection *</label>
@@ -517,12 +591,15 @@ export default function SalesInvoicesPage() {
                         </div>
                         <div className="col-span-4 md:col-span-1.5 md:col-span-2">
                           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1 text-right">Unit Price ({formData.currency})</label>
-                          <input 
-                            type="number" step="any"
-                            value={line.unitPrice} 
-                            onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                            className="w-full px-3 py-2.5 bg-white border-slate-200 rounded-xl border text-sm font-black text-right focus:ring-2 focus:ring-indigo-500 shadow-sm"
-                          />
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">{formData.currency}</span>
+                            <input 
+                              type="number" step="any"
+                              value={line.unitPrice} 
+                              onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                              className="w-full pl-12 pr-3 py-2.5 bg-white border-slate-200 rounded-xl border text-sm font-black text-right focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                            />
+                          </div>
                         </div>
                         <div className="col-span-4 md:col-span-1">
                           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1 text-center">Tax %</label>
@@ -577,117 +654,6 @@ export default function SalesInvoicesPage() {
                   </div>
                 )}
               </form>
-            </div>
-
-            <div className="px-8 py-6 border-t border-slate-100 bg-slate-50/50 flex flex-wrap gap-3 items-center">
-              <button 
-                type="button" 
-                onClick={closeModal} 
-                className="px-6 py-3 bg-white border border-slate-200 text-slate-600 font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-slate-100 transition-all shadow-sm"
-              >
-                Close View
-              </button>
-              
-              <div className="h-8 w-px bg-slate-200 mx-2 hidden sm:block" />
-
-              {/* Status Flow Buttons */}
-              {selectedInvoice && (
-                <>
-                  {(selectedInvoice.status === 'DRAFT' || selectedInvoice.status === 'REJECTED') && (
-                    <button
-                      type="button"
-                      onClick={() => submitMutation.mutate(selectedInvoice.id)}
-                      className="px-6 py-3 bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all"
-                    >
-                      Submit for Verification
-                    </button>
-                  )}
-
-                  {selectedInvoice.status === 'PENDING' && ['Manager', 'Owner', 'Admin'].includes(userRole) && (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => verifyMutation.mutate(selectedInvoice.id)}
-                        className="px-6 py-3 bg-emerald-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all"
-                      >
-                        Verify Entry
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const reason = window.prompt('Provide rejection reason:') ?? '';
-                          rejectMutation.mutate({ id: selectedInvoice.id, reason });
-                        }}
-                        className="px-6 py-3 bg-rose-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-rose-600 shadow-lg shadow-rose-500/30 transition-all"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  )}
-
-                  {(['VERIFIED', 'PENDING_APPROVAL'].includes(selectedInvoice.status)) && ['Owner', 'Admin'].includes(userRole) && (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => approveMutation.mutate(selectedInvoice.id)}
-                        className="px-6 py-3 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 transition-all"
-                      >
-                        Final Approve
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const reason = window.prompt('Provide rejection reason:') ?? '';
-                          rejectMutation.mutate({ id: selectedInvoice.id, reason });
-                        }}
-                        className="px-6 py-3 bg-rose-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-rose-600 shadow-lg shadow-rose-500/30 transition-all"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-
-              <div className="flex gap-3 justify-end items-center pt-8 mt-4 border-t border-slate-100">
-                {selectedInvoice && (
-                  <div className="flex gap-2 mr-auto">
-                    {selectedInvoice.status === 'APPROVED' && (
-                      <button 
-                        type="button" 
-                        onClick={() => setFormData({...formData, status: 'PAID'})}
-                        className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all border border-emerald-200 uppercase tracking-widest"
-                      >
-                        Record Full Payment
-                      </button>
-                    )}
-                    {selectedInvoice.status !== 'CLOSED' && selectedInvoice.status !== 'CANCELLED' && (
-                      <button 
-                        type="button" 
-                        onClick={() => setFormData({...formData, status: 'CLOSED'})}
-                        className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-black hover:bg-slate-200 transition-all border border-slate-200 uppercase tracking-widest"
-                      >
-                        Deactivate / Close
-                      </button>
-                    )}
-                  </div>
-                )}
-                
-                <button type="button" onClick={closeModal} className="px-8 py-3 rounded-2xl text-slate-500 font-bold hover:bg-slate-50 transition-all active:scale-95 uppercase text-[10px] tracking-widest border border-slate-200">
-                  Discard
-                </button>
-                
-                {(!selectedInvoice || ['DRAFT', 'REJECTED'].includes(selectedInvoice.status)) && (
-                  <button 
-                    type="submit" 
-                    form="invoice-form"
-                    disabled={createMutation.isPending} 
-                    className="px-12 py-3 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 active:scale-95 disabled:bg-slate-200 uppercase text-[10px] tracking-widest"
-                  >
-                    {createMutation.isPending ? 'Syncing...' : (selectedInvoice ? 'Finalize Record' : 'Record New Invoice')}
-                  </button>
-                )}
-              </div>
             </div>
           </div>
         </div>

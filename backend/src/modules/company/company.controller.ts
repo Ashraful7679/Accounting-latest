@@ -137,22 +137,32 @@ export class CompanyController {
     
     const openingBalanceBDT = Number(openingBalance || 0) * Number(exchangeRate || 1);
 
-    const customer = await prisma.$transaction(async (tx) => {
-      const c = await CustomerRepository.create({ 
-        code, name, companyId, email, phone, address, city, country,
-        contactPerson, tinVat, 
-        openingBalance: Number(openingBalance || 0), 
-        balanceType, 
-        creditLimit: Number(creditLimit || 0), 
-        preferredCurrency: preferredCurrency || 'BDT',
-        exchangeRate: Number(exchangeRate || 1)
-      }, tx);
+    let customer;
+    try {
+      customer = await prisma.$transaction(async (tx) => {
+        const c = await CustomerRepository.create({ 
+          code, name, companyId, email, phone, address, city, country,
+          contactPerson, tinVat, 
+          openingBalance: Number(openingBalance || 0), 
+          balanceType, 
+          creditLimit: Number(creditLimit || 0), 
+          preferredCurrency: preferredCurrency || 'BDT',
+          exchangeRate: Number(exchangeRate || 1)
+        }, tx);
 
-      // Automated Ledger Account
-      await TransactionRepository.ensureEntityAccount(tx, companyId, c.id, c.name, c.code, 'AR', openingBalanceBDT);
-      
-      return c;
-    });
+        // Automated Ledger Account
+        try {
+          await TransactionRepository.ensureEntityAccount(tx, companyId, c.id, c.name, c.code, 'AR', openingBalanceBDT);
+        } catch (e) {
+          console.error('Failed to create customer account:', e);
+        }
+        
+        return c;
+      });
+    } catch (e) {
+      console.error('Failed to create customer:', e);
+      return reply.status(500).send({ success: false, error: 'Failed to create customer' });
+    }
 
     // Log Activity
     await NotificationController.logActivity({
@@ -169,19 +179,26 @@ export class CompanyController {
 
   async updateCustomer(request: FastifyRequest, reply: FastifyReply) {
     const { customerId } = request.params as { customerId: string };
-    const data = request.body as any;
+    const { exchangeRate, openingBalance, ...data } = request.body as any;
 
-    let openingBalanceBDT = Number(data.openingBalance || 0);
-    if (data.exchangeRate) {
-      openingBalanceBDT = openingBalanceBDT * Number(data.exchangeRate);
+    let openingBalanceBDT = Number(openingBalance || 0);
+    if (exchangeRate) {
+      openingBalanceBDT = openingBalanceBDT * Number(exchangeRate);
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.account.updateMany({
-        where: { referenceId: customerId, category: 'AR' },
-        data: { currentBalance: openingBalanceBDT }
-      });
-    });
+    // Update account balance if exchangeRate is provided
+    if (exchangeRate) {
+      try {
+        await prisma.$transaction(async (tx) => {
+          await tx.account.updateMany({
+            where: { referenceId: customerId, category: 'AR' },
+            data: { currentBalance: openingBalanceBDT }
+          });
+        });
+      } catch (e) {
+        console.error('Failed to update customer account balance:', e);
+      }
+    }
 
     const customer = await prisma.customer.update({
       where: { id: customerId },
@@ -216,17 +233,27 @@ export class CompanyController {
     
     const openingBalanceBDT = Number(openingBalance || 0) * Number(exchangeRate || 1);
 
-    const vendor = await prisma.$transaction(async (tx) => {
-      const v = await VendorRepository.create({ 
-        code, name, companyId, email, phone, address, city, country,
-        contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency, exchangeRate
-      }, tx);
+    let vendor;
+    try {
+      vendor = await prisma.$transaction(async (tx) => {
+        const v = await VendorRepository.create({ 
+          code, name, companyId, email, phone, address, city, country,
+          contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency, exchangeRate
+        }, tx);
 
-      // Automated Ledger Account
-      await TransactionRepository.ensureEntityAccount(tx, companyId, v.id, v.name, v.code, 'AP', openingBalanceBDT);
-      
-      return v;
-    });
+        // Automated Ledger Account
+        try {
+          await TransactionRepository.ensureEntityAccount(tx, companyId, v.id, v.name, v.code, 'AP', openingBalanceBDT);
+        } catch (e) {
+          console.error('Failed to create vendor account:', e);
+        }
+        
+        return v;
+      });
+    } catch (e) {
+      console.error('Failed to create vendor:', e);
+      return reply.status(500).send({ success: false, error: 'Failed to create vendor' });
+    }
 
     // Log Activity
     await NotificationController.logActivity({
@@ -243,20 +270,26 @@ export class CompanyController {
 
   async updateVendor(request: FastifyRequest, reply: FastifyReply) {
     const { vendorId } = request.params as { vendorId: string };
-    const data = request.body as any;
+    const { exchangeRate, openingBalance, ...data } = request.body as any;
 
-    let openingBalanceBDT = Number(data.openingBalance || 0);
-    if (data.exchangeRate) {
-      openingBalanceBDT = openingBalanceBDT * Number(data.exchangeRate);
+    let openingBalanceBDT = Number(openingBalance || 0);
+    if (exchangeRate) {
+      openingBalanceBDT = openingBalanceBDT * Number(exchangeRate);
     }
 
-    // Update the account balance in COA
-    await prisma.$transaction(async (tx) => {
-      await tx.account.updateMany({
-        where: { referenceId: vendorId, category: 'AP' },
-        data: { currentBalance: openingBalanceBDT }
-      });
-    });
+    // Update the account balance in COA if exchangeRate is provided
+    if (exchangeRate) {
+      try {
+        await prisma.$transaction(async (tx) => {
+          await tx.account.updateMany({
+            where: { referenceId: vendorId, category: 'AP' },
+            data: { currentBalance: openingBalanceBDT }
+          });
+        });
+      } catch (e) {
+        console.error('Failed to update vendor account balance:', e);
+      }
+    }
 
     const vendor = await prisma.vendor.update({
       where: { id: vendorId },

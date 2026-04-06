@@ -296,6 +296,29 @@ export class TransactionRepository {
     // Cleanup existing for idempotency
     const existing = await tx.journalEntry.findFirst({ where: { entryNumber, companyId } });
     if (existing) await tx.journalEntry.delete({ where: { id: existing.id } });
+    
+    // Update Balances
+    // Expense increase (Debit)
+    await tx.account.update({ where: { id: expAccount.id }, data: { currentBalance: { increment: billTotal } } });
+    // AP increase (Credit) - Liability accounts increase on Credit, but I'll use common convention where increment means absolute change based on account type normally?
+    // Wait, let's check AccountType.type (DEBIT/CREDIT).
+    // If DEBIT type: balance += debit - credit
+    // If CREDIT type: balance += credit - debit
+    
+    // Let's use a more robust way if possible, or follow the same logic as generateInvoiceJournal.
+    // In generateInvoiceJournal (line 247):
+    // const isDebitType = (incomeExpAccount as any).accountType?.type === 'DEBIT';
+    // const balanceChange = isDebitType ? (isSales ? -invoiceTotal : invoiceTotal) : (isSales ? invoiceTotal : -invoiceTotal);
+    
+    // Since I don't have accountType eagerly loaded here, I'll fetch it or assume standard categories.
+    const expAccFull = await tx.account.findUnique({ where: { id: expAccount.id }, include: { accountType: true } });
+    const apAccFull = await tx.account.findUnique({ where: { id: apAccount.id }, include: { accountType: true } });
+    
+    const expChange = expAccFull.accountType.type === 'DEBIT' ? billTotal : -billTotal;
+    const apChange = apAccFull.accountType.type === 'CREDIT' ? billTotal : -billTotal;
+
+    await tx.account.update({ where: { id: expAccount.id }, data: { currentBalance: { increment: expChange } } });
+    await tx.account.update({ where: { id: apAccount.id }, data: { currentBalance: { increment: apChange } } });
 
     return await tx.journalEntry.create({
       data: {
@@ -338,6 +361,27 @@ export class TransactionRepository {
     // Cleanup existing for idempotency
     const existing = await tx.journalEntry.findFirst({ where: { entryNumber, companyId } });
     if (existing) await tx.journalEntry.delete({ where: { id: existing.id } });
+
+    // Update Balances
+    const settlementAccFull = await tx.account.findUnique({ where: { id: payment.accountId }, include: { accountType: true } });
+    const arApAccFull = await tx.account.findUnique({ where: { id: arApAccount.id }, include: { accountType: true } });
+
+    // Settlement Account (Bank/Cash)
+    // If Inward (Receiving): Debit increase. If Debit-type account -> increment by amount.
+    // If Outward (Paying): Credit increase. If Debit-type account -> decrement by amount.
+    const settlementChange = isInward 
+      ? (settlementAccFull.accountType.type === 'DEBIT' ? amount : -amount)
+      : (settlementAccFull.accountType.type === 'DEBIT' ? -amount : amount);
+
+    // AR/AP Account
+    // If Inward (AR Settlement): Credit increase. If Debit-type account -> decrement by amount.
+    // If Outward (AP Settlement): Debit increase. If Credit-type account -> decrement by amount.
+    const contraChange = isInward
+      ? (arApAccFull.accountType.type === 'DEBIT' ? -amount : amount)
+      : (arApAccFull.accountType.type === 'CREDIT' ? -amount : amount);
+
+    await tx.account.update({ where: { id: payment.accountId }, data: { currentBalance: { increment: settlementChange } } });
+    await tx.account.update({ where: { id: arApAccount.id }, data: { currentBalance: { increment: contraChange } } });
 
     return await tx.journalEntry.create({
       data: {
@@ -383,6 +427,16 @@ export class TransactionRepository {
 
     const existing = await tx.journalEntry.findFirst({ where: { entryNumber, companyId } });
     if (existing) await tx.journalEntry.delete({ where: { id: existing.id } });
+
+    // Update balances
+    const toAcc = await tx.account.findUnique({ where: { id: toAccountId }, include: { accountType: true } });
+    const fromAcc = await tx.account.findUnique({ where: { id: transfer.accountId }, include: { accountType: true } });
+
+    const toChange = toAcc.accountType.type === 'DEBIT' ? amount : -amount;
+    const fromChange = fromAcc.accountType.type === 'DEBIT' ? -amount : amount;
+
+    await tx.account.update({ where: { id: toAccountId }, data: { currentBalance: { increment: toChange } } });
+    await tx.account.update({ where: { id: transfer.accountId }, data: { currentBalance: { increment: fromChange } } });
 
     return await tx.journalEntry.create({
       data: {

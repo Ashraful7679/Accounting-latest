@@ -69,10 +69,6 @@ export class PaymentController {
         // Auto-journal for LC Payment
         await TransactionRepository.generatePaymentJournal(tx, pmt, companyId, userId, lc.type === 'EXPORT' ? 'LC_EXPORT' : 'LC_IMPORT');
 
-        // Update balances (Moving this to generatePaymentJournal if I want, but I kept account update in repository for invoices... wait, I should check my repository implementation)
-        // Actually, I'll keep the balance update in the controller for now if the repository doesn't have it for payments yet.
-        // Wait, I put balance updates in generateInvoiceJournal but NOT in generatePaymentJournal yet.
-        
         // Update PI Statuses
         for (const alloc of piAllocations) {
           const pi = await (tx as any).pI.findUnique({

@@ -18,6 +18,64 @@ export class AdminController {
     return `${initials}-${uniqueId}`;
   }
 
+  // Reusable COA generation logic
+  private async ensureCOA(companyId: string, companyCode: string) {
+    const existingAccounts = await prisma.account.count({ where: { companyId } });
+    if (existingAccounts > 0) return; // Already has COA
+
+    const allAccountTypes = await prisma.accountType.findMany();
+    const assetType = allAccountTypes.find(at => at.name === 'ASSET');
+    const liabilityType = allAccountTypes.find(at => at.name === 'LIABILITY');
+    const equityType = allAccountTypes.find(at => at.name === 'EQUITY');
+    const incomeType = allAccountTypes.find(at => at.name === 'INCOME');
+    const expenseType = allAccountTypes.find(at => at.name === 'EXPENSE');
+
+    const defaultAccounts = [
+      { code: '1000', name: 'Cash in Hand', typeId: assetType?.id, category: 'CASH' },
+      { code: '1010', name: 'Cash at Bank', typeId: assetType?.id, category: 'BANK' },
+      { code: '1100', name: 'Accounts Receivable', typeId: assetType?.id, category: 'AR' },
+      { code: '1200', name: 'Inventory', typeId: assetType?.id, category: null },
+      { code: '1500', name: 'Fixed Assets', typeId: assetType?.id, category: null },
+      { code: '2000', name: 'Accounts Payable', typeId: liabilityType?.id, category: 'AP' },
+      { code: '2100', name: 'Notes Payable', typeId: liabilityType?.id, category: null },
+      { code: '2200', name: 'Accrued Expenses', typeId: liabilityType?.id, category: null },
+      { code: '3000', name: 'Owner\'s Capital', typeId: equityType?.id, category: null },
+      { code: '3100', name: 'Retained Earnings', typeId: equityType?.id, category: null },
+      { code: '4000', name: 'Revenue', typeId: incomeType?.id, category: null },
+      { code: '4010', name: 'Sales Revenue', typeId: incomeType?.id, category: null },
+      { code: '4100', name: 'Service Revenue', typeId: incomeType?.id, category: null },
+      { code: '4200', name: 'Other Income', typeId: incomeType?.id, category: null },
+      { code: '5000', name: 'Expense', typeId: expenseType?.id, category: null },
+      { code: '5010', name: 'Cost of Goods Sold', typeId: expenseType?.id, category: null },
+      { code: '5100', name: 'Salaries & Wages', typeId: expenseType?.id, category: null },
+      { code: '5200', name: 'Rent Expense', typeId: expenseType?.id, category: null },
+      { code: '5300', name: 'Utilities Expense', typeId: expenseType?.id, category: null },
+      { code: '5400', name: 'Office Supplies', typeId: expenseType?.id, category: null },
+      { code: '5500', name: 'Depreciation Expense', typeId: expenseType?.id, category: null },
+      { code: '5600', name: 'Transportation Expense', typeId: expenseType?.id, category: null },
+      { code: '5700', name: 'Communication Expense', typeId: expenseType?.id, category: null },
+      { code: '5800', name: 'Professional Fees', typeId: expenseType?.id, category: null },
+      { code: '5900', name: 'Miscellaneous Expense', typeId: expenseType?.id, category: null },
+    ];
+
+    for (const acc of defaultAccounts) {
+      if (acc.typeId) {
+        await prisma.account.create({
+          data: {
+            code: `${companyCode}-${acc.code}`,
+            name: acc.name,
+            companyId: companyId,
+            accountTypeId: acc.typeId,
+            category: acc.category,
+            isActive: true,
+            openingBalance: 0,
+            currentBalance: 0,
+          }
+        });
+      }
+    }
+  }
+
   async getCompanies(request: FastifyRequest, reply: FastifyReply) {
     const companies = await prisma.company.findMany({
       include: {
@@ -169,66 +227,7 @@ export class AdminController {
     }
 
     // Create default Chart of Accounts (COA)
-    const allAccountTypes = await prisma.accountType.findMany();
-    const assetType = allAccountTypes.find(at => at.name === 'ASSET');
-    const liabilityType = allAccountTypes.find(at => at.name === 'LIABILITY');
-    const equityType = allAccountTypes.find(at => at.name === 'EQUITY');
-    const incomeType = allAccountTypes.find(at => at.name === 'INCOME');
-    const expenseType = allAccountTypes.find(at => at.name === 'EXPENSE');
-
-    const defaultAccounts = [
-      // Asset accounts
-      { code: '1000', name: 'Cash in Hand', typeId: assetType?.id, category: 'CASH' },
-      { code: '1010', name: 'Cash at Bank', typeId: assetType?.id, category: 'BANK' },
-      { code: '1100', name: 'Accounts Receivable', typeId: assetType?.id, category: 'AR' },
-      { code: '1200', name: 'Inventory', typeId: assetType?.id, category: null },
-      { code: '1500', name: 'Fixed Assets', typeId: assetType?.id, category: null },
-      
-      // Liability accounts
-      { code: '2000', name: 'Accounts Payable', typeId: liabilityType?.id, category: 'AP' },
-      { code: '2100', name: 'Notes Payable', typeId: liabilityType?.id, category: null },
-      { code: '2200', name: 'Accrued Expenses', typeId: liabilityType?.id, category: null },
-      
-      // Equity accounts
-      { code: '3000', name: 'Owner\'s Capital', typeId: equityType?.id, category: null },
-      { code: '3100', name: 'Retained Earnings', typeId: equityType?.id, category: null },
-      
-      // Income accounts
-      { code: '4000', name: 'Revenue', typeId: incomeType?.id, category: null },
-      { code: '4010', name: 'Sales Revenue', typeId: incomeType?.id, category: null },
-      { code: '4100', name: 'Service Revenue', typeId: incomeType?.id, category: null },
-      { code: '4200', name: 'Other Income', typeId: incomeType?.id, category: null },
-      
-      // Expense accounts
-      { code: '5000', name: 'Expense', typeId: expenseType?.id, category: null },
-      { code: '5010', name: 'Cost of Goods Sold', typeId: expenseType?.id, category: null },
-      { code: '5100', name: 'Salaries & Wages', typeId: expenseType?.id, category: null },
-      { code: '5200', name: 'Rent Expense', typeId: expenseType?.id, category: null },
-      { code: '5300', name: 'Utilities Expense', typeId: expenseType?.id, category: null },
-      { code: '5400', name: 'Office Supplies', typeId: expenseType?.id, category: null },
-      { code: '5500', name: 'Depreciation Expense', typeId: expenseType?.id, category: null },
-      { code: '5600', name: 'Transportation Expense', typeId: expenseType?.id, category: null },
-      { code: '5700', name: 'Communication Expense', typeId: expenseType?.id, category: null },
-      { code: '5800', name: 'Professional Fees', typeId: expenseType?.id, category: null },
-      { code: '5900', name: 'Miscellaneous Expense', typeId: expenseType?.id, category: null },
-    ];
-
-    for (const acc of defaultAccounts) {
-      if (acc.typeId) {
-        await prisma.account.create({
-          data: {
-            code: `${company.code}-${acc.code}`,
-            name: acc.name,
-            companyId: company.id,
-            accountTypeId: acc.typeId,
-            category: acc.category,
-            isActive: true,
-            openingBalance: 0,
-            currentBalance: 0,
-          }
-        });
-      }
-    }
+    await this.ensureCOA(company.id, company.code);
 
     // Create default roles for the company
     const roles = ['Manager', 'Accountant', 'DataEntryOperator'];
@@ -326,6 +325,9 @@ export class AdminController {
             canManageOwners: true
           },
         });
+
+        // Ensure COA exists now that an owner is linked
+        await this.ensureCOA(id, company.code);
       }
     }
 

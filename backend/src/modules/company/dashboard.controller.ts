@@ -193,17 +193,37 @@ export class DashboardController {
         growthPercent = 100;
       }
 
-      // Cash & Bank (Dynamic from Ledger)
+      // Cash & Bank (Dynamic from Ledger) - Using Category and Children
+      const cashBankAccounts = await prisma.account.findMany({
+        where: {
+          companyId,
+          OR: [
+            { category: 'CASH' },
+            { category: 'BANK' }
+          ]
+        }
+      });
+      
+      const getAllAccountIds = (accounts: any[]): string[] => {
+        const ids: string[] = [];
+        const collect = (accs: any[]) => {
+          for (const acc of accs) {
+            ids.push(acc.id);
+            if (acc.children && acc.children.length > 0) {
+              collect(acc.children);
+            }
+          }
+        };
+        collect(accounts);
+        return ids;
+      };
+      
+      const allCashBankIds = getAllAccountIds(cashBankAccounts);
+      
       const cashLines = await prisma.journalEntryLine.findMany({
         where: {
           journalEntry: { companyId, status: 'APPROVED' },
-          account: {
-            accountType: { name: 'ASSET' },
-            OR: [
-              { name: { contains: 'Cash', mode: 'insensitive' } },
-              { name: { contains: 'Bank', mode: 'insensitive' } }
-            ]
-          }
+          accountId: { in: allCashBankIds }
         }
       });
       const cashBalance = cashLines.reduce((sum: number, l: any) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
@@ -325,18 +345,18 @@ export class DashboardController {
         currentBalance: acc.journalLines.reduce((sum: number, l: any) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0)
       })).filter((a: any) => Math.abs(a.currentBalance) > 0.01);
 
-      // Cash & Bank Breakdown (Dynamic)
+      // Cash & Bank Breakdown (Dynamic) - Using Category
       const cashAccounts = await prisma.account.findMany({
         where: { 
           companyId, 
           accountType: { name: 'ASSET' }, 
           isActive: true,
           OR: [
-            { name: { contains: 'Cash', mode: 'insensitive' } },
-            { name: { contains: 'Bank', mode: 'insensitive' } }
+            { category: 'CASH' },
+            { category: 'BANK' }
           ]
         },
-        include: { journalLines: { where: { journalEntry: { status: 'APPROVED' } } } }
+        include: { children: true, journalLines: { where: { journalEntry: { status: 'APPROVED' } } } }
       });
       const cashBreakdown = cashAccounts.map((acc: any) => ({
         name: acc.name,

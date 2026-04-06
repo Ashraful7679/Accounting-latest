@@ -168,6 +168,7 @@ export class PaymentController {
       throw new ValidationError('Source and destination accounts must be different');
     }
 
+    // Create transfer with PENDING_VERIFICATION status
     const transfer = await prisma.$transaction(async (tx) => {
       // Create a Payment record for the transfer history
       const pmt = await (tx as any).payment.create({
@@ -180,12 +181,9 @@ export class PaymentController {
           reference,
           description: description || 'Account Transfer',
           accountId: fromAccountId,
-          status: 'APPROVED'
+          status: 'PENDING_VERIFICATION' // Set to pending initially
         }
       });
-
-      // Auto-journal for Bank Transfer
-      await TransactionRepository.generateTransferJournal(tx, pmt, companyId, userId, toAccountId);
 
       return pmt;
     });
@@ -196,10 +194,74 @@ export class PaymentController {
       entityId: transfer.id,
       action: 'CREATED',
       performedById: userId,
-      metadata: { docNumber: transfer.paymentNumber, isTransfer: true }
+      metadata: { docNumber: transfer.paymentNumber, isTransfer: true, status: 'PENDING_VERIFICATION' }
     });
 
     return reply.status(201).send({ success: true, data: transfer });
+  }
+
+  async verifyTransfer(request: FastifyRequest, reply: FastifyReply) {
+    const { paymentId } = request.params as { paymentId: string };
+    const userId = (request.user as any).id;
+
+    const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
+    if (!payment || payment.method !== 'TRANSFER') {
+      throw new NotFoundError('Transfer not found');
+    }
+
+    if (payment.status !== 'PENDING_VERIFICATION') {
+      throw new ValidationError('Transfer is not pending verification');
+    }
+
+    const updated = await prisma.payment.update({
+      where: { id: paymentId },
+      data: { status: 'APPROVED' }
+    });
+
+    await NotificationController.logActivity({
+      companyId: payment.companyId,
+      entityType: 'payment',
+      entityId: payment.id,
+      action: 'VERIFIED',
+      performedById: userId,
+      metadata: { docNumber: payment.paymentNumber }
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
+  async approveTransfer(request: FastifyRequest, reply: FastifyReply) {
+    const { paymentId } = request.params as { paymentId: string };
+    const userId = (request.user as any).id;
+    const { toAccountId } = request.body as { toAccountId: string };
+
+    const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
+    if (!payment || payment.method !== 'TRANSFER') {
+      throw new NotFoundError('Transfer not found');
+    }
+
+    if (payment.status !== 'APPROVED') {
+      throw new ValidationError('Transfer must be verified before approval');
+    }
+
+    // Generate the journal entry
+    await TransactionRepository.generateTransferJournal(prisma, payment, payment.companyId, userId, toAccountId);
+
+    const updated = await prisma.payment.update({
+      where: { id: paymentId },
+      data: { status: 'COMPLETED' }
+    });
+
+    await NotificationController.logActivity({
+      companyId: payment.companyId,
+      entityType: 'payment',
+      entityId: payment.id,
+      action: 'APPROVED',
+      performedById: userId,
+      metadata: { docNumber: payment.paymentNumber }
+    });
+
+    return reply.send({ success: true, data: updated });
   }
 
 }

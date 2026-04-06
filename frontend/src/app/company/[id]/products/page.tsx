@@ -19,10 +19,10 @@ interface Product {
   sku: string | null;
   description: string | null;
   unitPrice: number;
+  currency: string;
+  exchangeRate: number;
   isActive: boolean;
 }
-
-const EXCHANGE_RATE = 110; // 1 USD = 110 BDT (adjust as needed)
 
 export default function ProductsPage() {
   const router = useRouter();
@@ -110,9 +110,9 @@ export default function ProductsPage() {
                 <tr className="bg-slate-50/50">
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Product Info</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">SKU</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Unit Price (USD)</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Unit Price</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Exchange Rate (BDT)</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Unit Price (BDT)</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Exchange Rate</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
@@ -145,7 +145,10 @@ export default function ProductsPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredProducts.map((product) => (
+                  filteredProducts.map((product) => {
+                    const currencySymbol = product.currency === 'BDT' ? '৳' : product.currency === 'USD' ? '$' : product.currency;
+                    const priceBDT = product.unitPrice * (product.exchangeRate || 1);
+                    return (
                     <tr key={product.id} className="hover:bg-slate-50/80 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-4">
@@ -163,17 +166,17 @@ export default function ProductsPage() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <span className="text-slate-900 font-black">
-                          ${formatCurrency(product.unitPrice)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-slate-900 font-black">
-                          ৳{formatCurrency(product.unitPrice * EXCHANGE_RATE)}
+                          {currencySymbol}{formatCurrency(product.unitPrice)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <span className="text-slate-600 font-medium">
-                          {EXCHANGE_RATE}
+                          {product.exchangeRate || 1}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-slate-900 font-black">
+                          ৳{formatCurrency(priceBDT)}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -210,7 +213,7 @@ export default function ProductsPage() {
                         </div>
                       </td>
                     </tr>
-                  ))
+                  )})
                 )}
               </tbody>
             </table>

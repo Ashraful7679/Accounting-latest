@@ -23,8 +23,8 @@ interface Vendor {
   tinVat?: string | null;
   openingBalance?: number;
   balanceType?: string | null;
-  creditLimit?: number | null;
   preferredCurrency?: string;
+  exchangeRate?: number;
 }
 
 interface Product {
@@ -62,9 +62,12 @@ export default function CompanyVendorsPage() {
     tinVat: '',
     openingBalance: 0,
     balanceType: 'CR',
-    creditLimit: 0,
     preferredCurrency: 'BDT',
+    exchangeRate: 1,
   });
+
+  // Auto-calculate Opening Balance in BDT
+  const openingBalanceBDT = formData.openingBalance * (formData.exchangeRate || 1);
 
   const [expandedVendorId, setExpandedVendorId] = useState<string | null>(null);
   const [showProductModal, setShowProductModal] = useState(false);
@@ -198,15 +201,15 @@ export default function CompanyVendorsPage() {
         tinVat: vendor.tinVat || '',
         openingBalance: vendor.openingBalance || 0,
         balanceType: vendor.balanceType || 'CR',
-        creditLimit: vendor.creditLimit || 0,
         preferredCurrency: vendor.preferredCurrency || 'BDT',
+        exchangeRate: vendor.exchangeRate || 1,
       });
     } else {
       setEditingVendor(null);
       setFormData({ 
         name: '', email: '', phone: '', address: '', city: '', country: '',
         contactPerson: '', tinVat: '', openingBalance: 0, balanceType: 'CR', 
-        creditLimit: 0, preferredCurrency: 'BDT'
+        preferredCurrency: 'BDT', exchangeRate: 1
       });
     }
     setShowModal(true);
@@ -468,7 +471,7 @@ export default function CompanyVendorsPage() {
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1.5">Preferred Currency</label>
-                  <select value={formData.preferredCurrency} onChange={(e) => setFormData({ ...formData, preferredCurrency: e.target.value })} className="input w-full">
+                  <select value={formData.preferredCurrency} onChange={(e) => setFormData({ ...formData, preferredCurrency: e.target.value, exchangeRate: e.target.value === 'BDT' ? 1 : formData.exchangeRate })} className="input w-full">
                     <option value="BDT">BDT (Local)</option>
                     <option value="USD">USD (Dollar)</option>
                     <option value="EUR">EUR (Euro)</option>
@@ -477,13 +480,21 @@ export default function CompanyVendorsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Credit Limit</label>
-                  <input type="number" value={formData.creditLimit} onChange={(e) => setFormData({ ...formData, creditLimit: parseFloat(e.target.value) })} className="input w-full" placeholder="0.00" />
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Exchange Rate (to BDT)</label>
+                  <input 
+                    type="number" 
+                    step="0.0001"
+                    value={formData.exchangeRate} 
+                    onChange={(e) => setFormData({ ...formData, exchangeRate: parseFloat(e.target.value) })} 
+                    className="input w-full" 
+                    placeholder="1.00"
+                    disabled={formData.preferredCurrency === 'BDT'}
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex-1">
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Opening Bal.</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Opening Balance</label>
                     <input type="number" value={formData.openingBalance} onChange={(e) => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) })} className="input w-full" />
                   </div>
                   <div>
@@ -493,6 +504,11 @@ export default function CompanyVendorsPage() {
                       <option value="DR">Debit (Advance)</option>
                     </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Opening Balance (BDT)</label>
+                  <input type="text" value={openingBalanceBDT.toFixed(2)} className="input w-full bg-slate-100" readOnly />
                 </div>
               </div>
 

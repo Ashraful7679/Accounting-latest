@@ -539,6 +539,7 @@ export class TransactionRepository {
         openingBalance: Number(openingBalance),
         currentBalance: Number(openingBalance),
         isActive: true,
+        referenceId: entityId,
       }
     });
   }

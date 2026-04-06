@@ -10,6 +10,7 @@ import {
   Tag, Info, MoreVertical, X
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { formatCurrency } from '@/lib/decimalUtils';
 
 interface Product {
   id: string;
@@ -20,6 +21,8 @@ interface Product {
   unitPrice: number;
   isActive: boolean;
 }
+
+const EXCHANGE_RATE = 110; // 1 USD = 110 BDT (adjust as needed)
 
 export default function ProductsPage() {
   const router = useRouter();
@@ -107,7 +110,9 @@ export default function ProductsPage() {
                 <tr className="bg-slate-50/50">
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Product Info</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">SKU</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Unit Price</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Unit Price (USD)</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Unit Price (BDT)</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Exchange Rate</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
@@ -115,7 +120,7 @@ export default function ProductsPage() {
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-20 text-center">
+                    <td colSpan={7} className="px-6 py-20 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
                         <span className="text-slate-400 font-medium">Loading catalog...</span>
@@ -124,7 +129,7 @@ export default function ProductsPage() {
                   </tr>
                 ) : filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-20 text-center">
+                    <td colSpan={7} className="px-6 py-20 text-center">
                       <div className="flex flex-col items-center gap-4">
                         <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center">
                           <ShoppingBag className="w-8 h-8 text-slate-300" />
@@ -156,9 +161,19 @@ export default function ProductsPage() {
                       <td className="px-6 py-4">
                         <span className="text-slate-600 font-medium">{product.sku || '---'}</span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-right">
                         <span className="text-slate-900 font-black">
-                          {product.unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          ${formatCurrency(product.unitPrice)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-slate-900 font-black">
+                          ৳{formatCurrency(product.unitPrice * EXCHANGE_RATE)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-slate-600 font-medium">
+                          {EXCHANGE_RATE}
                         </span>
                       </td>
                       <td className="px-6 py-4">

@@ -194,12 +194,14 @@ export class AdminController {
       { code: '3100', name: 'Retained Earnings', typeId: equityType?.id, category: null },
       
       // Income accounts
-      { code: '4000', name: 'Sales Revenue', typeId: incomeType?.id, category: null },
+      { code: '4000', name: 'Revenue', typeId: incomeType?.id, category: null },
+      { code: '4010', name: 'Sales Revenue', typeId: incomeType?.id, category: null },
       { code: '4100', name: 'Service Revenue', typeId: incomeType?.id, category: null },
       { code: '4200', name: 'Other Income', typeId: incomeType?.id, category: null },
       
       // Expense accounts
-      { code: '5000', name: 'Cost of Goods Sold', typeId: expenseType?.id, category: null },
+      { code: '5000', name: 'Expense', typeId: expenseType?.id, category: null },
+      { code: '5010', name: 'Cost of Goods Sold', typeId: expenseType?.id, category: null },
       { code: '5100', name: 'Salaries & Wages', typeId: expenseType?.id, category: null },
       { code: '5200', name: 'Rent Expense', typeId: expenseType?.id, category: null },
       { code: '5300', name: 'Utilities Expense', typeId: expenseType?.id, category: null },

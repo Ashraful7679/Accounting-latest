@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
+
 export default function CreateProductPage() {
   const router = useRouter();
   const params = useParams();

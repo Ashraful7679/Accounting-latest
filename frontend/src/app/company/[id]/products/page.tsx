@@ -12,6 +12,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
 
+
 interface Product {
   id: string;
   code: string;

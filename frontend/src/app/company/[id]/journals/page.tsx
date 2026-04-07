@@ -12,7 +12,18 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import NotificationPanel from '@/components/NotificationPanel';
-import { AttachmentManager } from '@/components/AttachmentManager';
+import UserDropdown from '@/components/UserDropdown';
+import { renderActivityMessage, type ActivityLog } from '@/utils/activityRenderer';
+import { handleError } from '@/lib/error-handler';
+import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
+
+
+interface Account {
+  id: string;
+  code: string;
+  name: string;
+  accountType: { name: string };
+}
 
 interface JournalEntry {
   id: string;

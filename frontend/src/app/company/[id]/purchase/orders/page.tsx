@@ -13,6 +13,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
 
+
 interface POLine {
   productId?: string;
   itemDescription: string;
@@ -268,6 +269,11 @@ export default function PurchaseOrdersPage() {
         title: `Purchase Order - ${po.poNumber}`,
         company,
         body,
+        signatures: {
+          createdBy: undefined,
+          verifiedBy: undefined,
+          approvedBy: (po as any).approvedBy ? `${(po as any).approvedBy.firstName} ${(po as any).approvedBy.lastName}` : undefined,
+        },
       }));
     } catch {
       toast.error('Could not load company info for printing.');

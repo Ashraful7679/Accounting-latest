@@ -15,6 +15,7 @@ import { toast } from 'react-hot-toast';
 import { AttachmentManager } from '@/components/AttachmentManager';
 import { cn } from '@/lib/utils';
 
+
 interface Invoice {
   id: string;
   invoiceNumber: string;

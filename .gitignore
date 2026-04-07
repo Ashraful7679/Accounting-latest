@@ -17,4 +17,11 @@ node_modules
 .env.production
 build
 backend/backups/
-backend/uploads/
+backend/uploads/
+frontend/out/
+.next/
+# Allow backend dist and generated clients for Namecheap deployment
+!backend/dist/
+!backend/src/generated/client/
+!backend/node_modules/
+

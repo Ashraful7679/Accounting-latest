@@ -54,6 +54,7 @@ function ToggleRow({
   );
 }
 
+
 export default function CompanySettingsPage() {
   const params = useParams();
   const companyId = params.id as string;

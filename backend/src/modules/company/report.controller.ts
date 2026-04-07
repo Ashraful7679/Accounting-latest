@@ -226,16 +226,28 @@ export class ReportController {
     } = request.query as any;
 
     // 1. Permission Check
-    const userCompany = await prisma.userCompany.findUnique({
+    const isAdmin = (request.user as any).isAdmin;
+    let userCompany = await prisma.userCompany.findUnique({
       where: { userId_companyId: { userId, companyId } },
       include: { user: { include: { userRoles: { include: { role: true } } } } }
     });
 
-    if (!userCompany) {
-      return reply.status(403).send({ success: false, message: 'Access denied' });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { userRoles: { include: { role: true } } }
+    });
+    const isGlobalOwner = user?.userRoles.some((ur: any) => ur.role.name === 'Owner');
+
+    if (!userCompany && !isAdmin && !isGlobalOwner) {
+      return reply.status(403).send({ success: false, message: 'Access denied: You are not a member of this company' });
     }
 
-    const role = userCompany.user.userRoles[0]?.role.name || 'User';
+    let role = 'User';
+    if (userCompany) {
+      role = userCompany.user.userRoles[0]?.role.name || 'User';
+    } else {
+      role = isGlobalOwner ? 'Owner' : 'Admin';
+    }
     
     // 2. Build Permission Filters (Branch lock, etc.)
     // If user is 'User' role, they might be locked to a specific branch (this logic could be expanded)

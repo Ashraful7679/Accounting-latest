@@ -14,13 +14,24 @@ import { BackupController } from './modules/backup/backup.controller';
 import { errorHandler } from './middleware/errorHandler';
 import { offlineCheck } from './middleware/offlineCheck';
 
+import fs from 'fs';
+import path from 'path';
+
+// --- STARTUP LOGGING ---
+const startupLog = path.join(process.cwd(), 'startup.log');
+fs.appendFileSync(startupLog, `[${new Date().toISOString()}] Backend Starting... CWD: ${process.cwd()}\n`);
+fs.appendFileSync(startupLog, `[${new Date().toISOString()}] ENV: PORT=${process.env.PORT}, NODE_ENV=${process.env.NODE_ENV}\n`);
+
 const fastify = Fastify({
+
   logger: true,
 });
 
 // Register plugins
 fastify.register(cors, {
-  origin: true,
+  origin: ['https://hurainjannatoyshee.com', 'https://www.hurainjannatoyshee.com'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 });
 
@@ -84,6 +95,16 @@ const start = async () => {
     console.log(`=========================================`);
     console.log(`🚀 Server ready at http://${host}:${port}`);
     console.log(`=========================================`);
+    // For Passenger/cPanel: PORT might be a Unix socket path or a dynamic port
+    const rawPort = process.env.PORT || '5002';
+    const port = isNaN(Number(rawPort)) ? rawPort : parseInt(rawPort, 10);
+    
+    await fastify.listen({ 
+      port: port as any, 
+      host: typeof port === 'number' ? '0.0.0.0' : undefined 
+    });
+    
+    console.log(`Server running on ${typeof port === 'number' ? `http://localhost:${port}` : `socket ${port}`}`);
 
     // --- Automated Backup Cron (Daily at 2 AM) ---
     const backupController = new BackupController();

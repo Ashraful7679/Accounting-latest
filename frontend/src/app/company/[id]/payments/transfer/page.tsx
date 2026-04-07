@@ -10,6 +10,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
 
+
 export default function TransferPage() {
   const router = useRouter();
   const params = useParams();

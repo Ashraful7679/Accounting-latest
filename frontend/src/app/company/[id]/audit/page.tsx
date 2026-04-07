@@ -13,6 +13,7 @@ const formatDate = (dateString: string) => {
          d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' });
 };
 
+
 export default function AuditTrailPage() {
   const router = useRouter();
   const params = useParams();

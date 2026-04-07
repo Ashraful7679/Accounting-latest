@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { 
-  Plus, Trash2, Check, X, ArrowLeft, LogOut, Eye, Edit2,
-  Building2, Bell, Send, CheckCheck, BookOpen, Printer, Info, ChevronRight, Hash, DollarSign, Clock
+  Plus, Search, Filter, Download, Upload, Printer, Send, Check, X, 
+  Edit2, Trash2, Eye, ArrowLeft, ChevronRight, ArrowRight, Info, 
+  CheckCheck, FileText, Clock, Bell, MoreHorizontal, Wallet, Receipt
 } from 'lucide-react';
-import { AttachmentManager } from '@/components/AttachmentManager';
+import api from '@/lib/api';
 import NotificationPanel from '@/components/NotificationPanel';
 import UserDropdown from '@/components/UserDropdown';
 import { renderActivityMessage, type ActivityLog } from '@/utils/activityRenderer';
@@ -30,31 +30,54 @@ interface JournalEntry {
   entryNumber: string;
   date: string;
   description: string | null;
+  status: string;
   totalDebit: number;
   totalCredit: number;
-  status: string;
-  createdBy: { firstName: string; lastName: string };
-  verifiedBy: { firstName: string; lastName: string } | null;
-  approvedBy: { firstName: string; lastName: string } | null;
+  lines: any[];
+  createdBy: any;
+  verifiedBy?: any;
+  approvedBy?: any;
 }
 
 interface Line {
   accountId: string;
   amount: number;
   debitCredit: 'debit' | 'credit';
-  description: string;
+  description?: string;
 }
 
-export default function CompanyJournalsPage() {
+export default function JournalsPage() {
   const router = useRouter();
   const params = useParams();
-  const searchParams = useSearchParams();
   const companyId = params.id as string;
-  const action = searchParams.get('action');
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
+  const [userRole, setUserRole] = useState<string>('');
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [page, setPage] = useState(1);
   const limit = 50;
+
+  const numberToWords = (num: number): string => {
+    const ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+    const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+    
+    const convert = (n: number): string => {
+      if (n < 20) return ones[n];
+      if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? '-' + ones[n % 10] : '');
+      if (n < 1000) return ones[Math.floor(n / 100)] + ' hundred' + (n % 100 ? ' ' + convert(n % 100) : '');
+      if (n < 100000) return convert(Math.floor(n / 1000)) + ' thousand' + (n % 1000 ? ' ' + convert(n % 1000) : '');
+      if (n < 10000000) return convert(Math.floor(n / 100000)) + ' lakh' + (n % 100000 ? ' ' + convert(n % 100000) : '');
+      return convert(Math.floor(n / 10000000)) + ' crore' + (n % 10000000 ? ' ' + convert(n % 10000000) : '');
+    };
+
+    const main = Math.floor(num);
+    const decimal = Math.round((num - main) * 100);
+    
+    if (main === 0) return 'zero';
+    return convert(main) + (decimal > 0 ? ' and ' + (decimal < 20 ? ones[decimal] : tens[Math.floor(decimal / 10)] + (decimal % 10 ? '-' + ones[decimal % 10] : '')) + ' paisa' : '');
+  };
 
   const handlePrintVoucher = async (journal: any) => {
     try {
@@ -78,10 +101,7 @@ export default function CompanyJournalsPage() {
           </div>
         </div>
         <div class="meta-grid">
-          <div class="meta-field"><label>Description</label><span>${journal.description || 'N/A'}</span></div>
-          <div class="meta-field"><label>Created By</label><span>${journal.createdBy.firstName} ${journal.createdBy.lastName}</span></div>
-          ${journal.verifiedBy ? `<div class="meta-field"><label>Verified By</label><span>${journal.verifiedBy.firstName} ${journal.verifiedBy.lastName}</span></div>` : ''}
-          ${journal.approvedBy ? `<div class="meta-field"><label>Approved By</label><span>${journal.approvedBy.firstName} ${journal.approvedBy.lastName}</span></div>` : ''}
+          <div class="meta-field"><label>Description</label><span>${journal.description || '-'}</span></div>
         </div>
         <table>
           <thead>
@@ -98,8 +118,8 @@ export default function CompanyJournalsPage() {
                   <div style="font-weight:bold;">${line.account?.name || 'Unknown'}</div>
                   <div style="font-size:11px; color:#64748b;">${line.account?.code || ''}</div>
                 </td>
-                <td style="text-align:right; color:#059669; font-weight:600;">${line.debitCredit === 'debit' ? line.amount.toLocaleString() : '-'}</td>
-                <td style="text-align:right; color:#dc2626; font-weight:600;">${line.debitCredit === 'credit' ? line.amount.toLocaleString() : '-'}</td>
+                <td style="text-align:right; color:#059669; font-weight:600;">${line.debit > 0 ? line.debit.toLocaleString() : '-'}</td>
+                <td style="text-align:right; color:#dc2626; font-weight:600;">${line.credit > 0 ? line.credit.toLocaleString() : '-'}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -107,6 +127,24 @@ export default function CompanyJournalsPage() {
         <div class="totals">
           <p>Total Debit: <strong>${journal.totalDebit.toLocaleString()}</strong></p>
           <p class="grand-total">Total Credit: ${journal.totalCredit.toLocaleString()}</p>
+        </div>
+        <div class="in-words" style="margin-top:24px; padding:16px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
+          <p style="font-size:12px; color:#64748b; margin-bottom:4px;">In Words</p>
+          <p style="font-size:14px; font-weight:600; color:#334155; text-transform:capitalize;">${numberToWords(journal.totalDebit)} Taka Only</p>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:32px; margin-top:48px; padding-top:24px; border-top:1px solid #e2e8f0;">
+          <div style="text-align:center;">
+            <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Prepared By</p>
+            <p style="font-size:12px; color:#64748b; margin-top:4px;">${journal.createdBy?.firstName || '-'} ${journal.createdBy?.lastName || ''}</p>
+          </div>
+          <div style="text-align:center;">
+            <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Verified By</p>
+            <p style="font-size:12px; color:#64748b; margin-top:4px;">${journal.verifiedBy?.firstName ? `${journal.verifiedBy.firstName} ${journal.verifiedBy.lastName}` : '...........................'}</p>
+          </div>
+          <div style="text-align:center;">
+            <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Approved By</p>
+            <p style="font-size:12px; color:#64748b; margin-top:4px;">${journal.approvedBy?.firstName ? `${journal.approvedBy.firstName} ${journal.approvedBy.lastName}` : '...........................'}</p>
+          </div>
         </div>
       `;
 
@@ -122,120 +160,14 @@ export default function CompanyJournalsPage() {
       const response = await api.get(`/company/${companyId}/journals?limit=${limit}&page=${page}`);
       return response.data.data;
     },
-    enabled: !!companyId,
   });
-
-  const [mounted, setMounted] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [selectedJournal, setSelectedJournal] = useState<any>(null);
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    description: '',
-    lines: [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }] as Line[],
-  });
-
-  const [showGuide, setShowGuide] = useState(false);
-  const [editingJournalId, setEditingJournalId] = useState<string | null>(null);
-
-  const [userRole, setUserRole] = useState('User');
-  const [attachments, setAttachments] = useState<File[]>([]);
-
-  useEffect(() => {
-    if (action === 'create' && !isLoading) {
-      // Small delay to ensure data is ready or just open it
-      setFormData({
-        date: new Date().toISOString().split('T')[0],
-        description: '',
-        lines: [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }] as Line[],
-      } as any);
-      setShowModal(true);
-      // Remove query param without reload
-      window.history.replaceState({}, '', `/company/${companyId}/journals`);
-    }
-  }, [action, isLoading, companyId]);
-
-  const editId = searchParams.get('edit');
-  useEffect(() => {
-    if (editId && !isLoading && mounted) {
-      // Try resolving directly from existing data if possible, else fetch it
-      const existingJournal = journalsData?.find((j: any) => j.id === editId);
-      if (existingJournal) {
-        openViewModal(existingJournal);
-      } else {
-        // Fetch to open
-        api.get(`/company/${companyId}/journals/${editId}`)
-          .then(res => {
-            setSelectedJournal(res.data.data);
-            setShowViewModal(true);
-          })
-          .catch(err => toast.error('Failed to load journal details'));
-      }
-      // Clean up URL
-      window.history.replaceState({}, '', `/company/${companyId}/journals`);
-    }
-  }, [editId, isLoading, mounted, companyId, journalsData]);
-
-  const statusOrder: Record<string, number> = {
-    'DRAFT': 0,
-    'REJECTED': 0,
-    'PENDING_VERIFICATION': 1,
-    'VERIFIED': 2,
-    'PENDING_APPROVAL': 2,
-    'APPROVED': 3
-  };
-
-  const isOwner = userRole === 'Owner' || userRole === 'Admin';
-
-  useEffect(() => {
-    setMounted(true);
-    const token = localStorage.getItem('token');
-    const roles = JSON.parse(localStorage.getItem('roles') || '[]');
-    const primaryRole = roles[0] || 'User';
-    setUserRole(primaryRole);
-    
-    if (!token) {
-      router.push('/login');
-    }
-  }, [router]);
-
-  // Handle print mode class on body
-  useEffect(() => {
-    if (showViewModal) {
-      document.body.classList.add('printing-mode');
-    } else {
-      document.body.classList.remove('printing-mode');
-    }
-    return () => document.body.classList.remove('printing-mode');
-  }, [showViewModal]);
 
   const { data: accountsData } = useQuery({
-    queryKey: ['company-accounts', companyId],
+    queryKey: ['accounts', companyId],
     queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/accounts`);
-      return response.data.data as Account[];
+      const response = await api.get(`/company/${companyId}/accounts?tree=true`);
+      return response.data.data;
     },
-    enabled: !!companyId,
-  });
-
-  // Fetch unread count for the bell icon
-  const { data: notificationsData } = useQuery({
-    queryKey: ['notifications', companyId],
-    queryFn: async () => {
-      try {
-        const response = await api.get(`/company/${companyId}/notifications`);
-        if (typeof response.data === 'string' && response.data.startsWith('<!DOCTYPE')) {
-          console.error('Received HTML instead of JSON from notifications API');
-          return { notifications: [], unreadCount: 0 };
-        }
-        return response.data.data;
-      } catch (err) {
-        console.error('Failed to fetch notifications:', err);
-        return { notifications: [], unreadCount: 0 };
-      }
-    },
-    enabled: !!companyId,
   });
 
   const { data: companyData } = useQuery({
@@ -244,43 +176,189 @@ export default function CompanyJournalsPage() {
       const response = await api.get(`/company/${companyId}`);
       return response.data.data;
     },
-    enabled: !!companyId,
   });
 
-  const unreadCount = notificationsData?.unreadCount || 0;
+  const [showModal, setShowModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedJournal, setSelectedJournal] = useState<JournalEntry | null>(null);
+  const [editingJournalId, setEditingJournalId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    lines: [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }] as Line[],
+  });
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [newJournalId, setNewJournalId] = useState<string | null>(null);
+
+  const uploadAttachments = async (journalId: string) => {
+    for (const file of attachments) {
+      const formData = new FormData();
+      formData.append('file', file);
+      await api.post(
+        `/company/${companyId}/attachments/upload?entityType=VOUCHER&entityId=${journalId}&documentType=GENERAL`,
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+    }
+  };
+
+  const openModal = (journal?: JournalEntry) => {
+    if (journal) {
+      setEditingJournalId(journal.id);
+      const lines = (journal.lines || []).map((l: any) => {
+        const debit = Number(l.debit) || 0;
+        const credit = Number(l.credit) || 0;
+        const amount = debit > 0 ? debit : credit;
+        const debitCredit = debit > 0 ? 'debit' : (credit > 0 ? 'credit' : 'debit');
+        return {
+          accountId: l.accountId || '',
+          amount,
+          debitCredit: debitCredit as 'debit' | 'credit',
+          description: l.description || '',
+        };
+      });
+      setFormData({
+        date: journal.date ? new Date(journal.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        description: journal.description || '',
+        lines: lines.length > 0 ? lines : [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }],
+      });
+    } else {
+      setEditingJournalId(null);
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        description: '',
+        lines: [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }],
+      });
+    }
+    setAttachments([]);
+    setShowModal(true);
+    setShowViewModal(false);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingJournalId(null);
+    setNewJournalId(null);
+    setFormData({
+      date: new Date().toISOString().split('T')[0],
+      description: '',
+      lines: [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }],
+    });
+    setAttachments([]);
+  };
+
+  const openViewModal = async (journal: JournalEntry) => {
+    const response = await api.get(`/company/${companyId}/journals/${journal.id}`);
+    setSelectedJournal(response.data.data);
+    setShowViewModal(true);
+    setShowModal(false);
+  };
+
+  const closeViewModal = () => {
+    setShowViewModal(false);
+    setSelectedJournal(null);
+  };
+
+  const addLine = () => {
+    setFormData({
+      ...formData,
+      lines: [...formData.lines, { accountId: '', amount: 0, debitCredit: 'debit', description: '' }],
+    });
+  };
+
+  const removeLine = (index: number) => {
+    if (formData.lines.length > 1) {
+      setFormData({
+        ...formData,
+        lines: formData.lines.filter((_, i) => i !== index),
+      });
+    }
+  };
+
+  const updateLine = (index: number, field: keyof Line, value: any) => {
+    const newLines = [...formData.lines];
+    (newLines[index] as any)[field] = value;
+    setFormData({ ...formData, lines: newLines });
+  };
+
+  const calculateTotals = () => {
+    return formData.lines.reduce(
+      (acc, line) => {
+        if (line.debitCredit === 'debit') acc.totalDebit += line.amount;
+        else acc.totalCredit += line.amount;
+        return acc;
+      },
+      { totalDebit: 0, totalCredit: 0 }
+    );
+  };
 
   const createMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
+    mutationFn: async (data: any) => {
       const response = await api.post(`/company/${companyId}/journals`, data);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
-      toast.success('Journal entry created successfully');
+      if (attachments.length > 0 && data?.data?.id) {
+        await uploadAttachments(data.data.id);
+      }
+      toast.success('Journal created successfully');
       closeModal();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to create journal entry');
+      toast.error(error.response?.data?.error?.message || 'Failed to create journal');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await api.put(`/company/${companyId}/journals/${id}`, data);
+      return response.data;
+    },
+    onSuccess: async (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
+      if (editingJournalId && attachments.length > 0) {
+        await uploadAttachments(editingJournalId);
+      }
+      toast.success('Journal updated successfully');
+      closeModal();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Failed to update journal');
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (journalId: string) => {
-      const response = await api.delete(`/company/${companyId}/journals/${journalId}`);
+    mutationFn: async (id: string) => {
+      const response = await api.delete(`/company/${companyId}/journals/${id}`);
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
-      toast.success('Journal entry deleted successfully');
+      toast.success('Journal deleted successfully');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to delete journal entry');
+      toast.error(error.response?.data?.error?.message || 'Failed to delete journal');
+    },
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.post(`/company/${companyId}/journals/${id}/submit`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
+      toast.success('Journal submitted for verification');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Failed to submit journal');
     },
   });
 
   const verifyMutation = useMutation({
-    mutationFn: async (journalId: string) => {
-      const response = await api.post(`/company/${companyId}/journals/${journalId}/verify`);
+    mutationFn: async (id: string) => {
+      const response = await api.post(`/company/${companyId}/journals/${id}/verify`);
       return response.data;
     },
     onSuccess: () => {
@@ -293,8 +371,8 @@ export default function CompanyJournalsPage() {
   });
 
   const approveMutation = useMutation({
-    mutationFn: async (journalId: string) => {
-      const response = await api.post(`/company/${companyId}/journals/${journalId}/approve`);
+    mutationFn: async (id: string) => {
+      const response = await api.post(`/company/${companyId}/journals/${id}/approve`);
       return response.data;
     },
     onSuccess: () => {
@@ -307,8 +385,8 @@ export default function CompanyJournalsPage() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: async ({ journalId, reason }: { journalId: string; reason: string }) => {
-      const response = await api.post(`/company/${companyId}/journals/${journalId}/reject`, { reason });
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const response = await api.post(`/company/${companyId}/journals/${id}/reject`, { reason });
       return response.data;
     },
     onSuccess: () => {
@@ -321,8 +399,8 @@ export default function CompanyJournalsPage() {
   });
 
   const retrieveMutation = useMutation({
-    mutationFn: async (journalId: string) => {
-      const response = await api.post(`/company/${companyId}/journals/${journalId}/retrieve`);
+    mutationFn: async (id: string) => {
+      const response = await api.post(`/company/${companyId}/journals/${id}/retrieve`);
       return response.data;
     },
     onSuccess: () => {
@@ -334,88 +412,46 @@ export default function CompanyJournalsPage() {
     },
   });
 
-  const updateMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      const response = await api.put(`/company/${companyId}/journals/${editingJournalId}`, data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
-      toast.success('Journal entry updated successfully');
-      closeModal();
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to update journal entry');
-    },
-  });
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const totals = calculateTotals();
+    if (Math.abs(totals.totalDebit - totals.totalCredit) > 0.01) {
+      toast.error('Total Debit and Credit must be equal');
+      return;
+    }
 
-  const submitMutation = useMutation({
-    mutationFn: async (journalId: string) => {
-      const response = await api.post(`/company/${companyId}/journals/${journalId}/submit`);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
-      toast.success('Journal submitted for verification');
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to submit journal');
-    },
-  });
+    const payload = {
+      date: formData.date,
+      description: formData.description || null,
+      lines: formData.lines
+        .filter(line => line.accountId && line.amount > 0)
+        .map(line => {
+          const amount = Number(line.amount) || 0;
+          const isDebit = line.debitCredit === 'debit';
+          return {
+            accountId: line.accountId,
+            debit: isDebit ? amount : 0,
+            credit: isDebit ? 0 : amount,
+            debitBase: isDebit ? amount : 0,
+            creditBase: isDebit ? 0 : amount,
+            debitForeign: isDebit ? amount : 0,
+            creditForeign: isDebit ? 0 : amount,
+            exchangeRate: 1,
+            description: line.description || null,
+          };
+        }),
+    };
 
-  if (!mounted) return null;
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('roles');
-    router.push('/login');
+    if (editingJournalId) {
+      updateMutation.mutate({ id: editingJournalId, data: payload });
+    } else {
+      createMutation.mutate(payload);
+    }
   };
 
-  const openModal = () => {
-    setFormData({
-      date: new Date().toISOString().split('T')[0],
-      description: '',
-      lines: [{ accountId: '', amount: 0, debitCredit: 'debit', description: '' }],
-    });
-    setShowModal(true);
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setEditingJournalId(null);
-    setFormData({
-      date: new Date().toISOString().split('T')[0],
-      description: '',
-      lines: [{ accountId: '', amount: 0, debitCredit: 'debit', description: '' }],
-    });
-  };
-
-  const handleEdit = (journal: any) => {
-    setEditingJournalId(journal.id);
-    setFormData({
-      date: new Date(journal.date).toISOString().split('T')[0],
-      description: journal.description || '',
-      lines: journal.lines.map((l: any) => ({
-        accountId: l.accountId,
-        amount: l.debit > 0 ? l.debit : l.credit,
-        debitCredit: l.debit > 0 ? 'debit' : 'credit',
-        description: l.description || '',
-      })),
-    });
-    setShowModal(true);
+  const handleEdit = (journal: JournalEntry) => {
+    openModal(journal);
     setShowViewModal(false);
-  };
-
-  const openViewModal = async (journal: JournalEntry) => {
-    const response = await api.get(`/company/${companyId}/journals/${journal.id}`);
-    setSelectedJournal(response.data.data);
-    setShowViewModal(true);
-  };
-
-  const closeViewModal = () => {
-    setShowViewModal(false);
-    setSelectedJournal(null);
   };
 
   const navigateJournal = async (direction: 'next' | 'prev') => {
@@ -426,84 +462,10 @@ export default function CompanyJournalsPage() {
 
     if (newIndex >= 0 && newIndex < journalsData.length) {
       const nextJournal = journalsData[newIndex];
-      // Reuse openViewModal logic
       const response = await api.get(`/company/${companyId}/journals/${nextJournal.id}`);
       setSelectedJournal(response.data.data);
     } else {
       toast.error(`No more journals in this ${direction === 'next' ? 'direction' : 'page'}`);
-    }
-  };
-
-  const addLine = () => {
-    setFormData({
-      ...formData,
-      lines: [...formData.lines, { accountId: '', amount: 0, debitCredit: 'debit', description: '' }],
-    });
-  };
-
-  const updateLine = (index: number, field: keyof Line, value: any) => {
-    const lines = [...formData.lines];
-    lines[index] = { ...lines[index], [field]: value };
-    setFormData({ ...formData, lines });
-  };
-
-  const removeLine = (index: number) => {
-    if (formData.lines.length > 1) {
-      const lines = formData.lines.filter((_, i) => i !== index);
-      setFormData({ ...formData, lines });
-    }
-  };
-
-  const calculateTotals = () => {
-    const totalDebit = formData.lines.reduce((sum, line) => sum + (line.debitCredit === 'debit' ? (line.amount || 0) : 0), 0);
-    const totalCredit = formData.lines.reduce((sum, line) => sum + (line.debitCredit === 'credit' ? (line.amount || 0) : 0), 0);
-    return { totalDebit, totalCredit };
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const totals = calculateTotals();
-    if (Math.abs(totals.totalDebit - totals.totalCredit) > 0.01) {
-      toast.error('Debit and Credit must be equal');
-      return;
-    }
-
-    const payload = {
-      ...formData,
-      lines: formData.lines.map(line => ({
-        accountId: line.accountId,
-        debitCredit: line.debitCredit,
-        amount: line.amount || 0,
-        description: line.description,
-      })),
-    };
-
-    try {
-      let response;
-      if (editingJournalId) {
-        response = await api.put(`/company/${companyId}/journals/${editingJournalId}`, payload);
-      } else {
-        response = await api.post(`/company/${companyId}/journals`, payload);
-      }
-      
-      const journal = response.data.data;
-
-      if (attachments.length > 0) {
-        for (const file of attachments) {
-          const uploadData = new FormData();
-          uploadData.append('file', file);
-          await api.post(`/company/${companyId}/attachments/upload?entityType=VOUCHER&entityId=${journal.id}`, uploadData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-        }
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['journals', companyId] });
-      toast.success(editingJournalId ? 'Journal entry updated successfully' : 'Journal entry created successfully');
-      setAttachments([]);
-      closeModal();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || `Failed to ${editingJournalId ? 'update' : 'create'} journal entry`);
     }
   };
 
@@ -531,38 +493,73 @@ export default function CompanyJournalsPage() {
     window.print();
   };
 
+  const buildPrintDocument = ({ title, company, body }: { title: string; company: any; body: string }) => {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${title}</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 40px; color: #1e293b; }
+          .status-badge { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; background: #e2e8f0; }
+          .meta-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; padding: 16px; background: #f8fafc; border-radius: 8px; }
+          .meta-field { display: flex; flex-direction: column; }
+          .meta-field label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+          .meta-field span { font-size: 14px; color: #334155; }
+          table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+          th { text-align: left; padding: 12px 8px; border-bottom: 2px solid #e2e8f0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; }
+          td { padding: 12px 8px; border-bottom: 1px solid #e2e8f0; }
+          .totals { display: flex; justify-content: flex-end; gap: 32px; margin-top: 16px; padding-top: 16px; border-top: 2px solid #e2e8f0; }
+          .totals p { font-size: 14px; }
+          .grand-total { font-size: 16px !important; font-weight: 700; }
+          @media print { body { padding: 20px; } }
+          @page { size: A4; margin: 20mm; }
+        </style>
+      </head>
+      <body>
+        ${body}
+      </body>
+      </html>
+    `;
+  };
+
+  const openPrintWindow = (content: string) => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(content);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    }
+  };
+
+  useEffect(() => {
+    const role = localStorage.getItem('userRole') || JSON.parse(localStorage.getItem('roles') || '[]')[0] || '';
+    setUserRole(role);
+  }, []);
+
+  if (!companyId) return <div>Loading...</div>;
+
   return (
     <div className="min-h-screen">
+      <NotificationPanel companyId={companyId} isOpen={notifOpen} onClose={() => setNotifOpen(false)} />
 
-
-        <NotificationPanel
-          companyId={companyId}
-          isOpen={notifOpen}
-          onClose={() => setNotifOpen(false)}
-        />
-
-        <div className="p-6 max-w-[1600px] mx-auto space-y-8 flex gap-8 items-start print-hide">
-          <div className="flex-1 space-y-8">
+      <div className="p-6 max-w-[1600px] mx-auto space-y-8 flex gap-8 items-start print-hide">
+        <div className="flex-1 space-y-8">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">Transaction Engine</h2>
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => setShowGuide(!showGuide)} 
-                  className={`p-3 rounded-xl font-bold flex items-center gap-2 transition-all border ${
-                    showGuide ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <Info className="w-5 h-5" />
-                  {showGuide ? 'Hide Guide' : 'Accounting Guide'}
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Transaction Engine</h2>
+            <div className="flex items-center gap-3">
+              {(userRole === 'Accountant' || userRole === 'Owner' || userRole === 'Admin') && (
+                <button onClick={() => openModal()} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20">
+                  <Plus className="w-5 h-5" />
+                  Create Voucher
                 </button>
-                {(userRole === 'Accountant' || userRole === 'Owner' || userRole === 'Admin') && (
-                  <button onClick={openModal} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20">
-                    <Plus className="w-5 h-5" />
-                    Create Voucher
-                  </button>
-                )}
-              </div>
+              )}
             </div>
+          </div>
 
           {isLoading ? (
             <div className="text-center py-8">Loading...</div>
@@ -598,53 +595,31 @@ export default function CompanyJournalsPage() {
                           <button onClick={() => openViewModal(journal)} className="p-1.5 text-slate-400 hover:text-slate-900 bg-slate-50 hover:bg-white border border-transparent hover:border-slate-200 rounded-lg transition-all" title="View Details">
                             <Eye className="w-4 h-4" />
                           </button>
- 
-                          <button 
-                            onClick={() => handlePrintVoucher(journal)}
-                            className="p-1.5 text-slate-400 hover:text-slate-900 bg-slate-50 hover:bg-white border border-transparent hover:border-slate-200 rounded-lg transition-all"
-                            title="Print Voucher"
-                          >
+                          <button onClick={() => handlePrintVoucher(journal)} className="p-1.5 text-slate-400 hover:text-slate-900 bg-slate-50 hover:bg-white border border-transparent hover:border-slate-200 rounded-lg transition-all" title="Print Voucher">
                             <Printer className="w-4 h-4" />
                           </button>
-
                           {(journal.status === 'DRAFT' || journal.status === 'REJECTED') && (
-                            <button 
-                              onClick={() => handleEdit(journal)} 
-                              className="p-1.5 text-blue-600 hover:text-blue-800 bg-blue-50 border border-transparent hover:border-blue-100 rounded-lg transition-all" 
-                              title="Edit Entry"
-                            >
+                            <button onClick={() => handleEdit(journal)} className="p-1.5 text-blue-600 hover:text-blue-800 bg-blue-50 border border-transparent hover:border-blue-100 rounded-lg transition-all" title="Edit Entry">
                               <Edit2 className="w-4 h-4" />
                             </button>
                           )}
-                          
                           {(journal.status === 'DRAFT' || journal.status === 'REJECTED') && (
-                            <button 
-                              onClick={() => submitMutation.mutate(journal.id)} 
-                              className="p-1.5 text-blue-600 hover:text-blue-800 bg-blue-50 border border-transparent hover:border-blue-100 rounded-lg transition-all" 
-                              title="Submit for Verification"
-                            >
+                            <button onClick={() => submitMutation.mutate(journal.id)} className="p-1.5 text-blue-600 hover:text-blue-800 bg-blue-50 border border-transparent hover:border-blue-100 rounded-lg transition-all" title="Submit for Verification">
                               <Send className="w-4 h-4" />
                             </button>
                           )}
-  
                           {canVerify(journal.status) && (
-                            <button 
-                              onClick={() => verifyMutation.mutate(journal.id)} 
-                              className="p-1.5 text-emerald-600 hover:text-emerald-800 bg-emerald-50 border border-transparent hover:border-emerald-100 rounded-lg transition-all" 
-                              title="Verify (Manager Only)"
-                            >
+                            <button onClick={() => verifyMutation.mutate(journal.id)} className="p-1.5 text-emerald-600 hover:text-emerald-800 bg-emerald-50 border border-transparent hover:border-emerald-100 rounded-lg transition-all" title="Verify">
                               <CheckCheck className="w-4 h-4" />
                             </button>
                           )}
-  
                           {canApprove(journal.status) && (
                             <button onClick={() => approveMutation.mutate(journal.id)} className="p-1.5 text-indigo-600 hover:text-indigo-800 bg-indigo-50 border border-transparent hover:border-indigo-100 rounded-lg transition-all" title="Approve">
                               <Check className="w-4 h-4" />
                             </button>
                           )}
-                          
-                          {canDelete(journal.status) || isOwner && (
-                            <button onClick={() => deleteMutation.mutate(journal.id)} className="p-1.5 text-rose-600 hover:text-rose-800 bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-all" title="Delete Draft">
+                          {canDelete(journal.status) && (
+                            <button onClick={() => { if (confirm('Delete this journal?')) deleteMutation.mutate(journal.id); }} className="p-1.5 text-rose-600 hover:text-rose-800 bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-all" title="Delete">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
@@ -654,188 +629,45 @@ export default function CompanyJournalsPage() {
                   ))}
                 </tbody>
               </table>
-
-              {journalsData?.length === 0 && (
-                <div className="text-center py-16 bg-slate-50/50">
-                  <BookOpen className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                  <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No journal entries found</p>
-                </div>
-              )}
-
-              {/* Main List Pagination */}
-              <div className="px-6 py-4 bg-white border-t border-slate-100 flex items-center justify-between print-hide">
-                <div className="text-sm font-bold text-slate-500 uppercase tracking-tighter">
-                  Showing Page {page}
-                </div>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="px-4 py-2 border border-slate-200 rounded-xl font-bold text-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white font-mono"
-                  >
-                    Previous
-                  </button>
-                  <button 
-                    onClick={() => setPage(p => p + 1)}
-                    disabled={!journalsData || journalsData.length < limit}
-                    className="px-4 py-2 border border-slate-200 rounded-xl font-bold text-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white font-mono"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
             </div>
           )}
-          </div>
-
-          {/* LC & RMG Accounting Guide Sidebar */}
-          {showGuide && (
-            <aside className="w-96 bg-white rounded-3xl p-8 border border-slate-200 shadow-xl shadow-slate-200/50 space-y-8 sticky top-24 shrink-0 overflow-y-auto max-h-[80vh] scrollbar-hide print-hide">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-black text-slate-900">LC Guide</h3>
-                <button onClick={() => setShowGuide(false)} className="p-2 hover:bg-slate-100 rounded-full">&times;</button>
-              </div>
-
-              <div className="space-y-12">
-                {/* Stage 1 */}
-                <div className="relative pl-8 border-l-4 border-emerald-500 border-dashed">
-                  <div className="absolute -left-3 top-0 w-5 h-5 bg-emerald-500 rounded-full border-4 border-white shadow-sm" />
-                  <h4 className="font-black text-emerald-600 text-xs uppercase tracking-widest mb-2">Stage 1: Opening</h4>
-                  <p className="text-sm font-bold text-slate-800 mb-4">Margin Payment (e.g. 20%)</p>
-                  <div className="bg-slate-900 rounded-2xl p-4 font-mono text-[11px] text-emerald-400 space-y-1">
-                    <div className="flex justify-between"><span>LC Margin (Asset)</span><span>DR</span></div>
-                    <div className="flex justify-between pl-4 text-slate-400"><span>To Bank A/C</span><span>CR</span></div>
-                  </div>
-                  <p className="text-[10px] text-slate-500 mt-3 italic leading-relaxed">Only record margin. Do NOT record total LC value yet.</p>
-                </div>
-
-                {/* Stage 2 */}
-                <div className="relative pl-8 border-l-4 border-blue-500 border-dashed">
-                  <div className="absolute -left-3 top-0 w-5 h-5 bg-blue-500 rounded-full border-4 border-white shadow-sm" />
-                  <h4 className="font-black text-blue-600 text-xs uppercase tracking-widest mb-2">Stage 2: Goods Received</h4>
-                  <p className="text-sm font-bold text-slate-800 mb-4">Inventory Acceptance</p>
-                  <div className="bg-slate-900 rounded-2xl p-4 font-mono text-[11px] text-blue-400 space-y-1">
-                    <div className="flex justify-between"><span>Raw Materials</span><span>DR</span></div>
-                    <div className="flex justify-between pl-4 text-slate-400"><span>To LC Payable</span><span>CR</span></div>
-                  </div>
-                  <p className="text-[10px] text-slate-500 mt-3 italic leading-relaxed">Liability is now officially created in books.</p>
-                </div>
-
-                {/* Stage 3 */}
-                <div className="relative pl-8 border-l-4 border-indigo-500 border-dashed">
-                  <div className="absolute -left-3 top-0 w-5 h-5 bg-indigo-500 rounded-full border-4 border-white shadow-sm" />
-                  <h4 className="font-black text-indigo-600 text-xs uppercase tracking-widest mb-2">Stage 3: Bank Payment</h4>
-                  <p className="text-sm font-bold text-slate-800 mb-4">Settling Supplier</p>
-                  <div className="bg-slate-900 rounded-2xl p-4 font-mono text-[11px] text-indigo-400 space-y-3">
-                    <div className="space-y-1">
-                      <p className="text-[9px] text-slate-500 uppercase font-black tracking-tighter mb-1">Via Bank Loan (LTR/PAD)</p>
-                      <div className="flex justify-between"><span>LC Payable</span><span>DR</span></div>
-                      <div className="flex justify-between pl-4 text-slate-500"><span>To Bank Loan</span><span>CR</span></div>
-                    </div>
-                  </div>
-                </div>
-
-                 {/* Stage 4 */}
-                 <div className="relative pl-8 border-l-4 border-slate-300">
-                  <div className="absolute -left-3 top-0 w-5 h-5 bg-slate-400 rounded-full border-4 border-white shadow-sm" />
-                  <h4 className="font-black text-slate-500 text-xs uppercase tracking-widest mb-2">Stage 4: Loans (EMI)</h4>
-                  <p className="text-sm font-bold text-slate-800 mb-4">Monthly Repayment</p>
-                  <div className="bg-slate-900 rounded-2xl p-4 font-mono text-[11px] text-rose-400 space-y-1">
-                    <div className="flex justify-between"><span>Loan A/C (Principal)</span><span>DR</span></div>
-                    <div className="flex justify-between"><span>Interest Expense</span><span>DR</span></div>
-                    <div className="flex justify-between pl-4 text-slate-400"><span>To Bank A/C</span><span>CR</span></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 bg-yellow-50 rounded-2xl border border-yellow-100">
-                <p className="text-[10px] text-yellow-800 font-bold leading-tight">
-                  ⚠️ Avoid recording full LC amount at opening. Separate PAD/LTR tracking is mandatory for RMG audit compliance.
-                </p>
-              </div>
-            </aside>
-          )}
         </div>
-      
+      </div>
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-4">Create Journal Entry</h3>
+            <h3 className="text-xl font-semibold mb-4">{editingJournalId ? 'Edit' : 'Create'} Journal Entry</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                  <input
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="input"
-                    disabled={userRole !== 'Owner'}
-                    required
-                  />
+                  <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="input" disabled={userRole !== 'Owner'} required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <input
-                    type="text"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="input"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Supporting Documents (Optional)</label>
-                  <input
-                    type="file"
-                    multiple
-                    onChange={(e) => setAttachments(Array.from(e.target.files || []))}
-                    className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                  />
-                  {attachments.length > 0 && (
-                    <p className="mt-1 text-xs text-blue-600 font-semibold">{attachments.length} file(s) selected</p>
-                  )}
+                  <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="input" />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Journal Lines</label>
                 <div className="space-y-2">
                   {formData.lines.map((line, index) => (
                     <div key={index} className="flex gap-2 items-start">
-                      <select
-                        value={line.accountId}
-                        onChange={(e) => updateLine(index, 'accountId', e.target.value)}
-                        className="input flex-1"
-                        required
-                      >
+                      <select value={line.accountId} onChange={(e) => updateLine(index, 'accountId', e.target.value)} className="input flex-1" required>
                         <option value="">Select Account</option>
-                        {accountsData?.map((account) => (
+                        {accountsData?.map((account: any) => (
                           <option key={account.id} value={account.id}>
                             {account.code.split('-').pop()} - {account.name}
                           </option>
                         ))}
                       </select>
-                      <select
-                        value={line.debitCredit}
-                        onChange={(e) => updateLine(index, 'debitCredit', e.target.value)}
-                        className="input w-28"
-                      >
+                      <select value={line.debitCredit} onChange={(e) => updateLine(index, 'debitCredit', e.target.value)} className="input w-24">
                         <option value="debit">Debit</option>
                         <option value="credit">Credit</option>
                       </select>
-                      <input
-                        type="number"
-                        placeholder="Amount"
-                        value={line.amount || ''}
-                        onChange={(e) => updateLine(index, 'amount', parseFloat(e.target.value) || 0)}
-                        className="input w-32"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeLine(index)}
-                        className="p-2 text-red-600 hover:text-red-800"
-                      >
+                      <input type="number" value={line.amount} onChange={(e) => updateLine(index, 'amount', parseFloat(e.target.value) || 0)} className="input w-32" placeholder="Amount" required min="0" step="0.01" />
+                      <button type="button" onClick={() => removeLine(index)} className="p-2 text-red-600 hover:text-red-800">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -845,7 +677,6 @@ export default function CompanyJournalsPage() {
                   </button>
                 </div>
               </div>
-
               <div className="border-t pt-4">
                 <div className="flex justify-end gap-4">
                   <div className="text-right">
@@ -857,14 +688,47 @@ export default function CompanyJournalsPage() {
                   </div>
                 </div>
               </div>
-
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={closeModal} className="btn btn-secondary flex-1">
-                  Cancel
-                </button>
+                <button type="button" onClick={closeModal} className="btn btn-secondary flex-1">Cancel</button>
                 <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="btn btn-primary flex-1">
                   {createMutation.isPending || updateMutation.isPending ? 'Saving...' : (editingJournalId ? 'Update Journal' : 'Create Journal')}
                 </button>
+              </div>
+              
+              {/* Attachments Section - Allow upload during creation */}
+              <div className="mt-4 pt-4 border-t">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Attachments</label>
+                <div className="bg-slate-50 p-3 rounded-lg">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      setAttachments(prev => [...prev, ...files]);
+                    }}
+                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  {attachments.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {attachments.map((file, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs bg-white p-2 rounded">
+                          <span className="truncate max-w-[200px]">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {createMutation.isPending && (
+                  <p className="text-xs text-blue-500 mt-1">Saving journal and attachments...</p>
+                )}
               </div>
             </form>
           </div>
@@ -872,26 +736,17 @@ export default function CompanyJournalsPage() {
       )}
 
       {showViewModal && selectedJournal && (
-        <>
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 print:hidden no-print">
           <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto no-print">
             <div className="flex justify-between items-center mb-6 print-hide">
               <div className="flex items-center gap-4">
                 <h3 className="text-xl font-semibold">Journal Entry Details</h3>
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-                  <button 
-                    onClick={() => navigateJournal('prev')}
-                    className="p-1.5 hover:bg-white rounded-lg transition-all text-slate-500 hover:text-slate-900 disabled:opacity-30"
-                    title="Previous Journal"
-                  >
+                  <button onClick={() => navigateJournal('prev')} className="p-1.5 hover:bg-white rounded-lg transition-all text-slate-500 hover:text-slate-900 disabled:opacity-30" title="Previous Journal">
                     <ArrowLeft className="w-4 h-4" />
                   </button>
                   <div className="w-px h-4 bg-slate-200 mx-1" />
-                  <button 
-                    onClick={() => navigateJournal('next')}
-                    className="p-1.5 hover:bg-white rounded-lg transition-all text-slate-500 hover:text-slate-900 disabled:opacity-30"
-                    title="Next Journal"
-                  >
+                  <button onClick={() => navigateJournal('next')} className="p-1.5 hover:bg-white rounded-lg transition-all text-slate-500 hover:text-slate-900 disabled:opacity-30" title="Next Journal">
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -916,10 +771,6 @@ export default function CompanyJournalsPage() {
                   <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(selectedJournal.status)}`}>
                     {selectedJournal.status}
                   </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Description:</span>
-                  <span className="text-slate-700 text-right">{selectedJournal.description || '-'}</span>
                 </div>
               </div>
             </div>
@@ -964,92 +815,48 @@ export default function CompanyJournalsPage() {
             </div>
           
             <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100 print-hide">
-              <AttachmentManager 
-                entityType="VOUCHER" 
-                entityId={selectedJournal.id} 
-                canEdit={selectedJournal.status === 'DRAFT' || selectedJournal.status === 'REJECTED'} 
-              />
+              <AttachmentManager entityType="VOUCHER" entityId={selectedJournal.id} canEdit={selectedJournal.status === 'DRAFT' || selectedJournal.status === 'REJECTED'} />
             </div>
 
             <div className="flex flex-wrap gap-2 pt-6 mt-4 border-t border-slate-100 print-hide">
-              {/* ── Status Action Buttons ── */}
               {(selectedJournal.status === 'DRAFT' || selectedJournal.status === 'REJECTED') && (
-                <button
-                  onClick={() => handleEdit(selectedJournal)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold text-sm hover:bg-slate-200 flex items-center gap-1.5"
-                >
+                <button onClick={() => handleEdit(selectedJournal)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold text-sm hover:bg-slate-200 flex items-center gap-1.5">
                   <Edit2 className="w-4 h-4" /> Edit Journal
                 </button>
               )}
               {(selectedJournal.status === 'DRAFT' || selectedJournal.status === 'REJECTED') && (
-                <button
-                  onClick={() => { submitMutation.mutate(selectedJournal.id); setShowViewModal(false); }}
-                  disabled={submitMutation.isPending}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5"
-                >
+                <button onClick={() => { submitMutation.mutate(selectedJournal.id); setShowViewModal(false); }} disabled={submitMutation.isPending} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5">
                   <Send className="w-4 h-4" /> Submit for Verification
                 </button>
               )}
               {selectedJournal.status === 'PENDING_VERIFICATION' && (userRole === 'Manager' || userRole === 'Owner' || userRole === 'Admin') && (
                 <>
-                  <button
-                    onClick={() => { verifyMutation.mutate(selectedJournal.id); setShowViewModal(false); }}
-                    disabled={verifyMutation.isPending}
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold text-sm hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5"
-                  >
+                  <button onClick={() => { verifyMutation.mutate(selectedJournal.id); setShowViewModal(false); }} disabled={verifyMutation.isPending} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold text-sm hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5">
                     <CheckCheck className="w-4 h-4" /> Verify
                   </button>
-                  <button
-                    onClick={() => {
-                      const reason = window.prompt('Rejection reason (optional):') ?? '';
-                      rejectMutation.mutate({ journalId: selectedJournal.id, reason });
-                      setShowViewModal(false);
-                    }}
-                    disabled={rejectMutation.isPending}
-                    className="px-4 py-2 bg-rose-600 text-white rounded-lg font-semibold text-sm hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5"
-                  >
+                  <button onClick={() => { const reason = window.prompt('Rejection reason (optional):') ?? ''; rejectMutation.mutate({ id: selectedJournal.id, reason }); setShowViewModal(false); }} disabled={rejectMutation.isPending} className="px-4 py-2 bg-rose-600 text-white rounded-lg font-semibold text-sm hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5">
                     <X className="w-4 h-4" /> Reject
                   </button>
                 </>
               )}
               {(selectedJournal.status === 'VERIFIED' || selectedJournal.status === 'PENDING_APPROVAL') && (userRole === 'Owner' || userRole === 'Admin') && (
                 <>
-                  <button
-                    onClick={() => { approveMutation.mutate(selectedJournal.id); setShowViewModal(false); }}
-                    disabled={approveMutation.isPending}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5"
-                  >
+                  <button onClick={() => { approveMutation.mutate(selectedJournal.id); setShowViewModal(false); }} disabled={approveMutation.isPending} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5">
                     <Check className="w-4 h-4" /> Approve
                   </button>
-                  <button
-                    onClick={() => {
-                      const reason = window.prompt('Rejection reason (optional):') ?? '';
-                      rejectMutation.mutate({ journalId: selectedJournal.id, reason });
-                      setShowViewModal(false);
-                    }}
-                    disabled={rejectMutation.isPending}
-                    className="px-4 py-2 bg-rose-600 text-white rounded-lg font-semibold text-sm hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5"
-                  >
+                  <button onClick={() => { const reason = window.prompt('Rejection reason (optional):') ?? ''; rejectMutation.mutate({ id: selectedJournal.id, reason }); setShowViewModal(false); }} disabled={rejectMutation.isPending} className="px-4 py-2 bg-rose-600 text-white rounded-lg font-semibold text-sm hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5">
                     <X className="w-4 h-4" /> Reject
                   </button>
                 </>
               )}
               {selectedJournal.status === 'REJECTED' && (userRole === 'Owner' || userRole === 'Admin') && (
-                <button
-                  onClick={() => { retrieveMutation.mutate(selectedJournal.id); setShowViewModal(false); }}
-                  disabled={retrieveMutation.isPending}
-                  className="px-4 py-2 bg-yellow-500 text-white rounded-lg font-semibold text-sm hover:bg-yellow-600 disabled:opacity-50 flex items-center gap-1.5"
-                >
+                <button onClick={() => { retrieveMutation.mutate(selectedJournal.id); setShowViewModal(false); }} disabled={retrieveMutation.isPending} className="px-4 py-2 bg-yellow-500 text-white rounded-lg font-semibold text-sm hover:bg-yellow-600 disabled:opacity-50 flex items-center gap-1.5">
                   <ArrowLeft className="w-4 h-4" /> Retrieve to Draft
                 </button>
               )}
 
-              {/* ── Print & Close ── */}
               <div className="flex gap-2 ml-auto">
-                <button
-                  onClick={handlePrint}
-                  className="py-2 px-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm"
-                >
+                <button onClick={handlePrint} className="py-2 px-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm">
                   <Printer className="w-4 h-4" />
                   Print
                 </button>
@@ -1058,106 +865,15 @@ export default function CompanyJournalsPage() {
                 </button>
               </div>
             </div>
-
           </div>
         </div>
-          
-          {/* Printable Section - ensuring it occupies the whole print view */}
-          <div className="hidden print:block print:p-0 print:m-0 w-full bg-white printable-content">
-            <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8">
-              <div className="flex items-center gap-4">
-                {companyData?.logoUrl && (
-                  <img src={companyData.logoUrl} alt="Logo" className="w-20 h-20 object-contain" />
-                )}
-                <div>
-                  <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">{companyData?.name || 'Voucher'}</h1>
-                  <p className="text-sm text-slate-500 max-w-[300px] leading-relaxed">
-                    {companyData?.address}<br />
-                    {companyData?.city}, {companyData?.country}<br />
-                    Tel: {companyData?.phone} | Email: {companyData?.email}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="bg-slate-900 text-white px-4 py-1 text-xs font-bold uppercase tracking-widest mb-2 inline-block">
-                  Journal Voucher
-                </div>
-                <div className="text-2xl font-mono font-bold text-slate-900">{selectedJournal.entryNumber}</div>
-                <div className="text-slate-500 text-sm mt-1">Date: {new Date(selectedJournal.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-              </div>
-            </div>
-
-            <div className="mb-8 p-4 bg-slate-50 rounded border border-slate-200">
-              <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Description</span>
-              <p className="text-slate-800 font-medium">{selectedJournal.description || 'No description provided'}</p>
-            </div>
-
-            <table className="w-full mb-12 border-collapse">
-              <thead>
-                <tr className="border-y-2 border-slate-900 text-slate-900 uppercase text-xs font-bold tracking-wider">
-                  <th className="px-4 py-3 text-left">Account Details</th>
-                  <th className="px-4 py-3 text-left">Remark</th>
-                  <th className="px-4 py-3 text-right w-32">Debit ({companyData?.baseCurrency || 'BDT'})</th>
-                  <th className="px-4 py-3 text-right w-32">Credit ({companyData?.baseCurrency || 'BDT'})</th>
-                </tr>
-              </thead>
-              <tbody className="border-b border-slate-300">
-                {selectedJournal.lines?.map((line: any, idx: number) => (
-                  <tr key={idx} className="border-b border-slate-100 last:border-none">
-                    <td className="px-4 py-4">
-                      <div className="font-bold text-slate-900">{line.account?.code}</div>
-                      <div className="text-xs text-slate-500 uppercase">{line.account?.name}</div>
-                    </td>
-                    <td className="px-4 py-4 text-slate-600 text-sm italic">
-                      {line.description || '-'}
-                    </td>
-                    <td className="px-4 py-4 text-right font-mono font-bold text-slate-800">
-                      {line.debit > 0 ? line.debit.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '-'}
-                    </td>
-                    <td className="px-4 py-4 text-right font-mono font-bold text-slate-800">
-                      {line.credit > 0 ? line.credit.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="text-slate-900 font-black">
-                  <td colSpan={2} className="px-4 py-6 text-right uppercase text-sm tracking-widest">Total Amount</td>
-                  <td className="px-4 py-6 text-right font-mono border-t-2 border-slate-900">{selectedJournal.totalDebit?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                  <td className="px-4 py-6 text-right font-mono border-t-2 border-slate-900">{selectedJournal.totalCredit?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                </tr>
-              </tfoot>
-            </table>
-
-            <div className="grid grid-cols-3 gap-12 mt-24">
-              <div className="border-t border-slate-400 pt-2 text-center">
-                <p className="text-xs font-bold uppercase text-slate-400">Prepared By</p>
-                <p className="text-sm font-medium mt-1">{selectedJournal.createdBy.firstName} {selectedJournal.createdBy.lastName}</p>
-              </div>
-              <div className="border-t border-slate-400 pt-2 text-center">
-                <p className="text-xs font-bold uppercase text-slate-400">Verified By</p>
-                <p className="text-sm font-medium mt-1">{selectedJournal.verifiedBy ? `${selectedJournal.verifiedBy.firstName} ${selectedJournal.verifiedBy.lastName}` : '.........................'}</p>
-              </div>
-              <div className="border-t border-slate-400 pt-2 text-center">
-                <p className="text-xs font-bold uppercase text-slate-400">Authorised By</p>
-                <p className="text-sm font-medium mt-1">{selectedJournal.approvedBy ? `${selectedJournal.approvedBy.firstName} ${selectedJournal.approvedBy.lastName}` : '.........................'}</p>
-              </div>
-            </div>
-
-            <div className="mt-20 text-[10px] text-slate-400 text-center border-t border-slate-100 pt-4">
-              This is a computer generated document. Printed on {new Date().toLocaleString()}
-            </div>
-          </div>
-        </>
       )}
 
-      {/* Floating Action Button for mobile print */}
       {selectedJournal && showViewModal && (
         <button onClick={handlePrint} className="fixed bottom-8 right-8 p-4 bg-blue-600 text-white rounded-full shadow-2xl hover:bg-blue-700 transition-all z-[60] no-print lg:hidden" title="Print Selection">
           <Printer className="w-6 h-6" />
         </button>
       )}
-
     </div>
   );
 }

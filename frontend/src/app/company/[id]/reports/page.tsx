@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -32,7 +32,7 @@ interface ReportInfo {
 const REPORTS: ReportInfo[] = [
   { id: 'trial-balance', name: 'Trial Balance', category: 'FINANCIAL', description: 'Summary of all account balances', endpoint: '/reports/trial-balance' },
   { id: 'profit-loss', name: 'Profit & Loss', category: 'FINANCIAL', description: 'Revenue and expense performance', endpoint: '/reports/profit-loss' },
-  { id: 'balance-sheet', name: 'Balance Sheet', category: 'FINANCIAL', description: 'Assets, liabilities, and equity', endpoint: '/reports/balance-sheet' },
+  { id: 'balance-sheet', name: 'Balance Sheet', category: 'FINANCIAL', description: 'Assets, liabilities, and equity snapshot', endpoint: '/reports/balance-sheet' },
   { id: 'ledger', name: 'General Ledger', category: 'LEDGER', description: 'Detailed transaction history', endpoint: '/reports/ledger' },
   { id: 'customer-aging', name: 'Customer Aging', category: 'PAYABLE_RECEIVABLE', description: 'Accounts receivable breakdown', endpoint: '/reports/aging?type=CUSTOMER' },
   { id: 'vendor-aging', name: 'Vendor Aging', category: 'PAYABLE_RECEIVABLE', description: 'Accounts payable breakdown', endpoint: '/reports/aging?type=VENDOR' },
@@ -53,6 +53,18 @@ export default function ReportCenterPage() {
     costCenterId: '',
     status: 'APPROVED'
   });
+
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const reportId = searchParams.get('id');
+    if (reportId) {
+      const report = REPORTS.find(r => r.id === reportId);
+      if (report) {
+        setSelectedReport(report);
+      }
+    }
+  }, [searchParams]);
 
   const { data: company } = useQuery({
     queryKey: ['company', companyId],
@@ -325,67 +337,38 @@ export default function ReportCenterPage() {
                           </div>
                         </div>
                       ) : (
-                        <table className="w-full text-sm text-left">
-                          {selectedReport?.id === 'ledger' && (
-                            <>
-                              <thead>
-                                <tr className="border-b-2 border-slate-900 text-[10px] uppercase font-black tracking-widest text-slate-400">
-                                  <th className="py-4 px-2">Date</th>
-                                  <th className="py-4 px-2">Reference</th>
-                                  <th className="py-4 px-2">Description</th>
-                                  <th className="py-4 px-2 text-right">Debit</th>
-                                  <th className="py-4 px-2 text-right">Credit</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100">
-                                {reportData?.map((line: any, i: number) => (
-                                  <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                    <td className="py-4 px-2 font-bold text-slate-500 whitespace-nowrap">
-                                      {new Date(line.journalEntry.date).toLocaleDateString()}
-                                    </td>
-                                    <td className="py-4 px-2 font-black text-slate-900">{line.journalEntry.entryNumber}</td>
-                                    <td className="py-4 px-2 font-medium text-slate-600">{line.description || line.journalEntry.description}</td>
-                                    <td className="py-4 px-2 text-right font-bold text-emerald-600">
-                                      {line.debit > 0 ? line.debit.toLocaleString() : '-'}
-                                    </td>
-                                    <td className="py-4 px-2 text-right font-bold text-rose-600">
-                                      {line.credit > 0 ? line.credit.toLocaleString() : '-'}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </>
-                          )}
+                        <div className="overflow-x-auto -mx-2">
+                        <table className="w-full text-sm text-left min-w-[600px]">
                           {selectedReport?.id === 'trial-balance' && (
                             <>
                               <thead>
                                 <tr className="border-b-2 border-slate-900 text-[10px] uppercase font-black tracking-widest text-slate-400">
-                                  <th className="py-4 px-2">Account</th>
-                                  <th className="py-4 px-2 text-right">Debit</th>
-                                  <th className="py-4 px-2 text-right">Credit</th>
+                                  <th className="py-4 px-3 whitespace-nowrap">Account</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap">Debit</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap">Credit</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
                                 {reportData?.map((account: any, i: number) => (
                                   <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                    <td className="py-4 px-2 font-black text-slate-900">{account.name || account.accountName}</td>
-                                    <td className="py-4 px-2 text-right font-bold text-emerald-600">
+                                    <td className="py-3 px-3 font-black text-slate-900 whitespace-nowrap">{account.name || account.accountName}</td>
+                                    <td className="py-3 px-3 text-right font-bold text-emerald-600 whitespace-nowrap">
                                       {(account.debit || 0) > 0 ? (account.debit || 0).toLocaleString() : '-'}
                                     </td>
-                                    <td className="py-4 px-2 text-right font-bold text-rose-600">
+                                    <td className="py-3 px-3 text-right font-bold text-rose-600 whitespace-nowrap">
                                       {(account.credit || 0) > 0 ? (account.credit || 0).toLocaleString() : '-'}
                                     </td>
                                   </tr>
                                 ))}
                                 <tr className="border-t-2 border-slate-900 font-black text-lg">
-                                  <td className="py-4 px-2">Total</td>
-                                  <td className="py-4 px-2 text-right text-emerald-600">
-                                    {Array.isArray(reportData) 
+                                  <td className="py-4 px-3 whitespace-nowrap">Total</td>
+                                  <td className="py-4 px-3 text-right text-emerald-600 whitespace-nowrap">
+                                    {Array.isArray(reportData)
                                       ? reportData.reduce((sum: number, acc: any) => sum + (acc.debit || 0), 0).toLocaleString()
                                       : (reportData?.totalDebit || 0).toLocaleString()}
                                   </td>
-                                  <td className="py-4 px-2 text-right text-rose-600">
-                                    {Array.isArray(reportData) 
+                                  <td className="py-4 px-3 text-right text-rose-600 whitespace-nowrap">
+                                    {Array.isArray(reportData)
                                       ? reportData.reduce((sum: number, acc: any) => sum + (acc.credit || 0), 0).toLocaleString()
                                       : (reportData?.totalCredit || 0).toLocaleString()}
                                   </td>
@@ -397,25 +380,45 @@ export default function ReportCenterPage() {
                             <>
                               <thead>
                                 <tr className="border-b-2 border-slate-900 text-[10px] uppercase font-black tracking-widest text-slate-400">
-                                  <th className="py-4 px-2">Entity Name</th>
-                                  <th className="py-4 px-2 text-right">Current</th>
-                                  <th className="py-4 px-2 text-right">1-30 Days</th>
-                                  <th className="py-4 px-2 text-right">31-60 Days</th>
-                                  <th className="py-4 px-2 text-right">61-90 Days</th>
-                                  <th className="py-4 px-2 text-right">Total Balance</th>
+                                  <th className="py-4 px-3 whitespace-nowrap">Name</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap">Current</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap">1–30 Days</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap">31–60 Days</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap">61–90+ Days</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap">Total</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
                                 {reportData?.map((row: any, i: number) => (
                                   <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                    <td className="py-4 px-2 font-black text-slate-900">{row.name}</td>
-                                    <td className="py-4 px-2 text-right font-bold">{row.dueCurrent.toLocaleString()}</td>
-                                    <td className="py-4 px-2 text-right font-bold text-slate-400">-</td>
-                                    <td className="py-4 px-2 text-right font-bold text-slate-400">-</td>
-                                    <td className="py-4 px-2 text-right font-bold text-slate-400">-</td>
-                                    <td className="py-4 px-2 text-right font-black text-blue-600">{row.balance.toLocaleString()}</td>
+                                    <td className="py-3 px-3 font-black text-slate-900 whitespace-nowrap">{row.name}</td>
+                                    <td className="py-3 px-3 text-right font-bold whitespace-nowrap">
+                                      {row.dueCurrent > 0 ? row.dueCurrent.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '-'}
+                                    </td>
+                                    <td className="py-3 px-3 text-right font-bold text-amber-600 whitespace-nowrap">
+                                      {row.due30 > 0 ? row.due30.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '-'}
+                                    </td>
+                                    <td className="py-3 px-3 text-right font-bold text-orange-600 whitespace-nowrap">
+                                      {row.due60 > 0 ? row.due60.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '-'}
+                                    </td>
+                                    <td className="py-3 px-3 text-right font-bold text-red-600 whitespace-nowrap">
+                                      {row.due90Plus > 0 ? row.due90Plus.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '-'}
+                                    </td>
+                                    <td className="py-3 px-3 text-right font-black text-blue-600 whitespace-nowrap">
+                                      {row.balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                    </td>
                                   </tr>
                                 ))}
+                                {Array.isArray(reportData) && reportData.length > 0 && (
+                                  <tr className="border-t-2 border-slate-900 font-black bg-slate-50">
+                                    <td className="py-4 px-3 whitespace-nowrap">Total</td>
+                                    <td className="py-4 px-3 text-right whitespace-nowrap">{reportData.reduce((s: number, r: any) => s + (r.dueCurrent || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                                    <td className="py-4 px-3 text-right text-amber-600 whitespace-nowrap">{reportData.reduce((s: number, r: any) => s + (r.due30 || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                                    <td className="py-4 px-3 text-right text-orange-600 whitespace-nowrap">{reportData.reduce((s: number, r: any) => s + (r.due60 || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                                    <td className="py-4 px-3 text-right text-red-600 whitespace-nowrap">{reportData.reduce((s: number, r: any) => s + (r.due90Plus || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                                    <td className="py-4 px-3 text-right text-blue-600 whitespace-nowrap">{reportData.reduce((s: number, r: any) => s + (r.balance || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                                  </tr>
+                                )}
                               </tbody>
                             </>
                           )}
@@ -423,38 +426,38 @@ export default function ReportCenterPage() {
                             <>
                               <thead>
                                 <tr className="border-b-2 border-slate-900 text-[10px] uppercase font-black tracking-widest text-slate-400">
-                                  <th className="py-4 px-2">Date</th>
-                                  <th className="py-4 px-2">Voucher</th>
-                                  <th className="py-4 px-2">Account</th>
-                                  <th className="py-4 px-2">Description</th>
-                                  <th className="py-4 px-2 text-right">Debit</th>
-                                  <th className="py-4 px-2 text-right">Credit</th>
-                                  <th className="py-4 px-2 text-right">Running Balance</th>
+                                  <th className="py-4 px-3 whitespace-nowrap">Date</th>
+                                  <th className="py-4 px-3 whitespace-nowrap">Voucher</th>
+                                  <th className="py-4 px-3 whitespace-nowrap hidden md:table-cell">Account</th>
+                                  <th className="py-4 px-3 hidden lg:table-cell">Description</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap">Debit</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap">Credit</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap">Balance</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
                                 {(() => {
-                                  let currentBalance = 0;
+                                  let runningBalance = 0;
                                   return reportData?.map((line: any, i: number) => {
                                     const isDebitType = line.account.accountType?.type === 'DEBIT' || line.account.type === 'DEBIT';
                                     const change = isDebitType
                                       ? (Number(line.debit) - Number(line.credit))
                                       : (Number(line.credit) - Number(line.debit));
-                                    currentBalance += change;
+                                    runningBalance += change;
 
                                     return (
                                       <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                        <td className="py-4 px-2 font-medium text-slate-500">{new Date(line.journalEntry.date).toLocaleDateString()}</td>
-                                        <td className="py-4 px-2 font-black text-slate-900">{line.journalEntry.entryNumber}</td>
-                                        <td className="py-4 px-2 font-bold text-slate-700">{line.account.name}</td>
-                                        <td className="py-4 px-2 text-slate-500 text-sm max-w-xs truncate">{line.description || line.journalEntry.description}</td>
-                                        <td className="py-4 px-2 text-right font-bold">{line.debit > 0 ? line.debit.toLocaleString() : '-'}</td>
-                                        <td className="py-4 px-2 text-right font-bold">{line.credit > 0 ? line.credit.toLocaleString() : '-'}</td>
+                                        <td className="py-3 px-3 font-medium text-slate-500 whitespace-nowrap">{new Date(line.journalEntry.date).toLocaleDateString()}</td>
+                                        <td className="py-3 px-3 font-black text-slate-900 whitespace-nowrap">{line.journalEntry.entryNumber}</td>
+                                        <td className="py-3 px-3 font-bold text-slate-700 whitespace-nowrap hidden md:table-cell">{line.account.name}</td>
+                                        <td className="py-3 px-3 text-slate-500 text-sm max-w-[200px] truncate hidden lg:table-cell">{line.description || line.journalEntry.description}</td>
+                                        <td className="py-3 px-3 text-right font-bold whitespace-nowrap">{line.debit > 0 ? line.debit.toLocaleString() : '-'}</td>
+                                        <td className="py-3 px-3 text-right font-bold whitespace-nowrap">{line.credit > 0 ? line.credit.toLocaleString() : '-'}</td>
                                         <td className={cn(
-                                          "py-4 px-2 text-right font-black",
-                                          currentBalance < 0 ? "text-red-600" : "text-emerald-600"
+                                          'py-3 px-3 text-right font-black whitespace-nowrap',
+                                          runningBalance < 0 ? 'text-red-600' : 'text-emerald-600'
                                         )}>
-                                          {currentBalance.toLocaleString()}
+                                          {runningBalance.toLocaleString()}
                                         </td>
                                       </tr>
                                     );
@@ -467,31 +470,32 @@ export default function ReportCenterPage() {
                             <>
                               <thead>
                                 <tr className="border-b-2 border-slate-900 text-[10px] uppercase font-black tracking-widest text-slate-400">
-                                  <th className="py-4 px-2">LC Number</th>
-                                  <th className="py-4 px-2">Bank</th>
-                                  <th className="py-4 px-2">Issue Date</th>
-                                  <th className="py-4 px-2">Expiry</th>
-                                  <th className="py-4 px-2 text-right">LC Amount</th>
-                                  <th className="py-4 px-2 text-right">Rate</th>
-                                  <th className="py-4 px-2 text-right">Exposure (BDT)</th>
+                                  <th className="py-4 px-3 whitespace-nowrap">LC Number</th>
+                                  <th className="py-4 px-3 whitespace-nowrap hidden sm:table-cell">Bank</th>
+                                  <th className="py-4 px-3 whitespace-nowrap hidden md:table-cell">Issue Date</th>
+                                  <th className="py-4 px-3 whitespace-nowrap">Expiry</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap">Amount</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap hidden sm:table-cell">Rate</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap">Exposure (BDT)</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
                                 {reportData?.map((lc: any, i: number) => (
                                   <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                    <td className="py-4 px-2 font-black text-slate-900">{lc.lcNumber}</td>
-                                    <td className="py-4 px-2 font-bold text-slate-600">{lc.bankName}</td>
-                                    <td className="py-4 px-2 font-medium text-slate-500">{new Date(lc.issueDate).toLocaleDateString()}</td>
-                                    <td className="py-4 px-2 font-black text-amber-600">{new Date(lc.expiryDate).toLocaleDateString()}</td>
-                                    <td className="py-4 px-2 text-right font-bold">{lc.amount.toLocaleString()} {lc.currency}</td>
-                                    <td className="py-4 px-2 text-right font-medium text-slate-400">{lc.conversionRate}</td>
-                                    <td className="py-4 px-2 text-right font-black text-red-600">{(lc.amount * lc.conversionRate).toLocaleString()}</td>
+                                    <td className="py-3 px-3 font-black text-slate-900 whitespace-nowrap">{lc.lcNumber}</td>
+                                    <td className="py-3 px-3 font-bold text-slate-600 whitespace-nowrap hidden sm:table-cell">{lc.bankName}</td>
+                                    <td className="py-3 px-3 font-medium text-slate-500 whitespace-nowrap hidden md:table-cell">{new Date(lc.issueDate).toLocaleDateString()}</td>
+                                    <td className="py-3 px-3 font-black text-amber-600 whitespace-nowrap">{new Date(lc.expiryDate).toLocaleDateString()}</td>
+                                    <td className="py-3 px-3 text-right font-bold whitespace-nowrap">{lc.amount.toLocaleString()} {lc.currency}</td>
+                                    <td className="py-3 px-3 text-right font-medium text-slate-400 whitespace-nowrap hidden sm:table-cell">{lc.conversionRate}</td>
+                                    <td className="py-3 px-3 text-right font-black text-red-600 whitespace-nowrap">{(lc.amount * lc.conversionRate).toLocaleString()}</td>
                                   </tr>
                                 ))}
                               </tbody>
                             </>
                           )}
                         </table>
+                        </div>
                       )}
                     </div>
                   )}

@@ -23,9 +23,25 @@ interface Customer {
   tinVat?: string;
   openingBalance: number;
   balanceType?: string;
-  creditLimit?: number;
   preferredCurrency: string;
+  exchangeRate?: number;
   paymentTerms: string;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  code: string;
+  basePrice: number;
+  baseCurrency: string;
+}
+
+interface ProductPriceMapping {
+  id: string;
+  productId: string;
+  product: Product;
+  price: number;
+  currency: string;
 }
 
 export default function CompanyCustomersPage() {
@@ -47,11 +63,22 @@ export default function CompanyCustomersPage() {
     tinVat: '',
     openingBalance: 0,
     balanceType: 'DR',
-    creditLimit: 0,
     preferredCurrency: 'BDT',
+    exchangeRate: 1,
     paymentTerms: 'COD',
   });
+
+  const openingBalanceBDT = formData.openingBalance * (formData.exchangeRate || 1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null);
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  
+  const [productFormData, setProductFormData] = useState({
+    productId: '',
+    price: 0,
+    currency: 'USD',
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -109,6 +136,44 @@ export default function CompanyCustomersPage() {
     },
   });
 
+  // --- Product Mapping Mutations ---
+  const { data: allProducts } = useQuery({
+    queryKey: ['company-products', companyId],
+    queryFn: async () => {
+      const resp = await api.get(`/company/${companyId}/products`);
+      return resp.data.data as Product[];
+    },
+    enabled: showProductModal
+  });
+
+  const assignProductMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await api.post(`/company/${companyId}/products/prices`, {
+        ...data,
+        entityId: selectedEntityId,
+        type: 'customer'
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customer-products', selectedEntityId] });
+      toast.success('Product price assigned');
+      setShowProductModal(false);
+      setProductFormData({ productId: '', price: 0, currency: 'USD' });
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error?.message || 'Failed to assign product')
+  });
+
+  const removeProductMutation = useMutation({
+    mutationFn: async (mappingId: string) => {
+      await api.delete(`/company/${companyId}/products/prices/${mappingId}`);
+    },
+    onSuccess: (_, mappingId) => {
+      queryClient.invalidateQueries({ queryKey: ['customer-products', selectedEntityId] });
+      toast.success('Mapping removed');
+    }
+  });
+
   if (!mounted) return null;
 
   const openModal = (customer?: Customer) => {
@@ -125,8 +190,8 @@ export default function CompanyCustomersPage() {
         tinVat: customer.tinVat || '',
         openingBalance: customer.openingBalance || 0,
         balanceType: customer.balanceType || 'DR',
-        creditLimit: customer.creditLimit || 0,
         preferredCurrency: customer.preferredCurrency || 'BDT',
+        exchangeRate: customer.exchangeRate || 1,
         paymentTerms: customer.paymentTerms || 'COD',
       });
     } else {
@@ -134,7 +199,7 @@ export default function CompanyCustomersPage() {
       setFormData({
         name: '', email: '', phone: '', address: '', city: '', country: '',
         contactPerson: '', tinVat: '', openingBalance: 0, balanceType: 'DR',
-        creditLimit: 0, preferredCurrency: 'BDT', paymentTerms: 'COD'
+        preferredCurrency: 'BDT', exchangeRate: 1, paymentTerms: 'COD'
       });
     }
     setShowModal(true);
@@ -158,6 +223,68 @@ export default function CompanyCustomersPage() {
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     c.code.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
+
+  const CustomerProducts = ({ customerId }: { customerId: string }) => {
+    const { data: mappings, isLoading: loadingMappings } = useQuery({
+      queryKey: ['customer-products', customerId],
+      queryFn: async () => {
+        const resp = await api.get(`/company/${companyId}/products/entity?entityId=${customerId}&type=customer`);
+        return resp.data.data as ProductPriceMapping[];
+      }
+    });
+
+    return (
+      <div className="bg-slate-50/80 p-6 rounded-b-3xl border-t border-slate-100 animate-in slide-in-from-top-2 duration-300">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-sm font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-indigo-600" />
+            Product-Specific Pricing
+          </h4>
+          <button 
+            onClick={() => {
+              setSelectedEntityId(customerId);
+              setShowProductModal(true);
+            }}
+            className="text-[10px] font-black bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center gap-1.5"
+          >
+            <Plus className="w-3 h-3" /> Assign Product
+          </button>
+        </div>
+
+        {loadingMappings ? (
+          <div className="text-center py-4 text-slate-400 text-xs font-bold animate-pulse">Fetching price lists...</div>
+        ) : mappings?.length === 0 ? (
+          <div className="text-center py-6 bg-white rounded-2xl border border-dashed border-slate-200">
+            <p className="text-xs text-slate-400 font-medium">No custom pricing rules found for this client.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {mappings?.map(m => (
+              <div key={m.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group hover:border-indigo-200 transition-all">
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-black text-slate-800">{m.product.name}</span>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-tighter">{m.product.code}</span>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-xs font-bold text-indigo-600">{m.price.toLocaleString()}</span>
+                    <span className="text-[9px] font-black bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">{m.currency}</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    setSelectedEntityId(customerId);
+                    removeProductMutation.mutate(m.id);
+                  }}
+                  className="p-2 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen">
@@ -213,41 +340,57 @@ export default function CompanyCustomersPage() {
                     <tr><td colSpan={5} className="text-center py-12 text-slate-400">No customers matching your search</td></tr>
                   ) : (
                     filteredCustomers.map((customer) => (
-                      <tr key={customer.id} className="group hover:bg-indigo-50/30 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{customer.name}</span>
-                            <span className="text-[10px] text-slate-400 uppercase font-black tracking-tighter">{customer.code}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-semibold text-slate-700">{customer.contactPerson || '-'}</span>
-                            <span className="text-[10px] text-slate-400">{customer.email || customer.phone}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-bold text-slate-900">
-                              Limit: {customer.creditLimit?.toLocaleString() || '∞'}
+                      <>
+                        <tr 
+                          key={customer.id} 
+                          className={`group hover:bg-slate-50 transition-colors cursor-pointer ${expandedCustomerId === customer.id ? 'bg-indigo-50/40' : ''}`}
+                          onClick={() => setExpandedCustomerId(expandedCustomerId === customer.id ? null : customer.id)}
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${expandedCustomerId === customer.id ? 'rotate-180' : ''}`} />
+                              <div className="flex flex-col">
+                                <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{customer.name}</span>
+                                <span className="text-[10px] text-slate-400 uppercase font-black tracking-tighter">{customer.code}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-semibold text-slate-700">{customer.contactPerson || '-'}</span>
+                              <span className="text-[10px] text-slate-400">{customer.email || customer.phone}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold text-slate-900">
+                                Balance (BDT): {((customer.openingBalance || 0) * (customer.exchangeRate || 1)).toLocaleString()}
+                              </span>
+                              <span className={`text-[10px] font-black ${customer.balanceType === 'CR' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                Orig: {customer.openingBalance?.toLocaleString()} {customer.preferredCurrency} ({customer.balanceType})
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 underline decoration-indigo-400 underline-offset-2">
+                              {customer.preferredCurrency}
                             </span>
-                            <span className={`text-[10px] font-black ${customer.balanceType === 'CR' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                              BAL: {customer.openingBalance?.toLocaleString()} ({customer.balanceType})
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 underline decoration-indigo-400 underline-offset-2">
-                            {customer.preferredCurrency}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex justify-center gap-2">
-                            <button onClick={() => openModal(customer)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
-                            <button onClick={() => deleteMutation.mutate(customer.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
-                          </div>
-                        </td>
-                      </tr>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => openModal(customer)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
+                              <button onClick={() => deleteMutation.mutate(customer.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                        {expandedCustomerId === customer.id && (
+                          <tr key={`expanded-${customer.id}`}>
+                            <td colSpan={5} className="p-0 border-none">
+                              <CustomerProducts customerId={customer.id} />
+                            </td>
+                          </tr>
+                        )}
+                      </>
                     ))
                   )}
                 </tbody>
@@ -339,24 +482,36 @@ export default function CompanyCustomersPage() {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Credit Limit</label>
-                      <input type="number" value={formData.creditLimit} onChange={(e) => setFormData({...formData, creditLimit: parseFloat(e.target.value)})} className="w-full bg-white border-2 border-transparent focus:border-emerald-500 rounded-2xl px-4 py-3 outline-none transition-all font-bold" placeholder="Set 0 for unlimited" />
-                    </div>
-
-                    <div>
                       <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Preferred Currency</label>
                       <div className="flex gap-2">
                         {['BDT', 'USD', 'EUR', 'GBP'].map((curr) => (
                           <button
                             key={curr}
                             type="button"
-                            onClick={() => setFormData({...formData, preferredCurrency: curr})}
+                            onClick={() => setFormData({...formData, preferredCurrency: curr, exchangeRate: curr === 'BDT' ? 1 : formData.exchangeRate})}
                             className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${formData.preferredCurrency === curr ? 'bg-emerald-600 text-white shadow-md' : 'bg-white text-emerald-700 hover:bg-emerald-100'}`}
                           >
                             {curr}
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Exchange Rate (to BDT)</label>
+                      <input 
+                        type="number" 
+                        step="0.0001"
+                        value={formData.exchangeRate} 
+                        onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value)})} 
+                        className="w-full bg-white border-2 border-transparent focus:border-emerald-500 rounded-2xl px-4 py-3 outline-none transition-all font-bold" 
+                        disabled={formData.preferredCurrency === 'BDT'}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Opening Balance (BDT)</label>
+                      <input type="text" value={openingBalanceBDT.toFixed(2)} className="w-full bg-slate-100 border-2 border-transparent rounded-2xl px-4 py-3 outline-none font-bold" readOnly />
                     </div>
                   </div>
 
@@ -385,6 +540,69 @@ export default function CompanyCustomersPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* PRODUCT ASSIGNMENT MODAL */}
+      {showProductModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg p-8 animate-in zoom-in duration-200">
+            <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
+              <Plus className="w-5 h-5 text-indigo-600" />
+              Assign Product Price
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Select Product</label>
+                <select 
+                  value={productFormData.productId} 
+                  onChange={(e) => setProductFormData({...productFormData, productId: e.target.value})}
+                  className="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-600 rounded-xl px-4 py-2.5 outline-none font-bold"
+                >
+                  <option value="">Select a product...</option>
+                  {allProducts?.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Custom Price</label>
+                  <input 
+                    type="number" 
+                    value={productFormData.price} 
+                    onChange={(e) => setProductFormData({...productFormData, price: parseFloat(e.target.value)})}
+                    className="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-600 rounded-xl px-4 py-2.5 outline-none font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Currency</label>
+                  <select 
+                    value={productFormData.currency} 
+                    onChange={(e) => setProductFormData({...productFormData, currency: e.target.value})}
+                    className="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-600 rounded-xl px-4 py-2.5 outline-none font-bold"
+                  >
+                    <option value="USD">USD</option>
+                    <option value="BDT">BDT</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <button onClick={() => setShowProductModal(false)} className="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-50 rounded-xl transition-all">Cancel</button>
+              <button 
+                onClick={() => assignProductMutation.mutate(productFormData)}
+                disabled={!productFormData.productId || assignProductMutation.isPending}
+                className="flex-3 py-3 bg-indigo-600 text-white rounded-xl font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 disabled:bg-slate-200"
+              >
+                {assignProductMutation.isPending ? 'Mapping...' : 'Assign Price'}
+              </button>
+            </div>
           </div>
         </div>
       )}

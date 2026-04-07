@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
+import { NotFoundError } from '../../middleware/errorHandler';
 
 /**
  * Auto-generate notifications from real database events.
@@ -107,7 +108,7 @@ export class DashboardController {
     console.log(`[DashboardStats] Fetching for User: ${userId}, Company: ${companyId}`);
 
     // 1. Get User's Role & Access in this Company
-    const userCompany = await prisma.userCompany.findUnique({
+    let userCompany = await prisma.userCompany.findUnique({
       where: { userId_companyId: { userId, companyId } },
       include: {
         user: { include: { userRoles: { include: { role: true } } } },
@@ -115,6 +116,36 @@ export class DashboardController {
       }
     });
 
+    if (!userCompany) {
+      // Check if user is a Global Admin
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { userRoles: { include: { role: true } } }
+      });
+      
+      const isAdmin = user?.userRoles.some(ur => ur.role.name === 'Admin');
+      
+      if (isAdmin) {
+        // Mock a userCompany object for admins to allow access
+        const company = await prisma.company.findUnique({ where: { id: companyId } });
+        if (!company) throw new NotFoundError('Company not found');
+        
+        userCompany = {
+          userId,
+          companyId,
+          user,
+          company,
+          isMainOwner: true, // Admins get full view
+          ownershipPercentage: 0,
+        } as any;
+      } else {
+        console.warn(`[DashboardStats] Access Denied: User ${userId} not in Company ${companyId}`);
+        return reply.status(403).send({ success: false, message: 'Access denied: You are not a member of this company' });
+      }
+    }
+
+    const roleName = userCompany!.user.userRoles[0]?.role?.name || 'User';
+    console.log(`[DashboardStats] User Role: ${roleName}`);
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { userRoles: { include: { role: true } } }
@@ -159,27 +190,32 @@ export class DashboardController {
 
       // Revenue Calculation helper
       const getRevenue = async (from?: Date, to?: Date) => {
-        const where: any = {
-          journalEntry: {
-            companyId,
-            status: 'APPROVED',
-          },
-          account: {
-            OR: [
-              { accountType: { name: 'INCOME' } },
-              { accountType: { name: 'REVENUE' } },
-              { category: 'REVENUE' }
-            ]
+        try {
+          const where: any = {
+            journalEntry: {
+              companyId,
+              status: 'APPROVED',
+            },
+            account: {
+              OR: [
+                { accountType: { name: 'INCOME' } },
+                { accountType: { name: 'REVENUE' } },
+                { category: 'REVENUE' }
+              ]
+            }
+          };
+          if (from || to) {
+            where.journalEntry.date = {};
+            if (from) where.journalEntry.date.gte = from;
+            if (to) where.journalEntry.date.lte = to;
           }
-        };
-        if (from || to) {
-          where.journalEntry.date = {};
-          if (from) where.journalEntry.date.gte = from;
-          if (to) where.journalEntry.date.lte = to;
-        }
 
-        const lines = await prisma.journalEntryLine.findMany({ where });
-        return lines.reduce((sum: number, l: any) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
+          const lines = await prisma.journalEntryLine.findMany({ where });
+          return lines.reduce((sum: number, l: any) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
+        } catch (e) {
+          console.error('Error calculating revenue:', e);
+          return 0;
+        }
       };
 
       const totalRevenue = await getRevenue();
@@ -193,20 +229,39 @@ export class DashboardController {
         growthPercent = 100;
       }
 
-      // Cash & Bank (Dynamic from Ledger)
-      const cashLines = await prisma.journalEntryLine.findMany({
-        where: {
-          journalEntry: { companyId, status: 'APPROVED' },
-          account: {
-            accountType: { name: 'ASSET' },
+      // Cash & Bank (Dynamic from Ledger) - Using Category
+      let allCashBankIds: string[] = [];
+      
+      try {
+        const cashBankAccounts = await prisma.account.findMany({
+          where: {
+            companyId,
             OR: [
-              { name: { contains: 'Cash', mode: 'insensitive' } },
-              { name: { contains: 'Bank', mode: 'insensitive' } }
+              { category: 'CASH' },
+              { category: 'BANK' }
             ]
           }
+        });
+        
+        allCashBankIds = cashBankAccounts.map((a: any) => a.id);
+      } catch (e) {
+        console.error('Error fetching cash accounts:', e);
+      }
+      
+      let cashBalance = 0;
+      if (allCashBankIds.length > 0) {
+        try {
+          const cashLines = await prisma.journalEntryLine.findMany({
+            where: {
+              journalEntry: { companyId, status: 'APPROVED' },
+              accountId: { in: allCashBankIds }
+            }
+          });
+          cashBalance = cashLines.reduce((sum: number, l: any) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
+        } catch (e) {
+          console.error('Error calculating cash balance:', e);
         }
-      });
-      const cashBalance = cashLines.reduce((sum: number, l: any) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
+      }
 
       // Receivables (Dynamic from Ledger)
       const recLines = await prisma.journalEntryLine.findMany({
@@ -249,32 +304,69 @@ export class DashboardController {
         ? (cashBalance + totalReceivables) / (totalPayables + totalLoanOutstanding) 
         : 0;
 
-      // Recent Activity Log (previously Priority Alerts)
-      const recentActivities = await prisma.notification.findMany({
+      // --- NEW: Full Accounting Equation (Lifetime) ---
+      const allAssetLines = await prisma.journalEntryLine.findMany({
+        where: { journalEntry: { companyId, status: 'APPROVED' }, account: { accountType: { name: 'ASSET' } } }
+      });
+      const totalAssets = allAssetLines.reduce((sum, l) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
+
+      const allLiabilityLines = await prisma.journalEntryLine.findMany({
+        where: { journalEntry: { companyId, status: 'APPROVED' }, account: { accountType: { name: 'LIABILITY' } } }
+      });
+      const totalLiabilities = allLiabilityLines.reduce((sum, l) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
+
+      const allEquityLines = await prisma.journalEntryLine.findMany({
+        where: { journalEntry: { companyId, status: 'APPROVED' }, account: { accountType: { name: 'EQUITY' } } }
+      });
+      const totalEquity = allEquityLines.reduce((sum, l) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
+
+      const allExpenseLines = await prisma.journalEntryLine.findMany({
+        where: { journalEntry: { companyId, status: 'APPROVED' }, account: { accountType: { name: 'EXPENSE' } } }
+      });
+      const totalExpensesOverview = allExpenseLines.reduce((sum, l) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
+
+      const accountingEquation = {
+        assets: totalAssets,
+        liabilities: totalLiabilities,
+        ap: totalPayables,
+        equity: totalEquity,
+        revenue: totalRevenue,
+        expenses: totalExpensesOverview,
+        netIncome: totalRevenue - totalExpensesOverview,
+        isBalanced: Math.abs(totalAssets - (totalLiabilities + totalEquity + (totalRevenue - totalExpensesOverview))) < 1
+      };
+
+      // 253: Recent Activity Log (Using ActivityLog for actual audit trail)
+      const activityLogs = await prisma.activityLog.findMany({
         where: { companyId },
+        include: { 
+          performedBy: { select: { id: true, firstName: true, lastName: true } },
+          targetUser: { select: { id: true, firstName: true, lastName: true } }
+        },
         orderBy: { createdAt: 'desc' },
-        take: 15,
+        take: 20
       });
 
-      const activities = recentActivities.map((n: any) => ({
-        id: n.id,
-        type: n.severity === 'DANGER' ? 'danger' : n.severity === 'WARNING' ? 'warning' : 'info',
-        title: n.title,
-        message: n.message,
-        entityType: n.entityType,
-        entityId: n.entityId,
-        createdAt: n.createdAt,
-        isRead: n.isRead,
+      const activities = activityLogs.map((log: any) => ({
+        id: log.id,
+        action: log.action,
+        entityType: log.entityType,
+        entityId: log.entityId,
+        performedBy: log.performedBy,
+        targetUser: log.targetUser,
+        metadata: log.metadata,
+        createdAt: log.createdAt,
       }));
 
       const unreadCount = await prisma.notification.count({ where: { companyId, isRead: false } });
       
-      // Last Backup Info
+      // Last Backup Info (scoped to this company via fileName pattern)
       const lastBackup = await prisma.backupLog.findFirst({
-        where: { status: 'SUCCESS' },
+        where: { status: 'SUCCESS', fileName: { contains: companyId } },
         orderBy: { createdAt: 'desc' }
       });
 
+      const companyName = userCompany!.company.name;
       // companyName is already set correctly above (handles both normal and admin-bypass paths)
 
       // --- Enhanced Breakdown Data for Hover Popups ---
@@ -289,18 +381,18 @@ export class DashboardController {
         currentBalance: acc.journalLines.reduce((sum: number, l: any) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0)
       })).filter((a: any) => Math.abs(a.currentBalance) > 0.01);
 
-      // Cash & Bank Breakdown (Dynamic)
+      // Cash & Bank Breakdown (Dynamic) - Using Category
       const cashAccounts = await prisma.account.findMany({
         where: { 
           companyId, 
           accountType: { name: 'ASSET' }, 
           isActive: true,
           OR: [
-            { name: { contains: 'Cash', mode: 'insensitive' } },
-            { name: { contains: 'Bank', mode: 'insensitive' } }
+            { category: 'CASH' },
+            { category: 'BANK' }
           ]
         },
-        include: { journalLines: { where: { journalEntry: { status: 'APPROVED' } } } }
+        include: { children: true, journalLines: { where: { journalEntry: { status: 'APPROVED' } } } }
       });
       const cashBreakdown = cashAccounts.map((acc: any) => ({
         name: acc.name,
@@ -363,15 +455,57 @@ export class DashboardController {
           journalLines: {
             where: {
               journalEntry: { status: 'APPROVED', date: { gte: startOfMonth } },
-              account: { accountType: { name: 'INCOME' } }
+              account: { 
+                OR: [
+                  { accountType: { name: 'INCOME' } },
+                  { accountType: { name: 'REVENUE' } }
+                ]
+              }
             }
           }
         }
       });
       const buyerDistribution = buyers.map((b: any) => ({
         name: b.name,
-        value: b.journalLines.reduce((sum: number, l: any) => sum + (l.creditBase - l.debitBase), 0)
+        value: Math.abs(b.journalLines.reduce((sum: number, l: any) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0))
       })).filter((b: any) => b.value > 0).sort((a: any, b: any) => b.value - a.value);
+
+      // --- New: Revenue vs Expense Bar Chart Data (Last 6 Months) ---
+      const revExpTrend: any[] = [];
+      for (let i = 0; i < 6; i++) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - (5 - i));
+        const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+        const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+        const monthName = d.toLocaleString('default', { month: 'short' });
+
+        const income = await prisma.journalEntryLine.aggregate({
+          where: {
+            journalEntry: { companyId, status: 'APPROVED', date: { gte: monthStart, lte: monthEnd } },
+            account: { 
+              OR: [
+                { accountType: { name: 'INCOME' } },
+                { accountType: { name: 'REVENUE' } }
+              ]
+            }
+          },
+          _sum: { creditBase: true, debitBase: true }
+        });
+
+        const expense = await prisma.journalEntryLine.aggregate({
+          where: {
+            journalEntry: { companyId, status: 'APPROVED', date: { gte: monthStart, lte: monthEnd } },
+            account: { accountType: { name: 'EXPENSE' } }
+          },
+          _sum: { debitBase: true, creditBase: true }
+        });
+
+        revExpTrend.push({
+          name: monthName,
+          revenue: (Number(income._sum.creditBase || 0) - Number(income._sum.debitBase || 0)),
+          expense: (Number(expense._sum.debitBase || 0) - Number(expense._sum.creditBase || 0))
+        });
+      }
 
       // 4. --- RMG Monthly Cash Flow Overhaul ---
       const cashFlowData = await (async () => {
@@ -552,17 +686,32 @@ export class DashboardController {
       });
       const dailyCollection = todayLines.reduce((sum: number, l: any) => sum + Number(l.debitBase), 0);
 
+      // --- Enhance Activities with Links ---
+      const enrichedActivities = activities.map((act: any) => {
+        let link = null;
+        const eType = String(act.entityType).toLowerCase();
+        if (eType === 'invoice') link = `/company/${companyId}/sales/invoices`;
+        else if (eType === 'po') link = `/company/${companyId}/purchase/orders`;
+        else if (eType === 'journal') link = `/company/${companyId}/journals`;
+        else if (eType === 'pi') link = `/company/${companyId}/purchase/pis`; // default to import
+        else if (eType === 'lc') link = `/company/${companyId}/finance/lcs`;
+        else if (eType === 'employee') link = `/company/${companyId}/employees`;
+        
+        return { ...act, link };
+      });
+
       let dashboardData: any = {
         role: roleName,
         companyName,
         kpis: {},
         charts: [
-          { name: 'Monthly Net Cash Flow', data: cashFlowTrend, type: 'BAR' },
-          { name: 'Cash Flow Breakdown', data: breakdownSeries, type: 'STACKED_BAR' },
-          { name: 'Liquidity Trend (Cumulative)', data: liquidityTrend, type: 'LINE' },
-          { name: 'Revenue by Buyer', data: buyerDistribution, type: 'PIE' }
+          { name: 'Revenue vs Expenses', data: revExpTrend, type: 'BAR' },
+          { name: 'Revenue by Buyer', data: buyerDistribution, type: 'PIE' },
+          { name: 'Monthly Net Cash Flow', data: cashFlowTrend, type: 'LINE' },
+          { name: 'Cash Position', data: cashBreakdown.map(c => ({ name: c.name, value: c.currentBalance })), type: 'BAR' } // Changed to BAR
         ],
-        alerts: activities, // Send activities here, frontend uses this array 
+        accountingEquation,
+        alerts: enrichedActivities, 
         unreadCount,
         lastBackup: lastBackup ? {
           timestamp: lastBackup.createdAt,

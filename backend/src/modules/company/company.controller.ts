@@ -77,14 +77,23 @@ export class CompanyController {
   }
 
   private canVerify(status: string, role: string): boolean {
-    if (role === 'Owner') return status === 'PENDING_VERIFICATION';
-    if (role === 'Manager') return status === 'PENDING_VERIFICATION';
+    if (role === 'Owner' || role === 'Manager' || role === 'Admin') {
+      return status === 'PENDING_VERIFICATION' || status === 'DRAFT' || status === 'OPEN';
+    }
     return false;
   }
 
   private canApprove(status: string, role: string): boolean {
-    if (role === 'Owner') return status === 'PENDING_APPROVAL' || status === 'VERIFIED';
+    if (role === 'Owner' || role === 'Admin' || role === 'Manager') return status === 'VERIFIED';
     return false;
+  }
+
+  private getNextStatusAfterVerify(): string {
+    return 'VERIFIED';
+  }
+
+  private getNextStatusAfterApprove(): string {
+    return 'APPROVED';
   }
 
   async getCompany(request: FastifyRequest, reply: FastifyReply) {
@@ -121,18 +130,39 @@ export class CompanyController {
     const { id: companyId } = request.params as { id: string };
     const { 
       name, email, phone, address, city, country,
-      contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency 
+      contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency, exchangeRate
     } = request.body as any;
 
     const code = await this.generateDocumentNumber(companyId, 'customer');
-    const customer = await CustomerRepository.create({ 
-      code, name, companyId, email, phone, address, city, country,
-      contactPerson, tinVat, 
-      openingBalance: Number(openingBalance || 0), 
-      balanceType, 
-      creditLimit: Number(creditLimit || 0), 
-      preferredCurrency: preferredCurrency || 'BDT'
-    });
+    
+    const openingBalanceBDT = Number(openingBalance || 0) * Number(exchangeRate || 1);
+
+    let customer;
+    try {
+      customer = await prisma.$transaction(async (tx) => {
+        const c = await CustomerRepository.create({ 
+          code, name, companyId, email, phone, address, city, country,
+          contactPerson, tinVat, 
+          openingBalance: Number(openingBalance || 0), 
+          balanceType, 
+          creditLimit: Number(creditLimit || 0), 
+          preferredCurrency: preferredCurrency || 'BDT',
+          exchangeRate: Number(exchangeRate || 1)
+        }, tx);
+
+        // Automated Ledger Account
+        try {
+          await TransactionRepository.ensureEntityAccount(tx, companyId, c.id, c.name, c.code, 'AR', openingBalanceBDT);
+        } catch (e) {
+          console.error('Failed to create customer account:', e);
+        }
+        
+        return c;
+      });
+    } catch (e) {
+      console.error('Failed to create customer:', e);
+      return reply.status(500).send({ success: false, error: 'Failed to create customer' });
+    }
 
     // Log Activity
     await NotificationController.logActivity({
@@ -149,7 +179,26 @@ export class CompanyController {
 
   async updateCustomer(request: FastifyRequest, reply: FastifyReply) {
     const { customerId } = request.params as { customerId: string };
-    const data = request.body as any;
+    const { exchangeRate, openingBalance, ...data } = request.body as any;
+
+    let openingBalanceBDT = Number(openingBalance || 0);
+    if (exchangeRate) {
+      openingBalanceBDT = openingBalanceBDT * Number(exchangeRate);
+    }
+
+    // Update account balance if exchangeRate is provided
+    if (exchangeRate) {
+      try {
+        await prisma.$transaction(async (tx) => {
+          await tx.account.updateMany({
+            where: { referenceId: customerId, category: 'AR' },
+            data: { currentBalance: openingBalanceBDT }
+          });
+        });
+      } catch (e) {
+        console.error('Failed to update customer account balance:', e);
+      }
+    }
 
     const customer = await prisma.customer.update({
       where: { id: customerId },
@@ -177,14 +226,34 @@ export class CompanyController {
     const { id: companyId } = request.params as { id: string };
     const { 
       name, email, phone, address, city, country,
-      contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency
+      contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency, exchangeRate
     } = request.body as any;
 
     const code = await this.generateDocumentNumber(companyId, 'vendor');
-    const vendor = await VendorRepository.create({ 
-      code, name, companyId, email, phone, address, city, country,
-      contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency
-    });
+    
+    const openingBalanceBDT = Number(openingBalance || 0) * Number(exchangeRate || 1);
+
+    let vendor;
+    try {
+      vendor = await prisma.$transaction(async (tx) => {
+        const v = await VendorRepository.create({ 
+          code, name, companyId, email, phone, address, city, country,
+          contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency, exchangeRate
+        }, tx);
+
+        // Automated Ledger Account
+        try {
+          await TransactionRepository.ensureEntityAccount(tx, companyId, v.id, v.name, v.code, 'AP', openingBalanceBDT);
+        } catch (e) {
+          console.error('Failed to create vendor account:', e);
+        }
+        
+        return v;
+      });
+    } catch (e) {
+      console.error('Failed to create vendor:', e);
+      return reply.status(500).send({ success: false, error: 'Failed to create vendor' });
+    }
 
     // Log Activity
     await NotificationController.logActivity({
@@ -201,7 +270,26 @@ export class CompanyController {
 
   async updateVendor(request: FastifyRequest, reply: FastifyReply) {
     const { vendorId } = request.params as { vendorId: string };
-    const data = request.body as any;
+    const { exchangeRate, openingBalance, ...data } = request.body as any;
+
+    let openingBalanceBDT = Number(openingBalance || 0);
+    if (exchangeRate) {
+      openingBalanceBDT = openingBalanceBDT * Number(exchangeRate);
+    }
+
+    // Update the account balance in COA if exchangeRate is provided
+    if (exchangeRate) {
+      try {
+        await prisma.$transaction(async (tx) => {
+          await tx.account.updateMany({
+            where: { referenceId: vendorId, category: 'AP' },
+            data: { currentBalance: openingBalanceBDT }
+          });
+        });
+      } catch (e) {
+        console.error('Failed to update vendor account balance:', e);
+      }
+    }
 
     const vendor = await prisma.vendor.update({
       where: { id: vendorId },
@@ -554,34 +642,38 @@ export class CompanyController {
     const data = request.body as any;
     const userId = (request.user as any).id;
 
-    // Generate invoice number
-    const invoiceNumber = await this.generateDocumentNumber(companyId, 'invoice');
-
-    // Calculate totals
-    const subtotal = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice), 0);
-    const taxAmount = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice * line.taxRate / 100), 0);
-    const total = subtotal + taxAmount;
-
-    // BDT amount
-    const bdtAmount = total * (data.exchangeRate || 1);
-
-    // Transaction Date Validation
-    if (!data.invoiceDate) {
-      throw new ValidationError('Invoice date is required');
-    }
-
-    const invoiceDate = new Date(data.invoiceDate);
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-
-    const role = await this.getUserRole(userId, companyId);
-    const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
-
-    if (invoiceDate > today && !isOwnerOrAdmin) {
-      throw new ValidationError('Future invoice dates are only allowed for owners');
-    }
-
     try {
+      console.log(`[CreateInvoice] Starting for company: ${companyId}`);
+      
+      console.log(`[CreateInvoice] Checkpoint 1: Generating invoice number...`);
+      const invoiceNumber = await this.generateDocumentNumber(companyId, 'invoice');
+
+      console.log(`[CreateInvoice] Checkpoint 2: Calculating totals...`);
+      if (!data.lines || !Array.isArray(data.lines)) {
+        throw new ValidationError('Invoice lines are required');
+      }
+      const subtotal = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice), 0);
+      const taxAmount = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice * (line.taxRate || 0) / 100), 0);
+      const total = subtotal + taxAmount;
+      const bdtAmount = total * (data.exchangeRate || 1);
+
+      if (!data.invoiceDate) {
+        throw new ValidationError('Invoice date is required');
+      }
+
+      console.log(`[CreateInvoice] Checkpoint 3: Validating compliance and roles...`);
+      const role = await this.getUserRole(userId, companyId);
+      const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
+      
+      const invoiceDate = new Date(data.invoiceDate);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+
+      if (invoiceDate > today && !isOwnerOrAdmin) {
+        throw new ValidationError('Future invoice dates are only allowed for owners');
+      }
+
+      console.log(`[CreateInvoice] Checkpoint 4: Calling repository...`);
       const invoice = await TransactionRepository.createInvoice({
         invoiceNumber,
         companyId,
@@ -594,6 +686,7 @@ export class CompanyController {
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
         subtotal,
         taxAmount,
+        discountAmount: 0,
         total: bdtAmount,
         createdById: userId,
         lines: {
@@ -608,7 +701,7 @@ export class CompanyController {
         },
       });
 
-      // Log Activity
+      console.log(`[CreateInvoice] Success! ID: ${invoice.id}`);
       await NotificationController.logActivity({
         companyId,
         entityType: 'invoice',
@@ -617,16 +710,20 @@ export class CompanyController {
         performedById: userId,
         metadata: { 
           docNumber: invoiceNumber,
-          type: data.type || 'SALES' // Store type for correct dashboard linking
+          type: data.type || 'SALES'
         }
       });
 
       return reply.status(201).send({ success: true, data: invoice });
     } catch (error: any) {
-      console.error('FAILED TO CREATE INVOICE:', error);
+      console.error('[CreateInvoice] CRITICAL ERROR:', error);
       return reply.status(error.statusCode || 500).send({ 
         success: false, 
-        error: { message: error.message || 'Failed to create invoice' } 
+        error: { 
+          message: error.message || 'Failed to create invoice',
+          checkpoint: 'Check server logs for [CreateInvoice] tags',
+          detail: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        } 
       });
     }
   }
@@ -703,50 +800,82 @@ export class CompanyController {
     return reply.send({ success: true, message: 'Invoice deleted' });
   }
 
-  async verifyInvoice(request: FastifyRequest, reply: FastifyReply) {
+  async submitInvoice(request: FastifyRequest, reply: FastifyReply) {
     const { invoiceId } = request.params as { invoiceId: string };
     const { id: companyId } = request.params as { id: string };
     const userId = (request.user as any).id;
 
     const role = await this.getUserRole(userId, companyId);
-    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
-
-    if (!invoice) throw new NotFoundError('Invoice not found');
-
-    // Manager can only verify their subordinates' invoices
-    if (role === 'Manager') {
-      // Assuming getSubordinateIds is defined elsewhere or needs to be implemented
-      // const subordinateIds = await this.getSubordinateIds(userId);
-      // if (!subordinateIds.includes(invoice.createdById)) {
-      //   throw new ForbiddenError('You can only verify invoices from your team');
-      // }
-      // Temporarily bypass until subordinate logic is clear
+    if (role !== 'Accountant' && role !== 'Owner') {
+      throw new ForbiddenError('Only Accountants or Owners can submit invoices');
     }
 
-    if (!this.canVerify(invoice.status, role)) {
-      throw new ForbiddenError(`Cannot verify this invoice from current status: ${invoice.status}`);
+    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+    if (!invoice) throw new NotFoundError('Invoice not found');
+    if (invoice.status !== 'DRAFT' && invoice.status !== 'REJECTED') {
+      throw new ValidationError('Only DRAFT or REJECTED invoices can be submitted');
     }
 
     const updated = await prisma.invoice.update({
       where: { id: invoiceId },
-      data: {
-        status: 'VERIFIED',
-        verifiedById: userId,
-        verifiedAt: new Date(),
-      },
+      data: { status: 'PENDING_VERIFICATION' },
     });
 
     await NotificationController.notifyStatusChange({
       companyId,
       entityType: 'Invoice',
       entityId: invoiceId,
-      entityNumber: invoice.invoiceNumber,
+      entityNumber: updated.invoiceNumber,
       oldStatus: invoice.status,
-      newStatus: 'VERIFIED',
+      newStatus: 'PENDING_VERIFICATION',
       performedById: userId
     });
 
     return reply.send({ success: true, data: updated });
+  }
+
+  async verifyInvoice(request: FastifyRequest, reply: FastifyReply) {
+    const { invoiceId } = request.params as { invoiceId: string };
+    const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+
+    try {
+      console.log(`[VerifyInvoice] Starting for invoice: ${invoiceId}`);
+      const role = await this.getUserRole(userId, companyId);
+      const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+
+      if (!invoice) throw new NotFoundError('Invoice not found');
+
+      if (!this.canVerify(invoice.status, role)) {
+        throw new ForbiddenError(`Cannot verify this invoice from current status: ${invoice.status}`);
+      }
+
+      console.log(`[VerifyInvoice] Checkpoint 1: Updating status...`);
+      const updated = await prisma.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          status: 'VERIFIED',
+          verifiedById: userId,
+          verifiedAt: new Date(),
+        },
+      });
+
+      await NotificationController.notifyStatusChange({
+        companyId,
+        entityType: 'Invoice',
+        entityId: invoiceId,
+        entityNumber: invoice.invoiceNumber,
+        oldStatus: invoice.status,
+        newStatus: 'VERIFIED',
+        performedById: userId
+      });
+
+      console.log(`[VerifyInvoice] Success!`);
+      return reply.send({ success: true, data: updated });
+    } catch (error: any) {
+      console.error('[VerifyInvoice] ERROR:', error);
+      return reply.status(error.statusCode || 500).send({ success: false, error: { message: error.message } });
+    }
   }
 
   async rejectInvoice(request: FastifyRequest, reply: FastifyReply) {
@@ -833,37 +962,51 @@ export class CompanyController {
     const { id: companyId } = request.params as { id: string };
     const userId = (request.user as any).id;
 
-    const role = await this.getUserRole(userId, companyId);
-    // Include lines to get total and find accounts
-    const invoice = await prisma.invoice.findUnique({ 
-      where: { id: invoiceId },
-      include: { lines: true } 
-    });
-
-    if (!invoice) throw new NotFoundError('Invoice not found');
-
-    if (!this.canApprove(invoice.status, role)) {
-      throw new ForbiddenError(`Cannot approve this invoice from current status: ${invoice.status}`);
-    }
-
-    const updated = await prisma.$transaction(async (tx: any) => {
-      // 1. Update Status
-      const inv = await tx.invoice.update({
+    try {
+      console.log(`[ApproveInvoice] Starting for invoice: ${invoiceId}`);
+      const role = await this.getUserRole(userId, companyId);
+      const invoice = await prisma.invoice.findUnique({ 
         where: { id: invoiceId },
-        data: {
-          status: 'APPROVED',
-          approvedById: userId,
-          approvedAt: new Date(),
-        },
+        include: { lines: true } 
       });
 
-      // 2. Generate Multi-Line Journal Entry (Split-Payment Aware)
-      await TransactionRepository.generateInvoiceJournal(tx, invoice, companyId, userId);
+      if (!invoice) throw new NotFoundError('Invoice not found');
 
-      return inv;
-    });
+      if (!this.canApprove(invoice.status, role)) {
+        throw new ForbiddenError(`Cannot approve this invoice from current status: ${invoice.status}`);
+      }
 
-    return reply.send({ success: true, data: updated });
+      console.log(`[ApproveInvoice] Checkpoint 1: Starting transaction...`);
+      const updated = await prisma.$transaction(async (tx: any) => {
+        // 1. Update Status
+        const inv = await tx.invoice.update({
+          where: { id: invoiceId },
+          data: {
+            status: 'APPROVED',
+            approvedById: userId,
+            approvedAt: new Date(),
+          },
+        });
+
+        // 2. Generate Multi-Line Journal Entry
+        console.log(`[ApproveInvoice] Checkpoint 2: Generating ledger entry...`);
+        await TransactionRepository.generateInvoiceJournal(tx, invoice, companyId, userId);
+
+        return inv;
+      });
+
+      console.log(`[ApproveInvoice] Success!`);
+      return reply.send({ success: true, data: updated });
+    } catch (error: any) {
+      console.error('[ApproveInvoice] CRITICAL ERROR:', error);
+      return reply.status(error.statusCode || 500).send({ 
+        success: false, 
+        error: { 
+          message: error.message || 'Failed to approve invoice',
+          detail: error.stack
+        } 
+      });
+    }
   }
 
   // ============ JOURNALS ============
@@ -888,89 +1031,142 @@ export class CompanyController {
   async createJournal(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
     const data = request.body as any;
-    const userId = (request.user as any).id;
+    
+    try {
+      console.log(`[CreateJournal] Starting for company: ${companyId}`);
+      
+      if (!request.user) {
+        throw new ValidationError('User not authenticated - request.user is missing');
+      }
+      const userId = (request.user as any).id;
+      console.log(`[CreateJournal] User identified: ${userId}`);
 
-    const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
+      console.log(`[CreateJournal] Checkpoint 1: Generating document number...`);
+      const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
+      console.log(`[CreateJournal] Checkpoint 2: entryNumber generated: ${entryNumber}`);
 
-    if (!data.lines || !Array.isArray(data.lines)) {
-      throw new ValidationError('Journal lines are required');
-    }
+      if (!data.lines || !Array.isArray(data.lines)) {
+        throw new ValidationError('Journal lines are required and must be an array');
+      }
 
-    const totalDebit = data.lines.reduce((sum: number, line: any) => sum + (Number(line.debit) || 0), 0);
-    const totalCredit = data.lines.reduce((sum: number, line: any) => sum + (Number(line.credit) || 0), 0);
+      const lineDebit = (l: any): number =>
+        l.debitCredit !== undefined ? (l.debitCredit === 'debit' ? Number(l.amount) : 0) : Number(l.debit || 0);
+      const lineCredit = (l: any): number =>
+        l.debitCredit !== undefined ? (l.debitCredit === 'credit' ? Number(l.amount) : 0) : Number(l.credit || 0);
 
-    if (Math.abs(totalDebit - totalCredit) > 0.01) {
-      throw new ValidationError('Debit and Credit must be equal');
-    }
+      const totalDebit = data.lines.reduce((sum: number, line: any) => sum + lineDebit(line), 0);
+      const totalCredit = data.lines.reduce((sum: number, line: any) => sum + lineCredit(line), 0);
 
-    // Transaction Date Validation
-    if (!data.date) {
-      throw new ValidationError('Transaction date is required');
-    }
+      if (Math.abs(totalDebit - totalCredit) > 0.01) {
+        throw new ValidationError(`Debit (${totalDebit}) and Credit (${totalCredit}) must be equal`);
+      }
 
-    const journalDate = new Date(data.date);
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
+      if (!data.date) {
+        throw new ValidationError('Transaction date is required');
+      }
 
-    const role = await this.getUserRole(userId, companyId);
-    const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
+      const journalDate = new Date(data.date);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
 
-    if (journalDate > today && !isOwnerOrAdmin) {
-      throw new ValidationError('Future transaction dates are only allowed for owners');
-    }
+      console.log(`[CreateJournal] Checkpoint 3: Fetching user role and company settings...`);
+      const role = await this.getUserRole(userId, companyId);
+      const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
+      console.log(`[CreateJournal] User role: ${role}`);
 
-    // Accountants/Owners create as PENDING_VERIFICATION to make them visible to Managers immediately
-    const status = (role === 'Accountant' || isOwnerOrAdmin) ? 'PENDING_VERIFICATION' : 'DRAFT';
+      if (journalDate > today && !isOwnerOrAdmin) {
+        throw new ValidationError('Future transaction dates are only allowed for owners');
+      }
 
-    const journal = await TransactionRepository.createJournal({
-      ...data,
-      date: journalDate,
-      entryNumber,
-      companyId,
-      branchId: data.branchId || null,
-      totalDebit,
-      totalCredit,
-      createdById: userId,
-      status,
-      lines: {
-        create: data.lines.map((l: any) => ({
-          ...l,
-          debitBase: l.debit * (data.exchangeRate || 1),
-          creditBase: l.credit * (data.exchangeRate || 1),
-          debitForeign: l.debit,
-          creditForeign: l.credit,
-          exchangeRate: data.exchangeRate || 1,
-        })),
-      },
-    });
+      const status = (role === 'Accountant' || isOwnerOrAdmin) ? 'PENDING_VERIFICATION' : 'DRAFT';
 
-    // Log Structured Activity
-    await NotificationController.logActivity({
-      companyId,
-      entityType: 'journal',
-      entityId: journal.id,
-      action: 'CREATED',
-      performedById: userId,
-      branchId: data.branchId || null,
-      metadata: { docNumber: entryNumber }
-    });
+      console.log(`[CreateJournal] Checkpoint 4: Preparing data and calling repository...`);
+      const sanitizedData = {
+        description: data.description || null,
+        reference: data.reference || null,
+        currencyId: data.currencyId || null,
+        exchangeRate: Number(data.exchangeRate || 1),
+      };
 
-    // Create Notification if it's pending verification
-    if (status === 'PENDING_VERIFICATION') {
-      await prisma.notification.create({
-        data: {
-          companyId,
-          type: 'PENDING_JOURNAL',
-          severity: 'WARNING',
-          title: 'New Voucher Awaiting Verification',
-          message: `Journal ${entryNumber} has been created and is awaiting verification.`,
-          entityType: 'JournalEntry',
-          entityId: journal.id
+      const journal = await TransactionRepository.createJournal({
+        ...sanitizedData,
+        date: journalDate,
+        entryNumber,
+        companyId,
+        totalDebit,
+        totalCredit,
+        createdById: userId,
+        status,
+        lines: {
+          create: (data.lines || []).map((l: any, idx: number) => {
+            const debit = lineDebit(l);
+            const credit = lineCredit(l);
+            const rate = Number(l.exchangeRate || data.exchangeRate || 1);
+            if (!l.accountId) {
+              throw new ValidationError(`Line ${idx + 1} is missing an Account ID`);
+            }
+            return {
+              accountId: l.accountId,
+              projectId: l.projectId || null,
+              costCenterId: l.costCenterId || null,
+              customerId: l.customerId || null,
+              vendorId: l.vendorId || null,
+              description: l.description || null,
+              debit,
+              credit,
+              debitBase: l.debitBase != null ? Number(l.debitBase) : debit * rate,
+              creditBase: l.creditBase != null ? Number(l.creditBase) : credit * rate,
+              debitForeign: l.debitForeign != null ? Number(l.debitForeign) : debit,
+              creditForeign: l.creditForeign != null ? Number(l.creditForeign) : credit,
+              exchangeRate: rate,
+            };
+          }),
+        },
+      });
+
+      console.log(`[CreateJournal] Checkpoint 5: Success! Journal ID: ${journal.id}. Logging activities...`);
+      
+      // Log Structured Activity
+      await NotificationController.logActivity({
+        companyId,
+        entityType: 'journal',
+        entityId: journal.id,
+        action: 'CREATED',
+        performedById: userId,
+        metadata: { docNumber: entryNumber }
+      });
+
+      // Create Notification if it's pending verification
+      if (status === 'PENDING_VERIFICATION') {
+        await prisma.notification.create({
+          data: {
+            companyId,
+            type: 'PENDING_JOURNAL',
+            severity: 'WARNING',
+            title: 'New Voucher Awaiting Verification',
+            message: `Journal ${entryNumber} has been created and is awaiting verification.`,
+            entityType: 'JournalEntry',
+            entityId: journal.id
+          }
+        });
+      }
+
+      console.log(`[CreateJournal] All operations completed.`);
+      return reply.status(201).send({ success: true, data: journal });
+    } catch (error: any) {
+      console.error('[CreateJournal] CRITICAL ERROR:', error);
+      console.error('[CreateJournal] Stack Trace:', error.stack);
+      
+      const statusCode = error.statusCode || 500;
+      return reply.status(statusCode).send({ 
+        success: false, 
+        error: {
+          message: error.message || 'Internal server error during journal creation',
+          checkpoint: 'Check server logs for [CreateJournal] tags',
+          detail: process.env.NODE_ENV === 'development' ? error.stack : 'Please check server logs for full stack trace.'
         }
       });
     }
-
-    return reply.status(201).send({ success: true, data: journal });
   }
 
   async updateJournal(request: FastifyRequest, reply: FastifyReply) {
@@ -1372,6 +1568,143 @@ export class CompanyController {
 
   // Documents moved to AttachmentController
 
+  async closePeriod(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { date, description } = request.body as any;
+    const userId = (request.user as any).id;
+
+    if (!date) throw new ValidationError('Closing date is required');
+    const closingDate = new Date(date);
+    
+    const role = await this.getUserRole(userId, companyId);
+    if (role !== 'Owner' && role !== 'Admin') {
+      throw new ForbiddenError('Only Owners and Admins can perform period closing');
+    }
+
+    const entryNumber = await this.generateDocumentNumber(companyId, 'journal');
+
+    const result = await prisma.$transaction(async (tx: any) => {
+      // 1. Get P&L accounts with non-zero balances
+      const plAccounts = await tx.account.findMany({
+        where: { 
+          companyId, 
+          accountType: { name: { in: ['INCOME', 'EXPENSE'] } },
+          currentBalance: { not: 0 },
+          isActive: true 
+        },
+        include: { accountType: true }
+      });
+
+      if (plAccounts.length === 0) {
+        throw new ValidationError('No active P&L balances found to close');
+      }
+
+      // 2. Find Retained Earnings Account
+      let reAccount = await tx.account.findFirst({
+        where: { companyId, name: 'Retained Earnings', accountType: { name: 'EQUITY' } }
+      });
+
+      if (!reAccount) {
+        throw new ValidationError('Retained Earnings account not configured for this company');
+      }
+
+      const journalLines: any[] = [];
+      let totalDebit = 0;
+      let totalCredit = 0;
+
+      for (const acc of plAccounts) {
+        const isDebitType = acc.accountType.type === 'DEBIT';
+        const currentBal = Number(acc.currentBalance);
+        
+        let debit = 0;
+        let credit = 0;
+
+        if (isDebitType) {
+          if (currentBal > 0) credit = currentBal;
+          else if (currentBal < 0) debit = Math.abs(currentBal);
+        } else {
+          if (currentBal > 0) debit = currentBal;
+          else if (currentBal < 0) credit = Math.abs(currentBal);
+        }
+
+        if (debit > 0 || credit > 0) {
+          totalDebit += debit;
+          totalCredit += credit;
+          journalLines.push({
+            accountId: acc.id,
+            description: `Closing Entry - ${acc.name}`,
+            debit,
+            credit,
+            debitBase: debit,
+            creditBase: credit
+          });
+
+          await tx.account.update({
+             where: { id: acc.id },
+             data: { currentBalance: 0 }
+          });
+        }
+      }
+
+      const diff = totalDebit - totalCredit;
+      let reDebit = 0;
+      let reCredit = 0;
+      let reBalanceChange = 0;
+
+      if (diff > 0) {
+        reCredit = diff;
+        totalCredit += diff;
+        reBalanceChange = diff; 
+      } else if (diff < 0) {
+        reDebit = Math.abs(diff);
+        totalDebit += Math.abs(diff);
+        reBalanceChange = -Math.abs(diff);
+      }
+
+      if (reDebit > 0 || reCredit > 0) {
+         journalLines.push({
+            accountId: reAccount.id,
+            description: `Period Closing to Retained Earnings`,
+            debit: reDebit,
+            credit: reCredit,
+            debitBase: reDebit,
+            creditBase: reCredit
+         });
+
+         await tx.account.update({
+            where: { id: reAccount.id },
+            data: { currentBalance: { increment: reBalanceChange } }
+         });
+      }
+
+      if (Math.abs(totalDebit - totalCredit) > 0.01) {
+         throw new ValidationError('Period closing journal unbalanced');
+      }
+
+      const closedJournal = await tx.journalEntry.create({
+        data: {
+          entryNumber,
+          companyId,
+          date: closingDate,
+          description: description || `Period Closing Entry for Fiscal Year`,
+          totalDebit,
+          totalCredit,
+          status: 'APPROVED',
+          createdById: userId,
+          approvedById: userId,
+          approvedAt: new Date(),
+          lines: {
+            create: journalLines
+          }
+        }
+      });
+
+      return closedJournal;
+    });
+
+    return reply.send({ success: true, data: result, message: 'Period Closed successfully' });
+  }
+
   // Helper: Get all subordinate IDs recursively
   private async getSubordinateIds(managerId: string): Promise<string[]> {
     const subordinates = await prisma.user.findMany({ where: { managerId } });
@@ -1409,28 +1742,68 @@ export class CompanyController {
         return reply.status(400).send({ success: false, error: 'First name and last name are required' });
       }
 
-      const count = await prisma.employee.count({ where: { companyId } });
-      const employeeCode = `EMP-${String(count + 1).padStart(4, '0')}`;
+      const employeeCode = await SequenceService.generateDocumentNumber(companyId, 'employee');
 
-      const employee = await prisma.employee.create({
-        data: {
-          employeeCode,
-          firstName: String(firstName),
-          lastName: String(lastName),
-          email: email || null,
-          phone: phone || null,
-          designation: designation || null,
-          department: department || null,
-          joinDate: joinDate ? new Date(joinDate) : null,
-          salary: salary ? parseFloat(salary) : 0,
-          companyId,
-        },
+      const employee = await prisma.$transaction(async (tx) => {
+        const emp = await tx.employee.create({
+          data: {
+            employeeCode,
+            firstName: String(firstName),
+            lastName: String(lastName),
+            email: email || null,
+            phone: phone || null,
+            designation: designation || null,
+            department: department || null,
+            joinDate: joinDate ? new Date(joinDate) : null,
+            salary: salary ? parseFloat(salary) : 0,
+            companyId,
+          },
+        });
+
+        // Automated Ledger Account (Salary Payable)
+        await TransactionRepository.ensureEntityAccount(tx, companyId, emp.id, `${emp.firstName} ${emp.lastName}`, emp.employeeCode, 'PAYABLE');
+
+        return emp;
       });
 
       return reply.send({ success: true, data: employee });
     } catch (error: any) {
       console.error('Error creating employee:', error);
       return reply.status(500).send({ success: false, error: error.message || 'Internal server error' });
+    }
+  }
+
+  async paySalary(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, employeeId } = request.params as { id: string; employeeId: string };
+    const { amount, date, description } = request.body as any;
+    const userId = (request.user as any).id;
+
+    try {
+      const journal = await prisma.$transaction(async (tx) => {
+        return await TransactionRepository.generateSalaryJournal(tx, {
+          companyId,
+          employeeId,
+          amount,
+          date: date || new Date(),
+          description,
+          userId
+        });
+      });
+
+      // Log Activity
+      await NotificationController.logActivity({
+        companyId,
+        entityType: 'Employee',
+        entityId: employeeId,
+        action: 'PAY_SALARY_DRAFT',
+        performedById: userId,
+        metadata: { amount, journalId: journal.id }
+      });
+
+      return reply.send({ success: true, data: journal, message: 'Draft Salary Journal created successfully' });
+    } catch (error: any) {
+      console.error('Salary payment failed:', error);
+      return reply.status(500).send({ success: false, message: error.message || 'Internal server error' });
     }
   }
 
@@ -1530,6 +1903,26 @@ export class CompanyController {
     return reply.send({ success: true });
   }
 
+  async verifyEmployeeAdvance(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, advanceId } = request.params as { id: string; advanceId: string };
+    const userId = (request.user as any).id;
+
+    const advance = await prisma.employeeAdvance.findUnique({ where: { id: advanceId } });
+    if (!advance) throw new NotFoundError('Advance not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canVerify(advance.status, role)) {
+      throw new ForbiddenError(`Cannot verify this advance from current status: ${advance.status}`);
+    }
+
+    const updated = await prisma.employeeAdvance.update({
+      where: { id: advanceId },
+      data: { status: 'VERIFIED' },
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
   async approveEmployeeAdvance(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id: companyId, advanceId } = request.params as { id: string; advanceId: string };
@@ -1588,7 +1981,6 @@ export class CompanyController {
         data: {
           entryNumber,
           date: advance.date,
-          description: `Advance for ${advance.employee.firstName} ${advance.employee.lastName} - ${advance.purpose || ''}`,
           companyId,
           createdById: userId,
           status: 'APPROVED',
@@ -1724,6 +2116,26 @@ export class CompanyController {
     return reply.send({ success: true });
   }
 
+  async verifyEmployeeLoan(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, loanId } = request.params as { id: string; loanId: string };
+    const userId = (request.user as any).id;
+
+    const loan = await prisma.employeeLoan.findUnique({ where: { id: loanId } });
+    if (!loan) throw new NotFoundError('Loan not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canVerify(loan.status, role)) {
+      throw new ForbiddenError(`Cannot verify this loan from current status: ${loan.status}`);
+    }
+
+    const updated = await prisma.employeeLoan.update({
+      where: { id: loanId },
+      data: { status: 'VERIFIED' },
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
   async approveEmployeeLoan(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id: companyId, loanId } = request.params as { id: string; loanId: string };
@@ -1773,17 +2185,29 @@ export class CompanyController {
         );
       }
 
-      // Create journal entry for loan disbursement
+      // Create journal entry for loan disbursement (principal + interest)
+      const totalDisbursement = loan.principalAmount + loan.interestAmount;
+      
+      const interestIncomeAccount = await prisma.account.findFirst({
+        where: { 
+          companyId, 
+          OR: [
+            { code: 'I-4101' },
+            { name: { contains: 'Interest Income', mode: 'insensitive' } }
+          ],
+          isActive: true 
+        },
+      });
+
       await prisma.journalEntry.create({
         data: {
           entryNumber,
           date: loan.startDate,
-          description: `Employee Loan for ${loan.employee.firstName} ${loan.employee.lastName} - ${loan.purpose || ''}`,
           companyId,
           createdById: userId,
           status: 'APPROVED',
-          totalDebit: loan.principalAmount,
-          totalCredit: loan.principalAmount,
+          totalDebit: totalDisbursement,
+          totalCredit: totalDisbursement,
           lines: {
             create: [
               {
@@ -1797,13 +2221,23 @@ export class CompanyController {
                 exchangeRate: 1,
               },
               {
+                accountId: debitAccountId,
+                debit: loan.interestAmount,
+                credit: 0,
+                debitBase: loan.interestAmount,
+                creditBase: 0,
+                debitForeign: loan.interestAmount,
+                creditForeign: 0,
+                exchangeRate: 1,
+              },
+              {
                 accountId: creditAccountId,
                 debit: 0,
-                credit: loan.principalAmount,
+                credit: totalDisbursement,
                 debitBase: 0,
-                creditBase: loan.principalAmount,
+                creditBase: totalDisbursement,
                 debitForeign: 0,
-                creditForeign: loan.principalAmount,
+                creditForeign: totalDisbursement,
                 exchangeRate: 1,
               },
             ],
@@ -1850,6 +2284,26 @@ export class CompanyController {
     });
 
     return reply.send({ success: true, data: repayment });
+  }
+
+  async verifyLoanRepayment(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, repaymentId } = request.params as { id: string; repaymentId: string };
+    const userId = (request.user as any).id;
+
+    const repayment = await prisma.employeeLoanRepayment.findUnique({ where: { id: repaymentId } });
+    if (!repayment) throw new NotFoundError('Repayment not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canVerify(repayment.status, role)) {
+      throw new ForbiddenError(`Cannot verify this repayment from current status: ${repayment.status}`);
+    }
+
+    const updated = await prisma.employeeLoanRepayment.update({
+      where: { id: repaymentId },
+      data: { status: 'VERIFIED' },
+    });
+
+    return reply.send({ success: true, data: updated });
   }
 
   async approveLoanRepayment(request: FastifyRequest, reply: FastifyReply) {
@@ -1910,7 +2364,6 @@ export class CompanyController {
       data: {
         entryNumber,
         date: repayment.paymentDate,
-        description: `Loan Repayment for ${repayment.loan.employee.firstName} ${repayment.loan.employee.lastName}`,
         companyId,
         createdById: userId,
         status: 'APPROVED',
@@ -2051,6 +2504,26 @@ export class CompanyController {
     return reply.send({ success: true });
   }
 
+  async verifyEmployeeExpense(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, expenseId } = request.params as { id: string; expenseId: string };
+    const userId = (request.user as any).id;
+
+    const expense = await prisma.employeeExpense.findUnique({ where: { id: expenseId } });
+    if (!expense) throw new NotFoundError('Expense not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canVerify(expense.status, role)) {
+      throw new ForbiddenError(`Cannot verify this expense from current status: ${expense.status}`);
+    }
+
+    const updated = await prisma.employeeExpense.update({
+      where: { id: expenseId },
+      data: { status: 'VERIFIED' },
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
   async approveEmployeeExpense(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, expenseId } = request.params as { id: string; expenseId: string };
     const userId = (request.user as any).id;
@@ -2106,7 +2579,6 @@ export class CompanyController {
       data: {
         entryNumber,
         date: expense.date,
-        description: `${expense.category} - ${expense.employee.firstName} ${expense.employee.lastName} - ${expense.description || ''}`,
         companyId,
         createdById: userId,
         status: 'APPROVED',
@@ -2147,5 +2619,41 @@ export class CompanyController {
     });
 
     return reply.send({ success: true, data: { expense, journal } });
+  }
+
+  // ============ COMPANY SETTINGS ============
+
+  async getSettings(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const settings = await prisma.companySettings.findUnique({ where: { companyId } });
+    if (!settings) {
+      return reply.send({
+        success: true,
+        data: { companyId },
+      });
+    }
+    return reply.send({ success: true, data: settings });
+  }
+
+  async updateSettings(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+    const body = request.body as any;
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!['Owner', 'Admin'].includes(role)) {
+      throw new ForbiddenError('Only Owner or Admin can update company settings');
+    }
+
+    const pick = (key: string, fallback: any) =>
+      body[key] !== undefined ? body[key] : fallback;
+
+    const settings = await prisma.companySettings.upsert({
+      where: { companyId },
+      update: {},
+      create: { companyId },
+    });
+
+    return reply.send({ success: true, data: settings });
   }
 }

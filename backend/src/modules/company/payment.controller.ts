@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
 import { ValidationError, NotFoundError } from '../../middleware/errorHandler';
 import { NotificationController } from './notification.controller';
+import { TransactionRepository } from '../../repositories/TransactionRepository';
 
 export class PaymentController {
   async createPayment(request: FastifyRequest, reply: FastifyReply) {
@@ -14,6 +15,20 @@ export class PaymentController {
     }
 
     const { invoiceId, billId, lcId, piAllocations, accountId, date, amount, method, reference, description } = data;
+
+    const paymentDate = date ? new Date(date) : new Date();
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    const userRecord = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { userRoles: { include: { role: true } } }
+    });
+    const isOwnerOrAdmin = userRecord?.userRoles.some((ur: any) => ['Owner', 'Admin'].includes(ur.role.name)) || false;
+
+    if (paymentDate > today && !isOwnerOrAdmin) {
+      throw new ValidationError('Future payment dates are only allowed for owners');
+    }
 
     const payment = await prisma.$transaction(async (tx) => {
       // 1. Create the Payment record
@@ -51,59 +66,8 @@ export class PaymentController {
 
         if (!lc) throw new NotFoundError('LC not found');
 
-        const isExport = lc.type === 'EXPORT';
-        const arApCategory = isExport ? 'AR' : 'AP';
-        const arApAccount = await tx.account.findFirst({
-            where: { companyId, category: arApCategory } as any
-        });
-
-        if (!accountId || !arApAccount) {
-            throw new ValidationError(`${arApCategory} settlement account not found`);
-        }
-
-        // Create Journal Entry for LC Payment
-        const journalDesc = isExport 
-          ? `LC Export Receipt: ${lc.lcNumber}`
-          : `LC Import Payment: ${lc.lcNumber}`;
-
-        await tx.journalEntry.create({
-          data: {
-            entryNumber: `JV-LC-${pmt.id.substring(0,8)}`,
-            companyId,
-            date: date ? new Date(date) : new Date(),
-            description: journalDesc,
-            totalDebit: Number(amount),
-            totalCredit: Number(amount),
-            status: 'APPROVED',
-            createdById: userId,
-            approvedById: userId,
-            approvedAt: new Date(),
-            lines: {
-              create: [
-                { 
-                  accountId: accountId, 
-                  debit: isExport ? Number(amount) : 0, 
-                  credit: isExport ? 0 : Number(amount), 
-                  debitBase: isExport ? Number(amount) : 0, 
-                  creditBase: isExport ? 0 : Number(amount) 
-                },
-                { 
-                  accountId: arApAccount.id, 
-                  debit: isExport ? 0 : Number(amount), 
-                  credit: isExport ? Number(amount) : 0, 
-                  debitBase: isExport ? 0 : Number(amount), 
-                  creditBase: isExport ? Number(amount) : 0 
-                }
-              ]
-            }
-          }
-        });
-
-        // Update balances: 
-        // Export: Cash/Bank + (Debit), AR - (Credit)
-        // Import: Cash/Bank - (Credit), AP + (Debit)
-        await tx.account.update({ where: { id: accountId }, data: { currentBalance: { increment: isExport ? Number(amount) : -Number(amount) } } });
-        await tx.account.update({ where: { id: arApAccount.id }, data: { currentBalance: { increment: isExport ? -Number(amount) : Number(amount) } } });
+        // Auto-journal for LC Payment
+        await TransactionRepository.generatePaymentJournal(tx, pmt, companyId, userId, lc.type === 'EXPORT' ? 'LC_EXPORT' : 'LC_IMPORT');
 
         // Update PI Statuses
         for (const alloc of piAllocations) {
@@ -114,91 +78,43 @@ export class PaymentController {
 
           if (pi) {
             const totalAllocated = (pi.paymentAllocations as any[]).reduce((sum: number, a: any) => sum + a.allocatedAmount, 0) + Number(alloc.allocatedAmount);
-
-            let piStatus = 'PARTIALLY_PAID';
-            if (totalAllocated >= pi.amount) {
-              piStatus = 'PAID';
-            }
-            await (tx as any).pI.update({
-              where: { id: pi.id },
-              data: { status: piStatus }
-            });
+            let piStatus = totalAllocated >= pi.amount ? 'PAID' : 'PARTIALLY_PAID';
+            await (tx as any).pI.update({ where: { id: pi.id }, data: { status: piStatus } });
           }
         }
 
         // Update LC Status
-        const totalPaid = (lc.pis as any[]).reduce((sum: number, pi: any) => {
-          const piPaid = (pi.paymentAllocations as any[]).reduce((s: number, a: any) => s + a.allocatedAmount, 0);
-          return sum + piPaid;
+        const currentLCPaidTotal = (lc as any).pis.reduce((sum: number, pi: any) => {
+             return sum + (pi.paymentAllocations as any[]).reduce((s: number, a: any) => s + a.allocatedAmount, 0);
         }, 0) + piAllocations.reduce((sum: number, a: any) => sum + Number(a.allocatedAmount), 0);
-
-        let lcStatus = 'PARTIALLY_PAID';
-        if (totalPaid >= lc.amount) {
-          lcStatus = 'CLOSED';
-        }
+        
         await (tx as any).lC.update({
           where: { id: lc.id },
-          data: { status: lcStatus }
+          data: { status: currentLCPaidTotal >= lc.amount ? 'CLOSED' : 'PARTIALLY_PAID' }
         });
       }
 
-      // 3. Invoice Payment (Sales AR or Purchase AP)
+      // 3. Invoice/Bill Payment (Sales or Purchase)
       if (invoiceId) {
         const invoice = await tx.invoice.findUnique({ where: { id: invoiceId } });
         if (!invoice) throw new NotFoundError('Invoice not found');
 
-        const isSales = invoice.type === 'SALES';
-        const arApCategory = isSales ? 'AR' : 'AP';
-        const arApAccount = await tx.account.findFirst({
-            where: { companyId, category: arApCategory } as any
+        // Auto-journal for Regular Invoice Payment
+        await TransactionRepository.generatePaymentJournal(tx, pmt, companyId, userId, invoice.type === 'SALES' ? 'SALES' : 'PURCHASE');
+        
+        // Update Invoice status logic...
+        const previousPayments = await tx.payment.aggregate({
+          where: { invoiceId: invoice.id },
+          _sum: { amount: true }
         });
         
-        if (!accountId || !arApAccount) {
-            throw new ValidationError(`${arApCategory} settlement account not found`);
-        }
-
-        const journalDesc = isSales 
-          ? `Payment received for Invoice ${invoice.invoiceNumber}`
-          : `Payment made for Purchase Invoice ${invoice.invoiceNumber}`;
-
-        await tx.journalEntry.create({
-          data: {
-            entryNumber: `JV-PMT-${pmt.id.substring(0,8)}`,
-            companyId,
-            date: date ? new Date(date) : new Date(),
-            description: journalDesc,
-            totalDebit: Number(amount),
-            totalCredit: Number(amount),
-            status: 'APPROVED',
-            createdById: userId,
-            approvedById: userId,
-            approvedAt: new Date(),
-            lines: {
-              create: [
-                { 
-                  accountId: accountId, 
-                  debit: isSales ? Number(amount) : 0, 
-                  credit: isSales ? 0 : Number(amount), 
-                  debitBase: isSales ? Number(amount) : 0, 
-                  creditBase: isSales ? 0 : Number(amount) 
-                },
-                { 
-                  accountId: arApAccount.id, 
-                  debit: isSales ? 0 : Number(amount), 
-                  credit: isSales ? Number(amount) : 0, 
-                  debitBase: isSales ? 0 : Number(amount), 
-                  creditBase: isSales ? Number(amount) : 0 
-                }
-              ]
-            }
-          }
+        const totalPaid = (previousPayments._sum.amount || 0) + Number(amount);
+        let newStatus = totalPaid >= invoice.total ? 'PAID' : (totalPaid > 0 ? 'PARTIALLY_PAID' : invoice.status);
+        
+        await tx.invoice.update({
+          where: { id: invoice.id },
+          data: { status: newStatus }
         });
-
-        // Update balances: 
-        // Sales: Cash/Bank + (Debit), AR - (Credit)
-        // Purchase: Cash/Bank - (Credit), AP + (Debit) -> AP is liability, Debit reduces balance
-        await tx.account.update({ where: { id: accountId }, data: { currentBalance: { increment: isSales ? Number(amount) : -Number(amount) } } });
-        await tx.account.update({ where: { id: arApAccount.id }, data: { currentBalance: { increment: isSales ? -Number(amount) : Number(amount) } } });
       }
 
       return pmt;
@@ -219,8 +135,14 @@ export class PaymentController {
 
   async listPayments(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
+    const { method, status } = request.query as { method?: string; status?: string };
+    
+    const where: any = { companyId };
+    if (method) where.method = method;
+    if (status) where.status = status;
+
     const payments = await (prisma as any).payment.findMany({
-      where: { companyId },
+      where,
       include: { 
         invoice: true, 
         bill: true, 
@@ -233,6 +155,119 @@ export class PaymentController {
       orderBy: { date: 'desc' }
     });
     return reply.send({ success: true, data: payments });
+  }
+
+  async createTransfer(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const data = request.body as any;
+    const userId = (request.user as any).id;
+
+    const { fromAccountId, toAccountId, amount, date, reference, description } = data;
+
+    if (!amount || amount <= 0) {
+      throw new ValidationError('Valid transfer amount is required');
+    }
+    if (!fromAccountId || !toAccountId) {
+      throw new ValidationError('Source and destination accounts are required');
+    }
+    if (fromAccountId === toAccountId) {
+      throw new ValidationError('Source and destination accounts must be different');
+    }
+
+    // Create transfer with PENDING_VERIFICATION status
+    const transfer = await prisma.$transaction(async (tx) => {
+      // Create a Payment record for the transfer history
+      const pmt = await (tx as any).payment.create({
+        data: {
+          paymentNumber: `TRF-${Date.now()}`,
+          companyId,
+          date: date ? new Date(date) : new Date(),
+          amount: Number(amount),
+          method: 'TRANSFER',
+          reference,
+          description: description || 'Account Transfer',
+          accountId: fromAccountId,
+          status: 'PENDING_VERIFICATION' // Set to pending initially
+        }
+      });
+
+      return pmt;
+    });
+
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'payment',
+      entityId: transfer.id,
+      action: 'CREATED',
+      performedById: userId,
+      metadata: { docNumber: transfer.paymentNumber, isTransfer: true, status: 'PENDING_VERIFICATION' }
+    });
+
+    return reply.status(201).send({ success: true, data: transfer });
+  }
+
+  async verifyTransfer(request: FastifyRequest, reply: FastifyReply) {
+    const { paymentId } = request.params as { paymentId: string };
+    const userId = (request.user as any).id;
+
+    const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
+    if (!payment || payment.method !== 'TRANSFER') {
+      throw new NotFoundError('Transfer not found');
+    }
+
+    if (payment.status !== 'PENDING_VERIFICATION') {
+      throw new ValidationError('Transfer is not pending verification');
+    }
+
+    const updated = await prisma.payment.update({
+      where: { id: paymentId },
+      data: { status: 'APPROVED' }
+    });
+
+    await NotificationController.logActivity({
+      companyId: payment.companyId,
+      entityType: 'payment',
+      entityId: payment.id,
+      action: 'VERIFIED',
+      performedById: userId,
+      metadata: { docNumber: payment.paymentNumber }
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
+  async approveTransfer(request: FastifyRequest, reply: FastifyReply) {
+    const { paymentId } = request.params as { paymentId: string };
+    const userId = (request.user as any).id;
+    const { toAccountId } = request.body as { toAccountId: string };
+
+    const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
+    if (!payment || payment.method !== 'TRANSFER') {
+      throw new NotFoundError('Transfer not found');
+    }
+
+    if (payment.status !== 'APPROVED') {
+      throw new ValidationError('Transfer must be verified before approval');
+    }
+
+    // Generate the journal entry
+    await TransactionRepository.generateTransferJournal(prisma, payment, payment.companyId, userId, toAccountId);
+
+    const updated = await prisma.payment.update({
+      where: { id: paymentId },
+      data: { status: 'COMPLETED' }
+    });
+
+    await NotificationController.logActivity({
+      companyId: payment.companyId,
+      entityType: 'payment',
+      entityId: payment.id,
+      action: 'APPROVED',
+      performedById: userId,
+      metadata: { docNumber: payment.paymentNumber }
+    });
+
+    return reply.send({ success: true, data: updated });
   }
 
 }

@@ -236,6 +236,20 @@ export default function CompanyInvoicesPage() {
           <p>Tax: ${invoice.taxAmount.toLocaleString()}</p>
           <p class="grand-total">Total: ${invoice.total.toLocaleString()}</p>
         </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:32px; margin-top:48px; padding-top:24px; border-top:1px solid #e2e8f0;">
+          <div style="text-align:center;">
+            <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Prepared By</p>
+            <p style="font-size:12px; color:#64748b; margin-top:4px;">${invoice.createdBy?.firstName} ${invoice.createdBy?.lastName}</p>
+          </div>
+          <div style="text-align:center;">
+            <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Verified By</p>
+            <p style="font-size:12px; color:#64748b; margin-top:4px;">${invoice.verifiedBy ? `${invoice.verifiedBy.firstName} ${invoice.verifiedBy.lastName}` : '...........................'}</p>
+          </div>
+          <div style="text-align:center;">
+            <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Approved By</p>
+            <p style="font-size:12px; color:#64748b; margin-top:4px;">${invoice.approvedBy ? `${invoice.approvedBy.firstName} ${invoice.approvedBy.lastName}` : '...........................'}</p>
+          </div>
+        </div>
       `;
 
       openPrintWindow(buildPrintDocument({ title: `Invoice - ${invoice.invoiceNumber}`, company, body }));

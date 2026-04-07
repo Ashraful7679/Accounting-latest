@@ -7,7 +7,7 @@ import api from '@/lib/api';
 import { 
   FileText, Plus, Search, Filter, Edit2, Trash2, Eye,
   ChevronDown, CheckCircle2, AlertCircle, DollarSign, Calendar,
-  ArrowUpRight, ArrowDownRight, Building2, Globe, ArrowRightLeft
+  ArrowUpRight, ArrowDownRight, Building2, Globe, ArrowRightLeft, Lock
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { clsx, type ClassValue } from 'clsx';
@@ -67,8 +67,10 @@ export default function ExportPIsPage() {
     customerId: '',
     lcId: '',
     description: '',
+    status: 'OPEN',
     lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }] as PILine[]
   });
+  const [isAutoPI, setIsAutoPI] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
@@ -105,7 +107,7 @@ export default function ExportPIsPage() {
     enabled: !!companyId,
   });
 
-  const { data: productsData } = useQuery({
+  const { data: allProductsData } = useQuery({
     queryKey: ['products', companyId],
     queryFn: async () => {
       const response = await api.get(`/company/${companyId}/products`);
@@ -113,6 +115,19 @@ export default function ExportPIsPage() {
     },
     enabled: !!companyId,
   });
+
+  const { data: customerProductsData } = useQuery({
+    queryKey: ['customer-products', companyId, formData.customerId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/products/entity?customerId=${formData.customerId}`);
+      return response.data.data;
+    },
+    enabled: !!companyId && !!formData.customerId,
+  });
+
+  const productsData = customerProductsData?.length > 0 
+    ? customerProductsData.map((m: any) => ({ ...m.product, customPrice: m.price, customCurrency: m.currency }))
+    : allProductsData;
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -142,7 +157,11 @@ export default function ExportPIsPage() {
       closeModal();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to update PI');
+      const msg = error.response?.data?.error?.message || 'Failed to update PI';
+      toast.error(msg);
+      if (msg.toLowerCase().includes('already exists')) {
+        // Highlight PI number field error if needed
+      }
     },
   });
 
@@ -160,21 +179,51 @@ export default function ExportPIsPage() {
     },
   });
 
+  // Task 2.6: Reactive Currency Sync
+  useEffect(() => {
+    if (!mounted || !productsData) return;
+    
+    setFormData(prev => {
+      const rate = Number(prev.exchangeRate) || 1;
+      const updatedLines = prev.lines.map(line => {
+        if (line.productId) {
+          const product = productsData.find((p: any) => p.id === line.productId);
+          if (product) {
+            const newPrice = Number((product.unitPrice / rate).toFixed(2));
+            const newTotal = Number((line.quantity * newPrice).toFixed(2));
+            return { ...line, unitPrice: newPrice, total: newTotal };
+          }
+        }
+        return line;
+      });
+      
+      if (JSON.stringify(updatedLines) === JSON.stringify(prev.lines)) return prev;
+      return { ...prev, lines: updatedLines };
+    });
+  }, [formData.currency, formData.exchangeRate, productsData, mounted]);
+
   const handleLineChange = (index: number, field: string, value: any) => {
     const newLines = [...formData.lines];
     const line = { ...newLines[index], [field]: value };
+    const exchangeRate = Number(formData.exchangeRate) || 1;
     
     // Auto-fill from product
     if (field === 'productId' && value) {
       const product = productsData?.find((p: any) => p.id === value);
       if (product) {
         line.description = product.name;
-        line.unitPrice = product.unitPrice;
+        // Task 6: Use custom price if available, otherwise fallback to BDT conversion
+        if (product.customPrice) {
+          line.unitPrice = product.customPrice;
+          setFormData(prev => ({ ...prev, currency: product.customCurrency || prev.currency }));
+        } else {
+          line.unitPrice = Number((product.unitPrice / exchangeRate).toFixed(2));
+        }
       }
     }
     
     if (field === 'quantity' || field === 'unitPrice' || field === 'productId') {
-      line.total = line.quantity * line.unitPrice;
+      line.total = Number(((line.quantity || 0) * (line.unitPrice || 0)).toFixed(2));
     }
     
     newLines[index] = line;
@@ -214,23 +263,35 @@ export default function ExportPIsPage() {
         customerId: pi.customer?.id || '',
         lcId: pi.lc?.id || '',
         description: pi.description || '',
+        status: pi.status || 'OPEN',
         lines: pi.lines?.length ? pi.lines.map((l: any) => ({
           productId: l.productId || '',
           description: l.description || '',
           quantity: l.quantity,
           unitPrice: l.unitPrice,
-          total: l.quantity * l.unitPrice
+          total: Number((l.quantity * l.unitPrice).toFixed(2))
         })) : [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }]
       });
+      setIsAutoPI(false);
     } else {
       setSelectedPI(null);
       setFormData({
-        piNumber: '', currency: 'USD', exchangeRate: 110,
+        piNumber: '',
+        currency: 'USD',
+        exchangeRate: 110,
         piDate: new Date().toISOString().split('T')[0],
-        invoiceNumber: '', submissionToBuyerDate: '', submissionToBankDate: '',
-        bankAcceptanceDate: '', maturityDate: '', customerId: '', lcId: '', description: '',
+        invoiceNumber: '',
+        submissionToBuyerDate: '',
+        submissionToBankDate: '',
+        bankAcceptanceDate: '',
+        maturityDate: '',
+        customerId: '',
+        lcId: '',
+        description: '',
+        status: 'OPEN',
         lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }]
       });
+      setIsAutoPI(true);
     }
     setShowModal(true);
   };
@@ -245,7 +306,11 @@ export default function ExportPIsPage() {
     if (selectedPI) {
       updateMutation.mutate({ id: selectedPI.id, data: formData });
     } else {
-      createMutation.mutate(formData);
+      const dataToSubmit = { ...formData };
+      if (isAutoPI) {
+        delete (dataToSubmit as any).piNumber;
+      }
+      createMutation.mutate(dataToSubmit);
     }
   };
 
@@ -375,14 +440,27 @@ export default function ExportPIsPage() {
       {/* PI MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
-            <div className="px-8 py-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">            <div className="px-8 py-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
               <div>
                 <h3 className="text-2xl font-black text-slate-900 flex items-center gap-2">
                   <Globe className="w-6 h-6 text-blue-600" />
-                  {selectedPI ? 'Update Proforma Invoice' : 'New Export PI Generation'}
+                  {selectedPI ? `Edit Proforma Invoice ${selectedPI.piNumber}` : 'New Export PI Generation'}
                 </h3>
-                <p className="text-sm text-slate-500">Configure export value and banking timelines</p>
+                <div className="flex items-center gap-4 mt-1">
+                  <p className="text-sm text-slate-500 font-medium">Configure export value and banking timelines</p>
+                  {selectedPI && (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 rounded-lg border border-amber-100">
+                      <Lock className="w-3 h-3 text-amber-600" />
+                      <select 
+                        value={formData.status || selectedPI.status} 
+                        onChange={(e) => setFormData({...formData, status: e.target.value})}
+                        className="bg-transparent text-[10px] font-black text-amber-600 uppercase tracking-widest border-none outline-none cursor-pointer"
+                      >
+                        {['OPEN', 'PAID', 'PARTIALLY_PAID', 'CLOSED', 'CANCELLED'].map(s => <option key={s} value={s}>{s} (OVERRIDE)</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
               </div>
               <button onClick={closeModal} className="p-2 hover:bg-white rounded-xl transition-all border border-transparent hover:border-slate-100">
                 <ChevronDown className="w-6 h-6 text-slate-400" />
@@ -391,177 +469,224 @@ export default function ExportPIsPage() {
 
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-8">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Left: Core Details */}
+                {/* Left Side: Details */}
                 <div className="space-y-6">
-                  <div className="flex items-center gap-2 text-blue-600 mb-2">
-                    <FileText className="w-4 h-4" />
-                    <span className="text-xs font-black uppercase tracking-widest">Document Header</span>
-                  </div>
-
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">PI Number *</label>
-                      <input type="text" value={formData.piNumber} onChange={(e) => setFormData({...formData, piNumber: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold" required />
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">PI Number *</label>
+                        {!selectedPI && (
+                          <label className="flex items-center gap-1 cursor-pointer group">
+                            <input type="checkbox" checked={isAutoPI} onChange={(e) => setIsAutoPI(e.target.checked)} className="w-3 h-3 rounded" />
+                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-tighter opacity-70 group-hover:opacity-100">Auto</span>
+                          </label>
+                        )}
+                      </div>
+                      <input 
+                        type="text" 
+                        value={isAutoPI && !selectedPI ? 'AUTO-GENERATED' : formData.piNumber} 
+                        onChange={(e) => setFormData({...formData, piNumber: e.target.value})} 
+                        disabled={isAutoPI && !selectedPI}
+                        placeholder={isAutoPI ? 'Auto-generated' : 'Enter PI Number'}
+                        className={cn(
+                          "w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-black text-sm",
+                          isAutoPI && !selectedPI && "opacity-50 cursor-not-allowed bg-slate-100"
+                        )} 
+                        required={!isAutoPI || !!selectedPI} 
+                      />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">PI Date *</label>
-                      <input type="date" value={formData.piDate} onChange={(e) => setFormData({...formData, piDate: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold" required />
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">PI Date</label>
+                      <input type="date" value={formData.piDate} onChange={(e) => setFormData({...formData, piDate: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-black text-sm" required />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Client / Buyer *</label>
-                    <select value={formData.customerId} onChange={(e) => setFormData({...formData, customerId: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold" required>
-                      <option value="">Select Buyer</option>
-                      {customersData?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Buyer / Client *</label>
+                    <select 
+                      value={formData.customerId} 
+                      onChange={(e) => {
+                        const customerId = e.target.value;
+                        const customer = customersData?.find((c: any) => c.id === customerId);
+                        setFormData({
+                          ...formData, 
+                          customerId,
+                          currency: customer?.preferredCurrency || formData.currency
+                        });
+                      }}
+                      className="w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-black text-sm"
+                      required
+                    >
+                      <option value="">Select Company</option>
+                      {customersData?.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
                     </select>
                   </div>
+
+                  {customerProductsData?.length > 0 && (
+                    <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-100 mb-4 animate-in fade-in duration-300">
+                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3" /> Custom Pricing Enabled
+                      </p>
+                      <p className="text-[9px] text-slate-500 mt-1">This buyer has {customerProductsData.length} products assigned with specialized pricing.</p>
+                    </div>
+                  )}
 
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Link to Export LC</label>
-                    <select value={formData.lcId} onChange={(e) => setFormData({...formData, lcId: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold">
-                      <option value="">Direct Export (No LC)</option>
-                      {lcsData?.filter((l: any) => l.type === 'EXPORT').map((lc: any) => <option key={lc.id} value={lc.id}>{lc.lcNumber} - {lc.bankName}</option>)}
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Export LC Link</label>
+                    <select 
+                      value={formData.lcId} 
+                      onChange={(e) => setFormData({...formData, lcId: e.target.value})}
+                      className="w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-black text-sm"
+                    >
+                      <option value="">Direct Export</option>
+                      {lcsData?.filter((l: any) => l.type === 'EXPORT').map((l: any) => <option key={l.id} value={l.id}>{l.lcNumber}</option>)}
                     </select>
                   </div>
-                </div>
 
-                {/* Middle: Financials & Conversion */}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-2 text-emerald-600 mb-2">
-                    <DollarSign className="w-4 h-4" />
-                    <span className="text-xs font-black uppercase tracking-widest">Pricing & Total</span>
-                  </div>
-
-                  <div className="bg-emerald-50/50 p-6 rounded-[2rem] border border-emerald-100 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Currency</label>
-                        <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full bg-white border-2 border-transparent focus:border-emerald-600 rounded-2xl px-4 py-3 outline-none transition-all font-bold">
-                          <option value="USD">USD</option>
-                          <option value="EUR">EUR</option>
-                          <option value="BDT">BDT</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Exchange Rate</label>
-                        <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value)})} className="w-full bg-white border-2 border-transparent focus:border-emerald-600 rounded-2xl px-4 py-3 outline-none transition-all font-bold" />
-                      </div>
-                    </div>
-
-                    <div className="pt-4 border-t border-emerald-100 flex justify-between items-end">
-                      <div>
-                        <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">Total Foreign</p>
-                        <p className="text-2xl font-black text-slate-900 font-mono">{calculateSubtotal().toLocaleString()} {formData.currency}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">Total BDT</p>
-                        <p className="text-2xl font-black text-emerald-800 font-mono">৳ {(calculateSubtotal() * formData.exchangeRate).toLocaleString()}</p>
-                      </div>
+                  <div className="p-4 bg-emerald-50/50 rounded-[2rem] border border-emerald-100 space-y-3">
+                    <h4 className="text-xs font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2">
+                       <DollarSign className="w-4 h-4" /> Currency Sync
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="bg-white rounded-xl px-2 py-2 text-sm font-black border border-emerald-100 outline-none focus:ring-2 focus:ring-emerald-500">
+                        <option value="USD">USD</option>
+                        <option value="BDT">BDT</option>
+                        <option value="EUR">EUR</option>
+                      </select>
+                      <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})} className="bg-white rounded-xl px-2 py-2 text-sm font-black border border-emerald-100 outline-none w-full focus:ring-2 focus:ring-emerald-500" placeholder="Rate" />
                     </div>
                   </div>
                 </div>
 
-                {/* Right: Timeline */}
+                {/* Middle Side: Financials & Totals */}
                 <div className="space-y-6">
-                  <div className="flex items-center gap-2 text-indigo-600 mb-2">
-                    <Calendar className="w-4 h-4" />
-                    <span className="text-xs font-black uppercase tracking-widest">Banking Timeline</span>
+                  <div className="p-6 bg-slate-50 border border-slate-100 rounded-[2rem] space-y-6">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                       <DollarSign className="w-4 h-4" /> Financial Summary
+                    </h4>
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Amount ({formData.currency})</p>
+                        <p className="text-3xl font-black text-slate-900 font-mono tracking-tight tabular-nums">{calculateSubtotal().toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                      </div>
+                      <div className="pt-4 border-t border-slate-200">
+                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Equivalent BDT</p>
+                        <p className="text-3xl font-black text-emerald-700 font-mono tracking-tight tabular-nums">৳ {(calculateSubtotal() * formData.exchangeRate).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                      </div>
+                    </div>
                   </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Overall Memo / Description</label>
+                    <textarea 
+                      value={formData.description} 
+                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                      rows={3}
+                      className="w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold text-sm resize-none"
+                      placeholder="Add any special instructions or remarks..."
+                    />
+                  </div>
+                </div>
 
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Invoice Reference</label>
-                      <input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({...formData, invoiceNumber: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
+                {/* Right Side: Timeline */}
+                <div className="space-y-6">
+                  <div className="p-6 bg-indigo-50/30 border border-indigo-100/50 rounded-[2rem] space-y-6 shadow-sm">
+                    <h4 className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
+                       <Calendar className="w-4 h-4" /> Banking Timeline
+                    </h4>
+                    <div className="space-y-4">
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Subm. Buyer</label>
-                        <input type="date" value={formData.submissionToBuyerDate} onChange={(e) => setFormData({...formData, submissionToBuyerDate: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:bg-white rounded-2xl px-2 py-3 outline-none transition-all font-bold text-xs" />
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Invoice Reference</label>
+                        <input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({...formData, invoiceNumber: e.target.value})} className="w-full bg-white border-2 border-slate-100 focus:border-indigo-600 rounded-xl px-4 py-2.5 outline-none transition-all font-bold text-sm shadow-sm" />
                       </div>
-                      <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Subm. Bank</label>
-                        <input type="date" value={formData.submissionToBankDate} onChange={(e) => setFormData({...formData, submissionToBankDate: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:bg-white rounded-2xl px-2 py-3 outline-none transition-all font-bold text-xs" />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1.5">Subm. Buyer</label>
+                          <input type="date" value={formData.submissionToBuyerDate} onChange={(e) => setFormData({...formData, submissionToBuyerDate: e.target.value})} className="w-full bg-white border-2 border-slate-100 focus:border-indigo-600 rounded-xl px-3 py-2 outline-none transition-all font-bold text-[10px] shadow-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1.5">Subm. Bank</label>
+                          <input type="date" value={formData.submissionToBankDate} onChange={(e) => setFormData({...formData, submissionToBankDate: e.target.value})} className="w-full bg-white border-2 border-slate-100 focus:border-indigo-600 rounded-xl px-3 py-2 outline-none transition-all font-bold text-[10px] shadow-sm" />
+                        </div>
                       </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Acceptance</label>
-                        <input type="date" value={formData.bankAcceptanceDate} onChange={(e) => setFormData({...formData, bankAcceptanceDate: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:bg-white rounded-2xl px-2 py-3 outline-none transition-all font-bold text-xs" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Maturity</label>
-                        <input type="date" value={formData.maturityDate} onChange={(e) => setFormData({...formData, maturityDate: e.target.value})} className="w-full bg-slate-50 border-2 border-transparent focus:bg-white rounded-2xl px-2 py-3 outline-none transition-all font-bold text-xs" />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1.5">Acceptance</label>
+                          <input type="date" value={formData.bankAcceptanceDate} onChange={(e) => setFormData({...formData, bankAcceptanceDate: e.target.value})} className="w-full bg-white border-2 border-slate-100 focus:border-indigo-600 rounded-xl px-3 py-2 outline-none transition-all font-bold text-[10px] shadow-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1.5">Maturity</label>
+                          <input type="date" value={formData.maturityDate} onChange={(e) => setFormData({...formData, maturityDate: e.target.value})} className="w-full bg-white border-2 border-slate-100 focus:border-indigo-600 rounded-xl px-3 py-2 outline-none transition-all font-bold text-[10px] shadow-sm" />
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Line Items Section */}
+              {/* Itemized Breakdown Section */}
               <div className="pt-8 border-t border-slate-100">
-                <div className="flex items-center justify-between mb-4 px-2">
+                <div className="flex items-center justify-between mb-6 px-2">
                   <div className="flex items-center gap-2">
                     <ArrowDownRight className="w-5 h-5 text-blue-600" />
                     <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Itemized Breakdown</h4>
                   </div>
-                  <button type="button" onClick={addLine} className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-4 py-2 rounded-xl text-xs font-black hover:bg-blue-100 transition-all active:scale-95">
+                  <button type="button" onClick={addLine} className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-4 py-2 rounded-xl text-xs font-black hover:bg-blue-100 transition-all active:scale-95 border border-blue-100">
                     <Plus className="w-4 h-4" /> Add Line Item
                   </button>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="grid grid-cols-12 gap-3 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    <div className="col-span-3">Product</div>
-                    <div className="col-span-3">Description</div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-12 gap-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                    <div className="col-span-3">Product Model</div>
+                    <div className="col-span-3">Bill Description</div>
                     <div className="col-span-2 text-center">Quantity</div>
-                    <div className="col-span-2 text-right">Unit Price</div>
-                    <div className="col-span-2 text-right">Total</div>
+                    <div className="col-span-2 text-right">Unit Price ({formData.currency})</div>
+                    <div className="col-span-2 text-right font-black text-blue-600">Row Value</div>
                   </div>
 
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                     {formData.lines.map((line, idx) => (
-                      <div key={idx} className="group grid grid-cols-12 gap-3 bg-slate-50/50 p-3 rounded-[1.5rem] border-2 border-transparent hover:border-blue-100 hover:bg-white transition-all">
+                      <div key={idx} className="group grid grid-cols-12 gap-4 items-center p-5 border border-slate-100 rounded-[2rem] bg-slate-50/30 hover:border-blue-200 hover:bg-white hover:shadow-xl hover:shadow-blue-500/5 transition-all relative">
                         <div className="col-span-3">
                           <select 
                             value={line.productId} 
                             onChange={(e) => handleLineChange(idx, 'productId', e.target.value)}
-                            className="w-full bg-transparent border-none outline-none font-bold text-slate-700 px-2 text-sm"
+                            className="w-full px-4 py-2 bg-white border-2 border-slate-100 rounded-xl text-sm font-black focus:border-blue-600 transition-all outline-none"
                           >
-                            <option value="">Custom Product</option>
+                            <option value="">Custom Line</option>
                             {productsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
                         </div>
                         <div className="col-span-3">
                           <input 
-                            type="text" value={line.description} placeholder="Item description"
+                            type="text" value={line.description} placeholder="Itemized breakdown..."
                             onChange={(e) => handleLineChange(idx, 'description', e.target.value)}
-                            className="w-full bg-transparent border-none outline-none font-bold text-slate-700 px-2 text-sm" required
+                            className="w-full px-4 py-2 bg-white border-2 border-slate-100 rounded-xl text-sm font-black focus:border-blue-600 transition-all outline-none" required
                           />
                         </div>
                         <div className="col-span-2">
                           <input 
-                            type="number" value={line.quantity}
-                            onChange={(e) => handleLineChange(idx, 'quantity', parseFloat(e.target.value))}
-                            className="w-full bg-transparent border-none outline-none font-bold text-center text-slate-700 text-sm"
+                            type="number" step="any" value={line.quantity}
+                            onChange={(e) => handleLineChange(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 bg-white border-2 border-slate-100 rounded-xl text-sm font-black text-center focus:border-blue-600 transition-all outline-none"
                           />
                         </div>
                         <div className="col-span-2">
                           <input 
-                            type="number" step="0.01" value={line.unitPrice}
-                            onChange={(e) => handleLineChange(idx, 'unitPrice', parseFloat(e.target.value))}
-                            className="w-full bg-transparent border-none outline-none font-bold text-right text-slate-700 text-sm"
+                            type="number" step="any" value={line.unitPrice}
+                            onChange={(e) => handleLineChange(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 bg-white border-2 border-slate-100 rounded-xl text-sm font-black text-right focus:border-blue-600 transition-all outline-none"
                           />
                         </div>
-                        <div className="col-span-2 relative pr-10">
-                          <div className="w-full text-right font-black text-slate-900 mt-1 text-sm font-mono">
-                            {line.total.toLocaleString()}
+                        <div className="col-span-2 relative pr-12">
+                          <div className="w-full text-right font-black text-blue-600 text-sm font-mono tracking-tight tabular-nums mt-1">
+                            {line.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                           </div>
                           <button 
                             type="button" onClick={() => removeLine(idx)}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-300 hover:text-red-500 transition-colors bg-white rounded-lg shadow-sm border border-slate-100 opacity-0 group-hover:opacity-100"
+                            className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-5 h-5" />
                           </button>
                         </div>
                       </div>
@@ -570,17 +695,44 @@ export default function ExportPIsPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-8 border-t border-slate-50">
-                <button type="button" onClick={closeModal} className="px-8 py-3 rounded-2xl text-slate-500 font-bold hover:bg-slate-50 transition-all active:scale-95">
-                  Discard Draft
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={createMutation.isPending || updateMutation.isPending}
-                  className="px-12 py-3 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 active:scale-95 disabled:bg-slate-200"
-                >
-                  {createMutation.isPending || updateMutation.isPending ? 'Saving PI...' : (selectedPI ? 'Confirm PI Update' : 'Initialize Proforma Invoice')}
-                </button>
+              <div className="flex justify-between items-center pt-8 mt-4 border-t border-slate-200">
+                <div className="flex gap-2">
+                  {selectedPI && (
+                    <>
+                      {formData.status === 'OPEN' && (
+                        <button 
+                          type="button" 
+                          onClick={() => setFormData({...formData, status: 'PAID'})}
+                          className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all border border-emerald-200 uppercase tracking-widest"
+                        >
+                          Record Payment
+                        </button>
+                      )}
+                      {formData.status !== 'CLOSED' && formData.status !== 'CANCELLED' && (
+                        <button 
+                          type="button" 
+                          onClick={() => setFormData({...formData, status: 'CLOSED'})}
+                          className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-black hover:bg-slate-200 transition-all border border-slate-200 uppercase tracking-widest"
+                        >
+                          Complete PI
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+                
+                <div className="flex gap-3">
+                  <button type="button" onClick={closeModal} className="px-8 py-3 rounded-2xl text-slate-500 font-bold hover:bg-slate-50 transition-all active:scale-95 uppercase text-[10px] tracking-widest border border-slate-200">
+                    Discard Draft
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                    className="px-12 py-3 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 active:scale-95 disabled:bg-slate-200 uppercase text-[10px] tracking-widest"
+                  >
+                    {createMutation.isPending || updateMutation.isPending ? 'Saving Document...' : (selectedPI ? 'Update Proforma Invoice' : 'Generate Export PI')}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

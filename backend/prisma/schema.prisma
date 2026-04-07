@@ -341,6 +341,7 @@ model Account {
   // Controls
   allowNegative  Boolean  @default(false)
   category       String?  // CASH, BANK, AR, AP, etc.
+  referenceId    String?  // Links to Vendor/Customer ID
   
   company       Company        @relation(fields: [companyId], references: [id])
   accountType   AccountType    @relation(fields: [accountTypeId], references: [id])
@@ -426,6 +427,7 @@ model Customer {
   balanceType   String?  // DR, CR
   creditLimit   Float?
   preferredCurrency String @default("BDT")
+  exchangeRate  Float   @default(1)
   paymentTerms  String @default("COD") // COD, CREDIT, ADVANCE, DO_DUE
 
   company     Company  @relation(fields: [companyId], references: [id])
@@ -433,6 +435,7 @@ model Customer {
   journalLines JournalEntryLine[]
   lcs         LC[]
   pis         PI[]
+  productPrices ProductEntityPrice[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -461,6 +464,7 @@ model Vendor {
   balanceType   String?  // DR, CR
   creditLimit   Float?
   preferredCurrency String @default("BDT")
+  exchangeRate  Float   @default(1)
   paymentTerms  String @default("COD") // COD, CREDIT, ADVANCE, DO_DUE
 
   company     Company  @relation(fields: [companyId], references: [id])
@@ -469,6 +473,7 @@ model Vendor {
   lcs         LC[]
   bills       Bill[]
   pis         PI[]
+  productPrices ProductEntityPrice[]
   journalLines JournalEntryLine[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -554,6 +559,7 @@ model Product {
   invoiceLines   InvoiceLine[]
   poLines        PurchaseOrderLine[]
   piLines        PILine[]
+  entityPrices   ProductEntityPrice[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -613,6 +619,7 @@ model Invoice {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   
+  @@unique([companyId, invoiceNumber])
   @@index([companyId])
   @@index([customerId])
   @@index([vendorId])
@@ -937,24 +944,6 @@ model PaymentPI {
 
 
 // ============================================
-// COMPANY SETTINGS (Global Controls)
-// ============================================
-
-model CompanySettings {
-  id                  String   @id @default(uuid())
-  companyId           String   @unique
-  disallowFutureDates Boolean  @default(true)
-  lockPreviousMonths  Boolean  @default(false)
-  approvalWorkflow    Boolean  @default(true)
-  
-  // Relations
-  company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-}
-
-// ============================================
 // EMPLOYEE MANAGEMENT
 // ============================================
 
@@ -991,7 +980,7 @@ model EmployeeAdvance {
   amount        Float
   purpose       String?
   date          DateTime
-  status        String   @default("DRAFT") // DRAFT, PENDING, APPROVED, PAID
+  status        String   @default("DRAFT") // DRAFT, PENDING_VERIFICATION, VERIFIED, APPROVED
   paymentMethod String?  // CASH, BANK
   accountId     String?  // Cash/Bank account used for payment
   journalEntryId String? // Linked journal entry after approval
@@ -1019,7 +1008,7 @@ model EmployeeLoan {
   installments    Int      @default(1)
   startDate       DateTime
   purpose         String?
-  status          String   @default("DRAFT") // DRAFT, APPROVED, ACTIVE, COMPLETED
+  status          String   @default("DRAFT") // DRAFT, PENDING_VERIFICATION, VERIFIED, APPROVED
   companyId       String
   
   employee        Employee @relation(fields: [employeeId], references: [id])
@@ -1040,7 +1029,7 @@ model EmployeeLoanRepayment {
   principalPaid Float
   interestPaid  Float
   paymentDate   DateTime
-  status        String   @default("DRAFT") // DRAFT, VERIFIED, APPROVED
+  status        String   @default("DRAFT") // DRAFT, PENDING_VERIFICATION, VERIFIED, APPROVED
   journalEntryId String? // Linked journal entry
   companyId     String
   
@@ -1062,7 +1051,7 @@ model EmployeeExpense {
   description   String?
   category      String   // SALARY, BONUS, OVERTIME, CONVEYANCE, FOOD, MEDICAL, OTHER
   date          DateTime
-  status        String   @default("DRAFT") // DRAFT, VERIFIED, APPROVED, PAID
+  status        String   @default("DRAFT") // DRAFT, PENDING_VERIFICATION, VERIFIED, APPROVED
   paymentMethod String?
   accountId     String?
   journalEntryId String?
@@ -1081,3 +1070,45 @@ model EmployeeExpense {
 }
 
 
+
+
+// ============================================
+// COMPANY SETTINGS (Phase 13)
+// ============================================
+
+model CompanySettings {
+  id                    String   @id @default(uuid())
+  companyId             String   @unique
+  company               Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// ============================================
+// PRODUCT-ENTITY PRICING
+// ============================================
+
+model ProductEntityPrice {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  vendorId    String?
+  vendor      Vendor?   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  price       Float
+  currency    String   @default("BDT")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([productId, customerId])
+  @@unique([productId, vendorId])
+  @@index([productId])
+  @@index([customerId])
+  @@index([vendorId])
+}

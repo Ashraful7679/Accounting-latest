@@ -46,7 +46,7 @@ export class ReconcileController {
       throw new ValidationError('No transactions selected');
     }
 
-    await prisma.journalEntryLine.updateMany({
+    const result = await prisma.journalEntryLine.updateMany({
       where: { id: { in: lineIds } },
       data: {
         reconciled: true,
@@ -54,6 +54,8 @@ export class ReconcileController {
       }
     });
 
-    return reply.send({ success: true, message: 'Transactions reconciled successfully' });
+    console.log(`[Reconcile] Marked ${result.count} lines as reconciled.`);
+
+    return reply.send({ success: true, message: `${result.count} transactions reconciled successfully` });
   }
 }

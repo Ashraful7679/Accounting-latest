@@ -63,9 +63,10 @@ export class LCController {
 
       // 0a. Automated Bank COA Creation
       if (data.bankName) {
+        const trimmedBankName = data.bankName.trim();
         const existingBank = await tx.account.findFirst({
           where: { 
-            name: data.bankName,
+            name: { equals: trimmedBankName, mode: 'insensitive' },
             companyId,
             category: 'BANK'
           }
@@ -163,35 +164,64 @@ export class LCController {
 
   async updateLC(request: FastifyRequest, reply: FastifyReply) {
     const { lcId } = request.params as { lcId: string };
-    const data = request.body as any;
+    const { piIds, ...data } = request.body as any;
 
-    const existingLC = await (prisma as any).lC.findUnique({ where: { id: lcId } });
-    if (!existingLC) return reply.status(404).send({ success: false, message: 'LC not found' });
-
-    // Guard: Prevent modification of approved/closed LCs
-    if (existingLC.status !== 'OPEN' && existingLC.status !== 'REJECTED') {
-      return reply.status(400).send({ 
-        success: false, 
-        message: `Cannot modify an LC with status: ${existingLC.status}` 
+    const result = await prisma.$transaction(async (tx: any) => {
+      const existingLC = await tx.lC.findUnique({ 
+        where: { id: lcId },
+        include: { pis: true }
       });
-    }
+      if (!existingLC) throw new Error('LC not found');
 
-    const lc = await (prisma as any).lC.update({
-      where: { id: lcId },
-      data: {
-        ...data,
-        issueDate: data.issueDate ? new Date(data.issueDate) : undefined,
-        expiryDate: data.expiryDate ? new Date(data.expiryDate) : undefined,
-        amount: data.amount ? Number(data.amount) : undefined,
-        conversionRate: data.conversionRate ? Number(data.conversionRate) : undefined,
-        loanValue: data.loanValue ? Number(data.loanValue) : undefined,
-        customerId: data.customerId || undefined,
-        vendorId: data.vendorId || undefined,
-        receivedDate: data.receivedDate ? new Date(data.receivedDate) : undefined
+      // Guard: Prevent modification of approved/closed LCs (except for PIs if unlocked?)
+      if (existingLC.status !== 'OPEN' && existingLC.status !== 'REJECTED') {
+        throw new Error(`Cannot modify an LC with status: ${existingLC.status}`);
       }
+
+      // Handle PI Associations if provided
+      if (piIds !== undefined && Array.isArray(piIds)) {
+        // Unlink existing PIs
+        await tx.pI.updateMany({
+          where: { lcId: lcId },
+          data: { lcId: null }
+        });
+
+        // Link new PIs
+        if (piIds.length > 0) {
+          const newPis = await tx.pI.findMany({ where: { id: { in: piIds } } });
+          const totalPIAmount = newPis.reduce((sum: number, pi: any) => sum + pi.amount, 0);
+          
+          const finalLCAmount = data.amount ? Number(data.amount) : existingLC.amount;
+          if (totalPIAmount > finalLCAmount) {
+            throw new Error(`Total PI amount (${totalPIAmount}) cannot exceed LC amount (${finalLCAmount})`);
+          }
+
+          await tx.pI.updateMany({
+            where: { id: { in: piIds } },
+            data: { lcId: lcId }
+          });
+        }
+      }
+
+      const updatedLC = await tx.lC.update({
+        where: { id: lcId },
+        data: {
+          ...data,
+          issueDate: data.issueDate ? new Date(data.issueDate) : undefined,
+          expiryDate: data.expiryDate ? new Date(data.expiryDate) : undefined,
+          amount: data.amount ? Number(data.amount) : undefined,
+          conversionRate: data.conversionRate ? Number(data.conversionRate) : undefined,
+          loanValue: data.loanValue ? Number(data.loanValue) : undefined,
+          customerId: data.customerId || undefined,
+          vendorId: data.vendorId || undefined,
+          receivedDate: data.receivedDate ? new Date(data.receivedDate) : undefined
+        }
+      });
+
+      return updatedLC;
     });
 
-    return reply.send({ success: true, data: lc });
+    return reply.send({ success: true, data: result });
   }
 
   async deleteLC(request: FastifyRequest, reply: FastifyReply) {

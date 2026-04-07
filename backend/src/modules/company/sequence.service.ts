@@ -12,7 +12,7 @@ export class SequenceService {
    */
   static async generateDocumentNumber(
     companyId: string,
-    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product',
+    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product' | 'employee',
     prismaOverride?: any
   ): Promise<string> {
     const client = prismaOverride || prisma;
@@ -25,6 +25,7 @@ export class SequenceService {
       customer: 'CUS',
       vendor: 'VEN',
       product: 'PRD',
+      employee: 'EMP',
     };
 
     const prefix = prefixes[type];
@@ -58,6 +59,9 @@ export class SequenceService {
       case 'product':
         count = await (client as any).product.count({ where: { companyId, code: { startsWith: prefixYear } } });
         break;
+      case 'employee':
+        count = await client.employee.count({ where: { companyId, employeeCode: { startsWith: prefixYear } } });
+        break;
     }
 
     // Step 2: Find the first free slot (handles gaps from deletions / data migrations)
@@ -70,7 +74,7 @@ export class SequenceService {
 
       switch (type) {
         case 'invoice':
-          alreadyExists = !!(await client.invoice.findUnique({ where: { invoiceNumber: candidate } }));
+          alreadyExists = !!(await client.invoice.findUnique({ where: { companyId_invoiceNumber: { companyId, invoiceNumber: candidate } } }));
           break;
         case 'journal':
           alreadyExists = !!(await client.journalEntry.findUnique({ where: { entryNumber: candidate } }));
@@ -92,6 +96,9 @@ export class SequenceService {
           break;
         case 'product':
           alreadyExists = !!(await (client as any).product.findUnique({ where: { companyId_code: { companyId, code: candidate } } }));
+          break;
+        case 'employee':
+          alreadyExists = !!(await client.employee.findUnique({ where: { employeeCode: candidate } }));
           break;
       }
 

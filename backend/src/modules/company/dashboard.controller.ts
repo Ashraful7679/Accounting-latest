@@ -159,27 +159,32 @@ export class DashboardController {
 
       // Revenue Calculation helper
       const getRevenue = async (from?: Date, to?: Date) => {
-        const where: any = {
-          journalEntry: {
-            companyId,
-            status: 'APPROVED',
-          },
-          account: {
-            OR: [
-              { accountType: { name: 'INCOME' } },
-              { accountType: { name: 'REVENUE' } },
-              { category: 'REVENUE' }
-            ]
+        try {
+          const where: any = {
+            journalEntry: {
+              companyId,
+              status: 'APPROVED',
+            },
+            account: {
+              OR: [
+                { accountType: { name: 'INCOME' } },
+                { accountType: { name: 'REVENUE' } },
+                { category: 'REVENUE' }
+              ]
+            }
+          };
+          if (from || to) {
+            where.journalEntry.date = {};
+            if (from) where.journalEntry.date.gte = from;
+            if (to) where.journalEntry.date.lte = to;
           }
-        };
-        if (from || to) {
-          where.journalEntry.date = {};
-          if (from) where.journalEntry.date.gte = from;
-          if (to) where.journalEntry.date.lte = to;
-        }
 
-        const lines = await prisma.journalEntryLine.findMany({ where });
-        return lines.reduce((sum: number, l: any) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
+          const lines = await prisma.journalEntryLine.findMany({ where });
+          return lines.reduce((sum: number, l: any) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
+        } catch (e) {
+          console.error('Error calculating revenue:', e);
+          return 0;
+        }
       };
 
       const totalRevenue = await getRevenue();
@@ -193,40 +198,39 @@ export class DashboardController {
         growthPercent = 100;
       }
 
-      // Cash & Bank (Dynamic from Ledger) - Using Category and Children
-      const cashBankAccounts = await prisma.account.findMany({
-        where: {
-          companyId,
-          OR: [
-            { category: 'CASH' },
-            { category: 'BANK' }
-          ]
-        }
-      });
+      // Cash & Bank (Dynamic from Ledger) - Using Category
+      let allCashBankIds: string[] = [];
       
-      const getAllAccountIds = (accounts: any[]): string[] => {
-        const ids: string[] = [];
-        const collect = (accs: any[]) => {
-          for (const acc of accs) {
-            ids.push(acc.id);
-            if (acc.children && acc.children.length > 0) {
-              collect(acc.children);
-            }
+      try {
+        const cashBankAccounts = await prisma.account.findMany({
+          where: {
+            companyId,
+            OR: [
+              { category: 'CASH' },
+              { category: 'BANK' }
+            ]
           }
-        };
-        collect(accounts);
-        return ids;
-      };
+        });
+        
+        allCashBankIds = cashBankAccounts.map((a: any) => a.id);
+      } catch (e) {
+        console.error('Error fetching cash accounts:', e);
+      }
       
-      const allCashBankIds = getAllAccountIds(cashBankAccounts);
-      
-      const cashLines = await prisma.journalEntryLine.findMany({
-        where: {
-          journalEntry: { companyId, status: 'APPROVED' },
-          accountId: { in: allCashBankIds }
+      let cashBalance = 0;
+      if (allCashBankIds.length > 0) {
+        try {
+          const cashLines = await prisma.journalEntryLine.findMany({
+            where: {
+              journalEntry: { companyId, status: 'APPROVED' },
+              accountId: { in: allCashBankIds }
+            }
+          });
+          cashBalance = cashLines.reduce((sum: number, l: any) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
+        } catch (e) {
+          console.error('Error calculating cash balance:', e);
         }
-      });
-      const cashBalance = cashLines.reduce((sum: number, l: any) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
+      }
 
       // Receivables (Dynamic from Ledger)
       const recLines = await prisma.journalEntryLine.findMany({

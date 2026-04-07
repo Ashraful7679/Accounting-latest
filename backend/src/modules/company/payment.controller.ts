@@ -135,8 +135,14 @@ export class PaymentController {
 
   async listPayments(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
+    const { method, status } = request.query as { method?: string; status?: string };
+    
+    const where: any = { companyId };
+    if (method) where.method = method;
+    if (status) where.status = status;
+
     const payments = await (prisma as any).payment.findMany({
-      where: { companyId },
+      where,
       include: { 
         invoice: true, 
         bill: true, 

@@ -15,7 +15,7 @@ export class VendorRepository {
           orderBy: { createdAt: 'desc' }
         });
       } catch (error) {
-        console.error('Vendor search failed, falling back to mock');
+        console.error('Vendor search failed, falling back to mock:', error);
       }
     }
     return demoVendors;
@@ -27,7 +27,7 @@ export class VendorRepository {
       try {
         return await client.vendor.create({ data });
       } catch (error) {
-        console.error('Vendor creation failed');
+        console.error('Vendor creation failed:', error);
       }
     }
     return { ...data, id: `offline-${Date.now()}` };

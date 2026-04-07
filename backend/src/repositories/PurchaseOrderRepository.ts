@@ -40,8 +40,6 @@ export class PurchaseOrderRepository {
     }
     return null;
   }
-    return null;
-  }
 
   static async create(data: any) {
     const { lines, ...poData } = data;

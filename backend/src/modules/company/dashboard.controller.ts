@@ -435,7 +435,7 @@ export class DashboardController {
       });
       const buyerDistribution = buyers.map((b: any) => ({
         name: b.name,
-        value: Math.abs(b.journalLines.reduce((sum: number, l: any) => sum + (l.creditBase - l.debitBase), 0))
+        value: Math.abs(b.journalLines.reduce((sum: number, l: any) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0))
       })).filter((b: any) => b.value > 0).sort((a: any, b: any) => b.value - a.value);
 
       // --- New: Revenue vs Expense Bar Chart Data (Last 6 Months) ---

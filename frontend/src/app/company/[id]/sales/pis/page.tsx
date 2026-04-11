@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 
 import { useEffect, useState } from 'react';
@@ -417,7 +417,7 @@ export default function ExportPIsPage() {
                           <span className="font-mono font-bold text-slate-900">{pi.amount?.toLocaleString()} {pi.currency}</span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <span className="font-mono font-black text-slate-900">à§³ {pi.totalBDT?.toLocaleString()}</span>
+                          <span className="font-mono font-black text-slate-900">৳ {pi.totalBDT?.toLocaleString()}</span>
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1 text-[10px] uppercase tracking-tighter rounded-full ${getStatusBadge(pi.status)}`}>
@@ -572,7 +572,7 @@ export default function ExportPIsPage() {
                       </div>
                       <div className="pt-4 border-t border-slate-200">
                         <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Equivalent BDT</p>
-                        <p className="text-3xl font-black text-emerald-700 font-mono tracking-tight tabular-nums">à§³ {(calculateSubtotal() * formData.exchangeRate).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                        <p className="text-3xl font-black text-emerald-700 font-mono tracking-tight tabular-nums">৳ {(calculateSubtotal() * formData.exchangeRate).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                       </div>
                     </div>
                   </div>

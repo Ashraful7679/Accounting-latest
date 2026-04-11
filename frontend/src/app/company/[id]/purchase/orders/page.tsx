@@ -733,7 +733,7 @@ export default function PurchaseOrdersPage() {
                       </div>
                       <div className="flex items-center gap-12">
                         <span className="text-xs font-bold uppercase tracking-widest text-emerald-600">Total BDT Est.</span>
-                        <span className="text-2xl font-black text-emerald-600 font-mono">à§³ {(subtotal * formData.exchangeRate).toLocaleString()}</span>
+                        <span className="text-2xl font-black text-emerald-600 font-mono">৳ {(subtotal * formData.exchangeRate).toLocaleString()}</span>
                       </div>
                     </div>
                   </div>

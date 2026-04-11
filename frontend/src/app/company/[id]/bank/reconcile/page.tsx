@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 
 import { useEffect, useState } from 'react';
@@ -52,7 +52,7 @@ export default function BankReconcilePage() {
         accountId: selectedAccountId,
         ...filters 
       }).toString();
-      return api.get(`/company/${companyId}/bank/reconcile-lines?${queryParams}`).then(res => res.data.data);
+      return api.get(`/company/${companyId}/bank/reconcile-lines?${queryParams}`).then(res => res.data.data.lines);
     },
     enabled: !!selectedAccountId
   });

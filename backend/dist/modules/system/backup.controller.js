@@ -29,15 +29,20 @@ class BackupController {
             console.log(`Starting DB backup to ${dbBackupFile}...`);
             await execAsync(`pg_dump "${dbUrl}" --no-password > "${dbBackupFile}"`);
             // 2. Zip Database + Uploads
-            // Using PowerShell's Compress-Archive which is standard on Windows
+            const password = process.env.BACKUP_PASSWORD ? `-p"${process.env.BACKUP_PASSWORD}"` : '';
             console.log(`Creating unified archive at ${finalZipFile}...`);
-            // Constructing paths for PowerShell (handling spaces)
-            const psCommand = `Compress-Archive -Path "${dbBackupFile}", "${uploadsDir}" -DestinationPath "${finalZipFile}" -Force`;
-            await execAsync(`powershell -Command "${psCommand}"`);
+            if (process.platform === 'win32') {
+                const srcList = `"${dbBackupFile}" "${uploadsDir}"`;
+                await execAsync(`7z a -tzip -mx=9 ${password} "${finalZipFile}" ${srcList}`);
+            }
+            else {
+                await execAsync(`zip -r "${finalZipFile}" "${dbBackupFile}" "${uploadsDir}"`);
+            }
             // 3. Clean up the SQL dump (it's inside the zip now)
             if (fs_1.default.existsSync(dbBackupFile)) {
                 fs_1.default.unlinkSync(dbBackupFile);
             }
+            await this.cleanupOldBackups(backupDir);
             // 4. Log the backup
             const stats = fs_1.default.statSync(finalZipFile);
             await database_1.default.backupLog.create({
@@ -71,6 +76,30 @@ class BackupController {
                 message: 'Integrated backup failed. Ensure pg_dump is in your system PATH.',
                 error: error.message
             });
+        }
+    }
+    async cleanupOldBackups(backupDir) {
+        try {
+            if (!fs_1.default.existsSync(backupDir))
+                return;
+            const files = fs_1.default.readdirSync(backupDir)
+                .filter(f => f.startsWith('backup-unified-') && f.endsWith('.zip'))
+                .map(f => ({
+                name: f,
+                path: path_1.default.join(backupDir, f),
+                time: fs_1.default.statSync(path_1.default.join(backupDir, f)).mtime.getTime()
+            }))
+                .sort((a, b) => b.time - a.time);
+            const keepCount = 10;
+            if (files.length > keepCount) {
+                const toDelete = files.slice(keepCount);
+                for (const file of toDelete) {
+                    fs_1.default.unlinkSync(file.path);
+                }
+            }
+        }
+        catch (err) {
+            console.error('System backup cleanup failed:', err);
         }
     }
     async listBackups(request, reply) {

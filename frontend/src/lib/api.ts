@@ -1,4 +1,5 @@
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 let API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.hurainjannatoyshee.com/api';
 if (!API_URL.endsWith('/api')) {
@@ -22,10 +23,26 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Show detailed error notification
+const showDetailedError = (error: any) => {
+  const errorData = error.response?.data?.error;
+  const serverMessage = error.response?.data?.message;
+  const statusCode = error.response?.status;
+  const message = errorData?.message || serverMessage || error.message || 'An error occurred';
+  const code = errorData?.code;
+  const details = errorData?.details;
+
+  let displayMessage = message;
+  if (statusCode) displayMessage += ` [${statusCode}]`;
+  if (code) displayMessage += ` (${code})`;
+  if (details) displayMessage += ` - ${JSON.stringify(details).substring(0, 100)}`;
+
+  toast.error(displayMessage, { duration: 5000 });
+};
+
 // Handle auth errors and system mode detection
 api.interceptors.response.use(
   (response) => {
-    // Detect system mode from headers
     const systemMode = response.headers['x-system-mode'];
     if (systemMode) {
       window.dispatchEvent(new CustomEvent('system-mode-change', { detail: systemMode }));
@@ -39,11 +56,12 @@ api.interceptors.response.use(
       window.location.href = '/login';
     }
     
-    // Even on error, check if we have a system mode header
     const systemMode = error.response?.headers?.['x-system-mode'];
     if (systemMode) {
       window.dispatchEvent(new CustomEvent('system-mode-change', { detail: systemMode }));
     }
+
+    showDetailedError(error);
     
     return Promise.reject(error);
   }

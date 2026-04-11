@@ -12,6 +12,29 @@ const path_1 = __importDefault(require("path"));
 const stream_1 = require("stream");
 const util_1 = require("util");
 const pump = (0, util_1.promisify)(stream_1.pipeline);
+const PERMISSION_MODULES = [
+    'journals', 'invoices', 'bills', 'payments', 'purchase_orders',
+    'customers', 'vendors', 'accounts', 'reports', 'employees',
+    'lc', 'pi', 'loans', 'products', 'attachments',
+    'employee_advances', 'employee_loans', 'employee_expenses',
+];
+const ROLE_PERMISSIONS = {
+    User: { canCreate: false, canView: true, canVerify: false, canApprove: false },
+    Accountant: { canCreate: true, canView: true, canVerify: false, canApprove: false },
+    Manager: { canCreate: true, canView: true, canVerify: true, canApprove: false },
+    Owner: { canCreate: true, canView: true, canVerify: true, canApprove: true },
+    Admin: { canCreate: true, canView: true, canVerify: true, canApprove: true },
+};
+async function seedDefaultPermissions(userId, roleName) {
+    const perms = ROLE_PERMISSIONS[roleName];
+    if (!perms)
+        return; // Unknown role — skip
+    await Promise.all(PERMISSION_MODULES.map((module) => database_1.default.userPermission.upsert({
+        where: { userId_module: { userId, module } },
+        update: perms,
+        create: { userId, module, ...perms },
+    })));
+}
 class OwnerController {
     // Get companies assigned to this owner
     async getMyCompanies(request, reply) {
@@ -171,6 +194,8 @@ class OwnerController {
                 });
             }
         }
+        // Seed full Owner permissions
+        await seedDefaultPermissions(owner.id, 'Owner');
         const ownerId = owner.id;
         // Check 100% ownership cap
         const companyOwners = await database_1.default.userCompany.findMany({
@@ -287,6 +312,16 @@ class OwnerController {
         const existing = await database_1.default.company.findUnique({ where: { code } });
         if (existing) {
             throw new errorHandler_1.ConflictError('Company code already exists');
+        }
+        const user = await database_1.default.user.findUnique({
+            where: { id: userId },
+            include: { userCompanies: true }
+        });
+        if (user) {
+            const mainBaseCompanies = user.userCompanies.filter(c => c.isMainOwner).length;
+            if (mainBaseCompanies >= user.maxCompanies) {
+                throw new errorHandler_1.ForbiddenError(`You have reached your limit of ${user.maxCompanies} companies.`);
+            }
         }
         const company = await database_1.default.company.create({
             data: {
@@ -502,6 +537,12 @@ class OwnerController {
             },
             include: { userRoles: { include: { role: true } }, userCompanies: { include: { company: true } } }
         });
+        // Seed default permissions for the assigned role
+        if (roleId) {
+            const roleName = user.userRoles[0]?.role?.name;
+            if (roleName)
+                await seedDefaultPermissions(user.id, roleName);
+        }
         const { password: _, ...userWithoutPassword } = user;
         return reply.status(201).send({ success: true, data: userWithoutPassword });
     }
@@ -540,10 +581,13 @@ class OwnerController {
             where: { id },
             data: updateData,
         });
-        // Update role if provided
+        // Update role if provided and re-seed permissions for the new role
         if (roleId) {
             await database_1.default.userRole.deleteMany({ where: { userId: id } });
             await database_1.default.userRole.create({ data: { userId: id, roleId } });
+            const role = await database_1.default.role.findUnique({ where: { id: roleId } });
+            if (role)
+                await seedDefaultPermissions(id, role.name);
         }
         // Update companies if provided
         if (companyIds) {
@@ -560,6 +604,33 @@ class OwnerController {
         }
         const { password: _, ...userWithoutPassword } = updatedUser;
         return reply.send({ success: true, data: userWithoutPassword });
+    }
+    // Sync default permissions for ALL existing users based on their current role (run once)
+    async syncAllPermissions(request, reply) {
+        const userId = request.user.id;
+        // Only owner/admin of at least one company can run this
+        const ownerCompanies = await database_1.default.userCompany.findMany({
+            where: { userId },
+            select: { companyId: true },
+        });
+        if (ownerCompanies.length === 0) {
+            return reply.status(403).send({ success: false, error: { message: 'Access denied' } });
+        }
+        // Get all users in the owner's companies
+        const companyIds = ownerCompanies.map((c) => c.companyId);
+        const users = await database_1.default.user.findMany({
+            where: { userCompanies: { some: { companyId: { in: companyIds } } } },
+            include: { userRoles: { include: { role: true } } },
+        });
+        let synced = 0;
+        for (const u of users) {
+            const roleName = u.userRoles[0]?.role?.name;
+            if (roleName) {
+                await seedDefaultPermissions(u.id, roleName);
+                synced++;
+            }
+        }
+        return reply.send({ success: true, message: `Permissions synced for ${synced} user(s)` });
     }
     // Update employee permissions
     async updateEmployeePermissions(request, reply) {

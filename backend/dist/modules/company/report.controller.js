@@ -5,275 +5,220 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReportController = void 0;
 const database_1 = __importDefault(require("../../config/database"));
-const ReportRepository_1 = require("../../repositories/ReportRepository");
-class ReportController {
-    // Generic filter builder for Ledger Lines
-    buildLineFilters(query) {
-        const { startDate, endDate, branchId, projectId, costCenterId, customerId, vendorId } = query;
-        const where = {
-            journalEntry: { status: 'APPROVED' }
-        };
-        if (startDate || endDate) {
-            where.journalEntry.date = {};
-            if (startDate)
-                where.journalEntry.date.gte = new Date(startDate);
-            if (endDate)
-                where.journalEntry.date.lte = new Date(endDate);
-        }
-        if (branchId)
-            where.branchId = branchId;
-        if (projectId)
-            where.projectId = projectId;
-        if (costCenterId)
-            where.costCenterId = costCenterId;
-        if (customerId)
-            where.customerId = customerId;
-        if (vendorId)
-            where.vendorId = vendorId;
-        return where;
+const base_controller_1 = require("./base.controller");
+class ReportController extends base_controller_1.BaseCompanyController {
+    async getDashboardStats(request, reply) {
+        const { id: companyId } = request.params;
+        const [balanceSheet, pnl, cashflow] = await Promise.all([
+            this._calculateBalanceSheet(companyId),
+            this._calculatePnL(companyId),
+            this._calculateCashFlow(companyId)
+        ]);
+        return reply.send({
+            success: true,
+            data: {
+                totalAssets: balanceSheet.totalAssets,
+                totalLiabilities: balanceSheet.totalLiabilities,
+                netProfit: pnl.netProfit,
+                cashBalance: cashflow.endingCash
+            }
+        });
+    }
+    async getAccountBalances(request, reply) {
+        const { id: companyId } = request.params;
+        const accounts = await database_1.default.account.findMany({
+            where: { companyId },
+            include: { accountType: true }
+        });
+        return reply.send({ success: true, data: accounts });
     }
     async getTrialBalance(request, reply) {
         const { id: companyId } = request.params;
-        const filters = this.buildLineFilters(request.query);
-        const data = await ReportRepository_1.ReportRepository.getTrialBalance(companyId, filters);
+        const accounts = await database_1.default.account.findMany({
+            where: { companyId },
+            orderBy: { code: 'asc' }
+        });
+        return reply.send({ success: true, data: accounts });
+    }
+    async getLedger(request, reply) {
+        const { id: companyId } = request.params;
+        const { accountId, startDate, endDate } = request.query;
+        const query = {
+            where: {
+                accountId,
+                journalEntry: {
+                    companyId,
+                    status: 'APPROVED',
+                    ...(startDate || endDate ? {
+                        date: {
+                            ...(startDate ? { gte: new Date(startDate) } : {}),
+                            ...(endDate ? { lte: new Date(endDate) } : {}),
+                        }
+                    } : {})
+                }
+            },
+            include: {
+                journalEntry: true
+            },
+            orderBy: {
+                journalEntry: { date: 'asc' }
+            }
+        };
+        const lines = await database_1.default.journalEntryLine.findMany(query);
+        let runningBalance = 0;
+        const data = lines.map(line => {
+            const effect = line.debit - line.credit;
+            runningBalance += effect;
+            return {
+                id: line.id,
+                date: line.journalEntry.date,
+                reference: line.journalEntry.entryNumber,
+                description: line.description || line.journalEntry.description,
+                debit: line.debit,
+                credit: line.credit,
+                balance: runningBalance
+            };
+        });
         return reply.send({ success: true, data });
     }
     async getProfitLoss(request, reply) {
         const { id: companyId } = request.params;
-        const filters = this.buildLineFilters(request.query);
-        const accounts = await database_1.default.account.findMany({
-            where: {
-                companyId,
-                accountType: { name: { in: ['INCOME', 'EXPENSE'] } },
-                isActive: true
-            },
-            include: {
-                accountType: true,
-                journalLines: { where: filters }
-            }
-        });
-        const income = [];
-        const expenses = [];
-        let totalIncome = 0;
-        let totalExpense = 0;
-        for (const acc of accounts) {
-            const debitTotal = acc.journalLines.reduce((sum, l) => sum + l.debitBase, 0);
-            const creditTotal = acc.journalLines.reduce((sum, l) => sum + l.creditBase, 0);
-            const balance = Math.abs(creditTotal - debitTotal);
-            if (acc.accountType.name === 'INCOME') {
-                income.push({ name: acc.name, amount: balance });
-                totalIncome += balance;
-            }
-            else {
-                expenses.push({ name: acc.name, amount: balance });
-                totalExpense += balance;
-            }
-        }
-        return reply.send({
-            success: true,
-            data: {
-                income,
-                expenses,
-                totalIncome,
-                totalExpense,
-                netProfit: totalIncome - totalExpense
-            }
-        });
+        const pnl = await this._calculatePnL(companyId);
+        return reply.send({ success: true, data: pnl });
     }
     async getBalanceSheet(request, reply) {
         const { id: companyId } = request.params;
-        const filters = this.buildLineFilters(request.query);
-        const bsFilters = { ...filters };
-        delete bsFilters.journalEntry?.date?.gte; // Balance sheet is cumulative, ignore startDate for transactions
-        const accounts = await database_1.default.account.findMany({
-            where: {
-                companyId,
-                accountType: { name: { in: ['ASSET', 'LIABILITY', 'EQUITY'] } },
-                isActive: true
-            },
-            include: {
-                accountType: true,
-                journalLines: { where: bsFilters }
-            }
-        });
-        // Also get Net Profit for Retained Earnings
-        const plAccounts = await database_1.default.account.findMany({
-            where: {
-                companyId,
-                accountType: { name: { in: ['INCOME', 'EXPENSE'] } },
-                isActive: true
-            },
-            include: {
-                accountType: true,
-                journalLines: { where: bsFilters }
-            }
-        });
-        let totalIncome = 0;
-        let totalExpense = 0;
-        for (const acc of plAccounts) {
-            const debitTotal = acc.journalLines.reduce((sum, l) => sum + l.debitBase, 0);
-            const creditTotal = acc.journalLines.reduce((sum, l) => sum + l.creditBase, 0);
-            if (acc.accountType.name === 'INCOME')
-                totalIncome += (creditTotal - debitTotal);
-            else
-                totalExpense += (debitTotal - creditTotal);
-        }
-        const retainedEarnings = totalIncome - totalExpense;
-        const assets = [];
-        const liabilities = [];
-        const equity = [];
-        for (const acc of accounts) {
-            const debitTotal = acc.journalLines.reduce((sum, l) => sum + l.debitBase, 0);
-            const creditTotal = acc.journalLines.reduce((sum, l) => sum + l.creditBase, 0);
-            let balance = 0;
-            if (acc.accountType.type === 'DEBIT') {
-                balance = (acc.openingBalance || 0) + debitTotal - creditTotal;
-            }
-            else {
-                balance = (acc.openingBalance || 0) + creditTotal - debitTotal;
-            }
-            const item = { name: acc.name, balance: balance }; // Keep negative balances for contras
-            if (acc.accountType.name === 'ASSET')
-                assets.push(item);
-            else if (acc.accountType.name === 'LIABILITY')
-                liabilities.push(item);
-            else
-                equity.push(item);
-        }
-        equity.push({ name: 'Retained Earnings (Net Profit)', balance: retainedEarnings });
-        return reply.send({
-            success: true,
-            data: { assets, liabilities, equity }
-        });
+        const bs = await this._calculateBalanceSheet(companyId);
+        return reply.send({ success: true, data: bs });
     }
     async getAgingReport(request, reply) {
         const { id: companyId } = request.params;
         const { type } = request.query;
-        const entities = type === 'CUSTOMER'
-            ? await database_1.default.customer.findMany({ where: { companyId }, include: { journalLines: { include: { account: { include: { accountType: true } } } } } })
-            : await database_1.default.vendor.findMany({ where: { companyId }, include: { journalLines: { include: { account: { include: { accountType: true } } } } } });
-        const data = entities.map(e => {
-            const balance = e.journalLines.reduce((sum, l) => {
-                return sum + (l.account.accountType.type === 'DEBIT' ? (l.debitBase - l.creditBase) : (l.creditBase - l.debitBase));
-            }, 0);
-            return {
-                id: e.id,
-                name: e.name,
-                balance,
-                // Simplified aging for now (could expand with date buckets)
-                dueCurrent: balance > 0 ? balance : 0,
-                due30: 0,
-                due60: 0,
-                due90Plus: 0
-            };
-        }).filter(d => d.balance !== 0);
-        return reply.send({ success: true, data });
+        const invoices = await database_1.default.invoice.findMany({
+            where: {
+                companyId,
+                type: type === 'AP' ? 'PURCHASE' : 'SALE',
+                status: { in: ['APPROVED', 'PARTIALLY_PAID'] }
+            },
+            include: {
+                customer: true,
+                vendor: true,
+                payments: true
+            }
+        });
+        const buckets = {
+            current: 0,
+            '1-30': 0,
+            '31-60': 0,
+            '61-90': 0,
+            '90+': 0
+        };
+        invoices.forEach(inv => {
+            const paid = inv.payments.reduce((sum, p) => sum + p.amount, 0);
+            const balance = inv.total - paid;
+            if (balance <= 0)
+                return;
+            const dueDate = inv.dueDate || inv.invoiceDate;
+            const daysOverdue = Math.floor((new Date().getTime() - new Date(dueDate).getTime()) / (1000 * 3600 * 24));
+            if (daysOverdue <= 0)
+                buckets.current += balance;
+            else if (daysOverdue <= 30)
+                buckets['1-30'] += balance;
+            else if (daysOverdue <= 60)
+                buckets['31-60'] += balance;
+            else if (daysOverdue <= 90)
+                buckets['61-90'] += balance;
+            else
+                buckets['90+'] += balance;
+        });
+        return reply.send({ success: true, data: buckets });
     }
     async searchReceivables(request, reply) {
         const { id: companyId } = request.params;
-        const userId = request.user.id;
-        const { customerName, reference, minAmount, maxAmount, startDate, endDate, branchId, status } = request.query;
-        // 1. Permission Check
-        const isAdmin = request.user.isAdmin;
-        let userCompany = await database_1.default.userCompany.findUnique({
-            where: { userId_companyId: { userId, companyId } },
-            include: { user: { include: { userRoles: { include: { role: true } } } } }
-        });
-        const user = await database_1.default.user.findUnique({
-            where: { id: userId },
-            include: { userRoles: { include: { role: true } } }
-        });
-        const isGlobalOwner = user?.userRoles.some((ur) => ur.role.name === 'Owner');
-        if (!userCompany && !isAdmin && !isGlobalOwner) {
-            return reply.status(403).send({ success: false, message: 'Access denied: You are not a member of this company' });
-        }
-        let role = 'User';
-        if (userCompany) {
-            role = userCompany.user.userRoles[0]?.role.name || 'User';
-        }
-        else {
-            role = isGlobalOwner ? 'Owner' : 'Admin';
-        }
-        // 2. Build Permission Filters (Branch lock, etc.)
-        // If user is 'User' role, they might be locked to a specific branch (this logic could be expanded)
-        // 3. Build Query Filters
-        const where = {
-            journalEntry: {
+        const { query, type } = request.query;
+        const invoices = await database_1.default.invoice.findMany({
+            where: {
                 companyId,
-                status: status || 'APPROVED' // Default to approved unless specified
+                type: type === 'PURCHASE' ? 'PURCHASE' : 'SALE',
+                status: { in: ['APPROVED', 'PARTIALLY_PAID'] },
+                OR: query ? [
+                    { invoiceNumber: { contains: query, mode: 'insensitive' } },
+                    { customer: { name: { contains: query, mode: 'insensitive' } } },
+                    { vendor: { name: { contains: query, mode: 'insensitive' } } }
+                ] : undefined
             },
-            account: {
-                accountType: { name: 'RECEIVABLE' }
-            }
-        };
-        if (customerName) {
-            where.customer = { name: { contains: customerName, mode: 'insensitive' } };
-        }
-        if (reference) {
-            where.journalEntry.reference = { contains: reference, mode: 'insensitive' };
-        }
-        if (startDate || endDate) {
-            where.journalEntry.date = {};
-            if (startDate)
-                where.journalEntry.date.gte = new Date(startDate);
-            if (endDate)
-                where.journalEntry.date.lte = new Date(endDate);
-        }
-        if (branchId)
-            where.branchId = branchId;
-        if (minAmount || maxAmount) {
-            where.debitBase = {};
-            if (minAmount)
-                where.debitBase.gte = parseFloat(minAmount);
-            if (maxAmount)
-                where.debitBase.lte = parseFloat(maxAmount);
-        }
-        const lines = await database_1.default.journalEntryLine.findMany({
-            where,
             include: {
-                journalEntry: true,
                 customer: true,
-                account: true,
-                branch: true
+                vendor: true,
+                payments: true
             },
-            orderBy: { journalEntry: { date: 'desc' } }
+            orderBy: { createdAt: 'desc' }
         });
-        // 4. Role-based result modification (Owner/Accountant see all, others might see masked data)
-        const isPowerful = ['Owner', 'Accountant', 'Admin'].includes(role);
-        // If not powerful, maybe omit some sensitive details or system-level accounts (already filtered to RECEIVABLE)
-        // For now, returning as is, but structure is ready for masking.
-        return reply.send({ success: true, data: lines });
+        const results = invoices.map(inv => {
+            const paid = inv.payments.reduce((sum, p) => sum + p.amount, 0);
+            const balance = inv.total - paid;
+            return {
+                id: inv.id,
+                number: inv.invoiceNumber,
+                date: inv.invoiceDate,
+                entity: inv.customer?.name || inv.vendor?.name || 'Unknown',
+                total: inv.total,
+                paid,
+                balance,
+                daysOverdue: Math.floor((new Date().getTime() - new Date(inv.dueDate || inv.invoiceDate).getTime()) / (1000 * 3600 * 24))
+            };
+        }).filter(r => r.balance > 0);
+        return reply.send({ success: true, data: results });
     }
     async getLCLiability(request, reply) {
         const { id: companyId } = request.params;
         const lcs = await database_1.default.lC.findMany({
-            where: { companyId, status: 'OPEN' }
-        });
-        // In a real system, you'd match these with payment vouchers
-        return reply.send({ success: true, data: lcs });
-    }
-    async getLedger(request, reply) {
-        const { id: companyId } = request.params;
-        const { accountId } = request.query;
-        const filters = this.buildLineFilters(request.query);
-        if (accountId)
-            filters.accountId = accountId;
-        const journals = await database_1.default.journalEntryLine.findMany({
             where: {
-                ...filters,
-                journalEntry: { ...filters.journalEntry, companyId }
-            },
-            include: {
-                journalEntry: {
-                    include: { createdBy: { select: { firstName: true, lastName: true } } }
-                },
-                account: true,
-                project: true,
-                branch: true
-            },
-            orderBy: { journalEntry: { date: 'asc' } }
+                companyId,
+                status: { in: ['OPEN', 'AMENDED'] }
+            }
         });
-        return reply.send({ success: true, data: journals });
+        const totalLiability = lcs.reduce((sum, lc) => sum + lc.amount, 0);
+        const count = lcs.length;
+        return reply.send({
+            success: true,
+            data: {
+                totalLiability,
+                count,
+                lcs: lcs.map(lc => ({
+                    id: lc.id,
+                    number: lc.lcNumber,
+                    type: lc.type,
+                    amount: lc.amount,
+                    expiryDate: lc.expiryDate,
+                    bank: lc.bankName
+                }))
+            }
+        });
+    }
+    async _calculateBalanceSheet(companyId) {
+        const accounts = await database_1.default.account.findMany({ where: { companyId } });
+        return {
+            totalAssets: accounts.filter(a => a.code.startsWith('1')).reduce((s, a) => s + a.currentBalance, 0),
+            totalLiabilities: accounts.filter(a => a.code.startsWith('2')).reduce((s, a) => s + a.currentBalance, 0),
+            totalEquity: accounts.filter(a => a.code.startsWith('3')).reduce((s, a) => s + a.currentBalance, 0),
+        };
+    }
+    async _calculatePnL(companyId) {
+        const accounts = await database_1.default.account.findMany({ where: { companyId } });
+        const revenue = accounts.filter(a => a.code.startsWith('4')).reduce((s, a) => s + a.currentBalance, 0);
+        const expenses = accounts.filter(a => a.code.startsWith('5')).reduce((s, a) => s + a.currentBalance, 0);
+        return {
+            revenue,
+            expenses,
+            netProfit: revenue - expenses
+        };
+    }
+    async _calculateCashFlow(companyId) {
+        const accounts = await database_1.default.account.findMany({ where: { companyId, category: { in: ['CASH', 'BANK'] } } });
+        return {
+            endingCash: accounts.reduce((s, a) => s + a.currentBalance, 0)
+        };
     }
 }
 exports.ReportController = ReportController;

@@ -3,6 +3,9 @@ export declare class BackupController {
     private BACKUP_DIR;
     constructor();
     private getDbConfig;
+    private createModuleBackup;
+    private createZipWithUploads;
+    private cleanupOldBackups;
     generateBackup(request: FastifyRequest, reply: FastifyReply): Promise<never>;
     getBackups(request: FastifyRequest, reply: FastifyReply): Promise<never>;
     downloadBackup(request: FastifyRequest, reply: FastifyReply): Promise<never>;

@@ -1,6 +1,8 @@
 node_modules/
 .env
 .env.*
+.next/
+dist/
 *.log
 .vscode/
 backend/node_modules/
@@ -14,10 +16,18 @@ node_modules
 .env.development
 .env.production
 build
+backend/backups/
+backend/uploads/
 frontend/out/
 .next/
 # Allow backend dist and generated clients for Namecheap deployment
 !backend/dist/
 !backend/src/generated/client/
 !backend/node_modules/
-
+*.pack
+backend/src/generated.zip
+*.zip
+
+!backend/node_modules/
+
+Chapter 1 practice questions.pdf

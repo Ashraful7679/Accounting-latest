@@ -8,6 +8,6 @@ export declare class SequenceService {
      *  2. Loop and increment until we find a candidate that does NOT yet exist in the DB.
      *     This handles gaps, out-of-order inserts, and data migrations from older formats.
      */
-    static generateDocumentNumber(companyId: string, type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product', prismaOverride?: any): Promise<string>;
+    static generateDocumentNumber(companyId: string, type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product' | 'employee', prismaOverride?: any): Promise<string>;
 }
 //# sourceMappingURL=sequence.service.d.ts.map

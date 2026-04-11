@@ -2,7 +2,10 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+import { BASE_URL } from '@/lib/api';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -18,6 +21,31 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       })
   );
+
+  const router = useRouter();
+
+  useEffect(() => {
+    const HEARTBEAT_INTERVAL = 14 * 60 * 1000; // 14 minutes
+    
+    const heartbeat = async () => {
+      try {
+        await fetch(`${BASE_URL}/health`, { 
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          keepalive: true 
+        });
+      } catch (error) {
+        console.log('Heartbeat ping failed', error);
+      }
+    };
+
+    // Initial ping
+    heartbeat();
+
+    const intervalId = setInterval(heartbeat, HEARTBEAT_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

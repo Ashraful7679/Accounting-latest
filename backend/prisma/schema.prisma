@@ -209,7 +209,11 @@ model LC {
   // New Fields for Loan Control
   loanType        String    @default("NONE") // NONE, PERCENTAGE, FIXED
   loanValue       Float     @default(0)
-  
+
+  // Margin & Commission (GL automation)
+  marginPercentage  Float   @default(0) // Bank margin deposit % (e.g., 10-20%)
+  commissionRate    Float   @default(0) // Bank LC commission % (e.g., 0.25-0.5%)
+
   // Shipment Info
   shipmentDate    DateTime?
   portOfLoading   String?
@@ -341,6 +345,7 @@ model Account {
   // Controls
   allowNegative  Boolean  @default(false)
   category       String?  // CASH, BANK, AR, AP, etc.
+  referenceId    String?  // Links to Vendor/Customer ID
   
   company       Company        @relation(fields: [companyId], references: [id])
   accountType   AccountType    @relation(fields: [accountTypeId], references: [id])
@@ -426,6 +431,7 @@ model Customer {
   balanceType   String?  // DR, CR
   creditLimit   Float?
   preferredCurrency String @default("BDT")
+  exchangeRate  Float   @default(1)
   paymentTerms  String @default("COD") // COD, CREDIT, ADVANCE, DO_DUE
 
   company     Company  @relation(fields: [companyId], references: [id])
@@ -461,6 +467,7 @@ model Vendor {
   balanceType   String?  // DR, CR
   creditLimit   Float?
   preferredCurrency String @default("BDT")
+  exchangeRate  Float   @default(1)
   paymentTerms  String @default("COD") // COD, CREDIT, ADVANCE, DO_DUE
 
   company     Company  @relation(fields: [companyId], references: [id])
@@ -536,24 +543,24 @@ model PurchaseOrderLine {
 // ============================================
 
 model Product {
-  id          String   @id @default(uuid())
-  code        String
-  name        String
-  companyId   String
-  sku         String?
-  description String?
-  unitPrice   Float    @default(0) // Price in specified currency
-  currency    String   @default("BDT")
-  exchangeRate Float   @default(1)
-  priceBDT    Float    @default(0) // Calculated BDT price
-  isActive    Boolean  @default(true)
-  company     Company  @relation(fields: [companyId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  invoiceLines   InvoiceLine[]
-  poLines        PurchaseOrderLine[]
-  piLines        PILine[]
+  id           String    @id @default(uuid())
+  code         String
+  name         String
+  companyId    String
+  sku          String?
+  description  String?
+  unitType     String    @default("PCS")         // e.g. PCS, KG, MTR, BOX, SET, PAIR
+  unitPrice    Float     @default(0)
+  isActive     Boolean   @default(true)
+  currency     String    @default("BDT")         // Actual product price in this currency
+  stockAmount  Float     @default(0)             // Current stock quantity
+  type         String    @default("Sales")       // Purchase | Sales
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  company      Company   @relation(fields: [companyId], references: [id])
+  invoiceLines InvoiceLine[]
+  poLines      PurchaseOrderLine[]
+  piLines      PILine[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -613,11 +620,11 @@ model Invoice {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   
+  @@unique([companyId, invoiceNumber])
   @@index([companyId])
   @@index([customerId])
   @@index([vendorId])
   @@index([status])
-  @@unique([companyId, invoiceNumber])
 }
 
 model InvoiceLine {
@@ -937,24 +944,6 @@ model PaymentPI {
 
 
 // ============================================
-// COMPANY SETTINGS (Global Controls)
-// ============================================
-
-model CompanySettings {
-  id                  String   @id @default(uuid())
-  companyId           String   @unique
-  disallowFutureDates Boolean  @default(true)
-  lockPreviousMonths  Boolean  @default(false)
-  approvalWorkflow    Boolean  @default(true)
-  
-  // Relations
-  company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-}
-
-// ============================================
 // EMPLOYEE MANAGEMENT
 // ============================================
 
@@ -991,7 +980,7 @@ model EmployeeAdvance {
   amount        Float
   purpose       String?
   date          DateTime
-  status        String   @default("DRAFT") // DRAFT, PENDING, APPROVED, PAID
+  status        String   @default("DRAFT") // DRAFT, PENDING_VERIFICATION, VERIFIED, APPROVED
   paymentMethod String?  // CASH, BANK
   accountId     String?  // Cash/Bank account used for payment
   journalEntryId String? // Linked journal entry after approval
@@ -1019,7 +1008,7 @@ model EmployeeLoan {
   installments    Int      @default(1)
   startDate       DateTime
   purpose         String?
-  status          String   @default("DRAFT") // DRAFT, APPROVED, ACTIVE, COMPLETED
+  status          String   @default("DRAFT") // DRAFT, PENDING_VERIFICATION, VERIFIED, APPROVED
   companyId       String
   
   employee        Employee @relation(fields: [employeeId], references: [id])
@@ -1040,7 +1029,7 @@ model EmployeeLoanRepayment {
   principalPaid Float
   interestPaid  Float
   paymentDate   DateTime
-  status        String   @default("DRAFT") // DRAFT, VERIFIED, APPROVED
+  status        String   @default("DRAFT") // DRAFT, PENDING_VERIFICATION, VERIFIED, APPROVED
   journalEntryId String? // Linked journal entry
   companyId     String
   
@@ -1062,7 +1051,7 @@ model EmployeeExpense {
   description   String?
   category      String   // SALARY, BONUS, OVERTIME, CONVEYANCE, FOOD, MEDICAL, OTHER
   date          DateTime
-  status        String   @default("DRAFT") // DRAFT, VERIFIED, APPROVED, PAID
+  status        String   @default("DRAFT") // DRAFT, PENDING_VERIFICATION, VERIFIED, APPROVED
   paymentMethod String?
   accountId     String?
   journalEntryId String?
@@ -1080,4 +1069,19 @@ model EmployeeExpense {
   @@index([employeeId])
 }
 
+
+
+
+// ============================================
+// COMPANY SETTINGS (Phase 13)
+// ============================================
+
+model CompanySettings {
+  id                    String   @id @default(uuid())
+  companyId             String   @unique
+  company               Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
 

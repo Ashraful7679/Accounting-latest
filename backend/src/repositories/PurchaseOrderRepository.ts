@@ -4,29 +4,39 @@ import { SYSTEM_MODE } from '../lib/systemMode';
 export class PurchaseOrderRepository {
   static async findMany(where = {}) {
     if (SYSTEM_MODE === "LIVE") {
-      return await prisma.purchaseOrder.findMany({
-        where,
-        include: {
-          supplier: true,
-          lc: true,
-          lines: true
-        },
-        orderBy: { createdAt: 'desc' }
-      });
+      try {
+        return await prisma.purchaseOrder.findMany({
+          where,
+          include: {
+            supplier: true,
+            lc: true,
+            lines: true
+          },
+          orderBy: { createdAt: 'desc' }
+        });
+      } catch (e) {
+        console.error('Error fetching purchase orders:', e);
+        return [];
+      }
     }
     return []; // Return empty for mock for now
   }
 
   static async findById(id: string) {
     if (SYSTEM_MODE === "LIVE") {
-      return await prisma.purchaseOrder.findUnique({
-        where: { id },
-        include: {
-          supplier: true,
-          lc: true,
-          lines: true
-        }
-      });
+      try {
+        return await prisma.purchaseOrder.findUnique({
+          where: { id },
+          include: {
+            supplier: true,
+            lc: true,
+            lines: true
+          }
+        });
+      } catch (e) {
+        console.error('Error fetching purchase order:', e);
+        return null;
+      }
     }
     return null;
   }

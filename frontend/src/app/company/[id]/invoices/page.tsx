@@ -1,4 +1,5 @@
-'use client';
+﻿'use client';
+
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -235,6 +236,20 @@ export default function CompanyInvoicesPage() {
           <p>Subtotal: ${invoice.subtotal.toLocaleString()}</p>
           <p>Tax: ${invoice.taxAmount.toLocaleString()}</p>
           <p class="grand-total">Total: ${invoice.total.toLocaleString()}</p>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:32px; margin-top:48px; padding-top:24px; border-top:1px solid #e2e8f0;">
+          <div style="text-align:center;">
+            <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Prepared By</p>
+            <p style="font-size:12px; color:#64748b; margin-top:4px;">${invoice.createdBy?.firstName} ${invoice.createdBy?.lastName}</p>
+          </div>
+          <div style="text-align:center;">
+            <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Verified By</p>
+            <p style="font-size:12px; color:#64748b; margin-top:4px;">${invoice.verifiedBy ? `${invoice.verifiedBy.firstName} ${invoice.verifiedBy.lastName}` : '...........................'}</p>
+          </div>
+          <div style="text-align:center;">
+            <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Approved By</p>
+            <p style="font-size:12px; color:#64748b; margin-top:4px;">${invoice.approvedBy ? `${invoice.approvedBy.firstName} ${invoice.approvedBy.lastName}` : '...........................'}</p>
+          </div>
         </div>
       `;
 
@@ -618,7 +633,7 @@ export default function CompanyInvoicesPage() {
                 </div>
               </div>
 
-              {/* ── Payment Split Section ─────────────────────────────── */}
+              {/* â”€â”€ Payment Split Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
               <div className="border-t pt-4 space-y-3">
                 <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                   <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -780,7 +795,7 @@ export default function CompanyInvoicesPage() {
             </div>
 
             <div className="flex flex-wrap gap-2 pt-6 mt-4 border-t border-slate-100">
-              {/* ── Status Action Buttons ── */}
+              {/* â”€â”€ Status Action Buttons â”€â”€ */}
               {(selectedInvoice.status === 'DRAFT' || selectedInvoice.status === 'REJECTED') && (
                 <button
                   onClick={() => { verifyMutation.mutate((selectedInvoice as any).id); setShowViewModal(false); }}
@@ -938,3 +953,5 @@ export default function CompanyInvoicesPage() {
 
   );
 }
+
+

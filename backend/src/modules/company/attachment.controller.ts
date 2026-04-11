@@ -86,7 +86,7 @@ export class AttachmentController {
   }
 
   async getSecureFile(request: FastifyRequest, reply: FastifyReply) {
-    const { id: attachmentId } = request.params as { id: string };
+    const { attachmentId } = request.params as { attachmentId: string };
 
     const attachment = await prisma.attachment.findUnique({
       where: { id: attachmentId, isActive: true }
@@ -113,7 +113,7 @@ export class AttachmentController {
   }
 
   async listByEntity(request: FastifyRequest, reply: FastifyReply) {
-    const { type: entityType, id: entityId } = request.params as { type: string, id: string };
+    const { type: entityType, entityId } = request.params as { type: string, entityId: string };
 
     const attachments = await prisma.attachment.findMany({
       where: {

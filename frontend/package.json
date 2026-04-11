@@ -18,6 +18,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.4.1",
+    "recharts": "^3.8.1",
     "tailwind-merge": "^2.5.0"
   },
   "devDependencies": {

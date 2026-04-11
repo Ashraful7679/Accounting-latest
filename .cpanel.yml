@@ -2,5 +2,24 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/orgajyzd/projects/accabiz
-    - /bin/mkdir -p $DEPLOYPATH
-    - /bin/cp -R * $DEPLOYPATH/
+    - export PUBLIC_HTML=/home/orgajyzd/public_html
+    # Create directories
+    - /bin/mkdir -p $DEPLOYPATH/backend
+    - /bin/mkdir -p $PUBLIC_HTML
+    # Deploy backend (compiled JS + deps)
+    - /bin/cp -R backend/dist/* $DEPLOYPATH/backend/
+    - /bin/cp backend/package.json $DEPLOYPATH/backend/
+    - /bin/cp backend/ecosystem.config.js $DEPLOYPATH/backend/
+    - /bin/cp -R backend/prisma $DEPLOYPATH/backend/
+    # Deploy frontend (static export)
+    - /bin/cp -R frontend/out/* $PUBLIC_HTML/
+    - /bin/cp frontend/.htaccess $PUBLIC_HTML/
+    # Set permissions (755 for dirs, 644 for files)
+    - find $PUBLIC_HTML -type d -exec chmod 755 {} \;
+    - find $PUBLIC_HTML -type f -exec chmod 644 {} \;
+    - find $DEPLOYPATH -type d -exec chmod 755 {} \;
+    - find $DEPLOYPATH -type f -exec chmod 644 {} \;
+    # Install backend production deps and restart
+    - cd $DEPLOYPATH/backend && npm install --omit=dev 2>/dev/null
+    - cd $DEPLOYPATH/backend && npx prisma generate 2>/dev/null
+    - cd $DEPLOYPATH/backend && pm2 restart ecosystem.config.js --env production 2>/dev/null || pm2 start ecosystem.config.js --env production 2>/dev/null || true

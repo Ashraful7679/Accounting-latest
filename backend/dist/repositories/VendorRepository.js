@@ -20,18 +20,19 @@ class VendorRepository {
                 });
             }
             catch (error) {
-                console.error('Vendor search failed, falling back to mock');
+                console.error('Vendor search failed, falling back to mock:', error);
             }
         }
         return exports.demoVendors;
     }
-    static async create(data) {
+    static async create(data, tx) {
+        const client = tx || database_1.default;
         if (systemMode_1.SYSTEM_MODE === "LIVE") {
             try {
-                return await database_1.default.vendor.create({ data });
+                return await client.vendor.create({ data });
             }
             catch (error) {
-                console.error('Vendor creation failed');
+                console.error('Vendor creation failed:', error);
             }
         }
         return { ...data, id: `offline-${Date.now()}` };

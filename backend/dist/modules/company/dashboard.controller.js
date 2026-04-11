@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DashboardController = void 0;
 const database_1 = __importDefault(require("../../config/database"));
+const errorHandler_1 = require("../../middleware/errorHandler");
 /**
  * Auto-generate notifications from real database events.
  * Deduplicates so the same event doesn't create duplicate unread alerts.
@@ -104,32 +105,53 @@ class DashboardController {
         const userId = request.user.id;
         console.log(`[DashboardStats] Fetching for User: ${userId}, Company: ${companyId}`);
         // 1. Get User's Role & Access in this Company
-        const userCompany = await database_1.default.userCompany.findUnique({
+        let userCompany = await database_1.default.userCompany.findUnique({
             where: { userId_companyId: { userId, companyId } },
             include: {
                 user: { include: { userRoles: { include: { role: true } } } },
                 company: true
             }
         });
-        const user = await database_1.default.user.findUnique({
-            where: { id: userId },
-            include: { userRoles: { include: { role: true } } }
-        });
-        const isGlobalOwner = user?.userRoles.some((ur) => ur.role.name === 'Owner');
-        const isAdmin = user?.userRoles.some((ur) => ur.role.name === 'Admin') || request.user.isAdmin;
-        if (!userCompany && !isAdmin && !isGlobalOwner) {
-            console.warn(`[DashboardStats] Access Denied: User ${userId} not in Company ${companyId}`);
-            return reply.status(403).send({ success: false, message: 'Access denied: You are not a member of this company' });
+        if (!userCompany) {
+            // Check if user is a Global Admin
+            const user = await database_1.default.user.findUnique({
+                where: { id: userId },
+                include: { userRoles: { include: { role: true } } }
+            });
+            const isAdmin = user?.userRoles.some(ur => ur.role.name === 'Admin');
+            if (isAdmin) {
+                // Mock a userCompany object for admins to allow access
+                const company = await database_1.default.company.findUnique({ where: { id: companyId } });
+                if (!company)
+                    throw new errorHandler_1.NotFoundError('Company not found');
+                userCompany = {
+                    userId,
+                    companyId,
+                    user,
+                    company,
+                    isMainOwner: true, // Admins get full view
+                    ownershipPercentage: 0,
+                };
+            }
+            else {
+                console.warn(`[DashboardStats] Access Denied: User ${userId} not in Company ${companyId}`);
+                return reply.status(403).send({ success: false, message: 'Access denied: You are not a member of this company' });
+            }
         }
-        let company;
         let roleName = 'User';
+        let company;
         if (userCompany) {
             company = userCompany.company;
             roleName = userCompany.user.userRoles[0]?.role?.name || 'User';
         }
         else {
-            // Global admin / owner bypass
+            // Global admin / owner bypass (we already checked permissions above)
             company = await database_1.default.company.findUnique({ where: { id: companyId } });
+            const user = await database_1.default.user.findUnique({
+                where: { id: userId },
+                include: { userRoles: { include: { role: true } } }
+            });
+            const isGlobalOwner = user?.userRoles.some((ur) => ur.role.name === 'Owner');
             roleName = isGlobalOwner ? 'Owner' : 'Admin';
         }
         if (!company) {
@@ -147,28 +169,34 @@ class DashboardController {
             const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
             // Revenue Calculation helper
             const getRevenue = async (from, to) => {
-                const where = {
-                    journalEntry: {
-                        companyId,
-                        status: 'APPROVED',
-                    },
-                    account: {
-                        OR: [
-                            { accountType: { name: 'INCOME' } },
-                            { accountType: { name: 'REVENUE' } },
-                            { category: 'REVENUE' }
-                        ]
+                try {
+                    const where = {
+                        journalEntry: {
+                            companyId,
+                            status: 'APPROVED',
+                        },
+                        account: {
+                            OR: [
+                                { accountType: { name: 'INCOME' } },
+                                { accountType: { name: 'REVENUE' } },
+                                { category: 'REVENUE' }
+                            ]
+                        }
+                    };
+                    if (from || to) {
+                        where.journalEntry.date = {};
+                        if (from)
+                            where.journalEntry.date.gte = from;
+                        if (to)
+                            where.journalEntry.date.lte = to;
                     }
-                };
-                if (from || to) {
-                    where.journalEntry.date = {};
-                    if (from)
-                        where.journalEntry.date.gte = from;
-                    if (to)
-                        where.journalEntry.date.lte = to;
+                    const lines = await database_1.default.journalEntryLine.findMany({ where });
+                    return lines.reduce((sum, l) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
                 }
-                const lines = await database_1.default.journalEntryLine.findMany({ where });
-                return lines.reduce((sum, l) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
+                catch (e) {
+                    console.error('Error calculating revenue:', e);
+                    return 0;
+                }
             };
             const totalRevenue = await getRevenue();
             const currentMonthRevenue = await getRevenue(startOfMonth);
@@ -180,20 +208,38 @@ class DashboardController {
             else if (currentMonthRevenue > 0) {
                 growthPercent = 100;
             }
-            // Cash & Bank (Dynamic from Ledger)
-            const cashLines = await database_1.default.journalEntryLine.findMany({
-                where: {
-                    journalEntry: { companyId, status: 'APPROVED' },
-                    account: {
-                        accountType: { name: 'ASSET' },
+            // Cash & Bank (Dynamic from Ledger) - Using Category
+            let allCashBankIds = [];
+            try {
+                const cashBankAccounts = await database_1.default.account.findMany({
+                    where: {
+                        companyId,
                         OR: [
-                            { name: { contains: 'Cash', mode: 'insensitive' } },
-                            { name: { contains: 'Bank', mode: 'insensitive' } }
+                            { category: 'CASH' },
+                            { category: 'BANK' }
                         ]
                     }
+                });
+                allCashBankIds = cashBankAccounts.map((a) => a.id);
+            }
+            catch (e) {
+                console.error('Error fetching cash accounts:', e);
+            }
+            let cashBalance = 0;
+            if (allCashBankIds.length > 0) {
+                try {
+                    const cashLines = await database_1.default.journalEntryLine.findMany({
+                        where: {
+                            journalEntry: { companyId, status: 'APPROVED' },
+                            accountId: { in: allCashBankIds }
+                        }
+                    });
+                    cashBalance = cashLines.reduce((sum, l) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
                 }
-            });
-            const cashBalance = cashLines.reduce((sum, l) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
+                catch (e) {
+                    console.error('Error calculating cash balance:', e);
+                }
+            }
             // Receivables (Dynamic from Ledger)
             const recLines = await database_1.default.journalEntryLine.findMany({
                 where: {
@@ -231,26 +277,57 @@ class DashboardController {
             const currentRatio = (totalPayables + totalLoanOutstanding) > 0
                 ? (cashBalance + totalReceivables) / (totalPayables + totalLoanOutstanding)
                 : 0;
-            // Recent Activity Log (previously Priority Alerts)
-            const recentActivities = await database_1.default.notification.findMany({
-                where: { companyId },
-                orderBy: { createdAt: 'desc' },
-                take: 15,
+            // --- NEW: Full Accounting Equation (Lifetime) ---
+            const allAssetLines = await database_1.default.journalEntryLine.findMany({
+                where: { journalEntry: { companyId, status: 'APPROVED' }, account: { accountType: { name: 'ASSET' } } }
             });
-            const activities = recentActivities.map((n) => ({
-                id: n.id,
-                type: n.severity === 'DANGER' ? 'danger' : n.severity === 'WARNING' ? 'warning' : 'info',
-                title: n.title,
-                message: n.message,
-                entityType: n.entityType,
-                entityId: n.entityId,
-                createdAt: n.createdAt,
-                isRead: n.isRead,
+            const totalAssets = allAssetLines.reduce((sum, l) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
+            const allLiabilityLines = await database_1.default.journalEntryLine.findMany({
+                where: { journalEntry: { companyId, status: 'APPROVED' }, account: { accountType: { name: 'LIABILITY' } } }
+            });
+            const totalLiabilities = allLiabilityLines.reduce((sum, l) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
+            const allEquityLines = await database_1.default.journalEntryLine.findMany({
+                where: { journalEntry: { companyId, status: 'APPROVED' }, account: { accountType: { name: 'EQUITY' } } }
+            });
+            const totalEquity = allEquityLines.reduce((sum, l) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0);
+            const allExpenseLines = await database_1.default.journalEntryLine.findMany({
+                where: { journalEntry: { companyId, status: 'APPROVED' }, account: { accountType: { name: 'EXPENSE' } } }
+            });
+            const totalExpensesOverview = allExpenseLines.reduce((sum, l) => sum + (Number(l.debitBase) - Number(l.creditBase)), 0);
+            const accountingEquation = {
+                assets: totalAssets,
+                liabilities: totalLiabilities,
+                ap: totalPayables,
+                equity: totalEquity,
+                revenue: totalRevenue,
+                expenses: totalExpensesOverview,
+                netIncome: totalRevenue - totalExpensesOverview,
+                isBalanced: Math.abs(totalAssets - (totalLiabilities + totalEquity + (totalRevenue - totalExpensesOverview))) < 1
+            };
+            // 253: Recent Activity Log (Using ActivityLog for actual audit trail)
+            const activityLogs = await database_1.default.activityLog.findMany({
+                where: { companyId },
+                include: {
+                    performedBy: { select: { id: true, firstName: true, lastName: true } },
+                    targetUser: { select: { id: true, firstName: true, lastName: true } }
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 20
+            });
+            const activities = activityLogs.map((log) => ({
+                id: log.id,
+                action: log.action,
+                entityType: log.entityType,
+                entityId: log.entityId,
+                performedBy: log.performedBy,
+                targetUser: log.targetUser,
+                metadata: log.metadata,
+                createdAt: log.createdAt,
             }));
             const unreadCount = await database_1.default.notification.count({ where: { companyId, isRead: false } });
-            // Last Backup Info
+            // Last Backup Info (scoped to this company via fileName pattern)
             const lastBackup = await database_1.default.backupLog.findFirst({
-                where: { status: 'SUCCESS' },
+                where: { status: 'SUCCESS', fileName: { contains: companyId } },
                 orderBy: { createdAt: 'desc' }
             });
             // companyName is already set correctly above (handles both normal and admin-bypass paths)
@@ -264,18 +341,18 @@ class DashboardController {
                 name: acc.name,
                 currentBalance: acc.journalLines.reduce((sum, l) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0)
             })).filter((a) => Math.abs(a.currentBalance) > 0.01);
-            // Cash & Bank Breakdown (Dynamic)
+            // Cash & Bank Breakdown (Dynamic) - Using Category
             const cashAccounts = await database_1.default.account.findMany({
                 where: {
                     companyId,
                     accountType: { name: 'ASSET' },
                     isActive: true,
                     OR: [
-                        { name: { contains: 'Cash', mode: 'insensitive' } },
-                        { name: { contains: 'Bank', mode: 'insensitive' } }
+                        { category: 'CASH' },
+                        { category: 'BANK' }
                     ]
                 },
-                include: { journalLines: { where: { journalEntry: { status: 'APPROVED' } } } }
+                include: { children: true, journalLines: { where: { journalEntry: { status: 'APPROVED' } } } }
             });
             const cashBreakdown = cashAccounts.map((acc) => ({
                 name: acc.name,
@@ -334,15 +411,53 @@ class DashboardController {
                     journalLines: {
                         where: {
                             journalEntry: { status: 'APPROVED', date: { gte: startOfMonth } },
-                            account: { accountType: { name: 'INCOME' } }
+                            account: {
+                                OR: [
+                                    { accountType: { name: 'INCOME' } },
+                                    { accountType: { name: 'REVENUE' } }
+                                ]
+                            }
                         }
                     }
                 }
             });
             const buyerDistribution = buyers.map((b) => ({
                 name: b.name,
-                value: b.journalLines.reduce((sum, l) => sum + (l.creditBase - l.debitBase), 0)
+                value: Math.abs(b.journalLines.reduce((sum, l) => sum + (Number(l.creditBase) - Number(l.debitBase)), 0))
             })).filter((b) => b.value > 0).sort((a, b) => b.value - a.value);
+            // --- New: Revenue vs Expense Bar Chart Data (Last 6 Months) ---
+            const revExpTrend = [];
+            for (let i = 0; i < 6; i++) {
+                const d = new Date();
+                d.setMonth(d.getMonth() - (5 - i));
+                const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+                const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+                const monthName = d.toLocaleString('default', { month: 'short' });
+                const income = await database_1.default.journalEntryLine.aggregate({
+                    where: {
+                        journalEntry: { companyId, status: 'APPROVED', date: { gte: monthStart, lte: monthEnd } },
+                        account: {
+                            OR: [
+                                { accountType: { name: 'INCOME' } },
+                                { accountType: { name: 'REVENUE' } }
+                            ]
+                        }
+                    },
+                    _sum: { creditBase: true, debitBase: true }
+                });
+                const expense = await database_1.default.journalEntryLine.aggregate({
+                    where: {
+                        journalEntry: { companyId, status: 'APPROVED', date: { gte: monthStart, lte: monthEnd } },
+                        account: { accountType: { name: 'EXPENSE' } }
+                    },
+                    _sum: { debitBase: true, creditBase: true }
+                });
+                revExpTrend.push({
+                    name: monthName,
+                    revenue: (Number(income._sum.creditBase || 0) - Number(income._sum.debitBase || 0)),
+                    expense: (Number(expense._sum.debitBase || 0) - Number(expense._sum.creditBase || 0))
+                });
+            }
             // 4. --- RMG Monthly Cash Flow Overhaul ---
             const cashFlowData = await (async () => {
                 const getCashFlowForPeriod = async (from, to) => {
@@ -516,17 +631,36 @@ class DashboardController {
                 }
             });
             const dailyCollection = todayLines.reduce((sum, l) => sum + Number(l.debitBase), 0);
+            // --- Enhance Activities with Links ---
+            const enrichedActivities = activities.map((act) => {
+                let link = null;
+                const eType = String(act.entityType).toLowerCase();
+                if (eType === 'invoice')
+                    link = `/company/${companyId}/sales/invoices`;
+                else if (eType === 'po')
+                    link = `/company/${companyId}/purchase/orders`;
+                else if (eType === 'journal')
+                    link = `/company/${companyId}/journals`;
+                else if (eType === 'pi')
+                    link = `/company/${companyId}/purchase/pis`; // default to import
+                else if (eType === 'lc')
+                    link = `/company/${companyId}/finance/lcs`;
+                else if (eType === 'employee')
+                    link = `/company/${companyId}/employees`;
+                return { ...act, link };
+            });
             let dashboardData = {
                 role: roleName,
                 companyName,
                 kpis: {},
                 charts: [
-                    { name: 'Monthly Net Cash Flow', data: cashFlowTrend, type: 'BAR' },
-                    { name: 'Cash Flow Breakdown', data: breakdownSeries, type: 'STACKED_BAR' },
-                    { name: 'Liquidity Trend (Cumulative)', data: liquidityTrend, type: 'LINE' },
-                    { name: 'Revenue by Buyer', data: buyerDistribution, type: 'PIE' }
+                    { name: 'Revenue vs Expenses', data: revExpTrend, type: 'BAR' },
+                    { name: 'Revenue by Buyer', data: buyerDistribution, type: 'PIE' },
+                    { name: 'Monthly Net Cash Flow', data: cashFlowTrend, type: 'LINE' },
+                    { name: 'Cash Position', data: cashBreakdown.map(c => ({ name: c.name, value: c.currentBalance })), type: 'BAR' } // Changed to BAR
                 ],
-                alerts: activities, // Send activities here, frontend uses this array 
+                accountingEquation,
+                alerts: enrichedActivities,
                 unreadCount,
                 lastBackup: lastBackup ? {
                     timestamp: lastBackup.createdAt,
@@ -581,8 +715,13 @@ class DashboardController {
             return reply.send({ success: true, data: dashboardData });
         }
         catch (error) {
-            console.error(`[DashboardStats] CRITICAL ERROR for ${companyId}:`, error);
-            return reply.status(500).send({ success: false, message: 'Internal Server Error while generating dashboard' });
+            console.error(`[DashboardStats] CRITICAL ERROR for ${companyId}:`, error?.message || error);
+            console.error(`[DashboardStats] Stack:`, error?.stack);
+            return reply.status(500).send({
+                success: false,
+                message: 'Internal Server Error while generating dashboard',
+                detail: error?.message
+            });
         }
     }
     async getActivities(request, reply) {

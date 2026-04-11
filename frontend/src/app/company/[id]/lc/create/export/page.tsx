@@ -1,4 +1,5 @@
-'use client';
+﻿'use client';
+
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -44,6 +45,12 @@ export default function CreateExportLCPage() {
   const { data: customers } = useQuery({
     queryKey: ['company-customers', companyId],
     queryFn: () => api.get(`/company/${companyId}/customers`).then(res => res.data.data),
+    enabled: !!companyId,
+  });
+
+  const { data: bankAccounts } = useQuery({
+    queryKey: ['bank-accounts', companyId],
+    queryFn: () => api.get(`/company/${companyId}/accounts`, { params: { category: 'BANK' } }).then(res => res.data.data),
     enabled: !!companyId,
   });
 
@@ -109,7 +116,7 @@ export default function CreateExportLCPage() {
             <span className="text-xs font-black text-emerald-600 uppercase tracking-widest">Export LC</span>
           </div>
           <h1 className="text-2xl font-black text-slate-900">Create Export Letter of Credit</h1>
-          <p className="text-slate-500 text-sm font-medium">For export sales — receive payment from overseas buyer via bank</p>
+          <p className="text-slate-500 text-sm font-medium">For export sales â€” receive payment from overseas buyer via bank</p>
         </div>
       </div>
 
@@ -183,13 +190,20 @@ export default function CreateExportLCPage() {
 
             <div>
               <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Issuing Bank *</label>
-              <input
+              <select
                 required
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800"
-                placeholder="e.g. HSBC Bangladesh"
                 value={formData.bankName}
                 onChange={e => set('bankName', e.target.value)}
-              />
+              >
+                <option value="">â€” Select Issuing Bank â€”</option>
+                {(bankAccounts || []).map((b: any) => (
+                  <option key={b.id} value={b.name}>{b.name} ({b.code})</option>
+                ))}
+                {(!bankAccounts || bankAccounts.length === 0) && (
+                  <option disabled>No bank accounts found â€” add one in Chart of Accounts</option>
+                )}
+              </select>
             </div>
 
           </div>
@@ -323,3 +337,5 @@ export default function CreateExportLCPage() {
     </div>
   );
 }
+
+

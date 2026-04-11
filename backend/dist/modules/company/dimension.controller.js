@@ -6,6 +6,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DimensionController = void 0;
 const database_1 = __importDefault(require("../../config/database"));
 class DimensionController {
+    // Branches
+    async getBranches(request, reply) {
+        const { id: companyId } = request.params;
+        const branches = await database_1.default.branch.findMany({ where: { companyId } });
+        return reply.send({ success: true, data: branches });
+    }
     // Projects
     async getProjects(request, reply) {
         const { id: companyId } = request.params;

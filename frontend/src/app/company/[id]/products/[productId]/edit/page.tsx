@@ -10,14 +10,17 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-
 interface Product {
   id: string;
   code: string;
   name: string;
   sku: string | null;
   description: string | null;
+  unitType: string;
   unitPrice: number;
+  currency: string;
+  stockAmount: number;
+  type: string;
   isActive: boolean;
 }
 
@@ -32,10 +35,11 @@ export default function EditProductPage() {
     name: '',
     sku: '',
     description: '',
+    unitType: 'PCS',
     unitPrice: 0,
     currency: 'BDT',
-    exchangeRate: 1,
-    priceBDT: 0,
+    stockAmount: 0,
+    type: 'Sales',
     isActive: true
   });
 
@@ -60,23 +64,15 @@ export default function EditProductPage() {
         name: product.name,
         sku: product.sku || '',
         description: product.description || '',
+        unitType: product.unitType || 'PCS',
         unitPrice: product.unitPrice,
-        currency: (product as any).currency || 'BDT',
-        exchangeRate: (product as any).exchangeRate || 1,
-        priceBDT: (product as any).priceBDT || (product.unitPrice * ((product as any).exchangeRate || 1)),
+        currency: product.currency || 'BDT',
+        stockAmount: product.stockAmount || 0,
+        type: product.type || 'Sales',
         isActive: product.isActive
       });
     }
   }, [product]);
-
-  useEffect(() => {
-    const price = parseFloat(formData.unitPrice?.toString() || '0');
-    const rate = parseFloat(formData.exchangeRate?.toString() || '1');
-    setFormData(prev => ({ 
-      ...prev, 
-      priceBDT: Number((price * rate).toFixed(2))
-    }));
-  }, [formData.unitPrice, formData.exchangeRate]);
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -96,8 +92,7 @@ export default function EditProductPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      const response = await api.delete(`/company/${companyId}/products/${productId}`);
-      return response.data;
+      await api.delete(`/company/${companyId}/products/${productId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products', companyId] });
@@ -138,7 +133,7 @@ export default function EditProductPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-12">
+    <div className="min-h-screen bg-slate-50/50 pb-12 text-slate-900">
       <div className="max-w-4xl mx-auto p-6 sm:p-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
@@ -184,18 +179,47 @@ export default function EditProductPage() {
                 <h3 className="font-bold text-slate-900">General Information</h3>
               </div>
               <div className="p-6 space-y-4">
-                <div>
-                  <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    Product Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    placeholder="e.g. Industrial Steel Pipe"
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-lg"
-                    required
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div className="md:col-span-2">
+                    <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                      Product Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      placeholder="e.g. Industrial Steel Pipe"
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5">Product Type</label>
+                    <select
+                      value={formData.type}
+                      onChange={(e) => setFormData({...formData, type: e.target.value})}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700"
+                    >
+                      <option value="Sales">Sales Item</option>
+                      <option value="Purchase">Purchase Item</option>
+                    </select>
+                  </div>
+                   <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5 text-blue-600">Unit Type</label>
+                    <select
+                      value={formData.unitType}
+                      onChange={(e) => setFormData({...formData, unitType: e.target.value})}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700"
+                    >
+                      <option value="PCS">PCS (Pieces)</option>
+                      <option value="KG">KG (Kilograms)</option>
+                      <option value="MTR">MTR (Meters)</option>
+                      <option value="BOX">BOX (Boxes)</option>
+                      <option value="SET">SET (Sets)</option>
+                      <option value="PAIR">PAIR (Pairs)</option>
+                      <option value="LITS">LITS (Liters)</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm font-bold text-slate-700 mb-1.5">Description</label>
@@ -203,19 +227,19 @@ export default function EditProductPage() {
                     value={formData.description}
                     onChange={(e) => setFormData({...formData, description: e.target.value})}
                     placeholder="Provide details about dimensions, material grade, or usage..."
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium min-h-[120px] resize-none"
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium min-h-[100px] resize-none"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Pricing & Identity */}
+            {/* Pricing & Stock */}
             <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
               <div className="p-6 border-b border-slate-50 bg-slate-50/30 flex items-center gap-3">
                 <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600">
                   <DollarSign className="w-4 h-4" />
                 </div>
-                <h3 className="font-bold text-slate-900">Identity & Pricing</h3>
+                <h3 className="font-bold text-slate-900">Pricing & Inventory</h3>
               </div>
               <div className="p-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -233,9 +257,20 @@ export default function EditProductPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
-                       Unit Price
-                    </label>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5">Currency</label>
+                    <select
+                      value={formData.currency}
+                      onChange={(e) => setFormData({...formData, currency: e.target.value})}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700"
+                    >
+                      <option value="BDT">BDT (Taka)</option>
+                      <option value="USD">USD (Dollar)</option>
+                      <option value="EUR">EUR (Euro)</option>
+                      <option value="GBP">GBP (Pounds)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5">Unit Price</label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-lg">
                         {formData.currency === 'USD' ? '$' : formData.currency === 'EUR' ? '€' : formData.currency === 'GBP' ? '£' : '৳'}
@@ -250,48 +285,17 @@ export default function EditProductPage() {
                       />
                     </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
-                       Currency
-                    </label>
-                    <select
-                      value={formData.currency}
-                      onChange={(e) => setFormData({...formData, currency: e.target.value})}
-                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700"
-                    >
-                      <option value="BDT">BDT (Takas)</option>
-                      <option value="USD">USD (Dollar)</option>
-                      <option value="EUR">EUR (Euro)</option>
-                      <option value="GBP">GBP (Pounds)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
-                       Exchange Rate
-                    </label>
+                   <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5 text-orange-600">Stock Amount</label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">৳</span>
+                      <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input
                         type="number"
-                        step="0.0001"
-                        disabled={formData.currency === 'BDT'}
-                        value={formData.currency === 'BDT' ? 1 : formData.exchangeRate}
-                        onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})}
-                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700 disabled:bg-slate-50"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
-                       Final Price (BDT)
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-lg">৳</span>
-                      <input
-                        type="number"
-                        readOnly
-                        value={formData.priceBDT}
-                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-900 text-lg outline-none cursor-default"
+                        step="0.01"
+                        value={formData.stockAmount || ''}
+                        onChange={(e) => setFormData({...formData, stockAmount: parseFloat(e.target.value) || 0})}
+                        placeholder="0.00"
+                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-black text-slate-900 text-lg"
                       />
                     </div>
                   </div>
@@ -323,7 +327,7 @@ export default function EditProductPage() {
                   </div>
                   <div>
                     <p className="font-bold text-slate-900 text-sm">Active Status</p>
-                    <p className="text-[11px] text-slate-500 font-medium">Allow this product in transactions</p>
+                    <p className="text-[11px] text-slate-500 font-medium">Allow in transactions</p>
                   </div>
                 </div>
               </div>

@@ -26,6 +26,7 @@ class SequenceService {
             customer: 'CUS',
             vendor: 'VEN',
             product: 'PRD',
+            employee: 'EMP',
         };
         const prefix = prefixes[type];
         const year = new Date().getFullYear();
@@ -57,6 +58,9 @@ class SequenceService {
             case 'product':
                 count = await client.product.count({ where: { companyId, code: { startsWith: prefixYear } } });
                 break;
+            case 'employee':
+                count = await client.employee.count({ where: { companyId, employeeCode: { startsWith: prefixYear } } });
+                break;
         }
         // Step 2: Find the first free slot (handles gaps from deletions / data migrations)
         let counter = count + 1;
@@ -66,7 +70,7 @@ class SequenceService {
             let alreadyExists = false;
             switch (type) {
                 case 'invoice':
-                    alreadyExists = !!(await client.invoice.findUnique({ where: { invoiceNumber: candidate } }));
+                    alreadyExists = !!(await client.invoice.findUnique({ where: { companyId_invoiceNumber: { companyId, invoiceNumber: candidate } } }));
                     break;
                 case 'journal':
                     alreadyExists = !!(await client.journalEntry.findUnique({ where: { entryNumber: candidate } }));
@@ -88,6 +92,9 @@ class SequenceService {
                     break;
                 case 'product':
                     alreadyExists = !!(await client.product.findUnique({ where: { companyId_code: { companyId, code: candidate } } }));
+                    break;
+                case 'employee':
+                    alreadyExists = !!(await client.employee.findUnique({ where: { employeeCode: candidate } }));
                     break;
             }
             if (!alreadyExists)

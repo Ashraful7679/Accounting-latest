@@ -1,4 +1,5 @@
-'use client';
+﻿'use client';
+
 
 import React from 'react';
 import { Calendar, ShieldAlert } from 'lucide-react';
@@ -27,3 +28,5 @@ export default function PeriodClosingPage() {
     </div>
   );
 }
+
+

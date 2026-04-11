@@ -1,46 +1,16 @@
 export declare class PurchaseOrderRepository {
     static findMany(where?: {}): Promise<({
-        lines: {
-            id: string;
-            total: number;
-            itemDescription: string;
-            quantity: number;
-            unitPrice: number;
-            productId: string | null;
-            purchaseOrderId: string;
-        }[];
-        supplier: {
-            email: string | null;
-            id: string;
-            isActive: boolean;
-            phone: string | null;
-            address: string | null;
-            createdAt: Date;
-            updatedAt: Date;
-            name: string;
-            code: string;
-            city: string | null;
-            country: string | null;
-            companyId: string;
-            openingBalance: number;
-            contactPerson: string | null;
-            tinVat: string | null;
-            balanceType: string | null;
-            creditLimit: number | null;
-            preferredCurrency: string;
-            paymentTerms: string;
-        };
         lc: {
             currency: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
             description: string | null;
-            companyId: string;
             type: string;
+            companyId: string;
+            status: string;
             customerId: string | null;
             vendorId: string | null;
-            status: string;
             lcNumber: string;
             bankName: string;
             amount: number;
@@ -56,6 +26,37 @@ export declare class PurchaseOrderRepository {
             bankBranch: string | null;
             receivedDate: Date | null;
         };
+        lines: {
+            id: string;
+            total: number;
+            unitPrice: number;
+            productId: string | null;
+            quantity: number;
+            itemDescription: string;
+            purchaseOrderId: string;
+        }[];
+        supplier: {
+            exchangeRate: number;
+            email: string | null;
+            id: string;
+            isActive: boolean;
+            phone: string | null;
+            address: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string;
+            openingBalance: number;
+            companyId: string;
+            city: string | null;
+            country: string | null;
+            contactPerson: string | null;
+            tinVat: string | null;
+            balanceType: string | null;
+            creditLimit: number | null;
+            preferredCurrency: string;
+            paymentTerms: string;
+        };
     } & {
         currency: string;
         exchangeRate: number;
@@ -66,56 +67,26 @@ export declare class PurchaseOrderRepository {
         status: string;
         createdById: string;
         approvedById: string | null;
+        lcId: string | null;
         poNumber: string;
         supplierId: string;
-        lcId: string | null;
         poDate: Date;
         expectedDeliveryDate: Date | null;
         totalForeign: number;
         totalBDT: number;
     })[]>;
     static findById(id: string): Promise<{
-        lines: {
-            id: string;
-            total: number;
-            itemDescription: string;
-            quantity: number;
-            unitPrice: number;
-            productId: string | null;
-            purchaseOrderId: string;
-        }[];
-        supplier: {
-            email: string | null;
-            id: string;
-            isActive: boolean;
-            phone: string | null;
-            address: string | null;
-            createdAt: Date;
-            updatedAt: Date;
-            name: string;
-            code: string;
-            city: string | null;
-            country: string | null;
-            companyId: string;
-            openingBalance: number;
-            contactPerson: string | null;
-            tinVat: string | null;
-            balanceType: string | null;
-            creditLimit: number | null;
-            preferredCurrency: string;
-            paymentTerms: string;
-        };
         lc: {
             currency: string;
             id: string;
             createdAt: Date;
             updatedAt: Date;
             description: string | null;
-            companyId: string;
             type: string;
+            companyId: string;
+            status: string;
             customerId: string | null;
             vendorId: string | null;
-            status: string;
             lcNumber: string;
             bankName: string;
             amount: number;
@@ -131,6 +102,37 @@ export declare class PurchaseOrderRepository {
             bankBranch: string | null;
             receivedDate: Date | null;
         };
+        lines: {
+            id: string;
+            total: number;
+            unitPrice: number;
+            productId: string | null;
+            quantity: number;
+            itemDescription: string;
+            purchaseOrderId: string;
+        }[];
+        supplier: {
+            exchangeRate: number;
+            email: string | null;
+            id: string;
+            isActive: boolean;
+            phone: string | null;
+            address: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string;
+            openingBalance: number;
+            companyId: string;
+            city: string | null;
+            country: string | null;
+            contactPerson: string | null;
+            tinVat: string | null;
+            balanceType: string | null;
+            creditLimit: number | null;
+            preferredCurrency: string;
+            paymentTerms: string;
+        };
     } & {
         currency: string;
         exchangeRate: number;
@@ -141,9 +143,9 @@ export declare class PurchaseOrderRepository {
         status: string;
         createdById: string;
         approvedById: string | null;
+        lcId: string | null;
         poNumber: string;
         supplierId: string;
-        lcId: string | null;
         poDate: Date;
         expectedDeliveryDate: Date | null;
         totalForeign: number;
@@ -161,9 +163,9 @@ export declare class PurchaseOrderRepository {
         status: string;
         createdById: string;
         approvedById: string | null;
+        lcId: string | null;
         poNumber: string;
         supplierId: string;
-        lcId: string | null;
         poDate: Date;
         expectedDeliveryDate: Date | null;
         totalForeign: number;

@@ -34,7 +34,7 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ entityType
 
   const fetchAttachments = async () => {
     try {
-      const response = await api.get(`/company/attachments/related/${entityType}/${entityId}`);
+      const response = await api.get(`/company/${companyId}/attachments/related/${entityType}/${entityId}`);
       if (response.data.success) {
         setAttachments(response.data.data);
       }
@@ -81,7 +81,7 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ entityType
     if (!window.confirm('Are you sure you want to remove this attachment?')) return;
 
     try {
-      const response = await api.delete(`/company/attachments/${attachmentId}`);
+      const response = await api.delete(`/company/${companyId}/attachments/${attachmentId}`);
       if (response.data.success || response.status === 200) {
         toast.success('Attachment removed');
         fetchAttachments();
@@ -94,7 +94,7 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ entityType
 
   const getSecureUrl = (id: string) => {
     const token = localStorage.getItem('token');
-    return `${BASE_URL}/api/company/attachments/secure/${id}?token=${token}`;
+    return `${BASE_URL}/api/company/${companyId}/attachments/secure/${id}?token=${token}`;
   };
 
   const getFileIcon = (type: string) => {

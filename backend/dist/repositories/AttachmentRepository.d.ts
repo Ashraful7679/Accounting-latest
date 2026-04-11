@@ -8,10 +8,10 @@ export declare class AttachmentRepository {
         name: string;
         version: number;
         fileName: string;
+        fileSize: number;
         verifiedById: string | null;
         entityType: string;
         entityId: string;
-        fileSize: number;
         fileType: string;
         filePath: string;
         documentType: string | null;
@@ -27,10 +27,10 @@ export declare class AttachmentRepository {
         name: string;
         version: number;
         fileName: string;
+        fileSize: number;
         verifiedById: string | null;
         entityType: string;
         entityId: string;
-        fileSize: number;
         fileType: string;
         filePath: string;
         documentType: string | null;

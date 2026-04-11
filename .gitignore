@@ -11,23 +11,12 @@ backend/.env
 backend/.env.*
 frontend/.env
 frontend/.env.*
-node_modules
-.env.local
-.env.development
-.env.production
 build
 backend/backups/
 backend/uploads/
 frontend/out/
-.next/
-# Allow backend dist and generated clients for Namecheap deployment
-!backend/dist/
-!backend/src/generated/client/
-!backend/node_modules/
 *.pack
 backend/src/generated.zip
 *.zip
-
-!backend/node_modules/
-
+backend/src/generated/
 Chapter 1 practice questions.pdf

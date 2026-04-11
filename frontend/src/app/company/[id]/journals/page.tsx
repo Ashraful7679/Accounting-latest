@@ -16,6 +16,7 @@ import UserDropdown from '@/components/UserDropdown';
 import { renderActivityMessage, type ActivityLog } from '@/utils/activityRenderer';
 import { handleError } from '@/lib/error-handler';
 import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
+import { AttachmentManager } from '@/components/AttachmentManager';
 
 
 interface Account {

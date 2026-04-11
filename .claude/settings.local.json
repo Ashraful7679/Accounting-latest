@@ -9,7 +9,8 @@
       "Bash(tasklist)",
       "Bash(npx tsx:*)",
       "Bash(npm run:*)",
-      "Bash(taskkill //f //im \"node.exe\")"
+      "Bash(taskkill //f //im \"node.exe\")",
+      "Bash(curl -s http://localhost:5002/health)"
     ]
   }
 }

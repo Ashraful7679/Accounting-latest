@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { getCurrencySymbol } from '@/lib/decimalUtils';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -230,12 +231,12 @@ export default function ReportsClient() {
                               {reportData?.income?.map((i: any, idx: number) => (
                                 <div key={idx} className="flex justify-between py-3">
                                   <span className="font-bold text-slate-700">{i.name}</span>
-                                  <span className="font-black text-slate-900">{i.amount.toLocaleString()}</span>
+                                  <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {i.amount.toLocaleString()}</span>
                                 </div>
                               ))}
                               <div className="flex justify-between py-4 border-t-2 border-emerald-100 bg-emerald-50 px-4 rounded-xl mt-2">
                                 <span className="font-black text-emerald-700">Total Income</span>
-                                <span className="font-black text-emerald-900">{reportData?.totalIncome?.toLocaleString()}</span>
+                                <span className="font-black text-emerald-900">{getCurrencySymbol(company?.currency)} {reportData?.totalIncome?.toLocaleString()}</span>
                               </div>
                             </div>
                           </section>
@@ -245,12 +246,12 @@ export default function ReportsClient() {
                               {reportData?.expenses?.map((e: any, idx: number) => (
                                 <div key={idx} className="flex justify-between py-3">
                                   <span className="font-bold text-slate-700">{e.name}</span>
-                                  <span className="font-black text-slate-900">{e.amount.toLocaleString()}</span>
+                                  <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {e.amount.toLocaleString()}</span>
                                 </div>
                               ))}
                               <div className="flex justify-between py-4 border-t-2 border-rose-100 bg-rose-50 px-4 rounded-xl mt-2">
                                 <span className="font-black text-rose-700">Total Expenses</span>
-                                <span className="font-black text-rose-900">{reportData?.totalExpense?.toLocaleString()}</span>
+                                <span className="font-black text-rose-900">{getCurrencySymbol(company?.currency)} {reportData?.totalExpense?.toLocaleString()}</span>
                               </div>
                             </div>
                           </section>
@@ -260,7 +261,7 @@ export default function ReportsClient() {
                               "text-3xl font-black",
                               reportData?.netProfit >= 0 ? "text-blue-600" : "text-rose-600"
                             )}>
-                              {reportData?.netProfit?.toLocaleString()}
+                              {getCurrencySymbol(company?.currency)} {reportData?.netProfit?.toLocaleString()}
                             </span>
                           </div>
                         </div>
@@ -273,13 +274,13 @@ export default function ReportsClient() {
                                 {reportData?.assets?.map((a: any, idx: number) => (
                                   <div key={idx} className="flex justify-between py-3">
                                     <span className="font-bold text-slate-700">{a.name}</span>
-                                    <span className="font-black text-slate-900">{a.balance.toLocaleString()}</span>
+                                    <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {a.balance.toLocaleString()}</span>
                                   </div>
                                 ))}
                                 <div className="flex justify-between py-4 border-t-2 border-emerald-100 bg-emerald-50 px-4 rounded-xl mt-2">
                                   <span className="font-black text-emerald-700">Total Assets</span>
                                   <span className="font-black text-emerald-900">
-                                    {reportData?.assets?.reduce((sum: number, a: any) => sum + (a.balance || 0), 0).toLocaleString()}
+                                    {getCurrencySymbol(company?.currency)} {reportData?.assets?.reduce((sum: number, a: any) => sum + (a.balance || 0), 0).toLocaleString()}
                                   </span>
                                 </div>
                               </div>
@@ -293,13 +294,13 @@ export default function ReportsClient() {
                                 {reportData?.liabilities?.map((l: any, idx: number) => (
                                   <div key={idx} className="flex justify-between py-3">
                                     <span className="font-bold text-slate-700">{l.name}</span>
-                                    <span className="font-black text-slate-900">{l.balance.toLocaleString()}</span>
+                                    <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {l.balance.toLocaleString()}</span>
                                   </div>
                                 ))}
                                 <div className="flex justify-between py-4 border-t-2 border-rose-100 bg-rose-50 px-4 rounded-xl mt-2">
                                   <span className="font-black text-rose-700">Total Liabilities</span>
                                   <span className="font-black text-rose-900">
-                                    {reportData?.liabilities?.reduce((sum: number, l: any) => sum + (l.balance || 0), 0).toLocaleString()}
+                                    {getCurrencySymbol(company?.currency)} {reportData?.liabilities?.reduce((sum: number, l: any) => sum + (l.balance || 0), 0).toLocaleString()}
                                   </span>
                                 </div>
                               </div>
@@ -311,13 +312,13 @@ export default function ReportsClient() {
                                 {reportData?.equity?.map((e: any, idx: number) => (
                                   <div key={idx} className="flex justify-between py-3">
                                     <span className="font-bold text-slate-700">{e.name}</span>
-                                    <span className="font-black text-slate-900">{e.balance.toLocaleString()}</span>
+                                    <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {e.balance.toLocaleString()}</span>
                                   </div>
                                 ))}
                                 <div className="flex justify-between py-4 border-t-2 border-blue-100 bg-blue-50 px-4 rounded-xl mt-2">
                                   <span className="font-black text-blue-700">Total Equity</span>
                                   <span className="font-black text-blue-900">
-                                    {reportData?.equity?.reduce((sum: number, e: any) => sum + (e.balance || 0), 0).toLocaleString()}
+                                    {getCurrencySymbol(company?.currency)} {reportData?.equity?.reduce((sum: number, e: any) => sum + (e.balance || 0), 0).toLocaleString()}
                                   </span>
                                 </div>
                               </div>
@@ -326,7 +327,7 @@ export default function ReportsClient() {
                             <div className="flex justify-between py-6 border-y-4 border-slate-900 mt-10">
                               <h2 className="text-xl font-black text-slate-900">Total Liabilities + Equity</h2>
                               <span className="text-2xl font-black text-slate-900">
-                                {((reportData?.liabilities?.reduce((s: number, l: any) => s + (l.balance || 0), 0) || 0) + 
+                                {getCurrencySymbol(company?.currency)} {((reportData?.liabilities?.reduce((s: number, l: any) => s + (l.balance || 0), 0) || 0) + 
                                   (reportData?.equity?.reduce((s: number, e: any) => s + (e.balance || 0), 0) || 0)).toLocaleString()}
                               </span>
                             </div>
@@ -340,12 +341,12 @@ export default function ReportsClient() {
                               <thead>
                                 <tr className="border-b-2 border-slate-900 text-[10px] uppercase font-black tracking-widest text-slate-400">
                                   <th className="py-4 px-3 whitespace-nowrap">Account</th>
-                                  <th className="py-4 px-3 text-right whitespace-nowrap">Debit</th>
-                                  <th className="py-4 px-3 text-right whitespace-nowrap">Credit</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap">Debit ({getCurrencySymbol(company?.currency)})</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap">Credit ({getCurrencySymbol(company?.currency)})</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
-                                {reportData?.map((account: any, i: number) => (
+                                {(reportData?.accounts || []).map((account: any, i: number) => (
                                   <tr key={i} className="hover:bg-slate-50 transition-colors">
                                     <td className="py-3 px-3 font-black text-slate-900 whitespace-nowrap">{account.name || account.accountName}</td>
                                     <td className="py-3 px-3 text-right font-bold text-emerald-600 whitespace-nowrap">
@@ -359,14 +360,10 @@ export default function ReportsClient() {
                                 <tr className="border-t-2 border-slate-900 font-black text-lg">
                                   <td className="py-4 px-3 whitespace-nowrap">Total</td>
                                   <td className="py-4 px-3 text-right text-emerald-600 whitespace-nowrap">
-                                    {Array.isArray(reportData)
-                                      ? reportData.reduce((sum: number, acc: any) => sum + (acc.debit || 0), 0).toLocaleString()
-                                      : (reportData?.totalDebit || 0).toLocaleString()}
+                                    {(reportData?.totalDebit || 0).toLocaleString()}
                                   </td>
                                   <td className="py-4 px-3 text-right text-rose-600 whitespace-nowrap">
-                                    {Array.isArray(reportData)
-                                      ? reportData.reduce((sum: number, acc: any) => sum + (acc.credit || 0), 0).toLocaleString()
-                                      : (reportData?.totalCredit || 0).toLocaleString()}
+                                    {(reportData?.totalCredit || 0).toLocaleString()}
                                   </td>
                                 </tr>
                               </tbody>
@@ -381,11 +378,11 @@ export default function ReportsClient() {
                                   <th className="py-4 px-3 text-right whitespace-nowrap">1–30 Days</th>
                                   <th className="py-4 px-3 text-right whitespace-nowrap">31–60 Days</th>
                                   <th className="py-4 px-3 text-right whitespace-nowrap">61–90+ Days</th>
-                                  <th className="py-4 px-3 text-right whitespace-nowrap">Total</th>
+                                  <th className="py-4 px-3 text-right whitespace-nowrap">Total ({getCurrencySymbol(company?.currency)})</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
-                                {reportData?.map((row: any, i: number) => (
+                                {(reportData?.results || []).map((row: any, i: number) => (
                                   <tr key={i} className="hover:bg-slate-50 transition-colors">
                                     <td className="py-3 px-3 font-black text-slate-900 whitespace-nowrap">{row.name}</td>
                                     <td className="py-3 px-3 text-right font-bold whitespace-nowrap">
@@ -405,16 +402,6 @@ export default function ReportsClient() {
                                     </td>
                                   </tr>
                                 ))}
-                                {Array.isArray(reportData) && reportData.length > 0 && (
-                                  <tr className="border-t-2 border-slate-900 font-black bg-slate-50">
-                                    <td className="py-4 px-3 whitespace-nowrap">Total</td>
-                                    <td className="py-4 px-3 text-right whitespace-nowrap">{reportData.reduce((s: number, r: any) => s + (r.dueCurrent || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                                    <td className="py-4 px-3 text-right text-amber-600 whitespace-nowrap">{reportData.reduce((s: number, r: any) => s + (r.due30 || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                                    <td className="py-4 px-3 text-right text-orange-600 whitespace-nowrap">{reportData.reduce((s: number, r: any) => s + (r.due60 || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                                    <td className="py-4 px-3 text-right text-red-600 whitespace-nowrap">{reportData.reduce((s: number, r: any) => s + (r.due90Plus || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                                    <td className="py-4 px-3 text-right text-blue-600 whitespace-nowrap">{reportData.reduce((s: number, r: any) => s + (r.balance || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                                  </tr>
-                                )}
                               </tbody>
                             </>
                           )}
@@ -445,7 +432,7 @@ export default function ReportsClient() {
                                       <tr key={i} className="hover:bg-slate-50 transition-colors">
                                         <td className="py-3 px-3 font-medium text-slate-500 whitespace-nowrap">{new Date(line.journalEntry.date).toLocaleDateString()}</td>
                                         <td className="py-3 px-3 font-black text-slate-900 whitespace-nowrap">{line.journalEntry.entryNumber}</td>
-                                        <td className="py-3 px-3 font-bold text-slate-700 whitespace-nowrap hidden md:table-cell">{line.account.name}</td>
+                                        <td className="py-3 px-3 font-bold text-slate-700 whitespace-nowrap hidden md:table-cell">{line.account?.name || 'N/A'}</td>
                                         <td className="py-3 px-3 text-slate-500 text-sm max-w-[200px] truncate hidden lg:table-cell">{line.description || line.journalEntry.description}</td>
                                         <td className="py-3 px-3 text-right font-bold whitespace-nowrap">{line.debit > 0 ? line.debit.toLocaleString() : '-'}</td>
                                         <td className="py-3 px-3 text-right font-bold whitespace-nowrap">{line.credit > 0 ? line.credit.toLocaleString() : '-'}</td>
@@ -453,7 +440,7 @@ export default function ReportsClient() {
                                           'py-3 px-3 text-right font-black whitespace-nowrap',
                                           runningBalance < 0 ? 'text-red-600' : 'text-emerald-600'
                                         )}>
-                                          {runningBalance.toLocaleString()}
+                                          {getCurrencySymbol(company?.currency)} {runningBalance.toLocaleString()}
                                         </td>
                                       </tr>
                                     );

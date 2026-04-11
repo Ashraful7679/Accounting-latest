@@ -94,6 +94,7 @@ export function buildPrintDocument(opts: {
   company: CompanyInfo;
   body: string;
   signatures?: SignatureInfo;
+  hideSignatures?: boolean;
 }): string {
   return `
     <html>
@@ -104,7 +105,7 @@ export function buildPrintDocument(opts: {
       <body>
         ${companyHeader(opts.company)}
         ${opts.body}
-        ${signatureBlock(opts.signatures || {})}
+        ${!opts.hideSignatures ? signatureBlock(opts.signatures || {}) : ''}
         <footer>
           <span>${opts.company.name}</span>
           <span>Printed on ${new Date().toLocaleString()}</span>

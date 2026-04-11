@@ -94,4 +94,34 @@ export class AccountRepository {
     }
     return demoAccounts.find(a => a.id === id);
   }
+
+  static async ensureSystemAccount(companyId: string, name: string, category: string, typeName: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE') {
+    const existing = await prisma.account.findFirst({
+      where: { companyId, category }
+    });
+
+    if (existing) return existing;
+
+    const accountType = await prisma.accountType.findFirst({
+      where: { name: typeName }
+    });
+
+    if (!accountType) throw new Error(`Account type ${typeName} not found`);
+
+    // Generate a code if it doesn't exist
+    // For simplicity, we'll prefix with 'SYS-' or similar, or just let users rename it later
+    const code = `${category.substring(0, 3).toUpperCase()}-${Math.floor(Math.random() * 9000) + 1000}`;
+
+    return await prisma.account.create({
+      data: {
+        name,
+        code,
+        category,
+        companyId,
+        accountTypeId: accountType.id,
+        isActive: true,
+        isSystem: true
+      }
+    });
+  }
 }

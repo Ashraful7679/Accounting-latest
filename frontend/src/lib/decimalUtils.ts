@@ -1,3 +1,13 @@
+export function getCurrencySymbol(currency: string = 'BDT'): string {
+  switch (currency.toUpperCase()) {
+    case 'BDT': return '\u09F3'; // ৳
+    case 'USD': return '$';
+    case 'EUR': return '€';
+    case 'GBP': return '£';
+    default: return currency;
+  }
+}
+
 export function formatCurrency(amount: number | string): string {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (isNaN(num)) return '0.00';

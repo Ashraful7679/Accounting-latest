@@ -133,6 +133,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/products', productController.createProduct.bind(productController));
   fastify.get('/:id/products/:productId', productController.getProduct.bind(productController));
   fastify.put('/:id/products/:productId', productController.updateProduct.bind(productController));
+  fastify.post('/:id/products/:productId/adjust-stock', productController.adjustStock.bind(productController));
   fastify.delete('/:id/products/:productId', productController.deleteProduct.bind(productController));
 
   // Employees

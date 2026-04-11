@@ -11,7 +11,7 @@ import {
   Tag, Info, MoreVertical, X
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { formatCurrency } from '@/lib/decimalUtils';
+import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
 
 
 interface Product {
@@ -151,7 +151,7 @@ export default function ProductsPage() {
                   </tr>
                 ) : (
                   filteredProducts.map((product) => {
-                    const currencySymbol = product.currency === 'BDT' ? '৳' : product.currency === 'USD' ? '$' : product.currency;
+                    const currencySymbol = getCurrencySymbol(product.currency);
                     return (
                     <tr key={product.id} className="hover:bg-slate-50/80 transition-colors group">
                       <td className="px-6 py-4">

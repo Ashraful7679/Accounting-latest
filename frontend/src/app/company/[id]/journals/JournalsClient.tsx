@@ -131,23 +131,18 @@ export default function JournalsClient() {
           <p style="font-size:12px; color:#64748b; margin-bottom:4px;">In Words</p>
           <p style="font-size:14px; font-weight:600; color:#334155; text-transform:capitalize;">${numberToWords(journal.totalDebit)} Taka Only</p>
         </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:32px; margin-top:48px; padding-top:24px; border-top:1px solid #e2e8f0;">
-          <div style="text-align:center;">
-            <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Prepared By</p>
-            <p style="font-size:12px; color:#64748b; margin-top:4px;">${journal.createdBy?.firstName || '-'} ${journal.createdBy?.lastName || ''}</p>
-          </div>
-          <div style="text-align:center;">
-            <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Verified By</p>
-            <p style="font-size:12px; color:#64748b; margin-top:4px;">${journal.verifiedBy?.firstName ? `${journal.verifiedBy.firstName} ${journal.verifiedBy.lastName}` : '...........................'}</p>
-          </div>
-          <div style="text-align:center;">
-            <p style="border-top:1px solid #64748b; padding-top:8px; font-weight:600;">Approved By</p>
-            <p style="font-size:12px; color:#64748b; margin-top:4px;">${journal.approvedBy?.firstName ? `${journal.approvedBy.firstName} ${journal.approvedBy.lastName}` : '...........................'}</p>
-          </div>
-        </div>
       `;
 
-      openPrintWindow(buildPrintDocument({ title: `Journal Voucher - ${journal.entryNumber}`, company, body }));
+      openPrintWindow(buildPrintDocument({ 
+        title: `Journal Voucher - ${journal.entryNumber}`, 
+        company, 
+        body,
+        signatures: {
+          createdBy: `${journal.createdBy?.firstName || '-'} ${journal.createdBy?.lastName || ''}`,
+          verifiedBy: journal.verifiedBy?.firstName ? `${journal.verifiedBy.firstName} ${journal.verifiedBy.lastName}` : undefined,
+          approvedBy: journal.approvedBy?.firstName ? `${journal.approvedBy.firstName} ${journal.approvedBy.lastName}` : undefined
+        }
+      }));
     } catch {
       toast.error('Could not load company info for printing.');
     }

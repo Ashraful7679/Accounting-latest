@@ -263,6 +263,9 @@ export class TransactionRepository {
       });
     }
     
+    // 3. Update Stock if it's a GOODS transaction
+    await this.updateStockFromLines(tx, invoice.lines, isSales ? -1 : 1);
+
     return await tx.journalEntry.create({
       data: {
         entryNumber,
@@ -279,6 +282,21 @@ export class TransactionRepository {
         lines: { create: lines }
       }
     });
+  }
+
+  static async updateStockFromLines(tx: any, lines: any[], multiplier: number) {
+    for (const line of lines) {
+      if (line.productId) {
+        await tx.product.update({
+          where: { id: line.productId },
+          data: {
+            stockAmount: {
+              increment: Number(line.quantity || 0) * multiplier
+            }
+          }
+        });
+      }
+    }
   }
 
   // --- Purchase Bill Hooks ---

@@ -1,5 +1,6 @@
 'use client';
 
+
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -10,6 +11,7 @@ import {
   Tag, Info, MoreVertical, X
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { formatCurrency } from '@/lib/decimalUtils';
 
 
 interface Product {
@@ -18,7 +20,11 @@ interface Product {
   name: string;
   sku: string | null;
   description: string | null;
+  unitType: string;
   unitPrice: number;
+  currency: string;
+  stockAmount: number;
+  type: string;
   isActive: boolean;
 }
 
@@ -108,7 +114,10 @@ export default function ProductsPage() {
                 <tr className="bg-slate-50/50">
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Product Info</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">SKU</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Unit Price</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Unit</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Unit Price</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Stock</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
@@ -116,7 +125,7 @@ export default function ProductsPage() {
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-20 text-center">
+                    <td colSpan={8} className="px-6 py-20 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
                         <span className="text-slate-400 font-medium">Loading catalog...</span>
@@ -125,7 +134,7 @@ export default function ProductsPage() {
                   </tr>
                 ) : filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-20 text-center">
+                    <td colSpan={8} className="px-6 py-20 text-center">
                       <div className="flex flex-col items-center gap-4">
                         <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center">
                           <ShoppingBag className="w-8 h-8 text-slate-300" />
@@ -141,7 +150,9 @@ export default function ProductsPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredProducts.map((product) => (
+                  filteredProducts.map((product) => {
+                    const currencySymbol = product.currency === 'BDT' ? 'à§³' : product.currency === 'USD' ? '$' : product.currency;
+                    return (
                     <tr key={product.id} className="hover:bg-slate-50/80 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-4">
@@ -158,8 +169,25 @@ export default function ProductsPage() {
                         <span className="text-slate-600 font-medium">{product.sku || '---'}</span>
                       </td>
                       <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                          product.type === 'Sales' 
+                            ? 'bg-blue-50 text-blue-600 border border-blue-100' 
+                            : 'bg-orange-50 text-orange-600 border border-orange-100'
+                        }`}>
+                          {product.type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-slate-600 font-bold text-xs uppercase tracking-wider">{product.unitType}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
                         <span className="text-slate-900 font-black">
-                          {product.unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          {currencySymbol}{formatCurrency(product.unitPrice)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className={`font-black ${product.stockAmount <= 5 ? 'text-red-600' : 'text-slate-900'}`}>
+                          {product.stockAmount}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -196,7 +224,7 @@ export default function ProductsPage() {
                         </div>
                       </td>
                     </tr>
-                  ))
+                  )})
                 )}
               </tbody>
             </table>
@@ -206,3 +234,5 @@ export default function ProductsPage() {
     </div>
   );
 }
+
+

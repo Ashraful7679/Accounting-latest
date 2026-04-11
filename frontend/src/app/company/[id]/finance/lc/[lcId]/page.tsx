@@ -1,4 +1,5 @@
-'use client';
+﻿'use client';
+
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -171,7 +172,7 @@ export default function LCDetailPage() {
             <div>
               <h1 className="text-xl font-black text-slate-900">{lc.lcNumber}</h1>
               <p className="text-slate-500 text-sm font-bold">
-                {lc.bankName} • {lc.customer?.name || 'No Buyer'} 
+                {lc.bankName} â€¢ {lc.customer?.name || 'No Buyer'} 
                 {lc.receivedDate && <span className="ml-2 text-slate-400">| Received: {new Date(lc.receivedDate).toLocaleDateString()}</span>}
               </p>
             </div>
@@ -338,7 +339,7 @@ export default function LCDetailPage() {
                             </div>
                             <div>
                               <p className="font-black text-slate-900">{formatCurrency(pmt.amount, pmt.currency)}</p>
-                              <p className="text-xs font-bold text-slate-400">{new Date(pmt.date).toLocaleDateString()} • {pmt.reference || 'No Reference'}</p>
+                              <p className="text-xs font-bold text-slate-400">{new Date(pmt.date).toLocaleDateString()} â€¢ {pmt.reference || 'No Reference'}</p>
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-1">
@@ -509,7 +510,7 @@ export default function LCDetailPage() {
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-[40px] shadow-2xl w-full max-w-2xl p-8 max-h-[90vh] overflow-y-auto">
                 <h3 className="text-2xl font-black text-slate-900 mb-8 flex items-center gap-3">
-                  <span className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-base">💰</span>
+                  <span className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-base">ðŸ’°</span>
                   Record Payment & Allocate
                 </h3>
                 
@@ -588,3 +589,5 @@ export default function LCDetailPage() {
     </div>
   );
 }
+
+

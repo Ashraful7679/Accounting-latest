@@ -19,6 +19,6 @@ export declare class CustomerRepository {
         city: string;
         country: string;
     }[]>;
-    static create(data: any): Promise<any>;
+    static create(data: any, tx?: any): Promise<any>;
 }
 //# sourceMappingURL=CustomerRepository.d.ts.map

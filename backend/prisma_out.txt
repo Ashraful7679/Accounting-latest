@@ -1,0 +1,40 @@
+﻿Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+node.exe : 
+At line:1 char:1
++ & 
+"C:\nvm4w\nodejs/node.exe" 
+"C:\nvm4w\nodejs/node_modul
+es/npm/bin/np ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (:St  
+  ring) [], RemoteExcept   
+ ion
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+Error: Prisma schema 
+validation - (validate 
+wasm)
+Error code: P1012
+[1;91merror[0m: [1mThe 
+model "CompanySettings" 
+cannot be defined because 
+a model with that name 
+already exists.[0m
+  [1;94m-->[0m  [4mprism
+a\schema.prisma:1075[0m
+[1;94m   | [0m
+[1;94m1074 | [0m
+[1;94m1075 | [0mmodel 
+[1;91mCompanySettings[0m 
+{
+[1;94m   | [0m
+
+Validation Error Count: 1
+[Context: validate]
+
+Prisma CLI Version : 5.22.0

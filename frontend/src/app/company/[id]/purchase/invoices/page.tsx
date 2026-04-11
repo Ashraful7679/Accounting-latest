@@ -1,4 +1,5 @@
-'use client';
+﻿'use client';
+
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
@@ -48,12 +49,10 @@ export default function PurchaseInvoicesPage() {
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [userRole, setUserRole] = useState('User');
 
-  useEffect(() => {
-    setMounted(true);
-    const token = localStorage.getItem('token');
-    if (!token) router.push('/login');
-  }, [router]);
+  const searchParams = useSearchParams();
+  const editId = searchParams.get('edit');
 
   const { data: invoicesData, isLoading } = useQuery({
     queryKey: ['purchase-invoices', companyId],
@@ -64,8 +63,14 @@ export default function PurchaseInvoicesPage() {
     enabled: !!companyId,
   });
 
-  const searchParams = useSearchParams();
-  const editId = searchParams.get('edit');
+  useEffect(() => {
+    setMounted(true);
+    const token = localStorage.getItem('token');
+    const roles = JSON.parse(localStorage.getItem('roles') || '[]');
+    setUserRole(roles[0] || 'User');
+    if (!token) router.push('/login');
+  }, [router]);
+
   useEffect(() => {
     if (editId && !isLoading && mounted) {
       const existingInvoice = invoicesData?.find((i: Invoice) => i.id === editId);
@@ -115,6 +120,46 @@ export default function PurchaseInvoicesPage() {
     },
   });
 
+  const submitMutation = useMutation({
+    mutationFn: async (id: string) => api.post(`/company/${companyId}/invoices/${id}/submit`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-invoices', companyId] });
+      toast.success('Invoice submitted');
+      closeModal();
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error?.message || 'Failed to submit invoice'),
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: async (id: string) => api.post(`/company/${companyId}/invoices/${id}/verify`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-invoices', companyId] });
+      toast.success('Invoice verified');
+      closeModal();
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error?.message || 'Failed to verify invoice'),
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (id: string) => api.post(`/company/${companyId}/invoices/${id}/approve`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-invoices', companyId] });
+      toast.success('Invoice approved');
+      closeModal();
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error?.message || 'Failed to approve invoice'),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: string, reason: string }) => api.post(`/company/${companyId}/invoices/${id}/reject`, { reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-invoices', companyId] });
+      toast.success('Invoice rejected');
+      closeModal();
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error?.message || 'Failed to reject invoice'),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await api.delete(`/company/${companyId}/invoices/${id}`);
@@ -126,6 +171,21 @@ export default function PurchaseInvoicesPage() {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error?.message || 'Failed to delete invoice');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await api.put(`/company/${companyId}/invoices/${id}`, { ...data, type: 'PURCHASE' });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-invoices', companyId] });
+      toast.success('Purchase invoice updated successfully');
+      closeModal();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Failed to update invoice');
     },
   });
 
@@ -172,12 +232,14 @@ export default function PurchaseInvoicesPage() {
   const handleLineChange = (index: number, field: string, value: any) => {
     const newLines = [...formData.lines];
     const line = { ...newLines[index], [field]: value };
+    const exchangeRate = Number(formData.exchangeRate) || 1;
     
     // Auto-fill price if product changes
     if (field === 'productId' && value) {
       const product = productsData?.find((p: any) => p.id === value);
       if (product) {
-        line.unitPrice = product.unitPrice;
+        // Convert BDT price to selected currency
+        line.unitPrice = Number((product.unitPrice / exchangeRate).toFixed(2));
         line.description = product.name;
       }
     }
@@ -215,7 +277,11 @@ export default function PurchaseInvoicesPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    if (selectedInvoice) {
+      updateMutation.mutate({ id: selectedInvoice.id, data: formData });
+    } else {
+      createMutation.mutate(formData);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -326,7 +392,7 @@ export default function PurchaseInvoicesPage() {
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-6">Create Purchase Invoice</h3>
+            <h3 className="text-xl font-bold mb-6">{selectedInvoice ? 'Edit Purchase Invoice' : 'Create Purchase Invoice'}</h3>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-2 gap-6">
                 <div className="grid grid-cols-2 gap-4">
@@ -477,10 +543,70 @@ export default function PurchaseInvoicesPage() {
 
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={closeModal} className="flex-1 px-6 py-3 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50">Cancel</button>
-                <button type="submit" disabled={createMutation.isPending} className="flex-1 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 disabled:opacity-50">
-                  {createMutation.isPending ? 'Saving...' : 'Save Invoice'}
+                <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="flex-1 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 disabled:opacity-50">
+                  {createMutation.isPending || updateMutation.isPending ? 'Saving...' : selectedInvoice ? 'Update Invoice' : 'Save Invoice'}
                 </button>
               </div>
+
+              {/* Status Actions */}
+              {selectedInvoice && (
+                <div className="mt-6 pt-6 border-t border-slate-200">
+                  <h4 className="font-bold text-sm text-slate-700 mb-3">Workflow Actions</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedInvoice.status === 'DRAFT' && (
+                      <button
+                        type="button"
+                        onClick={() => submitMutation.mutate(selectedInvoice.id)}
+                        className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700"
+                      >
+                        Submit for Verification
+                      </button>
+                    )}
+                    {selectedInvoice.status === 'PENDING' && ['Manager', 'Owner', 'Admin'].includes(userRole || '') && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => verifyMutation.mutate(selectedInvoice.id)}
+                          className="px-4 py-2 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600"
+                        >
+                          Verify
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const reason = window.prompt('Provide rejection reason:') ?? '';
+                            if (reason) rejectMutation.mutate({ id: selectedInvoice.id, reason });
+                          }}
+                          className="px-4 py-2 bg-rose-500 text-white text-xs font-bold rounded-lg hover:bg-rose-600"
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+                    {(['VERIFIED', 'PENDING_APPROVAL'].includes(selectedInvoice.status)) && ['Owner', 'Admin'].includes(userRole || '') && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => approveMutation.mutate(selectedInvoice.id)}
+                          className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const reason = window.prompt('Provide rejection reason:') ?? '';
+                            if (reason) rejectMutation.mutate({ id: selectedInvoice.id, reason });
+                          }}
+                          className="px-4 py-2 bg-rose-500 text-white text-xs font-bold rounded-lg hover:bg-rose-600"
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </form>
           </div>
         </div>
@@ -488,3 +614,5 @@ export default function PurchaseInvoicesPage() {
     </div>
   );
 }
+
+

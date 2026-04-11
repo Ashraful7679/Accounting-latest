@@ -9,28 +9,40 @@ const systemMode_1 = require("../lib/systemMode");
 class PurchaseOrderRepository {
     static async findMany(where = {}) {
         if (systemMode_1.SYSTEM_MODE === "LIVE") {
-            return await database_1.default.purchaseOrder.findMany({
-                where,
-                include: {
-                    supplier: true,
-                    lc: true,
-                    lines: true
-                },
-                orderBy: { createdAt: 'desc' }
-            });
+            try {
+                return await database_1.default.purchaseOrder.findMany({
+                    where,
+                    include: {
+                        supplier: true,
+                        lc: true,
+                        lines: true
+                    },
+                    orderBy: { createdAt: 'desc' }
+                });
+            }
+            catch (e) {
+                console.error('Error fetching purchase orders:', e);
+                return [];
+            }
         }
         return []; // Return empty for mock for now
     }
     static async findById(id) {
         if (systemMode_1.SYSTEM_MODE === "LIVE") {
-            return await database_1.default.purchaseOrder.findUnique({
-                where: { id },
-                include: {
-                    supplier: true,
-                    lc: true,
-                    lines: true
-                }
-            });
+            try {
+                return await database_1.default.purchaseOrder.findUnique({
+                    where: { id },
+                    include: {
+                        supplier: true,
+                        lc: true,
+                        lines: true
+                    }
+                });
+            }
+            catch (e) {
+                console.error('Error fetching purchase order:', e);
+                return null;
+            }
         }
         return null;
     }

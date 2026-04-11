@@ -25,10 +25,11 @@ class CustomerRepository {
         }
         return exports.demoCustomers;
     }
-    static async create(data) {
+    static async create(data, tx) {
+        const client = tx || database_1.default;
         if (systemMode_1.SYSTEM_MODE === "LIVE") {
             try {
-                return await database_1.default.customer.create({ data });
+                return await client.customer.create({ data });
             }
             catch (error) {
                 console.error('Customer creation failed');

@@ -54,11 +54,11 @@ export declare class NotificationController {
         companyId: string;
         entityType: string;
         entityId: string;
+        branchId: string | null;
         action: string;
-        metadata: import("../../generated/client/runtime/library").JsonValue | null;
         performedById: string;
         targetUserId: string | null;
-        branchId: string | null;
+        metadata: import("../../generated/client/runtime/library").JsonValue | null;
     }>;
     /**
      * List structured activities for a company (dynamic feed).

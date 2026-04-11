@@ -1,4 +1,5 @@
-'use client';
+﻿'use client';
+
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -449,7 +450,7 @@ export default function FinancePage() {
                    <div>
                       <h3 className="font-black text-slate-900">{pi.piNumber} {pi.invoiceNumber && <span className="text-slate-400 text-sm">/ {pi.invoiceNumber}</span>}</h3>
                       <p className="text-xs font-bold text-slate-500">
-                        {pi.lc?.lcNumber || 'Standalone PI'} • {pi.customer?.name || pi.lc?.customer?.name || 'No Buyer'}
+                        {pi.lc?.lcNumber || 'Standalone PI'} â€¢ {pi.customer?.name || pi.lc?.customer?.name || 'No Buyer'}
                       </p>
                    </div>
                 </div>
@@ -928,4 +929,6 @@ export default function FinancePage() {
     </div>
   );
 }
+
+
 

@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 export declare class AdminController {
     private generateCompanyCode;
+    private ensureCOA;
     getCompanies(request: FastifyRequest, reply: FastifyReply): Promise<never>;
     createCompany(request: FastifyRequest, reply: FastifyReply): Promise<never>;
     updateCompany(request: FastifyRequest, reply: FastifyReply): Promise<never>;

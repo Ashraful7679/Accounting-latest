@@ -1,4 +1,5 @@
-'use client';
+﻿'use client';
+
 
 import { useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -173,7 +174,7 @@ export default function ActivityHistoryPage() {
                              <span className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md">
                                {activity.entityType}
                              </span>
-                             <span className="text-[10px] font-black text-slate-400">•</span>
+                             <span className="text-[10px] font-black text-slate-400">â€¢</span>
                              <span className="text-[10px] font-bold text-slate-400">
                                {new Date(activity.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
                              </span>
@@ -208,3 +209,5 @@ export default function ActivityHistoryPage() {
     </div>
   );
 }
+
+

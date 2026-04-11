@@ -13,6 +13,7 @@ export declare class OwnerController {
     getEmployees(request: FastifyRequest, reply: FastifyReply): Promise<never>;
     createEmployee(request: FastifyRequest, reply: FastifyReply): Promise<never>;
     updateEmployee(request: FastifyRequest, reply: FastifyReply): Promise<never>;
+    syncAllPermissions(request: FastifyRequest, reply: FastifyReply): Promise<never>;
     updateEmployeePermissions(request: FastifyRequest, reply: FastifyReply): Promise<never>;
     setEmployeeManager(request: FastifyRequest, reply: FastifyReply): Promise<never>;
     toggleEmployeeStatus(request: FastifyRequest, reply: FastifyReply): Promise<never>;

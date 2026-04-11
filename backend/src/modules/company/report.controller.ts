@@ -1,308 +1,450 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
-import { ReportRepository } from '../../repositories/ReportRepository';
+import { BaseCompanyController } from './base.controller';
 
-export class ReportController {
-  
-  // Generic filter builder for Ledger Lines
-  private buildLineFilters(query: any) {
-    const { 
-      startDate, endDate, branchId, projectId, 
-      costCenterId, customerId, vendorId 
-    } = query;
-
-    const where: any = {
-      journalEntry: { status: 'APPROVED' }
-    };
-
-    if (startDate || endDate) {
-      where.journalEntry.date = {};
-      if (startDate) where.journalEntry.date.gte = new Date(startDate);
-      if (endDate) where.journalEntry.date.lte = new Date(endDate);
-    }
-
-    if (branchId) where.branchId = branchId;
-    if (projectId) where.projectId = projectId;
-    if (costCenterId) where.costCenterId = costCenterId;
-    if (customerId) where.customerId = customerId;
-    if (vendorId) where.vendorId = vendorId;
-
-    return where;
-  }
-
-  async getTrialBalance(request: FastifyRequest, reply: FastifyReply) {
+export class ReportController extends BaseCompanyController {
+  async getDashboardStats(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const filters = this.buildLineFilters(request.query);
-    const data = await ReportRepository.getTrialBalance(companyId, filters);
-    return reply.send({ success: true, data });
-  }
-
-  async getProfitLoss(request: FastifyRequest, reply: FastifyReply) {
-    const { id: companyId } = request.params as { id: string };
-    const filters = this.buildLineFilters(request.query);
-
-    const accounts = await prisma.account.findMany({
-      where: { 
-        companyId, 
-        accountType: { name: { in: ['INCOME', 'EXPENSE'] } },
-        isActive: true 
-      },
-      include: { 
-        accountType: true,
-        journalLines: { where: filters }
-      }
-    });
-
-    const income = [];
-    const expenses = [];
-    let totalIncome = 0;
-    let totalExpense = 0;
-
-    for (const acc of accounts) {
-      const debitTotal = acc.journalLines.reduce((sum, l) => sum + l.debitBase, 0);
-      const creditTotal = acc.journalLines.reduce((sum, l) => sum + l.creditBase, 0);
-      const balance = Math.abs(creditTotal - debitTotal);
-
-      if (acc.accountType.name === 'INCOME') {
-        income.push({ name: acc.name, amount: balance });
-        totalIncome += balance;
-      } else {
-        expenses.push({ name: acc.name, amount: balance });
-        totalExpense += balance;
-      }
-    }
+    
+    const { startDate, endDate } = request.query as { startDate?: string; endDate?: string };
+    const [balanceSheet, pnl, cashflow] = await Promise.all([
+      this._calculateBalanceSheet(companyId, startDate, endDate),
+      this._calculatePnL(companyId, startDate, endDate),
+      this._calculateCashFlow(companyId)
+    ]);
 
     return reply.send({
       success: true,
       data: {
-        income,
-        expenses,
-        totalIncome,
-        totalExpense,
-        netProfit: totalIncome - totalExpense
+        totalAssets: balanceSheet.totalAssets,
+        totalLiabilities: balanceSheet.totalLiabilities,
+        netProfit: pnl.netProfit,
+        cashBalance: cashflow.endingCash
       }
     });
   }
 
-  async getBalanceSheet(request: FastifyRequest, reply: FastifyReply) {
+  async getAccountBalances(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const filters = this.buildLineFilters(request.query);
-    const bsFilters = { ...filters };
-    delete bsFilters.journalEntry?.date?.gte; // Balance sheet is cumulative, ignore startDate for transactions
+    const accounts = await prisma.account.findMany({
+      where: { companyId },
+      include: { accountType: true }
+    });
+    return reply.send({ success: true, data: accounts });
+  }
+
+  async getTrialBalance(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { startDate, endDate } = request.query as { startDate?: string; endDate?: string };
+
+    const dateFilter: any = {};
+    if (startDate) dateFilter.gte = new Date(startDate);
+    if (endDate) dateFilter.lte = new Date(endDate);
+    const hasDateFilter = Object.keys(dateFilter).length > 0;
 
     const accounts = await prisma.account.findMany({
-      where: { 
-        companyId, 
-        accountType: { name: { in: ['ASSET', 'LIABILITY', 'EQUITY'] } },
-        isActive: true 
-      },
-      include: { 
+      where: { companyId },
+      include: {
         accountType: true,
-        journalLines: { where: bsFilters }
-      }
+        journalLines: {
+          where: {
+            journalEntry: {
+              status: 'APPROVED',
+              ...(hasDateFilter ? { date: dateFilter } : {})
+            }
+          }
+        }
+      },
+      orderBy: { code: 'asc' }
     });
 
-    // Also get Net Profit for Retained Earnings
-    const plAccounts = await prisma.account.findMany({
-      where: { 
-        companyId, 
-        accountType: { name: { in: ['INCOME', 'EXPENSE'] } },
-        isActive: true 
+    const trialBalance = accounts.map(acc => {
+      const totalDebit = acc.journalLines.reduce((s: number, l: any) => s + Number(l.debit || 0), 0);
+      const totalCredit = acc.journalLines.reduce((s: number, l: any) => s + Number(l.credit || 0), 0);
+      return {
+        id: acc.id,
+        code: acc.code,
+        name: acc.name,
+        accountType: (acc as any).accountType?.name || '',
+        openingBalance: acc.openingBalance,
+        debit: totalDebit,
+        credit: totalCredit,
+        balance: totalDebit - totalCredit,
+      };
+    }).filter(a => a.debit !== 0 || a.credit !== 0 || a.openingBalance !== 0);
+
+    const totals = {
+      totalDebit: trialBalance.reduce((s, a) => s + a.debit, 0),
+      totalCredit: trialBalance.reduce((s, a) => s + a.credit, 0),
+    };
+
+    return reply.send({ success: true, data: { accounts: trialBalance, totals } });
+  }
+
+  async getLedger(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { accountId, startDate, endDate } = request.query as any;
+
+    const query: any = {
+      where: {
+        accountId,
+        journalEntry: {
+          companyId,
+          status: 'APPROVED',
+          ...(startDate || endDate ? {
+            date: {
+              ...(startDate ? { gte: new Date(startDate) } : {}),
+              ...(endDate ? { lte: new Date(endDate) } : {}),
+            }
+          } : {})
+        }
       },
-      include: { 
-        accountType: true,
-        journalLines: { where: bsFilters }
+      include: {
+        journalEntry: true
+      },
+      orderBy: {
+        journalEntry: { date: 'asc' }
       }
+    };
+
+    const lines = await prisma.journalEntryLine.findMany(query) as any[];
+
+    // Determine if account is debit-normal or credit-normal
+    const account = await prisma.account.findUnique({
+      where: { id: accountId },
+      include: { accountType: true }
+    });
+    const isDebitNormal = account?.accountType?.type === 'DEBIT';
+
+    let runningBalance = 0;
+    const data = lines.map(line => {
+      const effect = isDebitNormal
+        ? (line.debit - line.credit)
+        : (line.credit - line.debit);
+      runningBalance += effect;
+      return {
+        id: line.id,
+        date: line.journalEntry.date,
+        reference: line.journalEntry.entryNumber,
+        description: line.description || line.journalEntry.description,
+        debit: line.debit,
+        credit: line.credit,
+        balance: runningBalance
+      };
     });
 
-    let totalIncome = 0;
-    let totalExpense = 0;
-    for (const acc of plAccounts) {
-      const debitTotal = acc.journalLines.reduce((sum, l) => sum + l.debitBase, 0);
-      const creditTotal = acc.journalLines.reduce((sum, l) => sum + l.creditBase, 0);
-      if (acc.accountType.name === 'INCOME') totalIncome += (creditTotal - debitTotal);
-      else totalExpense += (debitTotal - creditTotal);
-    }
-    const retainedEarnings = totalIncome - totalExpense;
+    return reply.send({ success: true, data, accountType: account?.accountType?.name });
+  }
 
-    const assets = [];
-    const liabilities = [];
-    const equity = [];
+  async getProfitLoss(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { startDate, endDate, compareStartDate, compareEndDate } = request.query as any;
+    const pnl = await this._calculatePnL(companyId, startDate, endDate);
 
-    for (const acc of accounts) {
-      const debitTotal = acc.journalLines.reduce((sum, l) => sum + l.debitBase, 0);
-      const creditTotal = acc.journalLines.reduce((sum, l) => sum + l.creditBase, 0);
-      
-      let balance = 0;
-      if (acc.accountType.type === 'DEBIT') {
-        balance = (acc.openingBalance || 0) + debitTotal - creditTotal;
-      } else {
-        balance = (acc.openingBalance || 0) + creditTotal - debitTotal;
-      }
-
-      const item = { name: acc.name, balance: balance }; // Keep negative balances for contras
-      if (acc.accountType.name === 'ASSET') assets.push(item);
-      else if (acc.accountType.name === 'LIABILITY') liabilities.push(item);
-      else equity.push(item);
+    let comparison: any = null;
+    if (compareStartDate && compareEndDate) {
+      const priorPnl = await this._calculatePnL(companyId, compareStartDate, compareEndDate);
+      comparison = {
+        prior: priorPnl,
+        revenueVariance: pnl.revenue - priorPnl.revenue,
+        revenueVariancePct: priorPnl.revenue !== 0 ? ((pnl.revenue - priorPnl.revenue) / Math.abs(priorPnl.revenue)) * 100 : (pnl.revenue !== 0 ? 100 : 0),
+        expenseVariance: pnl.expenses - priorPnl.expenses,
+        expenseVariancePct: priorPnl.expenses !== 0 ? ((pnl.expenses - priorPnl.expenses) / Math.abs(priorPnl.expenses)) * 100 : (pnl.expenses !== 0 ? 100 : 0),
+        netProfitVariance: pnl.netProfit - priorPnl.netProfit,
+      };
     }
 
-    equity.push({ name: 'Retained Earnings (Net Profit)', balance: retainedEarnings });
+    return reply.send({ success: true, data: { ...pnl, comparison } });
+  }
+
+  async getBalanceSheet(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { startDate, endDate } = request.query as any;
+    const bs = await this._calculateBalanceSheet(companyId, startDate, endDate);
+
+    // Accounting equation validation
+    const pnl = await this._calculatePnL(companyId, startDate, endDate);
+    const isBalanced = Math.abs(bs.totalAssets - (bs.totalLiabilities + bs.totalEquity + pnl.netProfit)) < 1;
 
     return reply.send({
       success: true,
-      data: { assets, liabilities, equity }
+      data: {
+        ...bs,
+        netProfit: pnl.netProfit,
+        isBalanced,
+        equation: `Assets (${bs.totalAssets.toFixed(2)}) = Liabilities (${bs.totalLiabilities.toFixed(2)}) + Equity (${bs.totalEquity.toFixed(2)}) + Net Income (${pnl.netProfit.toFixed(2)})`
+      }
     });
   }
 
   async getAgingReport(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { type } = request.query as { type: 'CUSTOMER' | 'VENDOR' };
-    
-    const entities = type === 'CUSTOMER' 
-      ? await prisma.customer.findMany({ where: { companyId }, include: { journalLines: { include: { account: { include: { accountType: true } } } } } })
-      : await prisma.vendor.findMany({ where: { companyId }, include: { journalLines: { include: { account: { include: { accountType: true } } } } } });
+    const { type } = request.query as { type?: 'AR' | 'AP' };
 
-    const data = entities.map(e => {
-      const balance = e.journalLines.reduce((sum, l) => {
-        return sum + (l.account.accountType.type === 'DEBIT' ? (l.debitBase - l.creditBase) : (l.creditBase - l.debitBase));
-      }, 0);
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        companyId,
+        type: type === 'AP' ? 'PURCHASE' : 'SALES',
+        status: { in: ['APPROVED', 'PARTIALLY_PAID'] }
+      },
+      include: {
+        customer: true,
+        vendor: true,
+        payments: true
+      }
+    });
 
-      return {
-        id: e.id,
-        name: e.name,
-        balance,
-        // Simplified aging for now (could expand with date buckets)
-        dueCurrent: balance > 0 ? balance : 0,
-        due30: 0,
-        due60: 0,
-        due90Plus: 0
-      };
-    }).filter(d => d.balance !== 0);
+    const buckets = {
+      current: 0,
+      '1-30': 0,
+      '31-60': 0,
+      '61-90': 0,
+      '90+': 0
+    };
 
-    return reply.send({ success: true, data });
+    invoices.forEach(inv => {
+      const paid = inv.payments.reduce((sum, p) => sum + p.amount, 0);
+      const balance = inv.total - paid;
+      if (balance <= 0) return;
+
+      const dueDate = inv.dueDate || inv.invoiceDate;
+      const daysOverdue = Math.floor((new Date().getTime() - new Date(dueDate).getTime()) / (1000 * 3600 * 24));
+
+      if (daysOverdue <= 0) buckets.current += balance;
+      else if (daysOverdue <= 30) buckets['1-30'] += balance;
+      else if (daysOverdue <= 60) buckets['31-60'] += balance;
+      else if (daysOverdue <= 90) buckets['61-90'] += balance;
+      else buckets['90+'] += balance;
+    });
+
+    return reply.send({ success: true, data: buckets });
   }
 
   async searchReceivables(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const userId = (request.user as any).id;
-    const { 
-      customerName, reference, minAmount, maxAmount, 
-      startDate, endDate, branchId, status 
-    } = request.query as any;
+    const { query, type } = request.query as { query?: string; type?: string };
 
-    // 1. Permission Check
-    const isAdmin = (request.user as any).isAdmin;
-    let userCompany = await prisma.userCompany.findUnique({
-      where: { userId_companyId: { userId, companyId } },
-      include: { user: { include: { userRoles: { include: { role: true } } } } }
-    });
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { userRoles: { include: { role: true } } }
-    });
-    const isGlobalOwner = user?.userRoles.some((ur: any) => ur.role.name === 'Owner');
-
-    if (!userCompany && !isAdmin && !isGlobalOwner) {
-      return reply.status(403).send({ success: false, message: 'Access denied: You are not a member of this company' });
-    }
-
-    let role = 'User';
-    if (userCompany) {
-      role = userCompany.user.userRoles[0]?.role.name || 'User';
-    } else {
-      role = isGlobalOwner ? 'Owner' : 'Admin';
-    }
-    
-    // 2. Build Permission Filters (Branch lock, etc.)
-    // If user is 'User' role, they might be locked to a specific branch (this logic could be expanded)
-    
-    // 3. Build Query Filters
-    const where: any = {
-      journalEntry: { 
+    const invoices = await prisma.invoice.findMany({
+      where: {
         companyId,
-        status: status || 'APPROVED' // Default to approved unless specified
+        type: type === 'PURCHASE' ? 'PURCHASE' : 'SALE',
+        status: { in: ['APPROVED', 'PARTIALLY_PAID'] },
+        OR: query ? [
+          { invoiceNumber: { contains: query, mode: 'insensitive' } },
+          { customer: { name: { contains: query, mode: 'insensitive' } } },
+          { vendor: { name: { contains: query, mode: 'insensitive' } } }
+        ] : undefined
       },
-      account: {
-        accountType: { name: 'RECEIVABLE' }
-      }
-    };
-
-    if (customerName) {
-      where.customer = { name: { contains: customerName, mode: 'insensitive' } };
-    }
-
-    if (reference) {
-      where.journalEntry.reference = { contains: reference, mode: 'insensitive' };
-    }
-
-    if (startDate || endDate) {
-      where.journalEntry.date = {};
-      if (startDate) where.journalEntry.date.gte = new Date(startDate);
-      if (endDate) where.journalEntry.date.lte = new Date(endDate);
-    }
-
-    if (branchId) where.branchId = branchId;
-
-    if (minAmount || maxAmount) {
-      where.debitBase = {};
-      if (minAmount) where.debitBase.gte = parseFloat(minAmount);
-      if (maxAmount) where.debitBase.lte = parseFloat(maxAmount);
-    }
-
-    const lines = await prisma.journalEntryLine.findMany({
-      where,
       include: {
-        journalEntry: true,
         customer: true,
-        account: true,
-        branch: true
+        vendor: true,
+        payments: true
       },
-      orderBy: { journalEntry: { date: 'desc' } }
+      orderBy: { createdAt: 'desc' }
     });
 
-    // 4. Role-based result modification (Owner/Accountant see all, others might see masked data)
-    const isPowerful = ['Owner', 'Accountant', 'Admin'].includes(role);
-    
-    // If not powerful, maybe omit some sensitive details or system-level accounts (already filtered to RECEIVABLE)
-    // For now, returning as is, but structure is ready for masking.
+    const results = invoices.map(inv => {
+      const paid = inv.payments.reduce((sum, p) => sum + p.amount, 0);
+      const balance = inv.total - paid;
+      return {
+        id: inv.id,
+        number: inv.invoiceNumber,
+        date: inv.invoiceDate,
+        entity: inv.customer?.name || inv.vendor?.name || 'Unknown',
+        total: inv.total,
+        paid,
+        balance,
+        daysOverdue: Math.floor((new Date().getTime() - new Date(inv.dueDate || inv.invoiceDate).getTime()) / (1000 * 3600 * 24))
+      };
+    }).filter(r => r.balance > 0);
 
-    return reply.send({ success: true, data: lines });
+    return reply.send({ success: true, data: results });
   }
 
   async getLCLiability(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
+
     const lcs = await prisma.lC.findMany({
-      where: { companyId, status: 'OPEN' }
+      where: { 
+        companyId,
+        status: { in: ['OPEN', 'AMENDED'] }
+      }
     });
-    
-    // In a real system, you'd match these with payment vouchers
-    return reply.send({ success: true, data: lcs });
+
+    const totalLiability = lcs.reduce((sum, lc) => sum + lc.amount, 0);
+    const count = lcs.length;
+
+    return reply.send({ 
+      success: true, 
+      data: { 
+        totalLiability, 
+        count,
+        lcs: lcs.map(lc => ({
+          id: lc.id,
+          number: lc.lcNumber,
+          type: lc.type,
+          amount: lc.amount,
+          expiryDate: lc.expiryDate,
+          bank: lc.bankName
+        }))
+      } 
+    });
   }
 
-  async getLedger(request: FastifyRequest, reply: FastifyReply) {
-    const { id: companyId } = request.params as { id: string };
-    const { accountId } = request.query as { accountId?: string };
-    const filters = this.buildLineFilters(request.query);
+  private async _calculateBalanceSheet(companyId: string, startDate?: string, endDate?: string) {
+    const dateFilter: any = {};
+    if (startDate) dateFilter.gte = new Date(startDate);
+    if (endDate) dateFilter.lte = new Date(endDate);
+    const hasDateFilter = Object.keys(dateFilter).length > 0;
 
-    if (accountId) filters.accountId = accountId;
-
-    const journals = await prisma.journalEntryLine.findMany({
-      where: {
-        ...filters,
-        journalEntry: { ...filters.journalEntry, companyId }
-      },
+    const accounts = await prisma.account.findMany({
+      where: { companyId },
       include: {
-        journalEntry: {
-          include: { createdBy: { select: { firstName: true, lastName: true } } }
-        },
-        account: true,
-        project: true,
-        branch: true
-      },
-      orderBy: { journalEntry: { date: 'asc' } }
+        accountType: true,
+        journalLines: {
+          where: {
+            journalEntry: {
+              status: 'APPROVED',
+              ...(hasDateFilter ? { date: dateFilter } : {})
+            }
+          }
+        }
+      }
     });
 
-    return reply.send({ success: true, data: journals });
+    const calcBalance = (accs: any[], type: string) => {
+      return accs
+        .filter((a: any) => a.accountType?.name === type)
+        .reduce((sum: number, a: any) => {
+          const isDebitNormal = a.accountType?.type === 'DEBIT';
+          const lineBalance = a.journalLines.reduce((s: number, l: any) => {
+            return s + (isDebitNormal
+              ? (Number(l.debit || 0) - Number(l.credit || 0))
+              : (Number(l.credit || 0) - Number(l.debit || 0)));
+          }, 0);
+          return sum + lineBalance + (a.openingBalance || 0);
+        }, 0);
+    };
+
+    const totalAssets = calcBalance(accounts, 'ASSET');
+    const totalLiabilities = calcBalance(accounts, 'LIABILITY');
+    const totalEquity = calcBalance(accounts, 'EQUITY');
+
+    return { totalAssets, totalLiabilities, totalEquity };
+  }
+
+  private async _calculatePnL(companyId: string, startDate?: string, endDate?: string) {
+    const dateFilter: any = {};
+    if (startDate) dateFilter.gte = new Date(startDate);
+    if (endDate) dateFilter.lte = new Date(endDate);
+    const hasDateFilter = Object.keys(dateFilter).length > 0;
+
+    const accounts = await prisma.account.findMany({
+      where: { companyId },
+      include: {
+        accountType: true,
+        journalLines: {
+          where: {
+            journalEntry: {
+              status: 'APPROVED',
+              ...(hasDateFilter ? { date: dateFilter } : {})
+            }
+          }
+        }
+      }
+    });
+
+    const revenueAccounts = accounts.filter((a: any) => a.accountType?.name === 'INCOME' || a.accountType?.name === 'REVENUE');
+    const expenseAccounts = accounts.filter((a: any) => a.accountType?.name === 'EXPENSE');
+
+    const revenue = revenueAccounts.reduce((sum: number, a: any) => {
+      return sum + a.journalLines.reduce((s: number, l: any) => s + (Number(l.credit || 0) - Number(l.debit || 0)), 0);
+    }, 0);
+
+    const expenses = expenseAccounts.reduce((sum: number, a: any) => {
+      return sum + a.journalLines.reduce((s: number, l: any) => s + (Number(l.debit || 0) - Number(l.credit || 0)), 0);
+    }, 0);
+
+    return {
+      revenue,
+      expenses,
+      netProfit: revenue - expenses,
+      revenueBreakdown: revenueAccounts.map((a: any) => ({
+        id: a.id, code: a.code, name: a.name,
+        amount: a.journalLines.reduce((s: number, l: any) => s + (Number(l.credit || 0) - Number(l.debit || 0)), 0)
+      })).filter((a: any) => Math.abs(a.amount) > 0.01),
+      expenseBreakdown: expenseAccounts.map((a: any) => ({
+        id: a.id, code: a.code, name: a.name,
+        amount: a.journalLines.reduce((s: number, l: any) => s + (Number(l.debit || 0) - Number(l.credit || 0)), 0)
+      })).filter((a: any) => Math.abs(a.amount) > 0.01)
+    };
+  }
+
+  async getCashFlowStatement(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { startDate, endDate } = request.query as { startDate?: string; endDate?: string };
+
+    const now = new Date();
+    const periodStart = startDate ? new Date(startDate) : new Date(now.getFullYear(), now.getMonth(), 1);
+    const periodEnd = endDate ? new Date(endDate) : now;
+
+    // Get all journal lines within the period that have a cashFlowType
+    const lines = await prisma.journalEntryLine.findMany({
+      where: {
+        journalEntry: { companyId, status: 'APPROVED', date: { gte: periodStart, lte: periodEnd } },
+        account: { cashFlowType: { not: null } }
+      },
+      include: { account: true }
+    });
+
+    const operating = { inflows: 0, outflows: 0, net: 0 };
+    const investing = { inflows: 0, outflows: 0, net: 0 };
+    const financing = { inflows: 0, outflows: 0, net: 0 };
+
+    for (const line of lines) {
+      const amount = Number(line.credit) - Number(line.debit);
+      const cfType = (line as any).account.cashFlowType;
+
+      const bucket = cfType === 'OPERATING' ? operating : cfType === 'INVESTING' ? investing : cfType === 'FINANCING' ? financing : null;
+      if (!bucket) continue;
+
+      if (amount > 0) bucket.inflows += amount;
+      else bucket.outflows += Math.abs(amount);
+    }
+
+    operating.net = operating.inflows - operating.outflows;
+    investing.net = investing.inflows - investing.outflows;
+    financing.net = financing.inflows - financing.outflows;
+
+    const netChange = operating.net + investing.net + financing.net;
+
+    // Beginning cash = current cash balance minus net change in this period
+    const cashAccounts = await prisma.account.findMany({
+      where: { companyId, category: { in: ['CASH', 'BANK'] } }
+    });
+    const endingCash = cashAccounts.reduce((s, a) => s + a.currentBalance, 0);
+    const beginningCash = endingCash - netChange;
+
+    return reply.send({
+      success: true,
+      data: {
+        periodStart,
+        periodEnd,
+        beginningCash,
+        operating,
+        investing,
+        financing,
+        netChange,
+        endingCash,
+        verification: Math.abs((beginningCash + netChange) - endingCash) < 0.01
+      }
+    });
+  }
+
+  private async _calculateCashFlow(companyId: string) {
+    const accounts = await prisma.account.findMany({ where: { companyId, category: { in: ['CASH', 'BANK'] } } });
+    return {
+      endingCash: accounts.reduce((s, a) => s + a.currentBalance, 0)
+    };
   }
 }

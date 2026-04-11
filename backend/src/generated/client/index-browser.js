@@ -304,6 +304,7 @@ exports.Prisma.AccountScalarFieldEnum = {
   cashFlowType: 'cashFlowType',
   allowNegative: 'allowNegative',
   category: 'category',
+  referenceId: 'referenceId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -355,6 +356,7 @@ exports.Prisma.CustomerScalarFieldEnum = {
   balanceType: 'balanceType',
   creditLimit: 'creditLimit',
   preferredCurrency: 'preferredCurrency',
+  exchangeRate: 'exchangeRate',
   paymentTerms: 'paymentTerms',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -377,6 +379,7 @@ exports.Prisma.VendorScalarFieldEnum = {
   balanceType: 'balanceType',
   creditLimit: 'creditLimit',
   preferredCurrency: 'preferredCurrency',
+  exchangeRate: 'exchangeRate',
   paymentTerms: 'paymentTerms',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -418,11 +421,12 @@ exports.Prisma.ProductScalarFieldEnum = {
   companyId: 'companyId',
   sku: 'sku',
   description: 'description',
+  unitType: 'unitType',
   unitPrice: 'unitPrice',
-  currency: 'currency',
-  exchangeRate: 'exchangeRate',
-  priceBDT: 'priceBDT',
   isActive: 'isActive',
+  currency: 'currency',
+  stockAmount: 'stockAmount',
+  type: 'type',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -628,16 +632,6 @@ exports.Prisma.PaymentPIScalarFieldEnum = {
   allocatedAmount: 'allocatedAmount'
 };
 
-exports.Prisma.CompanySettingsScalarFieldEnum = {
-  id: 'id',
-  companyId: 'companyId',
-  disallowFutureDates: 'disallowFutureDates',
-  lockPreviousMonths: 'lockPreviousMonths',
-  approvalWorkflow: 'approvalWorkflow',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
 exports.Prisma.EmployeeScalarFieldEnum = {
   id: 'id',
   employeeCode: 'employeeCode',
@@ -717,6 +711,13 @@ exports.Prisma.EmployeeExpenseScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.CompanySettingsScalarFieldEnum = {
+  id: 'id',
+  companyId: 'companyId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -778,12 +779,12 @@ exports.Prisma.ModelName = {
   Notification: 'Notification',
   Payment: 'Payment',
   PaymentPI: 'PaymentPI',
-  CompanySettings: 'CompanySettings',
   Employee: 'Employee',
   EmployeeAdvance: 'EmployeeAdvance',
   EmployeeLoan: 'EmployeeLoan',
   EmployeeLoanRepayment: 'EmployeeLoanRepayment',
-  EmployeeExpense: 'EmployeeExpense'
+  EmployeeExpense: 'EmployeeExpense',
+  CompanySettings: 'CompanySettings'
 };
 
 /**

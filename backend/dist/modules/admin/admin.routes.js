@@ -24,6 +24,7 @@ const adminRoutes = async (fastify) => {
     // Backups
     fastify.get('/backups', backupController.listBackups.bind(backupController));
     fastify.post('/backups', backupController.createBackup.bind(backupController));
+    fastify.get('/backups/download/:fileName', backupController.downloadBackup.bind(backupController));
     fastify.post('/backups/restore', backupController.restoreBackup.bind(backupController));
 };
 exports.adminRoutes = adminRoutes;

@@ -74,7 +74,7 @@ class AttachmentController {
         return reply.send({ success: true, data: uploadedAttachment });
     }
     async getSecureFile(request, reply) {
-        const { id: attachmentId } = request.params;
+        const { attachmentId } = request.params;
         const attachment = await database_1.default.attachment.findUnique({
             where: { id: attachmentId, isActive: true }
         });
@@ -95,7 +95,7 @@ class AttachmentController {
         return reply.send(stream);
     }
     async listByEntity(request, reply) {
-        const { type: entityType, id: entityId } = request.params;
+        const { type: entityType, entityId } = request.params;
         const attachments = await database_1.default.attachment.findMany({
             where: {
                 entityType: entityType.toUpperCase(),

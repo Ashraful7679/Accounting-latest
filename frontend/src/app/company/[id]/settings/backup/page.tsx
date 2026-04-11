@@ -1,7 +1,9 @@
-'use client';
+﻿'use client';
+
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import api, { BASE_URL } from '@/lib/api';
 import { 
   Database, 
   Download, 
@@ -37,13 +39,9 @@ export default function BackupRestorePage() {
 
   const fetchLogs = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5002/api/company/${companyId}/backups`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (data.success) {
-        setLogs(data.data);
+      const response = await api.get(`/company/${companyId}/backups`);
+      if (response.data.success) {
+        setLogs(response.data.data);
       }
     } catch (error) {
       console.error('Failed to fetch backup logs:', error);
@@ -59,17 +57,12 @@ export default function BackupRestorePage() {
   const handleGenerateBackup = async () => {
     setIsGenerating(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5002/api/company/${companyId}/backup/generate`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (data.success) {
+      const response = await api.post(`/company/${companyId}/backup/generate`);
+      if (response.data.success) {
         alert('Backup generated successfully!');
         fetchLogs();
       } else {
-        alert('Backup failed: ' + (data.error?.message || 'Unknown error'));
+        alert('Backup failed: ' + (response.data.error?.message || 'Unknown error'));
       }
     } catch (error) {
       alert('Error triggering backup');
@@ -78,9 +71,16 @@ export default function BackupRestorePage() {
     }
   };
 
-  const handleDownload = async (fileName: string) => {
+  const handleDownload = (fileName: string) => {
+    // Append token as query param â€” the auth middleware already accepts ?token=
     const token = localStorage.getItem('token');
-    window.open(`http://localhost:5002/api/company/${companyId}/backups/download/${fileName}?token=${token}`, '_blank');
+    const url = `${BASE_URL}/api/company/${companyId}/backups/download/${encodeURIComponent(fileName)}?token=${token}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const handleRestore = async (fileName: string) => {
@@ -96,17 +96,12 @@ export default function BackupRestorePage() {
 
     setIsGenerating(true); // Re-use loading state
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5002/api/company/${companyId}/backup/restore/${fileName}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (data.success) {
+      const response = await api.post(`/company/${companyId}/backup/restore/${fileName}`);
+      if (response.data.success) {
         alert('System restored successfully! The application will now reload.');
         window.location.reload();
       } else {
-        alert('Restore failed: ' + (data.error?.message || 'Unknown error'));
+        alert('Restore failed: ' + (response.data.error?.message || 'Unknown error'));
       }
     } catch (error) {
       alert('Error triggering restore');
@@ -128,22 +123,18 @@ export default function BackupRestorePage() {
 
     setIsGenerating(true);
     try {
-      const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch(`http://localhost:5002/api/company/${companyId}/backup/restore/upload`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
+      const response = await api.post(`/company/${companyId}/backup/restore/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      const data = await response.json();
-      if (data.success) {
+      if (response.data.success) {
         alert('System restored successfully! The application will now reload.');
         window.location.reload();
       } else {
-        alert('Restore failed: ' + (data.error?.message || 'Unknown error'));
+        alert('Restore failed: ' + (response.data.error?.message || 'Unknown error'));
       }
     } catch (error) {
       alert('Error uploading or restoring backup');
@@ -205,6 +196,42 @@ export default function BackupRestorePage() {
                       System-wide restoration requires advanced privileges. Automated restore is tempered to prevent accidental data loss.
                     </p>
                   </div>
+                </div>
+              </div>
+
+              {/* Manual Generate Backup */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+                    <Database className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 leading-none">Manual Backup</h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-wider">Create Snapshot</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Creates a single <span className="font-bold">.zip</span> archive containing:
+                  </p>
+                  <ul className="text-xs text-slate-500 space-y-1 pl-1">
+                    <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> All accounting data (JSON)</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> All uploaded file attachments</li>
+                  </ul>
+                  <button
+                    onClick={handleGenerateBackup}
+                    disabled={isGenerating}
+                    className={cn(
+                      "w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all",
+                      isGenerating
+                        ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                        : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm active:scale-95"
+                    )}
+                  >
+                    <Database className="w-5 h-5" />
+                    {isGenerating ? 'Creating Backup...' : 'Generate Full Backup (DB + Files)'}
+                  </button>
                 </div>
               </div>
 
@@ -358,3 +385,5 @@ export default function BackupRestorePage() {
     </div>
   );
 }
+
+

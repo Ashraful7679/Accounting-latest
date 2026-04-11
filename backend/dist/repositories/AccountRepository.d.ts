@@ -47,12 +47,13 @@ export declare class AccountRepository {
         updatedAt: Date;
         name: string;
         code: string;
-        companyId: string;
         openingBalance: number;
         currentBalance: number;
         cashFlowType: string | null;
         allowNegative: boolean;
         category: string | null;
+        referenceId: string | null;
+        companyId: string;
         accountTypeId: string;
         parentId: string | null;
     } | {

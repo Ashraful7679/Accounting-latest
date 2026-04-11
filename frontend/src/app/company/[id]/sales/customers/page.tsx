@@ -1,5 +1,6 @@
 'use client';
 
+
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -23,10 +24,11 @@ interface Customer {
   tinVat?: string;
   openingBalance: number;
   balanceType?: string;
-  creditLimit?: number;
   preferredCurrency: string;
+  exchangeRate?: number;
   paymentTerms: string;
 }
+
 
 export default function CompanyCustomersPage() {
   const router = useRouter();
@@ -47,11 +49,14 @@ export default function CompanyCustomersPage() {
     tinVat: '',
     openingBalance: 0,
     balanceType: 'DR',
-    creditLimit: 0,
     preferredCurrency: 'BDT',
+    exchangeRate: 1,
     paymentTerms: 'COD',
   });
+
+  const openingBalanceBDT = formData.openingBalance * (formData.exchangeRate || 1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -109,6 +114,7 @@ export default function CompanyCustomersPage() {
     },
   });
 
+
   if (!mounted) return null;
 
   const openModal = (customer?: Customer) => {
@@ -125,8 +131,8 @@ export default function CompanyCustomersPage() {
         tinVat: customer.tinVat || '',
         openingBalance: customer.openingBalance || 0,
         balanceType: customer.balanceType || 'DR',
-        creditLimit: customer.creditLimit || 0,
         preferredCurrency: customer.preferredCurrency || 'BDT',
+        exchangeRate: customer.exchangeRate || 1,
         paymentTerms: customer.paymentTerms || 'COD',
       });
     } else {
@@ -134,7 +140,7 @@ export default function CompanyCustomersPage() {
       setFormData({
         name: '', email: '', phone: '', address: '', city: '', country: '',
         contactPerson: '', tinVat: '', openingBalance: 0, balanceType: 'DR',
-        creditLimit: 0, preferredCurrency: 'BDT', paymentTerms: 'COD'
+        preferredCurrency: 'BDT', exchangeRate: 1, paymentTerms: 'COD'
       });
     }
     setShowModal(true);
@@ -158,6 +164,7 @@ export default function CompanyCustomersPage() {
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     c.code.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
+
 
   return (
     <div className="min-h-screen">
@@ -213,41 +220,49 @@ export default function CompanyCustomersPage() {
                     <tr><td colSpan={5} className="text-center py-12 text-slate-400">No customers matching your search</td></tr>
                   ) : (
                     filteredCustomers.map((customer) => (
-                      <tr key={customer.id} className="group hover:bg-indigo-50/30 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{customer.name}</span>
-                            <span className="text-[10px] text-slate-400 uppercase font-black tracking-tighter">{customer.code}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-semibold text-slate-700">{customer.contactPerson || '-'}</span>
-                            <span className="text-[10px] text-slate-400">{customer.email || customer.phone}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-bold text-slate-900">
-                              Limit: {customer.creditLimit?.toLocaleString() || '∞'}
+                      <>
+                        <tr 
+                          key={customer.id} 
+                          className={`group hover:bg-slate-50 transition-colors cursor-pointer ${expandedCustomerId === customer.id ? 'bg-indigo-50/40' : ''}`}
+                          onClick={() => setExpandedCustomerId(expandedCustomerId === customer.id ? null : customer.id)}
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex flex-col ml-7">
+                                <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{customer.name}</span>
+                                <span className="text-[10px] text-slate-400 uppercase font-black tracking-tighter">{customer.code}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-semibold text-slate-700">{customer.contactPerson || '-'}</span>
+                              <span className="text-[10px] text-slate-400">{customer.email || customer.phone}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold text-slate-900">
+                                Balance (BDT): {((customer.openingBalance || 0) * (customer.exchangeRate || 1)).toLocaleString()}
+                              </span>
+                              <span className={`text-[10px] font-black ${customer.balanceType === 'CR' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                Orig: {customer.openingBalance?.toLocaleString()} {customer.preferredCurrency} ({customer.balanceType})
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 underline decoration-indigo-400 underline-offset-2">
+                              {customer.preferredCurrency}
                             </span>
-                            <span className={`text-[10px] font-black ${customer.balanceType === 'CR' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                              BAL: {customer.openingBalance?.toLocaleString()} ({customer.balanceType})
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-600 underline decoration-indigo-400 underline-offset-2">
-                            {customer.preferredCurrency}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex justify-center gap-2">
-                            <button onClick={() => openModal(customer)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
-                            <button onClick={() => deleteMutation.mutate(customer.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
-                          </div>
-                        </td>
-                      </tr>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => openModal(customer)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
+                              <button onClick={() => deleteMutation.mutate(customer.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      </>
                     ))
                   )}
                 </tbody>
@@ -339,24 +354,36 @@ export default function CompanyCustomersPage() {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Credit Limit</label>
-                      <input type="number" value={formData.creditLimit} onChange={(e) => setFormData({...formData, creditLimit: parseFloat(e.target.value)})} className="w-full bg-white border-2 border-transparent focus:border-emerald-500 rounded-2xl px-4 py-3 outline-none transition-all font-bold" placeholder="Set 0 for unlimited" />
-                    </div>
-
-                    <div>
                       <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Preferred Currency</label>
                       <div className="flex gap-2">
                         {['BDT', 'USD', 'EUR', 'GBP'].map((curr) => (
                           <button
                             key={curr}
                             type="button"
-                            onClick={() => setFormData({...formData, preferredCurrency: curr})}
+                            onClick={() => setFormData({...formData, preferredCurrency: curr, exchangeRate: curr === 'BDT' ? 1 : formData.exchangeRate})}
                             className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${formData.preferredCurrency === curr ? 'bg-emerald-600 text-white shadow-md' : 'bg-white text-emerald-700 hover:bg-emerald-100'}`}
                           >
                             {curr}
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Exchange Rate (to BDT)</label>
+                      <input 
+                        type="number" 
+                        step="0.0001"
+                        value={formData.exchangeRate} 
+                        onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value)})} 
+                        className="w-full bg-white border-2 border-transparent focus:border-emerald-500 rounded-2xl px-4 py-3 outline-none transition-all font-bold" 
+                        disabled={formData.preferredCurrency === 'BDT'}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Opening Balance (BDT)</label>
+                      <input type="text" value={openingBalanceBDT.toFixed(2)} className="w-full bg-slate-100 border-2 border-transparent rounded-2xl px-4 py-3 outline-none font-bold" readOnly />
                     </div>
                   </div>
 
@@ -391,3 +418,5 @@ export default function CompanyCustomersPage() {
     </div>
   );
 }
+
+

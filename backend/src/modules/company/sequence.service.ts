@@ -77,28 +77,28 @@ export class SequenceService {
           alreadyExists = !!(await client.invoice.findUnique({ where: { companyId_invoiceNumber: { companyId, invoiceNumber: candidate } } }));
           break;
         case 'journal':
-          alreadyExists = !!(await client.journalEntry.findUnique({ where: { entryNumber: candidate } }));
+          alreadyExists = !!(await client.journalEntry.findUnique({ where: { companyId_entryNumber: { companyId, entryNumber: candidate } } }));
           break;
         case 'po':
-          alreadyExists = !!(await client.purchaseOrder.findUnique({ where: { poNumber: candidate } }));
+          alreadyExists = !!(await client.purchaseOrder.findUnique({ where: { companyId_poNumber: { companyId, poNumber: candidate } } }));
           break;
         case 'pi':
-          alreadyExists = !!(await (client as any).pI.findUnique({ where: { piNumber: candidate } }));
+          alreadyExists = !!(await (client as any).pI.findUnique({ where: { companyId_piNumber: { companyId, piNumber: candidate } } }));
           break;
         case 'lc':
-          alreadyExists = !!(await (client as any).lC.findUnique({ where: { lcNumber: candidate } }));
+          alreadyExists = !!(await (client as any).lC.findUnique({ where: { companyId_lcNumber: { companyId, lcNumber: candidate } } }));
           break;
         case 'customer':
-          alreadyExists = !!(await client.customer.findUnique({ where: { code: candidate } }));
+          alreadyExists = !!(await client.customer.findUnique({ where: { companyId_code: { companyId, code: candidate } } }));
           break;
         case 'vendor':
-          alreadyExists = !!(await client.vendor.findUnique({ where: { code: candidate } }));
+          alreadyExists = !!(await client.vendor.findUnique({ where: { companyId_code: { companyId, code: candidate } } }));
           break;
         case 'product':
           alreadyExists = !!(await (client as any).product.findUnique({ where: { companyId_code: { companyId, code: candidate } } }));
           break;
         case 'employee':
-          alreadyExists = !!(await client.employee.findUnique({ where: { employeeCode: candidate } }));
+          alreadyExists = !!(await client.employee.findUnique({ where: { companyId_employeeCode: { companyId, employeeCode: candidate } } }));
           break;
       }
 

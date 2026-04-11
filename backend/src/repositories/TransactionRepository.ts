@@ -522,7 +522,7 @@ export class TransactionRepository {
     let attempts = 0;
     while (true) {
       const candidate = `${prefixYear}${counter.toString().padStart(4, '0')}`;
-      const codeExists = await tx.account.findUnique({ where: { code: candidate } });
+      const codeExists = await tx.account.findUnique({ where: { companyId_code: { companyId, code: candidate } } });
       if (!codeExists) { code = candidate; break; }
       counter++;
       if (++attempts > 200) throw new Error(`Cannot generate unique account code for category "${category}" after 200 attempts`);

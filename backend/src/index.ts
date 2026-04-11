@@ -29,13 +29,30 @@ const corsOrigins: (string | RegExp)[] = [/http:\/\/localhost:\d+/];
 if (process.env.CORS_ORIGINS) {
   process.env.CORS_ORIGINS.split(',').map(o => o.trim()).forEach(o => corsOrigins.push(o));
 } else {
-  corsOrigins.push('https://hurainjannatoyshee.com', 'https://www.hurainjannatoyshee.com');
+  // Allow common development and staging domains
+  corsOrigins.push(
+    'https://hurainjannatoyshee.com', 
+    'https://www.hurainjannatoyshee.com',
+    /\.onrender\.com$/,
+    /\.netlify\.app$/,
+    /\.vercel\.app$/
+  );
 }
+
+// Debug logging for CORS
+fastify.addHook('onRequest', async (request) => {
+  const origin = request.headers.origin;
+  if (origin) {
+    request.log.info(`[CORS DEBUG] Incoming Origin: ${origin}`);
+  }
+});
+
 fastify.register(cors, {
   origin: corsOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
   credentials: true,
+  exposedHeaders: ['set-cookie', 'x-system-mode'],
 });
 
 fastify.register(jwt, {

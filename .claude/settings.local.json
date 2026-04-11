@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc:*)",
-      "Bash(npx prisma:*)"
+      "Bash(npx prisma:*)",
+      "Bash(npm ls:*)",
+      "Bash(rm -rf node_modules/.prisma node_modules/@prisma)",
+      "Bash(npm install:*)",
+      "Bash(tasklist)",
+      "Bash(npx tsx:*)",
+      "Bash(npm run:*)",
+      "Bash(taskkill //f //im \"node.exe\")"
     ]
   }
 }

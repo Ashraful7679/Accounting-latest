@@ -151,7 +151,7 @@ export default function ProductsPage() {
                   </tr>
                 ) : (
                   filteredProducts.map((product) => {
-                    const currencySymbol = product.currency === 'BDT' ? 'à§³' : product.currency === 'USD' ? '$' : product.currency;
+                    const currencySymbol = product.currency === 'BDT' ? '৳' : product.currency === 'USD' ? '$' : product.currency;
                     return (
                     <tr key={product.id} className="hover:bg-slate-50/80 transition-colors group">
                       <td className="px-6 py-4">

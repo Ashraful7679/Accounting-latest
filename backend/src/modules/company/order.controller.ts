@@ -115,14 +115,34 @@ export class OrderController extends BaseCompanyController {
       updateData.approvedById = userId;
     }
 
-    const updated = await (prisma as any).purchaseOrder.update({
-      where: { id: poId },
-      data: updateData,
-      include: {
-        supplier: true,
-        lc: true,
-        lines: true
+    const updated = await prisma.$transaction(async (tx: any) => {
+      const upd = await tx.purchaseOrder.update({
+        where: { id: poId },
+        data: updateData,
+        include: {
+          supplier: true,
+          lc: true,
+          lines: true
+        }
+      });
+
+      // Update Stock if RECEIVED
+      if (newStatus === 'RECEIVED' && po.status !== 'RECEIVED') {
+        for (const line of upd.lines) {
+          if (line.productId) {
+            await tx.product.update({
+              where: { id: line.productId },
+              data: {
+                stockAmount: {
+                  increment: Number(line.quantity || 0)
+                }
+              }
+            });
+          }
+        }
       }
+
+      return upd;
     });
 
     await NotificationController.notifyStatusChange({

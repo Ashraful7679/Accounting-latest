@@ -38,8 +38,8 @@ export class ReportController extends BaseCompanyController {
     const { startDate, endDate } = request.query as { startDate?: string; endDate?: string };
 
     const dateFilter: any = {};
-    if (startDate) dateFilter.gte = new Date(startDate);
-    if (endDate) dateFilter.lte = new Date(endDate);
+    if (startDate && startDate !== '') dateFilter.gte = new Date(startDate);
+    if (endDate && endDate !== '') dateFilter.lte = new Date(endDate);
     const hasDateFilter = Object.keys(dateFilter).length > 0;
 
     const accounts = await prisma.account.findMany({
@@ -83,57 +83,47 @@ export class ReportController extends BaseCompanyController {
 
   async getLedger(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { accountId, startDate, endDate } = request.query as any;
+    const { accountId, accountName, startDate, endDate } = request.query as any;
+    
+    const where: any = {
+      journalEntry: {
+        companyId,
+        status: 'APPROVED',
+        ...(startDate || endDate ? {
+          date: {
+            ...(startDate && startDate !== '' ? { gte: new Date(startDate) } : {}),
+            ...(endDate && endDate !== '' ? { lte: new Date(endDate) } : {}),
+          }
+        } : {})
+      }
+    };
 
-    const query: any = {
-      where: {
-        accountId,
-        journalEntry: {
-          companyId,
-          status: 'APPROVED',
-          ...(startDate || endDate ? {
-            date: {
-              ...(startDate ? { gte: new Date(startDate) } : {}),
-              ...(endDate ? { lte: new Date(endDate) } : {}),
-            }
-          } : {})
-        }
-      },
+    if (accountId) {
+      where.accountId = accountId;
+    } else if (accountName) {
+      where.account = {
+        name: { contains: accountName, mode: 'insensitive' }
+      };
+    } else {
+      // If no filter, maybe return empty or last 100?
+      // For now, if no account filter, return empty to avoid massive data
+      return reply.send({ success: true, data: [] });
+    }
+
+    const lines = await prisma.journalEntryLine.findMany({
+      where,
       include: {
-        journalEntry: true
+        journalEntry: true,
+        account: {
+          include: { accountType: true }
+        }
       },
       orderBy: {
         journalEntry: { date: 'asc' }
       }
-    };
-
-    const lines = await prisma.journalEntryLine.findMany(query) as any[];
-
-    // Determine if account is debit-normal or credit-normal
-    const account = await prisma.account.findUnique({
-      where: { id: accountId },
-      include: { accountType: true }
-    });
-    const isDebitNormal = account?.accountType?.type === 'DEBIT';
-
-    let runningBalance = 0;
-    const data = lines.map(line => {
-      const effect = isDebitNormal
-        ? (line.debit - line.credit)
-        : (line.credit - line.debit);
-      runningBalance += effect;
-      return {
-        id: line.id,
-        date: line.journalEntry.date,
-        reference: line.journalEntry.entryNumber,
-        description: line.description || line.journalEntry.description,
-        debit: line.debit,
-        credit: line.credit,
-        balance: runningBalance
-      };
     });
 
-    return reply.send({ success: true, data, accountType: account?.accountType?.name });
+    return reply.send({ success: true, data: lines });
   }
 
   async getProfitLoss(request: FastifyRequest, reply: FastifyReply) {
@@ -330,7 +320,30 @@ export class ReportController extends BaseCompanyController {
     const totalLiabilities = calcBalance(accounts, 'LIABILITY');
     const totalEquity = calcBalance(accounts, 'EQUITY');
 
-    return { totalAssets, totalLiabilities, totalEquity };
+    const getBreakdown = (accs: any[], type: string) => {
+      return accs
+        .filter((a: any) => a.accountType?.name === type)
+        .map((a: any) => ({
+          id: a.id,
+          name: a.name,
+          balance: (a.openingBalance || 0) + a.journalLines.reduce((s: number, l: any) => {
+            const isDebitNormal = a.accountType?.type === 'DEBIT';
+            return s + (isDebitNormal
+              ? (Number(l.debit || 0) - Number(l.credit || 0))
+              : (Number(l.credit || 0) - Number(l.debit || 0)));
+          }, 0)
+        }))
+        .filter(a => Math.abs(a.balance) > 0.01);
+    };
+
+    return { 
+      totalAssets, 
+      totalLiabilities, 
+      totalEquity,
+      assets: getBreakdown(accounts, 'ASSET'),
+      liabilities: getBreakdown(accounts, 'LIABILITY'),
+      equity: getBreakdown(accounts, 'EQUITY')
+    };
   }
 
   private async _calculatePnL(companyId: string, startDate?: string, endDate?: string) {
@@ -368,12 +381,14 @@ export class ReportController extends BaseCompanyController {
     return {
       revenue,
       expenses,
+      totalIncome: revenue, // Aliases for frontend
+      totalExpense: expenses,
       netProfit: revenue - expenses,
-      revenueBreakdown: revenueAccounts.map((a: any) => ({
+      income: revenueAccounts.map((a: any) => ({
         id: a.id, code: a.code, name: a.name,
         amount: a.journalLines.reduce((s: number, l: any) => s + (Number(l.credit || 0) - Number(l.debit || 0)), 0)
       })).filter((a: any) => Math.abs(a.amount) > 0.01),
-      expenseBreakdown: expenseAccounts.map((a: any) => ({
+      expenses: expenseAccounts.map((a: any) => ({
         id: a.id, code: a.code, name: a.name,
         amount: a.journalLines.reduce((s: number, l: any) => s + (Number(l.debit || 0) - Number(l.credit || 0)), 0)
       })).filter((a: any) => Math.abs(a.amount) > 0.01)

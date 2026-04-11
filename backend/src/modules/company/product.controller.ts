@@ -109,4 +109,26 @@ export class ProductController {
 
     return reply.send({ success: true, message: 'Product deleted' });
   }
+
+  async adjustStock(request: FastifyRequest, reply: FastifyReply) {
+    const { productId } = request.params as { productId: string };
+    const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+    const { stockAmount, notes } = request.body as any;
+
+    if (stockAmount === undefined) throw new ValidationError('Stock amount is required');
+
+    const product = await ProductRepository.adjustStock(productId, Number(stockAmount), userId, notes);
+
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'product',
+      entityId: product.id,
+      action: 'STOCK_ADJUSTED',
+      performedById: userId,
+      metadata: { docNumber: product.code, name: product.name, newAmount: product.stockAmount },
+    });
+
+    return reply.send({ success: true, data: product });
+  }
 }

@@ -1,1 +1,0 @@
-{"version":3,"file":"offlineCheck.js","sourceRoot":"","sources":["../../src/middleware/offlineCheck.ts"],"names":[],"mappings":";;;AACA,kDAA+D;AAExD,MAAM,YAAY,GAAG,KAAK,EAAE,OAAuB,EAAE,KAAmB,EAAE,EAAE;IACjF,gEAAgE;IAChE,MAAM,IAAA,0BAAa,GAAE,CAAC;IAEtB,iFAAiF;IACjF,KAAK,CAAC,MAAM,CAAC,eAAe,EAAE,wBAAW,CAAC,CAAC;AAC7C,CAAC,CAAC;AANW,QAAA,YAAY,gBAMvB"}

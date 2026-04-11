@@ -12371,12 +12371,16 @@ export namespace Prisma {
     amount: number | null
     conversionRate: number | null
     loanValue: number | null
+    marginPercentage: number | null
+    commissionRate: number | null
   }
 
   export type LCSumAggregateOutputType = {
     amount: number | null
     conversionRate: number | null
     loanValue: number | null
+    marginPercentage: number | null
+    commissionRate: number | null
   }
 
   export type LCMinAggregateOutputType = {
@@ -12394,6 +12398,8 @@ export namespace Prisma {
     description: string | null
     loanType: string | null
     loanValue: number | null
+    marginPercentage: number | null
+    commissionRate: number | null
     shipmentDate: Date | null
     portOfLoading: string | null
     portOfDestination: string | null
@@ -12421,6 +12427,8 @@ export namespace Prisma {
     description: string | null
     loanType: string | null
     loanValue: number | null
+    marginPercentage: number | null
+    commissionRate: number | null
     shipmentDate: Date | null
     portOfLoading: string | null
     portOfDestination: string | null
@@ -12448,6 +12456,8 @@ export namespace Prisma {
     description: number
     loanType: number
     loanValue: number
+    marginPercentage: number
+    commissionRate: number
     shipmentDate: number
     portOfLoading: number
     portOfDestination: number
@@ -12466,12 +12476,16 @@ export namespace Prisma {
     amount?: true
     conversionRate?: true
     loanValue?: true
+    marginPercentage?: true
+    commissionRate?: true
   }
 
   export type LCSumAggregateInputType = {
     amount?: true
     conversionRate?: true
     loanValue?: true
+    marginPercentage?: true
+    commissionRate?: true
   }
 
   export type LCMinAggregateInputType = {
@@ -12489,6 +12503,8 @@ export namespace Prisma {
     description?: true
     loanType?: true
     loanValue?: true
+    marginPercentage?: true
+    commissionRate?: true
     shipmentDate?: true
     portOfLoading?: true
     portOfDestination?: true
@@ -12516,6 +12532,8 @@ export namespace Prisma {
     description?: true
     loanType?: true
     loanValue?: true
+    marginPercentage?: true
+    commissionRate?: true
     shipmentDate?: true
     portOfLoading?: true
     portOfDestination?: true
@@ -12543,6 +12561,8 @@ export namespace Prisma {
     description?: true
     loanType?: true
     loanValue?: true
+    marginPercentage?: true
+    commissionRate?: true
     shipmentDate?: true
     portOfLoading?: true
     portOfDestination?: true
@@ -12657,6 +12677,8 @@ export namespace Prisma {
     description: string | null
     loanType: string
     loanValue: number
+    marginPercentage: number
+    commissionRate: number
     shipmentDate: Date | null
     portOfLoading: string | null
     portOfDestination: string | null
@@ -12703,6 +12725,8 @@ export namespace Prisma {
     description?: boolean
     loanType?: boolean
     loanValue?: boolean
+    marginPercentage?: boolean
+    commissionRate?: boolean
     shipmentDate?: boolean
     portOfLoading?: boolean
     portOfDestination?: boolean
@@ -12737,6 +12761,8 @@ export namespace Prisma {
     description?: boolean
     loanType?: boolean
     loanValue?: boolean
+    marginPercentage?: boolean
+    commissionRate?: boolean
     shipmentDate?: boolean
     portOfLoading?: boolean
     portOfDestination?: boolean
@@ -12767,6 +12793,8 @@ export namespace Prisma {
     description?: boolean
     loanType?: boolean
     loanValue?: boolean
+    marginPercentage?: boolean
+    commissionRate?: boolean
     shipmentDate?: boolean
     portOfLoading?: boolean
     portOfDestination?: boolean
@@ -12819,6 +12847,8 @@ export namespace Prisma {
       description: string | null
       loanType: string
       loanValue: number
+      marginPercentage: number
+      commissionRate: number
       shipmentDate: Date | null
       portOfLoading: string | null
       portOfDestination: string | null
@@ -13242,6 +13272,8 @@ export namespace Prisma {
     readonly description: FieldRef<"LC", 'String'>
     readonly loanType: FieldRef<"LC", 'String'>
     readonly loanValue: FieldRef<"LC", 'Float'>
+    readonly marginPercentage: FieldRef<"LC", 'Float'>
+    readonly commissionRate: FieldRef<"LC", 'Float'>
     readonly shipmentDate: FieldRef<"LC", 'DateTime'>
     readonly portOfLoading: FieldRef<"LC", 'String'>
     readonly portOfDestination: FieldRef<"LC", 'String'>
@@ -49151,6 +49183,8 @@ export namespace Prisma {
     description: 'description',
     loanType: 'loanType',
     loanValue: 'loanValue',
+    marginPercentage: 'marginPercentage',
+    commissionRate: 'commissionRate',
     shipmentDate: 'shipmentDate',
     portOfLoading: 'portOfLoading',
     portOfDestination: 'portOfDestination',
@@ -50514,6 +50548,8 @@ export namespace Prisma {
     description?: StringNullableFilter<"LC"> | string | null
     loanType?: StringFilter<"LC"> | string
     loanValue?: FloatFilter<"LC"> | number
+    marginPercentage?: FloatFilter<"LC"> | number
+    commissionRate?: FloatFilter<"LC"> | number
     shipmentDate?: DateTimeNullableFilter<"LC"> | Date | string | null
     portOfLoading?: StringNullableFilter<"LC"> | string | null
     portOfDestination?: StringNullableFilter<"LC"> | string | null
@@ -50547,6 +50583,8 @@ export namespace Prisma {
     description?: SortOrderInput | SortOrder
     loanType?: SortOrder
     loanValue?: SortOrder
+    marginPercentage?: SortOrder
+    commissionRate?: SortOrder
     shipmentDate?: SortOrderInput | SortOrder
     portOfLoading?: SortOrderInput | SortOrder
     portOfDestination?: SortOrderInput | SortOrder
@@ -50584,6 +50622,8 @@ export namespace Prisma {
     description?: StringNullableFilter<"LC"> | string | null
     loanType?: StringFilter<"LC"> | string
     loanValue?: FloatFilter<"LC"> | number
+    marginPercentage?: FloatFilter<"LC"> | number
+    commissionRate?: FloatFilter<"LC"> | number
     shipmentDate?: DateTimeNullableFilter<"LC"> | Date | string | null
     portOfLoading?: StringNullableFilter<"LC"> | string | null
     portOfDestination?: StringNullableFilter<"LC"> | string | null
@@ -50617,6 +50657,8 @@ export namespace Prisma {
     description?: SortOrderInput | SortOrder
     loanType?: SortOrder
     loanValue?: SortOrder
+    marginPercentage?: SortOrder
+    commissionRate?: SortOrder
     shipmentDate?: SortOrderInput | SortOrder
     portOfLoading?: SortOrderInput | SortOrder
     portOfDestination?: SortOrderInput | SortOrder
@@ -50652,6 +50694,8 @@ export namespace Prisma {
     description?: StringNullableWithAggregatesFilter<"LC"> | string | null
     loanType?: StringWithAggregatesFilter<"LC"> | string
     loanValue?: FloatWithAggregatesFilter<"LC"> | number
+    marginPercentage?: FloatWithAggregatesFilter<"LC"> | number
+    commissionRate?: FloatWithAggregatesFilter<"LC"> | number
     shipmentDate?: DateTimeNullableWithAggregatesFilter<"LC"> | Date | string | null
     portOfLoading?: StringNullableWithAggregatesFilter<"LC"> | string | null
     portOfDestination?: StringNullableWithAggregatesFilter<"LC"> | string | null
@@ -54637,6 +54681,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -54668,6 +54714,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -54697,6 +54745,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -54728,6 +54778,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -54758,6 +54810,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -54784,6 +54838,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -54809,6 +54865,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -59113,6 +59171,8 @@ export namespace Prisma {
     description?: SortOrder
     loanType?: SortOrder
     loanValue?: SortOrder
+    marginPercentage?: SortOrder
+    commissionRate?: SortOrder
     shipmentDate?: SortOrder
     portOfLoading?: SortOrder
     portOfDestination?: SortOrder
@@ -59129,6 +59189,8 @@ export namespace Prisma {
     amount?: SortOrder
     conversionRate?: SortOrder
     loanValue?: SortOrder
+    marginPercentage?: SortOrder
+    commissionRate?: SortOrder
   }
 
   export type LCMaxOrderByAggregateInput = {
@@ -59146,6 +59208,8 @@ export namespace Prisma {
     description?: SortOrder
     loanType?: SortOrder
     loanValue?: SortOrder
+    marginPercentage?: SortOrder
+    commissionRate?: SortOrder
     shipmentDate?: SortOrder
     portOfLoading?: SortOrder
     portOfDestination?: SortOrder
@@ -59173,6 +59237,8 @@ export namespace Prisma {
     description?: SortOrder
     loanType?: SortOrder
     loanValue?: SortOrder
+    marginPercentage?: SortOrder
+    commissionRate?: SortOrder
     shipmentDate?: SortOrder
     portOfLoading?: SortOrder
     portOfDestination?: SortOrder
@@ -59189,6 +59255,8 @@ export namespace Prisma {
     amount?: SortOrder
     conversionRate?: SortOrder
     loanValue?: SortOrder
+    marginPercentage?: SortOrder
+    commissionRate?: SortOrder
   }
 
   export type FloatNullableFilter<$PrismaModel = never> = {
@@ -68565,6 +68633,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -68594,6 +68664,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -69421,6 +69493,8 @@ export namespace Prisma {
     description?: StringNullableFilter<"LC"> | string | null
     loanType?: StringFilter<"LC"> | string
     loanValue?: FloatFilter<"LC"> | number
+    marginPercentage?: FloatFilter<"LC"> | number
+    commissionRate?: FloatFilter<"LC"> | number
     shipmentDate?: DateTimeNullableFilter<"LC"> | Date | string | null
     portOfLoading?: StringNullableFilter<"LC"> | string | null
     portOfDestination?: StringNullableFilter<"LC"> | string | null
@@ -70963,6 +71037,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -70993,6 +71069,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -71306,6 +71384,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -71336,6 +71416,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -73572,6 +73654,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -73602,6 +73686,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -74054,6 +74140,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -74084,6 +74172,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -74601,6 +74691,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -74631,6 +74723,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -74859,6 +74953,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -74889,6 +74985,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -80030,6 +80128,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -80060,6 +80160,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -80283,6 +80385,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -80313,6 +80417,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -84293,6 +84399,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -85108,6 +85216,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -85137,6 +85247,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -85166,6 +85278,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -86844,6 +86958,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -87038,6 +87154,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -87068,6 +87186,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -87097,6 +87217,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -87244,6 +87366,8 @@ export namespace Prisma {
     description?: string | null
     loanType?: string
     loanValue?: number
+    marginPercentage?: number
+    commissionRate?: number
     shipmentDate?: Date | string | null
     portOfLoading?: string | null
     portOfDestination?: string | null
@@ -87467,6 +87591,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -87497,6 +87623,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null
@@ -87526,6 +87654,8 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     loanType?: StringFieldUpdateOperationsInput | string
     loanValue?: FloatFieldUpdateOperationsInput | number
+    marginPercentage?: FloatFieldUpdateOperationsInput | number
+    commissionRate?: FloatFieldUpdateOperationsInput | number
     shipmentDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     portOfLoading?: NullableStringFieldUpdateOperationsInput | string | null
     portOfDestination?: NullableStringFieldUpdateOperationsInput | string | null

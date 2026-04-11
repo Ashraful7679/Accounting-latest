@@ -220,6 +220,8 @@ exports.Prisma.LCScalarFieldEnum = {
   description: 'description',
   loanType: 'loanType',
   loanValue: 'loanValue',
+  marginPercentage: 'marginPercentage',
+  commissionRate: 'commissionRate',
   shipmentDate: 'shipmentDate',
   portOfLoading: 'portOfLoading',
   portOfDestination: 'portOfDestination',

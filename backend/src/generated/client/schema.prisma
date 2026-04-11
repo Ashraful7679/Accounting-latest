@@ -209,6 +209,10 @@ model LC {
   loanType  String @default("NONE") // NONE, PERCENTAGE, FIXED
   loanValue Float  @default(0)
 
+  // Margin & Commission (GL automation)
+  marginPercentage Float @default(0) // Bank margin deposit % (e.g., 10-20%)
+  commissionRate   Float @default(0) // Bank LC commission % (e.g., 0.25-0.5%)
+
   // Shipment Info
   shipmentDate      DateTime?
   portOfLoading     String?

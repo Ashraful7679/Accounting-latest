@@ -96,6 +96,9 @@ export function buildPrintDocument(opts: {
   signatures?: SignatureInfo;
   hideSignatures?: boolean;
 }): string {
+  const hasSignatures = opts.signatures && (opts.signatures.createdBy || opts.signatures.verifiedBy || opts.signatures.approvedBy);
+  const shouldShowSignatures = !opts.hideSignatures && hasSignatures;
+
   return `
     <html>
       <head>
@@ -105,7 +108,7 @@ export function buildPrintDocument(opts: {
       <body>
         ${companyHeader(opts.company)}
         ${opts.body}
-        ${!opts.hideSignatures ? signatureBlock(opts.signatures || {}) : ''}
+        ${shouldShowSignatures ? signatureBlock(opts.signatures || {}) : ''}
         <footer>
           <span>${opts.company.name}</span>
           <span>Printed on ${new Date().toLocaleString()}</span>

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
+import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
 import { Plus, Trash2, Edit, ArrowLeft, LogOut, Building2, Bell, X, Package, DollarSign } from 'lucide-react';
 import UserDropdown from '@/components/UserDropdown';
 
@@ -378,7 +379,7 @@ export default function CompanyVendorsPage() {
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1.5">Opening Balance (BDT)</label>
-                  <input type="text" value={openingBalanceBDT.toFixed(2)} className="input w-full bg-slate-100" readOnly />
+                  <input type="text" value={`${getCurrencySymbol('BDT')}${formatCurrency(openingBalanceBDT)}`} className="input w-full bg-slate-100" readOnly />
                 </div>
               </div>
 

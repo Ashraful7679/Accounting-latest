@@ -119,8 +119,7 @@ export class AccountRepository {
         category,
         companyId,
         accountTypeId: accountType.id,
-        isActive: true,
-        isSystem: true
+        isActive: true
       }
     });
   }

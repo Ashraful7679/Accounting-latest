@@ -243,7 +243,7 @@ export default function ReportsClient() {
                           <section>
                             <h3 className="text-rose-600 font-black uppercase tracking-widest text-xs mb-4">Operating Expenses</h3>
                             <div className="divide-y divide-slate-100">
-                              {reportData?.expenses?.map((e: any, idx: number) => (
+                              {reportData?.expenseAccounts?.map((e: any, idx: number) => (
                                 <div key={idx} className="flex justify-between py-3">
                                   <span className="font-bold text-slate-700">{e.name}</span>
                                   <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {e.amount.toLocaleString()}</span>

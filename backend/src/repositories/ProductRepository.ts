@@ -80,8 +80,7 @@ export class ProductRepository {
             category: 'INVENTORY',
             companyId: product.companyId,
             accountTypeId: assetType!.id,
-            isActive: true,
-            isSystem: true
+            isActive: true
           }
         });
       }
@@ -99,8 +98,7 @@ export class ProductRepository {
             category: 'ADJUSTMENT',
             companyId: product.companyId,
             accountTypeId: expenseType!.id,
-            isActive: true,
-            isSystem: true
+            isActive: true
           }
         });
       }

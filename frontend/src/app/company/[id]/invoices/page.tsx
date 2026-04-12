@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { Plus, FileText, Trash2, Check, X, ArrowLeft, LogOut, Eye, Edit, CreditCard, DollarSign, Bell, Send, CheckCheck, Printer } from 'lucide-react';
 import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
 import { AttachmentManager } from '@/components/AttachmentManager';
+import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
 
 
 interface Customer {
@@ -36,6 +37,7 @@ interface Invoice {
 }
 
 interface Line {
+  productId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -68,7 +70,7 @@ export default function CompanyInvoicesPage() {
     exchangeRate: '1',
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
-    lines: [{ description: '', quantity: 1, unitPrice: 0, taxRate: 0 }] as Line[],
+    lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0 }] as Line[],
     paymentSplits: {
       cash: 0,
       bank: 0,
@@ -111,6 +113,15 @@ export default function CompanyInvoicesPage() {
     queryKey: ['company-accounts', companyId],
     queryFn: async () => {
       const response = await api.get(`/company/${companyId}/accounts`);
+      return response.data.data;
+    },
+    enabled: !!companyId,
+  });
+
+  const { data: productsData } = useQuery({
+    queryKey: ['company-products', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/products`);
       return response.data.data;
     },
     enabled: !!companyId,
@@ -207,8 +218,6 @@ export default function CompanyInvoicesPage() {
         <div class="meta-grid">
           <div class="meta-field"><label>Customer</label><span>${invoice.customer?.name || 'Walk-in Customer'}</span></div>
           <div class="meta-field"><label>Currency</label><span>${invoice.currency} (rate: ${invoice.exchangeRate})</span></div>
-          <div class="meta-field"><label>Created By</label><span>${invoice.createdBy?.firstName} ${invoice.createdBy?.lastName}</span></div>
-          ${invoice.approvedBy ? `<div class="meta-field"><label>Approved By</label><span>${invoice.approvedBy.firstName} ${invoice.approvedBy.lastName}</span></div>` : ''}
         </div>
         <table>
           <thead>
@@ -316,7 +325,7 @@ export default function CompanyInvoicesPage() {
       exchangeRate: '1',
       invoiceDate: new Date().toISOString().split('T')[0],
       dueDate: '',
-      lines: [{ description: '', quantity: 1, unitPrice: 0, taxRate: 0 }],
+      lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0 }],
       paymentSplits: { cash: 0, bank: 0, ar: 0, bankAccountId: '' },
     });
     setShowModal(true);
@@ -339,13 +348,24 @@ export default function CompanyInvoicesPage() {
   const addLine = () => {
     setFormData({
       ...formData,
-      lines: [...formData.lines, { description: '', quantity: 1, unitPrice: 0, taxRate: 0 }],
+      lines: [...formData.lines, { productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0 }],
     });
   };
 
   const updateLine = (index: number, field: keyof Line, value: any) => {
     const lines = [...formData.lines];
-    lines[index] = { ...lines[index], [field]: value };
+    const line = { ...lines[index], [field]: value };
+    
+    // Auto-fill price and description if product is selected
+    if (field === 'productId' && value) {
+      const product = productsData?.find((p: any) => p.id === value);
+      if (product) {
+        line.unitPrice = product.unitPrice;
+        line.description = product.description || product.name || '';
+      }
+    }
+    
+    lines[index] = line;
     setFormData({ ...formData, lines });
   };
 
@@ -427,7 +447,7 @@ export default function CompanyInvoicesPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500">{invoice.currency}</td>
                     <td className="px-6 py-4 text-sm text-slate-900 text-right">
-                      {invoice.total.toFixed(2)}
+                      {getCurrencySymbol(invoice.currency)}{formatCurrency(invoice.total)}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(invoice.status)}`}>
@@ -574,42 +594,66 @@ export default function CompanyInvoicesPage() {
                 </div>
                 <div className="space-y-2">
                   {formData.lines.map((line, index) => (
-                    <div key={index} className="flex gap-2 items-start">
-                      <input
-                        type="text"
-                        placeholder="Description"
-                        value={line.description}
-                        onChange={(e) => updateLine(index, 'description', e.target.value)}
-                        className="input flex-1"
-                        required
-                      />
-                      <input
-                        type="number"
-                        placeholder="Qty"
-                        value={line.quantity}
-                        onChange={(e) => updateLine(index, 'quantity', parseFloat(e.target.value))}
-                        className="input w-20"
-                        required
-                      />
-                      <input
-                        type="number"
-                        placeholder="Price"
-                        value={line.unitPrice}
-                        onChange={(e) => updateLine(index, 'unitPrice', parseFloat(e.target.value))}
-                        className="input w-24"
-                        required
-                      />
-                      <input
-                        type="number"
-                        placeholder="Tax %"
-                        value={line.taxRate}
-                        onChange={(e) => updateLine(index, 'taxRate', parseFloat(e.target.value))}
-                        className="input w-20"
-                      />
+                    <div key={index} className="flex gap-2 items-start p-3 bg-slate-50 rounded-lg">
+                      <div className="flex-1 grid grid-cols-12 gap-2">
+                        <div className="col-span-4">
+                          <select
+                            value={line.productId || ''}
+                            onChange={(e) => updateLine(index, 'productId', e.target.value)}
+                            className="input w-full"
+                          >
+                            <option value="">One-off / Search Product</option>
+                            {productsData?.map((p: any) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} ({p.sku})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="col-span-4">
+                          <input
+                            type="text"
+                            placeholder="Description"
+                            value={line.description}
+                            onChange={(e) => updateLine(index, 'description', e.target.value)}
+                            className="input w-full"
+                            required
+                          />
+                        </div>
+                        <div className="col-span-1">
+                          <input
+                            type="number"
+                            placeholder="Qty"
+                            value={line.quantity}
+                            onChange={(e) => updateLine(index, 'quantity', parseFloat(e.target.value))}
+                            className="input w-full text-center"
+                            required
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <input
+                            type="number"
+                            placeholder="Price"
+                            value={line.unitPrice}
+                            onChange={(e) => updateLine(index, 'unitPrice', parseFloat(e.target.value))}
+                            className="input w-full text-right"
+                            required
+                          />
+                        </div>
+                        <div className="col-span-1">
+                          <input
+                            type="number"
+                            placeholder="Tax %"
+                            value={line.taxRate}
+                            onChange={(e) => updateLine(index, 'taxRate', parseFloat(e.target.value))}
+                            className="input w-full text-center"
+                          />
+                        </div>
+                      </div>
                       <button
                         type="button"
                         onClick={() => removeLine(index)}
-                        className="p-2 text-red-600 hover:text-red-800"
+                        className="p-1 text-red-500 hover:text-red-700 mt-2"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -621,9 +665,9 @@ export default function CompanyInvoicesPage() {
               <div className="border-t pt-4">
                 <div className="flex justify-end gap-4">
                   <div className="text-right">
-                    <p className="text-sm text-gray-500">Subtotal: {calculateTotals().subtotal.toFixed(2)}</p>
-                    <p className="text-sm text-gray-500">Tax: {calculateTotals().taxAmount.toFixed(2)}</p>
-                    <p className="text-lg font-semibold">Total (BDT): {calculateTotals().total.toFixed(2)}</p>
+                    <p className="text-sm text-gray-500">Subtotal: {getCurrencySymbol(formData.currency)}{formatCurrency(calculateTotals().subtotal)}</p>
+                    <p className="text-sm text-gray-500">Tax: {getCurrencySymbol(formData.currency)}{formatCurrency(calculateTotals().taxAmount)}</p>
+                    <p className="text-lg font-semibold">Total: {getCurrencySymbol(formData.currency)}{formatCurrency(calculateTotals().total)}</p>
                   </div>
                 </div>
               </div>
@@ -763,20 +807,20 @@ export default function CompanyInvoicesPage() {
             <div className="border border-slate-100 rounded-xl overflow-hidden mb-8 shadow-sm">
               <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 flex justify-between items-center text-xs font-bold text-slate-400 uppercase tracking-widest">
                 <span>Financial Breakdown</span>
-                <span>(In BDT Equivalent)</span>
+                <span>(In {selectedInvoice.currency})</span>
               </div>
               <div className="p-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Subtotal</span>
-                  <span className="text-slate-900 font-medium">{selectedInvoice.subtotal.toFixed(2)}</span>
+                <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg">
+                  <span className="text-slate-500 font-medium">Subtotal</span>
+                  <span className="text-slate-900 font-medium">{getCurrencySymbol(selectedInvoice.currency)}{formatCurrency(selectedInvoice.subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Tax Amount</span>
-                  <span className="text-slate-900 font-medium">{selectedInvoice.taxAmount.toFixed(2)}</span>
+                <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg">
+                  <span className="text-slate-500 font-medium">Tax</span>
+                  <span className="text-slate-900 font-medium">{getCurrencySymbol(selectedInvoice.currency)}{formatCurrency(selectedInvoice.taxAmount)}</span>
                 </div>
-                <div className="flex justify-between pt-2 border-t border-slate-100">
-                  <span className="text-slate-900 font-bold">Total Payable</span>
-                  <span className="text-lg font-black text-blue-600">{selectedInvoice.total.toFixed(2)} BDT</span>
+                <div className="flex justify-between items-center bg-blue-50 p-4 rounded-xl border border-blue-100 mt-2">
+                  <span className="text-blue-700 font-bold">Total Payable</span>
+                  <span className="text-lg font-black text-blue-600">{getCurrencySymbol(selectedInvoice.currency)}{formatCurrency(selectedInvoice.total)}</span>
                 </div>
               </div>
             </div>

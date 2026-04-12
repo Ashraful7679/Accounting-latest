@@ -26,7 +26,6 @@ export class ProductRepository {
     isActive?: boolean;
     currency?: string;
     stockAmount?: number;
-    type?: string;
   }) {
     return prisma.product.create({ data });
   }
@@ -40,7 +39,6 @@ export class ProductRepository {
     isActive: boolean;
     currency: string;
     stockAmount: number;
-    type: string;
   }>) {
     return prisma.product.update({ where: { id }, data });
   }
@@ -49,7 +47,7 @@ export class ProductRepository {
     return prisma.product.delete({ where: { id } });
   }
 
-  static async adjustStock(productId: string, newAmount: number, userId: string, notes?: string) {
+  static async adjustStock(productId: string, adjustmentAmount: number, userId: string, notes?: string) {
     return await prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({
         where: { id: productId },
@@ -59,7 +57,8 @@ export class ProductRepository {
       if (!product) throw new Error('Product not found');
 
       const oldAmount = product.stockAmount;
-      const diff = newAmount - oldAmount;
+      const diff = adjustmentAmount;
+      const newAmount = oldAmount + diff;
 
       if (diff === 0) return product;
 
@@ -120,7 +119,7 @@ export class ProductRepository {
         data: {
           entryNumber,
           date: new Date(),
-          description: notes || `Stock Adjustment for ${product.name}: ${oldAmount} -> ${newAmount}`,
+          description: notes || `Stock Adjustment for ${product.name}: ${oldAmount} -> ${newAmount} (Adj: ${diff > 0 ? '+' : ''}${diff})`,
           companyId: product.companyId,
           status: 'APPROVED',
           createdById: userId,

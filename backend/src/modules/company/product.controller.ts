@@ -21,7 +21,7 @@ export class ProductController {
   async createProduct(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
     const userId = (request.user as any).id;
-    const { name, sku, description, unitType, unitPrice, currency, stockAmount, type, isActive } = request.body as any;
+    const { name, sku, description, unitType, unitPrice, currency, stockAmount, isActive } = request.body as any;
 
     if (!name) throw new ValidationError('Product name is required');
 
@@ -37,7 +37,6 @@ export class ProductController {
       unitPrice: Number(unitPrice || 0),
       currency: currency || 'BDT',
       stockAmount: Number(stockAmount || 0),
-      type: type || 'GOODS',
       isActive: isActive !== undefined ? isActive : true,
     });
 
@@ -70,7 +69,6 @@ export class ProductController {
     if (data.unitPrice !== undefined) updateData.unitPrice = Number(data.unitPrice);
     if (data.currency !== undefined) updateData.currency = data.currency;
     if (data.stockAmount !== undefined) updateData.stockAmount = Number(data.stockAmount);
-    if (data.type !== undefined) updateData.type = data.type;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
 
     const product = await ProductRepository.update(productId, updateData);
@@ -114,12 +112,11 @@ export class ProductController {
     const { productId } = request.params as { productId: string };
     const { id: companyId } = request.params as { id: string };
     const userId = (request.user as any).id;
-    const { stockAmount, newAmount, notes } = request.body as any;
-    const finalAmount = stockAmount !== undefined ? stockAmount : newAmount;
+    const { adjustmentAmount, notes } = request.body as any;
 
-    if (finalAmount === undefined) throw new ValidationError('Stock amount is required');
+    if (adjustmentAmount === undefined) throw new ValidationError('Adjustment amount is required');
 
-    const product = await ProductRepository.adjustStock(productId, Number(finalAmount), userId, notes);
+    const product = await ProductRepository.adjustStock(productId, Number(adjustmentAmount), userId, notes);
 
     await NotificationController.logActivity({
       companyId,

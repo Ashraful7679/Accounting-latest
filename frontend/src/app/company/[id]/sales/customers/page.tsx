@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -383,7 +384,7 @@ export default function CompanyCustomersPage() {
 
                     <div>
                       <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5 ml-1">Opening Balance (BDT)</label>
-                      <input type="text" value={openingBalanceBDT.toFixed(2)} className="w-full bg-slate-100 border-2 border-transparent rounded-2xl px-4 py-3 outline-none font-bold" readOnly />
+                      <input type="text" value={`${getCurrencySymbol('BDT')}${formatCurrency(openingBalanceBDT)}`} className="w-full bg-slate-100 border-2 border-transparent rounded-2xl px-4 py-3 outline-none font-bold" readOnly />
                     </div>
                   </div>
 

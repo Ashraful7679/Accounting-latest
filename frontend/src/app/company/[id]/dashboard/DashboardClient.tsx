@@ -27,19 +27,23 @@ const DRILL_DOWN: Record<string, string> = {
   'Payables': 'reports?id=vendor-aging',
 };
 
+import { getCurrencySymbol } from '@/lib/decimalUtils';
+
 function formatCurrency(val: any): string {
   const num = Number(val);
-  if (isNaN(num)) return '৳0';
-  if (Math.abs(num) >= 10000000) return `৳${(num / 10000000).toFixed(2)}Cr`;
-  if (Math.abs(num) >= 100000) return `৳${(num / 100000).toFixed(2)}L`;
-  if (Math.abs(num) >= 1000) return `৳${(num / 1000).toFixed(1)}K`;
-  return `৳${num.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+  const symbol = getCurrencySymbol('BDT');
+  if (isNaN(num)) return `${symbol}0`;
+  if (Math.abs(num) >= 10000000) return `${symbol}${(num / 10000000).toFixed(2)}Cr`;
+  if (Math.abs(num) >= 100000) return `${symbol}${(num / 100000).toFixed(2)}L`;
+  if (Math.abs(num) >= 1000) return `${symbol}${(num / 1000).toFixed(1)}K`;
+  return `${symbol}${num.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 }
 
 function formatFullCurrency(val: any): string {
   const num = Number(val);
-  if (isNaN(num)) return '৳0';
-  return `৳${num.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+  const symbol = getCurrencySymbol('BDT');
+  if (isNaN(num)) return `${symbol}0`;
+  return `${symbol}${num.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 }
 
 function timeAgo(dateStr: string): string {

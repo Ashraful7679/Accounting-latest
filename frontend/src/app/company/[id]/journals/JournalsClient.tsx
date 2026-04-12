@@ -16,6 +16,7 @@ import UserDropdown from '@/components/UserDropdown';
 import { renderActivityMessage, type ActivityLog } from '@/utils/activityRenderer';
 import { handleError } from '@/lib/error-handler';
 import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
+import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
 
 interface Account {
   id: string;
@@ -570,8 +571,8 @@ export default function JournalsClient() {
               <div className="border-t pt-4">
                 <div className="flex justify-end gap-4">
                   <div className="text-right">
-                    <p className="text-sm text-gray-500">Total Debit: {calculateTotals().totalDebit.toFixed(2)}</p>
-                    <p className="text-sm text-gray-500">Total Credit: {calculateTotals().totalCredit.toFixed(2)}</p>
+                    <p className="text-sm text-gray-500">Total Debit: {getCurrencySymbol('BDT')}{formatCurrency(calculateTotals().totalDebit)}</p>
+                    <p className="text-sm text-gray-500">Total Credit: {getCurrencySymbol('BDT')}{formatCurrency(calculateTotals().totalCredit)}</p>
                     {Math.abs(calculateTotals().totalDebit - calculateTotals().totalCredit) > 0.01 && (
                       <p className="text-sm text-red-500">Difference must be 0</p>
                     )}

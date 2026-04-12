@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
+import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
 
 
 interface POLine {
@@ -141,7 +142,7 @@ export default function PurchaseOrdersPage() {
     enabled: !!companyId,
   });
 
-  const productsData = allProductsData?.filter((p: any) => p.type === 'Purchase') || [];
+  const productsData = allProductsData || [];
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -456,11 +457,11 @@ export default function PurchaseOrdersPage() {
                             <span className="text-[10px] text-blue-500 uppercase font-black">{po.lc?.lcNumber ? `LC: ${po.lc.lcNumber}` : 'Standard PO'}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <span className="font-mono font-bold text-slate-900">{po.currency} {po.totalForeign.toLocaleString()}</span>
+                        <td className="px-6 py-4 text-xs font-bold text-slate-900 text-right">
+                          {getCurrencySymbol(po.currency)}{formatCurrency(po.totalForeign)}
                         </td>
                         <td className="px-6 py-4 text-right font-mono font-bold text-slate-900">
-                          {po.totalBDT.toLocaleString()}
+                          {getCurrencySymbol('BDT')}{formatCurrency(po.totalBDT)}
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full ${getStatusBadge(po.status)}`}>
@@ -727,13 +728,16 @@ export default function PurchaseOrdersPage() {
                     </div>
 
                     <div className="mt-6 flex flex-col items-end gap-2 border-t border-slate-100 pt-6">
-                      <div className="flex items-center gap-12">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Foreign Subtotal</span>
-                        <span className="text-xl font-black text-slate-900 font-mono">{formData.currency} {subtotal.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center gap-12">
-                        <span className="text-xs font-bold uppercase tracking-widest text-emerald-600">Total BDT Est.</span>
-                        <span className="text-2xl font-black text-emerald-600 font-mono">৳ {(subtotal * formData.exchangeRate).toLocaleString()}</span>
+                      <div className="text-right p-4 bg-slate-50 rounded-xl space-y-1">
+                        <p className="text-xs font-medium text-slate-500">Total Calculation</p>
+                        <p className="text-xl font-black text-slate-900">
+                          {getCurrencySymbol(formData.currency)}{formatCurrency(formData.lines.reduce((acc, l) => acc + (l.quantity * l.unitPrice), 0))}
+                        </p>
+                        {formData.currency !== 'BDT' && (
+                          <p className="text-xs text-slate-400 font-medium italic">
+                            Equiv. {getCurrencySymbol('BDT')}{formatCurrency(formData.lines.reduce((acc, l) => acc + (l.quantity * l.unitPrice), 0) * formData.exchangeRate)}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>

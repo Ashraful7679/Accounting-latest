@@ -136,11 +136,11 @@ export class ReportController extends BaseCompanyController {
       const priorPnl = await this._calculatePnL(companyId, compareStartDate, compareEndDate);
       comparison = {
         prior: priorPnl,
-        revenueVariance: pnl.revenue - priorPnl.revenue,
-        revenueVariancePct: priorPnl.revenue !== 0 ? ((pnl.revenue - priorPnl.revenue) / Math.abs(priorPnl.revenue)) * 100 : (pnl.revenue !== 0 ? 100 : 0),
-        expenseVariance: pnl.expenses - priorPnl.expenses,
-        expenseVariancePct: priorPnl.expenses !== 0 ? ((pnl.expenses - priorPnl.expenses) / Math.abs(priorPnl.expenses)) * 100 : (pnl.expenses !== 0 ? 100 : 0),
-        netProfitVariance: pnl.netProfit - priorPnl.netProfit,
+        revenueVariance: Number(pnl.revenue) - Number(priorPnl.revenue),
+        revenueVariancePct: Number(priorPnl.revenue) !== 0 ? ((Number(pnl.revenue) - Number(priorPnl.revenue)) / Math.abs(Number(priorPnl.revenue))) * 100 : (Number(pnl.revenue) !== 0 ? 100 : 0),
+        expenseVariance: Number(pnl.expenses) - Number(priorPnl.expenses),
+        expenseVariancePct: Number(priorPnl.expenses) !== 0 ? ((Number(pnl.expenses) - Number(priorPnl.expenses)) / Math.abs(Number(priorPnl.expenses))) * 100 : (Number(pnl.expenses) !== 0 ? 100 : 0),
+        netProfitVariance: Number(pnl.netProfit) - Number(priorPnl.netProfit),
       };
     }
 
@@ -388,7 +388,7 @@ export class ReportController extends BaseCompanyController {
         id: a.id, code: a.code, name: a.name,
         amount: a.journalLines.reduce((s: number, l: any) => s + (Number(l.credit || 0) - Number(l.debit || 0)), 0)
       })).filter((a: any) => Math.abs(a.amount) > 0.01),
-      expenses: expenseAccounts.map((a: any) => ({
+      expenseAccounts: expenseAccounts.map((a: any) => ({
         id: a.id, code: a.code, name: a.name,
         amount: a.journalLines.reduce((s: number, l: any) => s + (Number(l.debit || 0) - Number(l.credit || 0)), 0)
       })).filter((a: any) => Math.abs(a.amount) > 0.01)

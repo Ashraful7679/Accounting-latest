@@ -8,7 +8,7 @@ import api from '@/lib/api';
 import { 
   Package, Plus, Search, Edit2, Trash2, 
   CheckCircle2, AlertCircle, ShoppingBag, 
-  Tag, Info, MoreVertical, X
+  Tag, Info, MoreVertical, X, RefreshCw
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
@@ -35,6 +35,10 @@ export default function ProductsPage() {
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [adjustAmount, setAdjustAmount] = useState<number>(0);
+  const [adjustNotes, setAdjustNotes] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -62,6 +66,27 @@ export default function ProductsPage() {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error?.message || 'Failed to delete product');
+    },
+  });
+ 
+  const adjustMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await api.post(`/company/${companyId}/products/${data.id}/adjust-stock`, {
+        newAmount: data.newAmount,
+        notes: data.notes
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products', companyId] });
+      toast.success('Stock adjusted successfully');
+      setShowAdjustModal(false);
+      setSelectedProduct(null);
+      setAdjustAmount(0);
+      setAdjustNotes('');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Failed to adjust stock');
     },
   });
 
@@ -204,6 +229,17 @@ export default function ProductsPage() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
                           <button
+                            onClick={() => {
+                              setSelectedProduct(product);
+                              setAdjustAmount(product.stockAmount);
+                              setShowAdjustModal(true);
+                            }}
+                            className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-transparent hover:border-emerald-100"
+                            title="Adjust Stock"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => router.push(`/company/${companyId}/products/${product.id}/edit`)}
                             className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100"
                             title="Edit Product"
@@ -231,6 +267,73 @@ export default function ProductsPage() {
           </div>
         </div>
       </div>
+
+      {showAdjustModal && selectedProduct && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Adjust Stock</h3>
+                <p className="text-sm text-slate-500">{selectedProduct.name}</p>
+              </div>
+              <button onClick={() => setShowAdjustModal(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">New Stock Amount</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={adjustAmount}
+                    onChange={(e) => setAdjustAmount(parseFloat(e.target.value))}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold"
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold uppercase">
+                    {selectedProduct.unitType}
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400 mt-2">Current stock: {selectedProduct.stockAmount}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Adjustment Notes</label>
+                <textarea
+                  value={adjustNotes}
+                  onChange={(e) => setAdjustNotes(e.target.value)}
+                  placeholder="Reason for adjustment (e.g. Damage, Production, Stocktake...)"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all min-h-[100px]"
+                />
+              </div>
+
+              <div className="bg-blue-50 p-3 rounded-lg flex gap-3">
+                <Info className="w-5 h-5 text-blue-600 shrink-0" />
+                <p className="text-xs text-blue-700 leading-relaxed">
+                  This adjustment will automatically generate a **Journal Entry** to reflect the stock value change in your accounts.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+              <button
+                onClick={() => setShowAdjustModal(false)}
+                className="flex-1 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => adjustMutation.mutate({ id: selectedProduct.id, newAmount: adjustAmount, notes: adjustNotes })}
+                disabled={adjustMutation.isPending}
+                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {adjustMutation.isPending ? 'Processing...' : 'Save Adjustment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -70,6 +70,7 @@ export default function ProductsPage() {
  
   const adjustMutation = useMutation({
     mutationFn: async (data: any) => {
+      const response = await api.post(`/company/${companyId}/products/${data.id}/adjust-stock`, {
         adjustmentAmount: data.adjustmentAmount,
         notes: data.notes
       });
@@ -147,7 +148,7 @@ export default function ProductsPage() {
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-20 text-center">
+                    <td colSpan={7} className="px-6 py-20 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
                         <span className="text-slate-400 font-medium">Loading catalog...</span>
@@ -190,7 +191,6 @@ export default function ProductsPage() {
                       <td className="px-6 py-4">
                         <span className="text-slate-600 font-medium">{product.sku || '---'}</span>
                       </td>
-                      <td className="px-6 py-4">
                       <td className="px-6 py-4">
                         <span className="text-slate-600 font-bold text-xs uppercase tracking-wider">{product.unitType}</span>
                       </td>
@@ -249,7 +249,8 @@ export default function ProductsPage() {
                         </div>
                       </td>
                     </tr>
-                  )})
+                    );
+                  })
                 )}
               </tbody>
             </table>

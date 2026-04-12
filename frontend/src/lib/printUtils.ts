@@ -52,7 +52,7 @@ export function signatureBlock(sig: SignatureInfo): string {
   `;
 
   return `
-    <div style="display: flex; margin-top: 60px; padding-top: 8px;">
+    <div class="signature-block" style="display: flex; margin-top: 60px; padding-top: 8px;">
       ${box('Created By', sig.createdBy)}
       ${box('Verified By', sig.verifiedBy)}
       ${box('Approved By', sig.approvedBy)}
@@ -81,6 +81,11 @@ export function printStyles(): string {
       .totals p { margin: 4px 0; font-size: 13px; }
       .totals .grand-total { font-size: 18px; font-weight: 900; color: #0f172a; border-top: 2px solid #1e293b; padding-top: 8px; margin-top: 8px; }
       .status-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; background: #ecfdf5; color: #059669; }
+      .signature-block { 
+        break-inside: avoid !important; 
+        page-break-inside: avoid !important; 
+        margin-top: 60px;
+      }
       footer { margin-top: 48px; border-top: 1px solid #e2e8f0; padding-top: 12px; font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
     </style>
   `;

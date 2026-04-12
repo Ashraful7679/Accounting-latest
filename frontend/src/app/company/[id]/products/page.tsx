@@ -72,7 +72,7 @@ export default function ProductsPage() {
   const adjustMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await api.post(`/company/${companyId}/products/${data.id}/adjust-stock`, {
-        newAmount: data.newAmount,
+        stockAmount: data.newAmount,
         notes: data.notes
       });
       return response.data;

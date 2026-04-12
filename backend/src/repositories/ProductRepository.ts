@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { SequenceService } from '../modules/company/sequence.service';
 
 export class ProductRepository {
   static async findMany(where: any = {}) {
@@ -76,7 +77,7 @@ export class ProductRepository {
         inventoryAccount = await tx.account.create({
           data: {
             name: 'Inventory Asset',
-            code: `INV-${Math.floor(Math.random() * 9000) + 1000}`,
+            code: await SequenceService.generateDocumentNumber(product.companyId, 'account', tx),
             category: 'INVENTORY',
             companyId: product.companyId,
             accountTypeId: assetType!.id,
@@ -94,7 +95,7 @@ export class ProductRepository {
         adjustmentAccount = await tx.account.create({
           data: {
             name: 'Inventory Adjustment',
-            code: `ADJ-${Math.floor(Math.random() * 9000) + 1000}`,
+            code: await SequenceService.generateDocumentNumber(product.companyId, 'account', tx),
             category: 'ADJUSTMENT',
             companyId: product.companyId,
             accountTypeId: expenseType!.id,
@@ -113,7 +114,7 @@ export class ProductRepository {
       const valueDiff = Math.abs(diff * product.unitPrice);
       
       // Create Journal Entry
-      const entryNumber = `JE-STK-${Date.now().toString().slice(-6)}`;
+      const entryNumber = await SequenceService.generateDocumentNumber(product.companyId, 'journal', tx);
       
       const journalEntry = await tx.journalEntry.create({
         data: {

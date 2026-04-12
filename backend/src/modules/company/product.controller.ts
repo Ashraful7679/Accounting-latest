@@ -114,11 +114,12 @@ export class ProductController {
     const { productId } = request.params as { productId: string };
     const { id: companyId } = request.params as { id: string };
     const userId = (request.user as any).id;
-    const { stockAmount, notes } = request.body as any;
+    const { stockAmount, newAmount, notes } = request.body as any;
+    const finalAmount = stockAmount !== undefined ? stockAmount : newAmount;
 
-    if (stockAmount === undefined) throw new ValidationError('Stock amount is required');
+    if (finalAmount === undefined) throw new ValidationError('Stock amount is required');
 
-    const product = await ProductRepository.adjustStock(productId, Number(stockAmount), userId, notes);
+    const product = await ProductRepository.adjustStock(productId, Number(finalAmount), userId, notes);
 
     await NotificationController.logActivity({
       companyId,

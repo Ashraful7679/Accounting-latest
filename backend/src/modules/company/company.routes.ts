@@ -76,6 +76,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   // PI Management
   fastify.get('/lcs/:id/pis', piController.getPIs.bind(piController));
   fastify.post('/lcs/:id/pis', piController.createPI.bind(piController));
+  fastify.post('/:id/pis', piController.createPI.bind(piController));
   fastify.put('/:id/pis/:piId', piController.updatePI.bind(piController));
   fastify.get('/:id/pis/:piId', piController.getPIDetail.bind(piController));
   fastify.get('/:id/pis', piController.getAllPIs.bind(piController));

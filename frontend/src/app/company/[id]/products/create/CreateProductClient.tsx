@@ -24,7 +24,6 @@ export default function CreateProductClient() {
     unitPrice: 0,
     currency: 'BDT',
     stockAmount: 0,
-    type: 'Sales',
     isActive: true
   });
 
@@ -120,17 +119,6 @@ export default function CreateProductClient() {
                       className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-lg"
                       required
                     />
-                  </div>
-                  <div>
-                    <label className="text-sm font-bold text-slate-700 mb-1.5">Product Type</label>
-                    <select
-                      value={formData.type}
-                      onChange={(e) => setFormData({...formData, type: e.target.value})}
-                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700"
-                    >
-                      <option value="Sales">Sales Item</option>
-                      <option value="Purchase">Purchase Item</option>
-                    </select>
                   </div>
                    <div>
                     <label className="text-sm font-bold text-slate-700 mb-1.5 text-blue-600">Unit Type</label>

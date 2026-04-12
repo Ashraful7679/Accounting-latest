@@ -24,7 +24,6 @@ interface Product {
   unitPrice: number;
   currency: string;
   stockAmount: number;
-  type: string;
   isActive: boolean;
 }
 
@@ -71,8 +70,7 @@ export default function ProductsPage() {
  
   const adjustMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await api.post(`/company/${companyId}/products/${data.id}/adjust-stock`, {
-        stockAmount: data.newAmount,
+        adjustmentAmount: data.adjustmentAmount,
         notes: data.notes
       });
       return response.data;
@@ -139,7 +137,6 @@ export default function ProductsPage() {
                 <tr className="bg-slate-50/50">
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Product Info</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">SKU</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Unit</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Unit Price</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Stock</th>
@@ -194,14 +191,6 @@ export default function ProductsPage() {
                         <span className="text-slate-600 font-medium">{product.sku || '---'}</span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                          product.type === 'Sales' 
-                            ? 'bg-blue-50 text-blue-600 border border-blue-100' 
-                            : 'bg-orange-50 text-orange-600 border border-orange-100'
-                        }`}>
-                          {product.type}
-                        </span>
-                      </td>
                       <td className="px-6 py-4">
                         <span className="text-slate-600 font-bold text-xs uppercase tracking-wider">{product.unitType}</span>
                       </td>
@@ -230,9 +219,9 @@ export default function ProductsPage() {
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={() => {
-                              setSelectedProduct(product);
-                              setAdjustAmount(product.stockAmount);
-                              setShowAdjustModal(true);
+                                setSelectedProduct(product);
+                                setAdjustAmount(0);
+                                setShowAdjustModal(true);
                             }}
                             className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-transparent hover:border-emerald-100"
                             title="Adjust Stock"
@@ -282,20 +271,42 @@ export default function ProductsPage() {
             </div>
             
             <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Current Stock</label>
+                  <p className="text-xl font-black text-slate-900">{selectedProduct.stockAmount}</p>
+                </div>
+                <div className={`p-3 rounded-2xl border transition-colors ${adjustAmount === 0 ? 'bg-slate-50 border-slate-100' : adjustAmount > 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">New Total</label>
+                  <p className={`text-xl font-black ${adjustAmount === 0 ? 'text-slate-900' : adjustAmount > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {(selectedProduct.stockAmount + adjustAmount).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1.5">New Stock Amount</label>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5 flex justify-between">
+                  <span>Adjustment Amount (+/-)</span>
+                  <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full uppercase tracking-widest">{selectedProduct.unitType}</span>
+                </label>
                 <div className="relative">
                   <input
                     type="number"
                     value={adjustAmount}
-                    onChange={(e) => setAdjustAmount(parseFloat(e.target.value))}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold"
+                    onChange={(e) => setAdjustAmount(parseFloat(e.target.value) || 0)}
+                    placeholder="Enter + to add or - to subtract"
+                    className={`w-full px-4 py-3 bg-white border-2 rounded-2xl focus:outline-none focus:ring-4 transition-all font-black text-xl text-center ${
+                      adjustAmount === 0 ? 'border-slate-200 focus:ring-slate-500/10 focus:border-slate-400' : 
+                      adjustAmount > 0 ? 'border-emerald-200 focus:ring-emerald-500/10 focus:border-emerald-500 text-emerald-600' : 
+                      'border-red-200 focus:ring-red-500/10 focus:border-red-500 text-red-600'
+                    }`}
                   />
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold uppercase">
-                    {selectedProduct.unitType}
-                  </div>
+                  {adjustAmount !== 0 && (
+                    <div className={`absolute right-4 top-1/2 -translate-y-1/2 font-black text-sm uppercase ${adjustAmount > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {adjustAmount > 0 ? 'Increase' : 'Decrease'}
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-slate-400 mt-2">Current stock: {selectedProduct.stockAmount}</p>
               </div>
 
               <div>
@@ -324,7 +335,7 @@ export default function ProductsPage() {
                 Cancel
               </button>
               <button
-                onClick={() => adjustMutation.mutate({ id: selectedProduct.id, newAmount: adjustAmount, notes: adjustNotes })}
+                onClick={() => adjustMutation.mutate({ id: selectedProduct.id, adjustmentAmount: adjustAmount, notes: adjustNotes })}
                 disabled={adjustMutation.isPending}
                 className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 flex items-center justify-center gap-2"
               >

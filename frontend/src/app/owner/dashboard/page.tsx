@@ -77,7 +77,6 @@ export default function OwnerDashboard() {
       queryClient.invalidateQueries({ queryKey: ['owner-companies'] });
       queryClient.invalidateQueries({ queryKey: ['owner-employees'] });
       toast.success('Company created successfully');
-      setShowCreateModal(false);
       setFormData({
         name: '',
         code: '',
@@ -93,6 +92,9 @@ export default function OwnerDashboard() {
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to create company');
     },
+    onSettled: () => {
+      setShowCreateModal(false);
+    }
   });
 
   const handleCreateCompany = (e: React.FormEvent) => {
@@ -110,6 +112,8 @@ export default function OwnerDashboard() {
     } else {
       setUser(storedUser);
       setMounted(true);
+      // Ensure all modal/blocking states are reset on mount
+      setShowCreateModal(false);
     }
   }, [router]);
 
@@ -307,7 +311,7 @@ export default function OwnerDashboard() {
 
       {/* Create Company Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div id="company-create-modal-overlay" className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b flex items-center justify-between sticky top-0 bg-white">
               <h3 className="text-xl font-bold">Create New Company</h3>

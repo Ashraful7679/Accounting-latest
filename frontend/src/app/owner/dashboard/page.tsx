@@ -121,22 +121,17 @@ export default function OwnerDashboard() {
   }, [router]);
 
   useEffect(() => {
-    if (companiesData && employeesData) {
-      // Filter out owners from total employees count
-      const staffCount = employeesData.filter((e: any) => e.role !== 'Owner').length;
-      
-      setStats({
-        companies: companiesData.length,
-        employees: staffCount,
+    if (companiesData) {
+      companiesData.forEach(company => {
+        if (!companyFinancials[company.id]) {
+          fetchFinancialStats(company.id);
+        }
       });
     }
-  }, [companiesData, employeesData]);
+  }, [companiesData]);
 
   const fetchFinancialStats = async (companyId: string) => {
-    if (companyFinancials[companyId]) {
-      setExpandedCompanyId(expandedCompanyId === companyId ? null : companyId);
-      return;
-    }
+    if (loadingOverview === companyId) return;
 
     setLoadingOverview(companyId);
     try {
@@ -145,10 +140,8 @@ export default function OwnerDashboard() {
         ...prev,
         [companyId]: response.data.data.accountingEquation
       }));
-      setExpandedCompanyId(companyId);
     } catch (error) {
       console.error('Failed to fetch stats:', error);
-      toast.error('Failed to load financial overview');
     } finally {
       setLoadingOverview(null);
     }
@@ -237,7 +230,7 @@ export default function OwnerDashboard() {
                 <Users className="w-6 h-6 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-700">Total Employees</p>
+                <p className="text-sm text-gray-700">Employees</p>
                 <p className="text-2xl font-bold">{stats.employees}</p>
               </div>
             </div>
@@ -267,9 +260,9 @@ export default function OwnerDashboard() {
               {companiesData?.map((company) => (
                 <div
                   key={company.id}
-                  className={`bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-all duration-300 border ${expandedCompanyId === company.id ? 'border-blue-500 ring-1 ring-blue-500' : 'border-transparent hover:border-blue-200'}`}
+                  className="bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition-all duration-300 border border-gray-100 flex flex-col h-full"
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
                         {company.logoUrl ? (
@@ -280,114 +273,89 @@ export default function OwnerDashboard() {
                           </div>
                         )}
                         <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-lg font-semibold text-gray-900">{company.name}</h3>
-                          </div>
-                          <p className="text-sm text-gray-700">{company.code}</p>
+                          <h3 className="text-lg font-semibold text-gray-900 leading-tight">{company.name}</h3>
+                          <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">{company.code}</p>
                         </div>
                       </div>
-                      
-                      <div className="mt-4 grid grid-cols-2 gap-4">
-                        <div className="bg-gray-50 rounded-lg p-2 text-center">
-                          <p className="text-xs text-gray-700 uppercase font-semibold">Staff</p>
-                          <p className="text-lg font-bold text-gray-900">{company.employeesCount || 0}</p>
-                        </div>
-                        <div className="bg-gray-50 rounded-lg p-2 text-center">
-                          <p className="text-xs text-gray-700 uppercase font-semibold">Owners</p>
-                          <p className="text-lg font-bold text-gray-900">{company.ownersCount || 0}</p>
-                        </div>
-                      </div>
-
-                      <p className="text-sm text-gray-700 mt-4 italic">
-                        {company.city}, {company.country}
-                      </p>
                     </div>
+                    {!company.isActive && (
+                      <span className="px-2 py-0.5 text-[9px] rounded-full bg-red-50 text-red-600 border border-red-100 font-bold uppercase">
+                        Inactive
+                      </span>
+                    )}
                   </div>
 
-                  {/* Expanded Financial Overview */}
-                  {expandedCompanyId === company.id && companyFinancials[company.id] && (
-                    <div className="mt-6 pt-6 border-t border-gray-100 animate-in fade-in slide-in-from-top-4 duration-300">
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-3">
-                          <div>
-                            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Total Assets</p>
-                            <p className="text-sm font-bold text-gray-900">৳ {companyFinancials[company.id].assets.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                  {/* Financial Overview (Always Visible) */}
+                  <div className="flex-1">
+                    {companyFinancials[company.id] ? (
+                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Assets</p>
+                              <p className="text-xs font-bold text-gray-900">৳{companyFinancials[company.id].assets.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Liabilities</p>
+                              <p className="text-xs font-bold text-red-500">৳{companyFinancials[company.id].liabilities.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Equity</p>
+                              <p className="text-xs font-bold text-blue-600">৳{companyFinancials[company.id].equity.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Total Liabilities</p>
-                            <p className="text-sm font-bold text-red-600">৳ {companyFinancials[company.id].liabilities.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Total Equity</p>
-                            <p className="text-sm font-bold text-blue-600">৳ {companyFinancials[company.id].equity.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                          </div>
-                        </div>
-                        <div className="space-y-3">
-                          <div>
-                            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Total Income (Net)</p>
-                            <p className="text-sm font-bold text-green-600">৳ {companyFinancials[company.id].netIncome.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Total Expense</p>
-                            <p className="text-sm font-bold text-orange-600">৳ {companyFinancials[company.id].expenses.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Total Revenue</p>
-                            <p className="text-sm font-bold text-gray-900">৳ {companyFinancials[company.id].revenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Revenue</p>
+                              <p className="text-xs font-bold text-gray-900">৳{companyFinancials[company.id].revenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Expense</p>
+                              <p className="text-xs font-bold text-orange-500">৳{companyFinancials[company.id].expenses.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Net profit(loss)</p>
+                              <p className={`text-xs font-bold ${companyFinancials[company.id].netIncome < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                ৳{companyFinancials[company.id].netIncome.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 animate-pulse flex items-center justify-center h-[120px]">
+                        <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Loading Stats...</div>
+                      </div>
+                    )}
+                  </div>
 
-                  <div className="mt-6 pt-4 border-t flex flex-col gap-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          fetchFinancialStats(company.id);
-                        }}
-                        disabled={loadingOverview === company.id}
-                        className={`flex-1 px-3 py-2 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 ${
-                          expandedCompanyId === company.id 
-                            ? 'bg-blue-50 text-blue-700' 
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {loadingOverview === company.id ? (
-                          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          'Financial Overview'
-                        )}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/company/${company.id}/dashboard`);
-                        }}
-                        className="flex-1 px-3 py-2 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                      >
-                        Enter Dashboard
-                        <ChevronRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      {!company.isActive && (
-                        <span className="px-2 py-1 text-[10px] rounded-full bg-red-100 text-red-900 border border-red-200 font-bold uppercase">
-                          Inactive
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between mb-3 text-[11px]">
+                      <div className="flex gap-3 text-gray-500 font-medium">
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          {company.employeesCount || 0} Staff
                         </span>
-                      )}
-                      <div className="flex-1" />
+                        <span className="flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          {company.ownersCount || 0} Owners
+                        </span>
+                      </div>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/owner/companies`);
-                        }}
-                        className="text-[10px] text-gray-500 hover:text-blue-600 font-bold uppercase tracking-wider"
+                        onClick={() => router.push(`/owner/companies`)}
+                        className="text-blue-600 hover:text-blue-700 font-bold uppercase tracking-wider"
                       >
-                        Edit Company Details
+                        Edit Details
                       </button>
                     </div>
+
+                    <button
+                      onClick={() => router.push(`/company/${company.id}/dashboard`)}
+                      className="w-full py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:scale-[0.98] transition-all font-bold text-xs flex items-center justify-center gap-2"
+                    >
+                      Enter Dashboard
+                      <ChevronRight className="w-3 h-3" />
+                    </button>
                   </div>
                 </div>
               ))}

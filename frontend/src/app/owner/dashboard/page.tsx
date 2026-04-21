@@ -140,7 +140,7 @@ export default function OwnerDashboard() {
 
     setLoadingOverview(companyId);
     try {
-      const response = await api.get(`/company/${companyId}/dashboard/stats`);
+      const response = await api.get(`/company/${companyId}/dashboard-stats`);
       setCompanyFinancials(prev => ({
         ...prev,
         [companyId]: response.data.data.accountingEquation

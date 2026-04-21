@@ -302,6 +302,18 @@ export default function SalesInvoicesPage() {
   return (
     <div className="min-h-screen">
       <div className="p-6 max-w-[1600px] mx-auto">
+        <div className="bg-white p-4 rounded-xl border border-slate-200">
+          <p className="text-sm text-slate-500 mb-1">Total Sales</p>
+          <p className="text-2xl font-bold text-blue-600">৳{stats.totalSales.toLocaleString()}</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-slate-200">
+          <p className="text-sm text-slate-500 mb-1">Paid Amount</p>
+          <p className="text-2xl font-bold text-emerald-600">৳{stats.paidTotal.toLocaleString()}</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-slate-200">
+          <p className="text-sm text-slate-500 mb-1">Due Amount</p>
+          <p className="text-2xl font-bold text-amber-600">৳{stats.dueTotal.toLocaleString()}</p>
+        </div>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">Sales Invoices</h2>
           <button
@@ -342,10 +354,10 @@ export default function SalesInvoicesPage() {
               <tr>
                 <th className="px-4 py-3 text-left font-bold text-slate-500 uppercase tracking-wider">Invoice #</th>
                 <th className="px-4 py-3 text-left font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                <th className="px-4 py-3 text-left font-bold text-slate-500 uppercase tracking-wider">Customer</th>
-                <th className="px-4 py-3 text-right font-bold text-slate-500 uppercase tracking-wider">Amount</th>
-                <th className="px-4 py-3 text-left font-bold text-slate-500 uppercase tracking-wider">Due Date</th>
-                <th className="px-4 py-3 text-left font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Customer</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Foreign Amount</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Total (৳)</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Status</th>
                 <th className="px-4 py-3 text-center font-bold text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -359,9 +371,13 @@ export default function SalesInvoicesPage() {
                   <tr key={inv.id} className="hover:bg-blue-50/30 transition-colors">
                     <td className="px-4 py-3 font-bold text-slate-900">{inv.invoiceNumber}</td>
                     <td className="px-4 py-3 text-slate-500">{inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString() : '-'}</td>
-                    <td className="px-4 py-3 font-medium text-slate-700">{inv.customer?.name || '-'}</td>
-                    <td className="px-4 py-3 text-right font-black text-slate-900">{inv.currency} {inv.total?.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-slate-500">{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : '-'}</td>
+                    <td className="px-4 py-3">{inv.customer?.name || '-'}</td>
+                    <td className="px-4 py-3 text-right font-mono text-slate-600">
+                      {inv.currency !== 'BDT' ? `${inv.currency} ${inv.totalAmount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
+                      ৳{inv.totalBDT?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 text-[10px] font-black rounded-full uppercase tracking-tighter ${getStatusBadge(inv.status)}`}>{inv.status}</span>
                     </td>

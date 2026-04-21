@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 
 import { useEffect, useState } from 'react';
@@ -24,6 +24,8 @@ interface PI {
   piNumber: string;
   amount: number;
   currency: string;
+  exchangeRate: number;
+  totalBDT?: number;
   piDate: string;
   invoiceNumber?: string;
   submissionDate?: string;
@@ -53,6 +55,7 @@ export default function ImportPIsPage() {
     vendorId: '',
     lcId: '',
     description: '',
+    exchangeRate: 120,
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -186,6 +189,7 @@ export default function ImportPIsPage() {
         vendorId: pi.vendor?.id || '',
         lcId: pi.lc?.id || '',
         description: pi.description || '',
+        exchangeRate: pi.exchangeRate || 120,
       });
     } else {
       setSelectedPI(null);
@@ -200,6 +204,7 @@ export default function ImportPIsPage() {
         vendorId: '',
         lcId: '',
         description: '',
+        exchangeRate: 120,
       });
     }
     setShowModal(true);
@@ -291,8 +296,9 @@ export default function ImportPIsPage() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">PI Number</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Date</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Supplier</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Amount</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">LC</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Amount (Foreign)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Total (৳)</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Due Date</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Status</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">Actions</th>
@@ -300,17 +306,22 @@ export default function ImportPIsPage() {
               </thead>
               <tbody className="divide-y">
                 {isLoading ? (
-                  <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Loading...</td></tr>
+                  <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Loading...</td></tr>
                 ) : filteredPIs.length === 0 ? (
-                  <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">No Import PIs found</td></tr>
+                  <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">No Import PIs found</td></tr>
                 ) : (
                   filteredPIs.map((pi) => (
                     <tr key={pi.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 font-medium">{pi.piNumber}</td>
                       <td className="px-4 py-3 text-slate-500">{pi.piDate ? new Date(pi.piDate).toLocaleDateString() : '-'}</td>
                       <td className="px-4 py-3">{pi.vendor?.name || '-'}</td>
-                      <td className="px-4 py-3 text-right font-mono">{pi.currency} {pi.amount?.toLocaleString()}</td>
                       <td className="px-4 py-3 text-slate-500">{pi.lc?.lcNumber || '-'}</td>
+                      <td className="px-4 py-3 text-right font-mono text-slate-600">
+                        {pi.currency} {pi.amount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
+                        ৳{(pi.totalBDT || (pi.amount * (pi.exchangeRate || 1)))?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
                       <td className="px-4 py-3 text-slate-500">{pi.paymentDueDate ? new Date(pi.paymentDueDate).toLocaleDateString() : '-'}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(pi.status)}`}>{pi.status}</span>
@@ -382,6 +393,10 @@ export default function ImportPIsPage() {
                     <option value="GBP">GBP</option>
                     <option value="BDT">BDT</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Exchange Rate</label>
+                  <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})} className="input" />
                 </div>
               </div>
               <div>

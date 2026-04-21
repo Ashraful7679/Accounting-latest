@@ -336,6 +336,12 @@ export default function ExportPIsPage() {
 
   if (!mounted) return null;
 
+  const stats = {
+    totalAmount: filteredPIs.reduce((acc, pi) => acc + (pi.totalBDT || 0), 0),
+    activeAmount: filteredPIs.filter(pi => pi.status === 'OPEN').reduce((acc, pi) => acc + (pi.totalBDT || 0), 0),
+    draftAmount: filteredPIs.filter(pi => pi.status === 'DRAFT').reduce((acc, pi) => acc + (pi.totalBDT || 0), 0),
+  };
+
   return (
     <div className="min-h-screen">
 

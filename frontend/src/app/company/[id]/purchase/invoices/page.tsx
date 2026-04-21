@@ -23,6 +23,8 @@ interface Invoice {
   subtotal: number;
   taxAmount: number;
   total: number;
+  totalAmount?: number;
+  totalBDT?: number;
   status: string;
   invoiceDate: string;
   dueDate: string | null;

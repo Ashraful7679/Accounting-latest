@@ -44,6 +44,7 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
 
   React.useEffect(() => {
     setMounted(true);
+    setMobileOpen(false);
     if (!propRole) {
       const roles = JSON.parse(localStorage.getItem('roles') || '[]');
       setRole(roles[0] || 'User');

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 
 import { useEffect, useState } from 'react';
@@ -40,8 +40,8 @@ export default function PurchaseInvoicesPage() {
   const [formData, setFormData] = useState({
     invoiceNumber: '',
     vendorId: '',
-    currency: 'BDT',
-    exchangeRate: 1,
+    currency: 'USD',
+    exchangeRate: 120,
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
     description: '',
@@ -213,8 +213,8 @@ export default function PurchaseInvoicesPage() {
       setFormData({
         invoiceNumber: '',
         vendorId: '',
-        currency: 'BDT',
-        exchangeRate: 1,
+        currency: 'USD',
+        exchangeRate: 120,
         invoiceDate: new Date().toISOString().split('T')[0],
         dueDate: '',
         description: '',
@@ -272,7 +272,7 @@ export default function PurchaseInvoicesPage() {
   const calculateTotal = () => {
     const sub = calculateSubtotal();
     const tax = calculateTax();
-    return (sub + tax) * formData.exchangeRate;
+    return (sub + tax) * (formData.exchangeRate || 1);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -280,7 +280,8 @@ export default function PurchaseInvoicesPage() {
     if (selectedInvoice) {
       updateMutation.mutate({ id: selectedInvoice.id, data: formData });
     } else {
-      createMutation.mutate(formData);
+      const { invoiceNumber, ...rest } = formData;
+      createMutation.mutate(rest);
     }
   };
 
@@ -355,7 +356,8 @@ export default function PurchaseInvoicesPage() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Invoice #</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Date</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Supplier</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Amount</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Foreign Amount</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Total (৳)</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Due Date</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Status</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">Actions</th>
@@ -363,16 +365,21 @@ export default function PurchaseInvoicesPage() {
               </thead>
               <tbody className="divide-y">
                 {isLoading ? (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Loading...</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">Loading...</td></tr>
                 ) : filteredInvoices.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">No Purchase Invoices found</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">No Purchase Invoices found</td></tr>
                 ) : (
                   filteredInvoices.map((inv: Invoice) => (
                     <tr key={inv.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 font-medium">{inv.invoiceNumber}</td>
                       <td className="px-4 py-3 text-slate-500">{inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString() : '-'}</td>
                       <td className="px-4 py-3">{inv.vendor?.name || '-'}</td>
-                      <td className="px-4 py-3 text-right font-mono">{inv.currency} {inv.total?.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right font-mono text-slate-600">
+                        {inv.currency !== 'BDT' ? `${inv.currency} ${inv.total?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
+                        ৳{(inv.totalBDT || (inv.total * (inv.exchangeRate || 1)))?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
                       <td className="px-4 py-3 text-slate-500">{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : '-'}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(inv.status)}`}>{inv.status}</span>
@@ -397,8 +404,13 @@ export default function PurchaseInvoicesPage() {
               <div className="grid grid-cols-2 gap-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Invoice Number *</label>
-                    <input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({...formData, invoiceNumber: e.target.value})} className="w-full px-4 py-2 border rounded-lg" required />
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Invoice Number</label>
+                    <input 
+                      type="text" 
+                      value={selectedInvoice ? formData.invoiceNumber : '[Auto-Generated]'} 
+                      className="w-full px-4 py-2 border rounded-lg bg-slate-50 font-bold text-slate-500" 
+                      readOnly 
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">Supplier *</label>
@@ -523,9 +535,9 @@ export default function PurchaseInvoicesPage() {
                     <span>Tax:</span>
                     <span className="font-mono">{formData.currency} {calculateTax().toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between text-lg font-black text-slate-900 pt-2 border-t">
+                  <div className="flex justify-between text-lg font-black text-blue-600 pt-2 border-t">
                     <span>Total (BDT):</span>
-                    <span>{calculateTotal().toLocaleString()}</span>
+                    <span>৳{calculateTotal().toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
                 </div>
               </div>

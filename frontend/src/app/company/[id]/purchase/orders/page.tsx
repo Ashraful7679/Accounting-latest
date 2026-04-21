@@ -252,7 +252,7 @@ export default function PurchaseOrdersPage() {
         </table>
         <div class="totals">
           <p>Total (${po.currency}): <strong>${po.totalForeign.toLocaleString()}</strong></p>
-          <p class="grand-total">Total (BDT): ${po.totalBDT.toLocaleString()}</p>
+          <p class="grand-total">Total (৳): ${po.totalBDT?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
         </div>
       `;
 
@@ -430,7 +430,7 @@ export default function PurchaseOrdersPage() {
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">PO Details</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Supplier</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Amout (Foreign)</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Total (BDT)</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Total (৳)</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Actions</th>
                   </tr>
@@ -461,7 +461,7 @@ export default function PurchaseOrdersPage() {
                           {getCurrencySymbol(po.currency)}{formatCurrency(po.totalForeign)}
                         </td>
                         <td className="px-6 py-4 text-right font-mono font-bold text-slate-900">
-                          {getCurrencySymbol('BDT')}{formatCurrency(po.totalBDT)}
+                          {getCurrencySymbol('৳')}{formatCurrency(po.totalBDT)}
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full ${getStatusBadge(po.status)}`}>

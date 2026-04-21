@@ -310,17 +310,19 @@ export default function SalesInvoicesPage() {
   return (
     <div className="min-h-screen">
       <div className="p-6 max-w-[1600px] mx-auto">
-        <div className="bg-white p-4 rounded-xl border border-slate-200">
-          <p className="text-sm text-slate-500 mb-1">Total Sales</p>
-          <p className="text-2xl font-bold text-blue-600">৳{stats.totalSales.toLocaleString()}</p>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200">
-          <p className="text-sm text-slate-500 mb-1">Paid Amount</p>
-          <p className="text-2xl font-bold text-emerald-600">৳{stats.paidTotal.toLocaleString()}</p>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200">
-          <p className="text-sm text-slate-500 mb-1">Due Amount</p>
-          <p className="text-2xl font-bold text-amber-600">৳{stats.dueTotal.toLocaleString()}</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-xl border border-slate-200">
+            <p className="text-sm text-slate-500 mb-1">Total Sales</p>
+            <p className="text-2xl font-bold text-blue-600">৳{stats.totalSales.toLocaleString()}</p>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-slate-200">
+            <p className="text-sm text-slate-500 mb-1">Paid Amount</p>
+            <p className="text-2xl font-bold text-emerald-600">৳{stats.paidTotal.toLocaleString()}</p>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-slate-200">
+            <p className="text-sm text-slate-500 mb-1">Due Amount</p>
+            <p className="text-2xl font-bold text-amber-600">৳{stats.dueTotal.toLocaleString()}</p>
+          </div>
         </div>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">Sales Invoices</h2>

@@ -364,17 +364,19 @@ export default function ExportPIsPage() {
             </button>
           </div>
 
-          <div className="bg-white p-4 rounded-xl border border-slate-200">
-            <p className="text-sm text-slate-500 mb-1">Total PIs</p>
-            <p className="text-2xl font-bold text-blue-600">৳{stats.totalAmount.toLocaleString()}</p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200">
-            <p className="text-sm text-slate-500 mb-1">Active PIs</p>
-            <p className="text-2xl font-bold text-emerald-600">৳{stats.activeAmount.toLocaleString()}</p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200">
-            <p className="text-sm text-slate-500 mb-1">Draft PIs</p>
-            <p className="text-2xl font-bold text-amber-600">৳{stats.draftAmount.toLocaleString()}</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white p-4 rounded-xl border border-slate-200">
+              <p className="text-sm text-slate-500 mb-1">Total PIs</p>
+              <p className="text-2xl font-bold text-blue-600">৳{stats.totalAmount.toLocaleString()}</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200">
+              <p className="text-sm text-slate-500 mb-1">Active PIs</p>
+              <p className="text-2xl font-bold text-emerald-600">৳{stats.activeAmount.toLocaleString()}</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200">
+              <p className="text-sm text-slate-500 mb-1">Draft PIs</p>
+              <p className="text-2xl font-bold text-amber-600">৳{stats.draftAmount.toLocaleString()}</p>
+            </div>
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">

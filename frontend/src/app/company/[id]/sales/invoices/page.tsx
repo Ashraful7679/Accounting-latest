@@ -25,6 +25,8 @@ interface Invoice {
   subtotal: number;
   taxAmount: number;
   total: number;
+  totalAmount?: number;
+  totalBDT?: number;
   status: string;
   invoiceDate: string;
   dueDate: string | null;
@@ -299,6 +301,12 @@ export default function SalesInvoicesPage() {
 
   if (!mounted) return null;
 
+  const stats = {
+    totalSales: filteredInvoices.reduce((acc, inv) => acc + (inv.totalBDT || 0), 0),
+    paidTotal: filteredInvoices.filter(inv => inv.status === 'PAID').reduce((acc, inv) => acc + (inv.totalBDT || 0), 0),
+    dueTotal: filteredInvoices.filter(inv => inv.status !== 'PAID').reduce((acc, inv) => acc + (inv.totalBDT || 0), 0),
+  };
+
   return (
     <div className="min-h-screen">
       <div className="p-6 max-w-[1600px] mx-auto">
@@ -373,7 +381,7 @@ export default function SalesInvoicesPage() {
                     <td className="px-4 py-3 text-slate-500">{inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString() : '-'}</td>
                     <td className="px-4 py-3">{inv.customer?.name || '-'}</td>
                     <td className="px-4 py-3 text-right font-mono text-slate-600">
-                      {inv.currency !== 'BDT' ? `${inv.currency} ${inv.totalAmount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                      {inv.currency !== 'BDT' ? `${inv.currency} ${inv.total?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
                       ৳{inv.totalBDT?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

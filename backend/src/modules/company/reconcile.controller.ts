@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
 import { NotFoundError, ValidationError } from '../../middleware/errorHandler';
+import { BankReconciliationService } from '../accounting/bank-reconcile.service';
 
 export class ReconcileController {
 
@@ -173,5 +174,24 @@ export class ReconcileController {
     });
 
     return reply.send({ success: true, data: journal });
+  }
+
+  async importStatement(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { accountId, format, config } = request.query as any;
+
+    const data = await (request as any).file();
+    if (!data) throw new ValidationError('No file uploaded');
+
+    const buffer = await data.toBuffer();
+    const result = await BankReconciliationService.reconcileStatement(
+      companyId,
+      accountId,
+      buffer,
+      format || 'csv',
+      config ? JSON.parse(config) : {}
+    );
+
+    return reply.send({ success: true, ...result });
   }
 }

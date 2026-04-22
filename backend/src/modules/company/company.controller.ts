@@ -10,7 +10,6 @@ export class CompanyController extends BaseCompanyController {
     const company = await prisma.company.findUnique({
       where: { id },
       include: {
-        branches: true,
         settings: true
       },
     });
@@ -22,7 +21,6 @@ export class CompanyController extends BaseCompanyController {
   async getCompanies(request: FastifyRequest, reply: FastifyReply) {
     const companies = await prisma.company.findMany({
       include: {
-        branches: true,
         settings: true
       },
     });

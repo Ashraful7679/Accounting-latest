@@ -23,7 +23,7 @@ model User {
   firstName    String
   lastName     String
   isActive     Boolean  @default(true)
-  maxCompanies Int      @default(1)
+  maxCompanies Int      @default(5)
   phone        String?
   address      String?
   
@@ -122,7 +122,7 @@ model Company {
   customers    Customer[]
   vendors      Vendor[]
   accounts     Account[]
-  branches     Branch[]
+  // branches     Branch[] // REMOVED FOR MULTI-TENANCY PURPOSES
   projects     Project[]
   costCenters  CostCenter[]
   products     Product[]
@@ -223,15 +223,17 @@ model LC {
   // Relations
   company         Company   @relation(fields: [companyId], references: [id])
   customerId      String?
-  customer        Customer? @relation(fields: [customerId], references: [id])
+  customer        Customer? @relation("CustomerLCs", fields: [customerId], references: [id])
   vendorId        String?
-  vendor          Vendor?   @relation(fields: [vendorId], references: [id])
+  vendor          Vendor?   @relation("VendorLCs", fields: [vendorId], references: [id])
+  
   receivedDate    DateTime?
   pis             PI[]
   purchaseOrders  PurchaseOrder[]
   payments        Payment[]
 
-
+  // Soft Delete
+  deletedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -243,6 +245,12 @@ model LC {
 
 model PI {
   id              String    @id @default(uuid())
+  // Trade Logic
+  customerId      String?
+  customer        Customer? @relation("CustomerPIs", fields: [customerId], references: [id])
+  vendorId        String?
+  vendor          Vendor?   @relation("VendorPIs", fields: [vendorId], references: [id])
+  
   piNumber        String
   lcId            String?
   piDate          DateTime  @default(now())
@@ -264,14 +272,13 @@ model PI {
 
   companyId       String
   company         Company   @relation(fields: [companyId], references: [id])
-  customerId      String?
-  customer        Customer? @relation(fields: [customerId], references: [id])
-  vendorId        String?
-  vendor          Vendor?   @relation(fields: [vendorId], references: [id])
   lc              LC?       @relation(fields: [lcId], references: [id])
 
   lines           PILine[]
   paymentAllocations PaymentPI[]
+  
+  // Soft Delete
+  deletedAt       DateTime?
   
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -289,6 +296,16 @@ model PILine {
   quantity    Float    @default(1)
   unitPrice   Float
   total       Float
+  landedCostAmount Float @default(0) // Accumulated per-unit landed costs (freight, tax, etc.)
+  totalLandedCost Float @default(0)  // total * landedCostAmount
+  
+  customerId  String?
+  customer    Customer? @relation("CustomerPILines", fields: [customerId], references: [id])
+  vendorId    String?
+  vendor      Vendor?   @relation("VendorPILines", fields: [vendorId], references: [id])
+  
+  // Soft Delete
+  deletedAt   DateTime?
   
   pi          PI       @relation(fields: [piId], references: [id], onDelete: Cascade)
   product     Product? @relation(fields: [productId], references: [id])
@@ -308,6 +325,10 @@ model Loan {
   startDate           DateTime
   endDate             DateTime?
   status              String    @default("ACTIVE") // ACTIVE, REPAID, DEFAULTED
+  
+  // Soft Delete
+  deletedAt           DateTime?
+  
   company             Company   @relation(fields: [companyId], references: [id])
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
@@ -346,6 +367,9 @@ model Account {
   category       String?  // CASH, BANK, AR, AP, etc.
   referenceId    String?  // Links to Vendor/Customer ID
   
+  currencyId    String?
+  currency      Currency? @relation(fields: [currencyId], references: [id])
+  
   company       Company        @relation(fields: [companyId], references: [id])
   accountType   AccountType    @relation(fields: [accountTypeId], references: [id])
   parent        Account?       @relation("AccountHierarchy", fields: [parentId], references: [id])
@@ -355,6 +379,7 @@ model Account {
   employeeAdvances EmployeeAdvance[]
   employeeExpenses EmployeeExpense[]
   
+  deletedAt     DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
@@ -363,21 +388,8 @@ model Account {
   @@unique([companyId, code])
 }
 
-model Branch {
-  id        String   @id @default(uuid())
-  code      String
-  name      String
-  companyId String
-  isActive  Boolean  @default(true)
-  company   Company  @relation(fields: [companyId], references: [id])
-  journalEntries JournalEntry[]
-  journalLines   JournalEntryLine[]
-  activityLogs   ActivityLog[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@unique([companyId, code])
-}
+// REMOVED FOR MULTI-TENANCY PURPOSES
+// model Branch { ... }
 
 model Project {
   id           String             @id @default(uuid())
@@ -436,10 +448,16 @@ model Customer {
   company     Company  @relation(fields: [companyId], references: [id])
   invoices    Invoice[]
   journalLines JournalEntryLine[]
-  lcs         LC[]
-  pis         PI[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  lcs         LC[]     @relation("CustomerLCs")
+  pis         PI[]     @relation("CustomerPIs")
+  poLines     PurchaseOrderLine[] @relation("CustomerPOLines")
+  piLines     PILine[] @relation("CustomerPILines")
+
+  // Soft Delete
+  deletedAt    DateTime?
+  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
 
   
@@ -472,10 +490,16 @@ model Vendor {
   company     Company  @relation(fields: [companyId], references: [id])
   invoices    Invoice[]
   purchaseOrders PurchaseOrder[]
-  lcs         LC[]
-  bills       Bill[]
-  pis         PI[]
-  journalLines JournalEntryLine[]
+  bills         Bill[]
+  journalLines  JournalEntryLine[]
+  lcs           LC[]     @relation("VendorLCs")
+  pis           PI[]     @relation("VendorPIs")
+  poLines       PurchaseOrderLine[] @relation("VendorPOLines")
+  piLines       PILine[] @relation("VendorPILines")
+  
+  // Soft Delete
+  deletedAt   DateTime?
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
@@ -515,6 +539,9 @@ model PurchaseOrder {
   lc             LC?       @relation(fields: [lcId], references: [id])
   lines          PurchaseOrderLine[]
   
+  // Soft Delete
+  deletedAt      DateTime?
+  
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -533,8 +560,13 @@ model PurchaseOrderLine {
   unitPrice       Float
   total           Float
   
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  product         Product?      @relation(fields: [productId], references: [id])
+  customerId  String?
+  customer    Customer? @relation("CustomerPOLines", fields: [customerId], references: [id])
+  vendorId    String?
+  vendor      Vendor?   @relation("VendorPOLines", fields: [vendorId], references: [id])
+  
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product?       @relation(fields: [productId], references: [id])
 }
 
 // ============================================
@@ -557,6 +589,7 @@ model Product {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   company      Company   @relation(fields: [companyId], references: [id])
+  journalLines JournalEntryLine[]
   invoiceLines InvoiceLine[]
   poLines      PurchaseOrderLine[]
   piLines      PILine[]
@@ -576,6 +609,8 @@ model Invoice {
   customerId      String?
   vendorId        String?
   type            String    @default("SALES") // SALES, PURCHASE
+  invoiceDate     DateTime  @default(now())
+  dueDate         DateTime?
   
   // Currency
   currency        String    @default("BDT")
@@ -588,44 +623,44 @@ model Invoice {
   // Status Flow: DRAFT → PENDING_VERIFICATION → VERIFIED → PENDING_APPROVAL → APPROVED
   //              or REJECTED at any verification stage
   status          String    @default("DRAFT")
+  isProforma      Boolean   @default(false)
   
   // COD & Split Payment Support
   paymentSplits   Json?    // { cash: 0, bank: 0, ar: 0, bankAccountId: "..." }
   
+  // Soft Delete
+  deletedAt       DateTime?
+  
   // Audit Trail
   createdById     String
   verifiedById    String?
+  verifiedAt      DateTime?
   approvedById   String?
+  approvedAt     DateTime?
   rejectedById    String?
   rejectionReason String?
   
-  // Dates
-  invoiceDate     DateTime  @default(now())
-  dueDate         DateTime?
-  verifiedAt      DateTime?
-  approvedAt      DateTime?
+  createdBy       User      @relation("CreatedInvoices", fields: [createdById], references: [id])
+  verifiedBy      User?     @relation("VerifiedInvoices", fields: [verifiedById], references: [id])
+  approvedBy      User?     @relation("ApprovedInvoices", fields: [approvedById], references: [id])
+  rejectedBy      User?     @relation("RejectedInvoices", fields: [rejectedById], references: [id])
   
-  // Relations
-  company        Company   @relation(fields: [companyId], references: [id])
-  customer       Customer? @relation(fields: [customerId], references: [id])
-  vendor         Vendor?   @relation(fields: [vendorId], references: [id])
-  createdBy      User      @relation("CreatedInvoices", fields: [createdById], references: [id])
-  verifiedBy     User?     @relation("VerifiedInvoices", fields: [verifiedById], references: [id])
-  approvedBy     User?     @relation("ApprovedInvoices", fields: [approvedById], references: [id])
-  rejectedBy     User?     @relation("RejectedInvoices", fields: [rejectedById], references: [id])
-  lines          InvoiceLine[]
-  payments       Payment[] @relation("InvoicePayments")
+  company         Company   @relation(fields: [companyId], references: [id])
+  customer        Customer? @relation(fields: [customerId], references: [id])
+  vendor          Vendor?   @relation(fields: [vendorId], references: [id])
   
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  lines           InvoiceLine[]
+  payments        Payment[] @relation("InvoicePayments")
+  paymentAllocations PaymentInvoice[]
   
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
   @@unique([companyId, invoiceNumber])
   @@index([companyId])
   @@index([customerId])
-  @@index([vendorId])
-  @@index([status])
 }
-
+  
 model InvoiceLine {
   id          String  @id @default(uuid())
   invoiceId   String
@@ -658,12 +693,11 @@ model JournalEntry {
   currency        Currency? @relation(fields: [currencyId], references: [id])
   exchangeRate    Float     @default(1)
   
-  branchId        String?
-  branch          Branch?   @relation(fields: [branchId], references: [id])
-  
-  // Status Flow: DRAFT → PENDING_VERIFICATION → VERIFIED → PENDING_APPROVAL → APPROVED
-  //              or REJECTED at any verification stage
+  // Status
   status          String    @default("DRAFT")
+  
+  // Soft Delete
+  deletedAt       DateTime?
   
   // Audit Trail
   createdById     String
@@ -701,12 +735,12 @@ model JournalEntryLine {
   accountId      String
   
   // Dimensions
-  branchId       String?
+
   projectId      String?
   costCenterId   String?
   customerId     String?
   vendorId       String?
-  
+  productId      String?
   debit          Float        @default(0)
   credit         Float        @default(0)
   
@@ -723,13 +757,17 @@ model JournalEntryLine {
   reconciled     Boolean      @default(false)
   reconciledAt   DateTime?
   
+  // Soft Delete
+  deletedAt      DateTime?
+  
   journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
   account        Account      @relation(fields: [accountId], references: [id])
-  branch         Branch?      @relation(fields: [branchId], references: [id])
+  // branch         Branch?      @relation(fields: [branchId], references: [id])
   project        Project?     @relation(fields: [projectId], references: [id])
   costCenter     CostCenter?  @relation(fields: [costCenterId], references: [id])
   customer       Customer?    @relation(fields: [customerId], references: [id])
   vendor         Vendor?      @relation(fields: [vendorId], references: [id])
+  product        Product?     @relation(fields: [productId], references: [id])
 }
 
 // ============================================
@@ -746,6 +784,10 @@ model Bill {
   taxAmount   Float     @default(0)
   total       Float
   dueDate     DateTime?
+  
+  // Soft Delete
+  deletedAt   DateTime?
+  
   company     Company   @relation(fields: [companyId], references: [id])
   vendor      Vendor    @relation(fields: [vendorId], references: [id])
   payments    Payment[] @relation("BillPayments")
@@ -807,6 +849,7 @@ model Currency {
   ratesFrom      ExchangeRate[] @relation("FromCurrency")
   ratesTo        ExchangeRate[] @relation("ToCurrency")
   journalEntries JournalEntry[]
+  accounts       Account[]
   
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -832,9 +875,11 @@ model ExchangeRate {
 model BackupLog {
   id           String   @id @default(uuid())
   fileName     String
-  fileSize     Int
-  status       String   // SUCCESS, FAILED
-  triggeredBy  String
+  filePath     String?
+  fileSize     Int?
+  status       String   @default("SUCCESS") // SUCCESS, FAILED
+  error        String?
+  triggeredBy  String?  // User ID or "SYSTEM"
   createdAt    DateTime @default(now())
 }
 
@@ -850,14 +895,17 @@ model ActivityLog {
   action        String   // CREATED, VERIFIED, APPROVED, REJECTED_MANAGER, REJECTED_OWNER
   performedById String
   targetUserId  String?
-  branchId      String?
+  // branchId      String?
   metadata      Json?    // { reason: "...", docNumber: "..." }
+  
+  // Soft Delete
+  deletedAt     DateTime?
   createdAt     DateTime @default(now())
 
   company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   performedBy   User     @relation("PerformedActivities", fields: [performedById], references: [id])
   targetUser    User?    @relation("TargetActivities", fields: [targetUserId], references: [id])
-  branch        Branch?  @relation(fields: [branchId], references: [id])
+  // branch        Branch?  @relation(fields: [branchId], references: [id])
 
   @@index([companyId])
   @@index([performedById])
@@ -914,9 +962,13 @@ model Payment {
   lc              LC?       @relation(fields: [lcId], references: [id])
   
   piAllocations   PaymentPI[]
+  invoiceAllocations PaymentInvoice[]
   
   accountId       String?   // The Cash/Bank account used
   account         Account?  @relation(fields: [accountId], references: [id])
+  
+  // Soft Delete
+  deletedAt       DateTime?
   
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -934,11 +986,30 @@ model PaymentPI {
   piId            String
   allocatedAmount Float
   
+  // Soft Delete
+  deletedAt       DateTime?
+  
   payment         Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   pi              PI        @relation(fields: [piId], references: [id], onDelete: Cascade)
 
   @@index([paymentId])
   @@index([piId])
+}
+
+model PaymentInvoice {
+  id              String    @id @default(uuid())
+  paymentId       String
+  invoiceId       String
+  allocatedAmount Float
+  
+  // Soft Delete
+  deletedAt       DateTime?
+  
+  payment         Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@index([paymentId])
+  @@index([invoiceId])
 }
 
 
@@ -1074,6 +1145,8 @@ model EmployeeExpense {
 // ============================================
 // COMPANY SETTINGS (Phase 13)
 // ============================================
+
+
 
 model CompanySettings {
   id                    String   @id @default(uuid())

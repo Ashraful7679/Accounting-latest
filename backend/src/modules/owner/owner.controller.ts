@@ -8,6 +8,7 @@ import { pipeline } from 'stream';
 import { promisify } from 'util';
 
 const pump = promisify(pipeline);
+import { EquityService } from '../accounting/equity.service';
 
 const PERMISSION_MODULES = [
   'journals', 'invoices', 'bills', 'payments', 'purchase_orders',
@@ -261,7 +262,7 @@ export class OwnerController {
 
     const shortId = ownerId.split('-')[0].toUpperCase();
 
-    await (prisma.userCompany as any).create({
+    const userCompany = await (prisma.userCompany as any).create({
       data: { 
         userId: ownerId, 
         companyId, 
@@ -285,6 +286,11 @@ export class OwnerController {
         din,
       },
     });
+
+    // --- AUTOMATION: Handle Equity & Journal ---
+    if (Number(openingCapital) > 0) {
+      await EquityService.handleOpeningCapital(companyId, ownerId, Number(openingCapital), requesterId);
+    }
 
     return reply.send({ success: true, message: 'Owner added to company' });
   }
@@ -410,6 +416,8 @@ export class OwnerController {
             canManageOwners: true,
             ownershipPercentage: 100,
             isDefault: true,
+            openingCapital: Number(data.openingCapital || 0),
+            currentCapitalBalance: Number(data.openingCapital || 0),
           }
         }
       }
@@ -417,6 +425,11 @@ export class OwnerController {
 
     // Seed default COA
     await this.seedDefaultCOA(company.id);
+
+    // --- AUTOMATION: Handle Equity & Journal ---
+    if (Number(data.openingCapital || 0) > 0) {
+      await EquityService.handleOpeningCapital(company.id, userId, Number(data.openingCapital), userId);
+    }
 
     return reply.send({ success: true, data: company });
   }

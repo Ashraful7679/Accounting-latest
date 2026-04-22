@@ -54,19 +54,19 @@ export class BackupController {
     };
 
     const modules = [
-      { name: 'accounts', key: 'account' },
-      { name: 'customers', key: 'customer' },
-      { name: 'vendors', key: 'vendor' },
-      { name: 'products', key: 'product' },
-      { name: 'journals', key: 'journalEntry' },
-      { name: 'invoices', key: 'invoice' },
-      { name: 'purchase_orders', key: 'purchaseOrder' },
-      { name: 'employees', key: 'employee' },
-      { name: 'lcs', key: 'lc' },
-      { name: 'attachments', key: 'attachment' },
-      { name: 'backup_logs', key: 'backupLog' },
-      { name: 'activity_logs', key: 'activityLog' },
-      { name: 'notifications', key: 'notification' },
+      { name: 'accounts', key: 'account', hasCompanyId: true },
+      { name: 'customers', key: 'customer', hasCompanyId: true },
+      { name: 'vendors', key: 'vendor', hasCompanyId: true },
+      { name: 'products', key: 'product', hasCompanyId: true },
+      { name: 'journals', key: 'journalEntry', hasCompanyId: true },
+      { name: 'invoices', key: 'invoice', hasCompanyId: true },
+      { name: 'purchase_orders', key: 'purchaseOrder', hasCompanyId: true },
+      { name: 'employees', key: 'employee', hasCompanyId: true },
+      { name: 'lcs', key: 'lc', hasCompanyId: true },
+      { name: 'attachments', key: 'attachment', hasCompanyId: true },
+      { name: 'backup_logs', key: 'backupLog', hasCompanyId: false },
+      { name: 'activity_logs', key: 'activityLog', hasCompanyId: false },
+      { name: 'notifications', key: 'notification', hasCompanyId: false },
     ];
 
     for (const mod of modules) {
@@ -76,8 +76,9 @@ export class BackupController {
         let allRecords: any[] = [];
         let cursor: string | undefined;
         while (true) {
+          const whereClause = mod.hasCompanyId ? { companyId } : {};
           const batch = await (prisma as any)[mod.key].findMany({
-            where: { companyId },
+            where: whereClause,
             take: 1000,
             ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
             orderBy: { id: 'asc' }

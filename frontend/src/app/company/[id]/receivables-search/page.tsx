@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 
 import { useState } from 'react';
@@ -39,7 +39,7 @@ export default function ReceivablesSearchPage() {
     maxAmount: '',
     startDate: '',
     endDate: '',
-    branchId: '',
+    projectId: '',
     status: 'APPROVED'
   });
 
@@ -58,13 +58,13 @@ export default function ReceivablesSearchPage() {
     queryFn: () => api.get(`/company/${companyId}`).then(res => res.data.data)
   });
 
-  const { data: branches } = useQuery({ 
-    queryKey: ['branches', companyId], 
-    queryFn: () => api.get(`/company/${companyId}/branches`).then(res => res.data.data) 
+  const { data: projects } = useQuery({ 
+    queryKey: ['projects', companyId], 
+    queryFn: () => api.get(`/company/${companyId}/projects`).then(res => res.data.data) 
   });
 
   const handleApply = () => setActiveFilters({...filters});
-  const handleReset = () => {
+const handleReset = () => {
     const defaultFilters = {
       customerName: '',
       reference: '',
@@ -72,7 +72,7 @@ export default function ReceivablesSearchPage() {
       maxAmount: '',
       startDate: '',
       endDate: '',
-      branchId: '',
+      projectId: '',
       status: 'APPROVED'
     };
     setFilters(defaultFilters);
@@ -182,14 +182,14 @@ export default function ReceivablesSearchPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Branch</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Project</label>
                     <select 
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none"
-                      value={filters.branchId}
-                      onChange={e => setFilters({...filters, branchId: e.target.value})}
+                      value={filters.projectId}
+                      onChange={e => setFilters({...filters, projectId: e.target.value})}
                     >
-                      <option value="">All Branches</option>
-                      {branches?.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                      <option value="">All Projects</option>
+                      {projects?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   </div>
 
@@ -234,7 +234,7 @@ export default function ReceivablesSearchPage() {
                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Voucher / Ref</th>
                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer Entity</th>
-                       <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Branch</th>
+                       <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Project</th>
                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Debit (Receivable)</th>
                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Credit (Collected)</th>
                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Action</th>
@@ -272,7 +272,7 @@ export default function ReceivablesSearchPage() {
                              </div>
                            </td>
                            <td className="px-6 py-5">
-                             <span className="text-[10px] font-black text-slate-500 bg-slate-100 px-2 py-1 rounded-full">{line.branch?.name || 'Main Branch'}</span>
+                             <span className="text-[10px] font-black text-slate-500 bg-slate-100 px-2 py-1 rounded-full">{line.project?.name || 'Main Project'}</span>
                            </td>
                            <td className="px-6 py-5 text-right font-black text-emerald-600 text-sm">
                              {line.debitBase > 0 ? formatCurrency(line.debitBase) : '-'}

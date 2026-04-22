@@ -266,4 +266,43 @@ export class LCController {
 
     return reply.send({ success: true, data: updatedLC, journalsCreated });
   }
+
+  async settleLC(request: FastifyRequest, reply: FastifyReply) {
+    const { lcId } = request.params as { lcId: string };
+    const { bankLoanAccountId, settlementAmount } = request.body as {
+      bankLoanAccountId: string;
+      settlementAmount?: number;
+    };
+    const userId = (request.user as any).id;
+
+    if (!bankLoanAccountId) {
+      return reply.status(400).send({
+        success: false,
+        message: 'bankLoanAccountId is required. Please select the Bank Loan / PAD account.'
+      });
+    }
+
+    const lc = await (prisma as any).lC.findUnique({ where: { id: lcId } });
+    if (!lc) return reply.status(404).send({ success: false, message: 'LC not found' });
+
+    if (lc.status !== 'APPROVED') {
+      return reply.status(400).send({
+        success: false,
+        message: `LC must be APPROVED before settlement. Current status: ${lc.status}`
+      });
+    }
+
+    const result = await TradeAutomationService.settleLC(lcId, bankLoanAccountId, userId, settlementAmount);
+
+    await NotificationController.logActivity({
+      companyId: lc.companyId,
+      entityType: 'lc',
+      entityId: lcId,
+      action: 'APPROVED',
+      performedById: userId,
+      metadata: { docNumber: lc.lcNumber, action: 'SETTLED', journalId: result.journal.id }
+    });
+
+    return reply.send({ success: true, data: result.lc, journal: result.journal, settledAmount: result.settledAmount });
+  }
 }

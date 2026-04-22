@@ -121,6 +121,113 @@ export class TradeAutomationService {
   }
 
   /**
+   * Settles a Letter of Credit against a Bank Loan (PAD/LTR).
+   * Atomically moves liability from Vendor (AP) to Bank Loan account.
+   *
+   * Accounting Effect:
+   *   Dr  Accounts Payable (Vendor)  — reduces what we owe the vendor
+   *   Cr  Bank Loan / PAD Account    — creates liability to the bank
+   */
+  static async settleLC(
+    lcId: string,
+    bankLoanAccountId: string,
+    userId: string,
+    settlementAmount?: number
+  ): Promise<any> {
+    return await prisma.$transaction(async (tx: any) => {
+      // 1. Fetch and validate LC
+      const lc = await tx.lC.findUnique({
+        where: { id: lcId },
+        include: { vendor: true }
+      });
+
+      if (!lc) throw new Error('LC not found');
+      if (lc.status !== 'APPROVED') {
+        throw new Error(`Cannot settle LC with status: ${lc.status}. Only APPROVED LCs can be settled.`);
+      }
+
+      // 2. Validate target Bank Loan account
+      const bankLoanAccount = await tx.account.findUnique({
+        where: { id: bankLoanAccountId }
+      });
+      if (!bankLoanAccount) throw new Error('Bank Loan account not found');
+
+      // 3. Determine settlement amount
+      const lcAmountBDT = Number(lc.amount) * Number(lc.conversionRate || 1);
+      const amountToSettle = settlementAmount ? Math.min(settlementAmount, lcAmountBDT) : lcAmountBDT;
+
+      // 4. Resolve the Vendor's AP account
+      if (!lc.vendor) throw new Error('LC has no associated vendor for AP resolution');
+      const apAccount = await tx.account.findFirst({
+        where: {
+          companyId: lc.companyId,
+          referenceId: lc.vendorId,
+          category: 'AP',
+          deletedAt: null
+        }
+      }) || await tx.account.findFirst({
+        where: { companyId: lc.companyId, category: 'AP', deletedAt: null }
+      });
+
+      if (!apAccount) throw new Error(`No AP account found for vendor: ${lc.vendor?.name}`);
+
+      // 5. Create settlement journal: Dr AP, Cr Bank Loan
+      const entryNumber = await SequenceService.generateDocumentNumber(lc.companyId, 'journal', tx);
+      const journal = await tx.journalEntry.create({
+        data: {
+          entryNumber,
+          companyId: lc.companyId,
+          date: new Date(),
+          description: `LC Settlement: ${lc.lcNumber} — ${lc.vendor?.name || 'Vendor'}`,
+          reference: lc.lcNumber,
+          status: 'POSTED',
+          totalDebit: amountToSettle,
+          totalCredit: amountToSettle,
+          createdById: userId,
+          lines: {
+            create: [
+              {
+                // Debit AP — reduces vendor liability
+                accountId: apAccount.id,
+                debit: amountToSettle,
+                credit: 0,
+                debitBase: amountToSettle,
+                creditBase: 0,
+                vendorId: lc.vendorId,
+                description: `AP Settlement - LC ${lc.lcNumber}`
+              },
+              {
+                // Credit Bank Loan — creates bank liability
+                accountId: bankLoanAccountId,
+                debit: 0,
+                credit: amountToSettle,
+                debitBase: 0,
+                creditBase: amountToSettle,
+                description: `PAD/LTR Loan - LC ${lc.lcNumber}`
+              }
+            ]
+          }
+        }
+      });
+
+      // 6. Mark LC as SETTLED and store journal reference
+      const updatedLC = await tx.lC.update({
+        where: { id: lcId },
+        data: {
+          status: 'SETTLED',
+          // Store settlement reference in metadata if field exists, otherwise just update status
+        }
+      });
+
+      return {
+        lc: updatedLC,
+        journal,
+        settledAmount: amountToSettle
+      };
+    });
+  }
+
+  /**
    * Distributes additional costs (freight, customs, insurance) across PI items.
    * Proportions are calculated based on the value (total BDT) of each line item.
    */

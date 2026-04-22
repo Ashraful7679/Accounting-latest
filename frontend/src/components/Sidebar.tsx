@@ -9,7 +9,7 @@ import {
   LayoutDashboard, BookOpen, ClipboardList, Bell, ChevronRight,
   Plus, AlertCircle, ArrowUpRight, ArrowDownRight, Briefcase, User,
   Calendar, ShieldCheck, History, CheckCircle2, Database, Menu, X,
-  ArrowLeftRight, Send, Wallet, FileStack
+  ArrowLeftRight, Send, Wallet, FileStack, Activity
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -146,6 +146,7 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
     { name: 'Employees', href: `/company/${companyId}/employees`, icon: User },
     { name: 'Bank Reconciliation', href: `/company/${companyId}/bank/reconcile`, icon: CheckCircle2 },
     { name: 'Reports', href: `/company/${companyId}/reports`, icon: FileBarChart },
+    { name: 'System Health', href: `/company/${companyId}/health`, icon: Activity },
     { name: 'Backup', href: `/company/${companyId}/settings/backup`, icon: Database },
   ];
 

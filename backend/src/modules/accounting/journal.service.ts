@@ -5,10 +5,36 @@ import { SequenceService } from '../company/sequence.service';
 export class JournalService {
   /**
    * Main entry point for automatic journaling.
-   * Processes the accounting impact of a document reaching APPROVED status.
+   * IDEMPOTENT: Checks isJournaled flag before processing to prevent duplicate
+   * ledger postings during retries or concurrent requests.
    */
-  static async handleDocumentApproval(type: 'INVOICE' | 'BILL' | 'PAYMENT', documentId: string, userId: string): Promise<any> {
+  static async handleDocumentApproval(
+    type: 'INVOICE' | 'BILL' | 'PAYMENT',
+    documentId: string,
+    userId: string
+  ): Promise<any> {
     return await prisma.$transaction(async (tx) => {
+      // --- IDEMPOTENCY GUARD ---
+      // Check if this document has already been journaled to prevent double posting.
+      if (type === 'INVOICE') {
+        const doc = await tx.invoice.findUnique({ where: { id: documentId }, select: { isJournaled: true, status: true } });
+        if (!doc) throw new Error('Invoice not found');
+        if (doc.status !== 'APPROVED') throw new Error('Cannot generate journal for unapproved invoice');
+        if (doc.isJournaled) {
+          console.warn(`[JournalService] Invoice ${documentId} is already journaled. Skipping.`);
+          return { alreadyJournaled: true };
+        }
+      } else if (type === 'BILL') {
+        const doc = await tx.bill.findUnique({ where: { id: documentId }, select: { isJournaled: true, status: true } });
+        if (!doc) throw new Error('Bill not found');
+        if (doc.status !== 'APPROVED') throw new Error('Cannot generate journal for unapproved bill');
+        if (doc.isJournaled) {
+          console.warn(`[JournalService] Bill ${documentId} is already journaled. Skipping.`);
+          return { alreadyJournaled: true };
+        }
+      }
+
+      // --- PROCESS JOURNAL ---
       switch (type) {
         case 'INVOICE':
           return await this.generateInvoiceJournal(tx, documentId, userId);
@@ -27,39 +53,36 @@ export class JournalService {
     });
 
     if (!invoice) throw new Error('Invoice not found');
-    if (invoice.status !== 'APPROVED') throw new Error('Cannot generate journal for unapproved invoice');
 
     const companyId = invoice.companyId;
-    const isSales = invoice.type === 'SALES';
     const totalAmount = Number(invoice.total);
     const exchangeRate = Number(invoice.exchangeRate || 1);
     const totalBase = totalAmount * exchangeRate;
 
-    // 1. Resolve Accounts
-    // For Sales: Dr AR (Asset), Cr Revenue
-    // For Purchase (if any): Dr Expense, Cr AP (Liability)
-    
+    // Resolve AR and Revenue accounts
     const arAccount = await TransactionRepository.ensureEntityAccount(
-      tx, 
-      companyId, 
-      invoice.customerId, 
-      invoice.customer.name, 
-      invoice.customer.code, 
+      tx,
+      companyId,
+      invoice.customerId,
+      invoice.customer?.name || 'Accounts Receivable',
+      invoice.customer?.code || 'AR',
       'AR'
     );
 
     const revenueAccount = await tx.account.findFirst({
-      where: { companyId, category: 'REVENUE' }
+      where: { companyId, category: 'REVENUE', deletedAt: null }
     }) || await this.ensureGenericAccount(tx, companyId, 'REVENUE', 'Sales Revenue');
 
     const entryNumber = await SequenceService.generateDocumentNumber(companyId, 'journal', tx);
 
-    return await tx.journalEntry.create({
+    // Create the journal entry
+    const journal = await tx.journalEntry.create({
       data: {
         entryNumber,
         companyId,
-        date: invoice.date || new Date(),
-        description: `Auto-Journal for Invoice ${invoice.invoiceNumber}`,
+        date: invoice.invoiceDate || new Date(),
+        description: `Auto-Journal: Invoice ${invoice.invoiceNumber}`,
+        reference: invoice.invoiceNumber,
         status: 'POSTED',
         totalDebit: totalBase,
         totalCredit: totalBase,
@@ -93,44 +116,56 @@ export class JournalService {
         }
       }
     });
+
+    // IDEMPOTENCY LOCK: Mark the invoice as journaled in the same transaction
+    await tx.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        isJournaled: true,
+        journalId: journal.id
+      }
+    });
+
+    return journal;
   }
 
   private static async generateBillJournal(tx: any, billId: string, userId: string) {
     const bill = await tx.bill.findUnique({
       where: { id: billId },
-      include: { vendor: true, lines: true }
+      include: { vendor: true }
     });
 
     if (!bill) throw new Error('Bill not found');
-    if (bill.status !== 'APPROVED') throw new Error('Cannot generate journal for unapproved bill');
 
     const companyId = bill.companyId;
     const totalAmount = Number(bill.total);
-    const exchangeRate = Number(bill.exchangeRate || 1);
+    const exchangeRate = Number((bill as any).exchangeRate || 1);
     const totalBase = totalAmount * exchangeRate;
 
-    // For Bill: Dr Expense, Cr AP (Liability)
+    // Resolve AP and Expense accounts
     const apAccount = await TransactionRepository.ensureEntityAccount(
-      tx, 
-      companyId, 
-      bill.vendorId, 
-      bill.vendor.name, 
-      bill.vendor.code, 
+      tx,
+      companyId,
+      bill.vendorId,
+      bill.vendor?.name || 'Accounts Payable',
+      bill.vendor?.code || 'AP',
       'AP'
     );
 
     const expenseAccount = await tx.account.findFirst({
-      where: { companyId, category: 'EXPENSE' }
+      where: { companyId, category: 'EXPENSE', deletedAt: null }
     }) || await this.ensureGenericAccount(tx, companyId, 'EXPENSE', 'General Expenses');
 
     const entryNumber = await SequenceService.generateDocumentNumber(companyId, 'journal', tx);
 
-    return await tx.journalEntry.create({
+    // Create the journal entry
+    const journal = await tx.journalEntry.create({
       data: {
         entryNumber,
         companyId,
-        date: bill.date || new Date(),
-        description: `Auto-Journal for Bill ${bill.billNumber}`,
+        date: (bill as any).date || new Date(),
+        description: `Auto-Journal: Bill ${bill.billNumber}`,
+        reference: bill.billNumber,
         status: 'POSTED',
         totalDebit: totalBase,
         totalCredit: totalBase,
@@ -164,18 +199,30 @@ export class JournalService {
         }
       }
     });
+
+    // IDEMPOTENCY LOCK: Mark the bill as journaled in the same transaction
+    await tx.bill.update({
+      where: { id: billId },
+      data: {
+        isJournaled: true,
+        journalId: journal.id
+      }
+    });
+
+    return journal;
   }
 
   private static async ensureGenericAccount(tx: any, companyId: string, category: string, name: string) {
     const typeName = category === 'REVENUE' ? 'REVENUE' : 'EXPENSE';
-    const accountTypeId = await TransactionRepository.getAccountTypeId(typeName);
-    
+    const accountType = await tx.accountType.findFirst({ where: { name: typeName } });
+    if (!accountType) throw new Error(`Account type '${typeName}' not found in Chart of Accounts`);
+
     return await tx.account.create({
       data: {
         code: await SequenceService.generateDocumentNumber(companyId, 'account', tx),
         name,
         companyId,
-        accountTypeId,
+        accountTypeId: accountType.id,
         category,
         isActive: true
       }

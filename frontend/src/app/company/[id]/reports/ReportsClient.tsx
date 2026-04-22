@@ -48,7 +48,6 @@ export default function ReportsClient() {
   const [filters, setFilters] = useState({
     startDate: '',
     endDate: '',
-    branchId: '',
     projectId: '',
     costCenterId: '',
     status: 'APPROVED'
@@ -84,7 +83,6 @@ export default function ReportsClient() {
     enabled: !!selectedReport
   });
 
-  const { data: branches } = useQuery({ queryKey: ['branches', companyId], queryFn: () => api.get(`/company/${companyId}/branches`).then(res => res.data.data) });
   const { data: projects } = useQuery({ queryKey: ['projects', companyId], queryFn: () => api.get(`/company/${companyId}/projects`).then(res => res.data.data) });
 
   const handlePrint = () => window.print();

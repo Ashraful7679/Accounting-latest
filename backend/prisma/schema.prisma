@@ -390,9 +390,6 @@ model Account {
   @@unique([companyId, code])
 }
 
-// REMOVED FOR MULTI-TENANCY PURPOSES
-// Branch model removed as per modern architecture guidelines
-
 model Project {
   id           String             @id @default(uuid())
   code         String

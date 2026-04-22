@@ -143,6 +143,8 @@ model Company {
 
   settings      CompanySettings?
   
+  // Soft Delete
+  deletedAt    DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 }
@@ -234,6 +236,8 @@ model LC {
 
   // Soft Delete
   deletedAt       DateTime?
+  // Soft Delete
+  deletedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -280,6 +284,8 @@ model PI {
   // Soft Delete
   deletedAt       DateTime?
   
+  // Soft Delete
+  deletedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -384,12 +390,15 @@ model Account {
   updatedAt     DateTime @updatedAt
   
   @@index([companyId])
+  @@index([companyId, deletedAt])
   @@index([accountTypeId])
+  @@index([companyId])
+  @@index([companyId, deletedAt])
   @@unique([companyId, code])
 }
 
 // REMOVED FOR MULTI-TENANCY PURPOSES
-// model Branch { ... }
+// Branch model removed as per modern architecture guidelines
 
 model Project {
   id           String             @id @default(uuid())
@@ -399,9 +408,13 @@ model Project {
   isActive     Boolean            @default(true)
   company      Company            @relation(fields: [companyId], references: [id])
   journalLines JournalEntryLine[]
+  // Soft Delete
+  deletedAt     DateTime?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
+  @@index([companyId])
+  @@index([companyId, deletedAt])
   @@unique([companyId, code])
 }
 
@@ -413,9 +426,13 @@ model CostCenter {
   isActive     Boolean            @default(true)
   company      Company            @relation(fields: [companyId], references: [id])
   journalLines JournalEntryLine[]
+  // Soft Delete
+  deletedAt     DateTime?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
+  @@index([companyId])
+  @@index([companyId, deletedAt])
   @@unique([companyId, code])
 }
 
@@ -456,12 +473,16 @@ model Customer {
   // Soft Delete
   deletedAt    DateTime?
   
+  // Soft Delete
+  deletedAt    DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
 
   
   @@index([companyId])
+  @@index([companyId])
+  @@index([companyId, deletedAt])
   @@unique([companyId, code])
 }
 
@@ -504,6 +525,8 @@ model Vendor {
   updatedAt   DateTime @updatedAt
   
   @@index([companyId])
+  @@index([companyId])
+  @@index([companyId, deletedAt])
   @@unique([companyId, code])
 }
 
@@ -586,6 +609,8 @@ model Product {
   currency     String    @default("BDT")         // Actual product price in this currency
   stockAmount  Float     @default(0)             // Current stock quantity
   type         String    @default("Sales")       // Purchase | Sales
+  // Soft Delete
+  deletedAt    DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   company      Company   @relation(fields: [companyId], references: [id])
@@ -594,6 +619,8 @@ model Product {
   poLines      PurchaseOrderLine[]
   piLines      PILine[]
 
+  @@index([companyId])
+  @@index([companyId, deletedAt])
   @@unique([companyId, code])
   @@index([companyId])
 }
@@ -653,9 +680,17 @@ model Invoice {
   payments        Payment[] @relation("InvoicePayments")
   paymentAllocations PaymentInvoice[]
   
+  // Internal Accounting Logic
+  isJournaled     Boolean   @default(false)
+  journalId       String?
+
+  // Soft Delete
+  deletedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  @@index([companyId])
+  @@index([companyId, deletedAt])
   @@unique([companyId, invoiceNumber])
   @@index([companyId])
   @@index([customerId])
@@ -788,6 +823,10 @@ model Bill {
   // Soft Delete
   deletedAt   DateTime?
   
+  // Internal Accounting Logic
+  isJournaled     Boolean   @default(false)
+  journalId       String?
+
   company     Company   @relation(fields: [companyId], references: [id])
   vendor      Vendor    @relation(fields: [vendorId], references: [id])
   payments    Payment[] @relation("BillPayments")
@@ -795,6 +834,7 @@ model Bill {
   updatedAt   DateTime  @updatedAt
   
   @@index([companyId])
+  @@index([companyId, deletedAt])
   @@index([vendorId])
   @@unique([companyId, billNumber])
 }
@@ -970,6 +1010,8 @@ model Payment {
   // Soft Delete
   deletedAt       DateTime?
   
+  // Soft Delete
+  deletedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

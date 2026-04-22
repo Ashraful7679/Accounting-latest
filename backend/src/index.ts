@@ -11,6 +11,7 @@ import { ownerRoutes } from './modules/owner/owner.routes';
 import { companyRoutes } from './modules/company/company.routes';
 import { systemRoutes } from './modules/system/system.routes';
 import { BackupController } from './modules/backup/backup.controller';
+import { BackupService } from './modules/system/backup.service';
 import { errorHandler } from './middleware/errorHandler';
 import { offlineCheck } from './middleware/offlineCheck';
 
@@ -122,18 +123,20 @@ const start = async () => {
     console.log(`=========================================`);
 
     // --- Automated Backup Cron (Daily at 2 AM) ---
-    const backupController = new BackupController();
+    // Note: In an industrial ERP, we use BackupService for a complete disaster recovery snapshot (pg_dump)
     setInterval(async () => {
       const now = new Date();
       if (now.getHours() === 2) {
-        console.log('[Automated Backup] Triggering 2AM backup...');
+        console.log('[Automated System Backup] Triggering 2AM disaster recovery snapshot...');
         try {
-          await backupController.generateBackup({ user: { id: 'system' } } as any, { 
-            send: (data: any) => console.log('[Automated Backup] Result:', data),
-            status: (code: number) => ({ send: (data: any) => console.log(`[Automated Backup] Status ${code}:`, data) })
-          } as any);
+          const result = await BackupService.performBackup('SYSTEM_CRON');
+          if (result.success) {
+            console.log('[Automated System Backup] Success:', result.log?.fileName);
+          } else {
+            console.error('[Automated System Backup] Failed:', result.error);
+          }
         } catch (err) {
-          console.error('[Automated Backup] Error:', err);
+          console.error('[Automated System Backup] Exception caught:', err);
         }
       }
     }, 3600000); // Check once an hour

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 
 import { useEffect, useState } from 'react';
@@ -12,6 +12,7 @@ import {
   Trash2, Landmark, Building2, User, HelpCircle, X
 } from 'lucide-react';
 import { AttachmentManager } from '@/components/AttachmentManager';
+import PermissionGate from '@/components/PermissionGate';
 import { toast } from 'react-hot-toast';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -30,6 +31,8 @@ export default function LCDetailPage() {
 
   const [showPIModal, setShowPIModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showSettleModal, setShowSettleModal] = useState(false);
+  const [settlementAccountId, setSettlementAccountId] = useState('');
   const [piFormData, setPIFormData] = useState({ 
     piNumber: '', 
     amount: 0, 
@@ -72,6 +75,11 @@ export default function LCDetailPage() {
   const { data: accounts } = useQuery({
     queryKey: ['company-accounts', companyId],
     queryFn: () => api.get(`/company/${companyId}/accounts`).then(res => res.data.data)
+  });
+
+  const { data: activities } = useQuery({
+    queryKey: ['lc-activities', lcId],
+    queryFn: () => api.get(`/company/${companyId}/audit`, { params: { entityType: 'lc', entityId: lcId } }).then(res => res.data.data)
   });
 
   // Mutations
@@ -117,6 +125,17 @@ export default function LCDetailPage() {
 
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to record payment')
+  });
+
+  const settleLCMutation = useMutation({
+    mutationFn: (data: { bankLoanAccountId: string }) => api.post(`/company/lcs/${lcId}/settle`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lc-detail', lcId] });
+      toast.success('LC settled successfully');
+      setShowSettleModal(false);
+      setSettlementAccountId('');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to settle LC')
   });
 
   const calculateOutstanding = () => {
@@ -186,6 +205,16 @@ export default function LCDetailPage() {
               )}>
                 {lc.status}
               </span>
+              {lc.status === 'APPROVED' && (
+                <PermissionGate module="FINANCE" action="canUpdate">
+                  <button 
+                    onClick={() => setShowSettleModal(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-all"
+                  >
+                    Settle LC
+                  </button>
+                </PermissionGate>
+              )}
           </div>
         </header>
 
@@ -421,6 +450,39 @@ export default function LCDetailPage() {
                    />
                 </div>
               </div>
+
+              {/* History / Audit Log */}
+              <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
+                <div className="p-6 border-b border-slate-100 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-slate-400" />
+                  <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">History</h4>
+                </div>
+                <div className="px-6 py-4">
+                  {!activities || activities.length === 0 ? (
+                    <p className="text-sm text-slate-500 py-4 font-bold text-center italic">No history available</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {activities.map((act: any) => (
+                        <div key={act.id} className="flex gap-4 items-start">
+                           <div className="mt-1 w-2 h-2 rounded-full bg-slate-300" />
+                           <div>
+                             <p className="text-sm font-black text-slate-900">
+                               {act.action.replace(/_/g, ' ')}
+                               {act.metadata?.action ? ` - ${act.metadata.action}` : ''}
+                             </p>
+                             <p className="text-xs text-slate-500 font-medium">
+                               {new Date(act.createdAt).toLocaleString()} by {act.performedBy?.firstName} {act.performedBy?.lastName}
+                             </p>
+                             {act.metadata?.reason && (
+                               <p className="text-xs text-slate-400 italic mt-1">Reason: {act.metadata.reason}</p>
+                             )}
+                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -582,6 +644,52 @@ export default function LCDetailPage() {
                      {createPaymentMutation.isPending ? 'Processing...' : 'Complete Payment'}
                    </button>
                 </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Settle LC Modal */}
+      <AnimatePresence>
+        {showSettleModal && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-[40px] shadow-2xl w-full max-w-md p-8">
+              <h3 className="text-2xl font-black text-slate-900 mb-6">
+                Settle LC
+              </h3>
+              <p className="text-sm text-slate-500 mb-6">
+                Select the bank loan account (PAD/LTR) to transfer the liability from the vendor's AP to the bank.
+              </p>
+              
+              <div className="mb-8">
+                <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Bank Loan Account</label>
+                <select 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold appearance-none"
+                  value={settlementAccountId}
+                  onChange={e => setSettlementAccountId(e.target.value)}
+                >
+                  <option value="">Select Account</option>
+                  {accounts?.filter((a: any) => a.category === 'BANK_LOAN' || a.category === 'PAD' || a.category === 'LTR' || a.category === 'LIABILITY').map((a: any) => (
+                    <option key={a.id} value={a.id}>{a.name} ({a.category})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setShowSettleModal(false)} 
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl transition-all hover:bg-slate-200"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => settleLCMutation.mutate({ bankLoanAccountId: settlementAccountId })}
+                  disabled={!settlementAccountId || settleLCMutation.isPending}
+                  className="flex-1 py-4 bg-blue-600 text-white font-black rounded-2xl shadow-lg shadow-blue-600/20 transition-all hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {settleLCMutation.isPending ? 'Settling...' : 'Confirm'}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

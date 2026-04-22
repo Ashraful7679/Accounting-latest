@@ -310,7 +310,16 @@ export class NotificationController {
   async listActivities(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
 
+    const { entityType, entityId } = request.query as { entityType?: string; entityId?: string };
+
     const where: any = { companyId };
+    
+    if (entityType) {
+      where.entityType = { equals: entityType, mode: 'insensitive' };
+    }
+    if (entityId) {
+      where.entityId = entityId;
+    }
 
     const activities = await prisma.activityLog.findMany({
       where,

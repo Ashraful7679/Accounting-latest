@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Bell, Plus, FileText, Receipt } from 'lucide-react';
 import UserDropdown from './UserDropdown';
 import NotificationPanel from './NotificationPanel';
+import CompanySwitcher from './CompanySwitcher';
 
 interface HeaderProps {
   companyId: string;
@@ -23,7 +24,6 @@ export default function Header({ companyId, breadcrumbs, role: propRole, unreadC
       const roles = JSON.parse(localStorage.getItem('roles') || '[]');
       setRole(roles[0] || 'User');
     }
-    // In a real app, we'd fetch permissions from an API or context
     const storedPerms = JSON.parse(localStorage.getItem('userPermissions') || '[]');
     setPermissions(storedPerms);
   }, [propRole]);
@@ -67,6 +67,11 @@ export default function Header({ companyId, breadcrumbs, role: propRole, unreadC
             </Link>
           )}
         </div>
+
+        <div className="h-6 w-px bg-slate-200" />
+        
+        {/* Company Switcher */}
+        <CompanySwitcher />
 
         <div className="h-6 w-px bg-slate-200" />
 

@@ -236,8 +236,6 @@ model LC {
 
   // Soft Delete
   deletedAt       DateTime?
-  // Soft Delete
-  deletedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -280,9 +278,6 @@ model PI {
 
   lines           PILine[]
   paymentAllocations PaymentPI[]
-  
-  // Soft Delete
-  deletedAt       DateTime?
   
   // Soft Delete
   deletedAt       DateTime?
@@ -392,8 +387,6 @@ model Account {
   @@index([companyId])
   @@index([companyId, deletedAt])
   @@index([accountTypeId])
-  @@index([companyId])
-  @@index([companyId, deletedAt])
   @@unique([companyId, code])
 }
 
@@ -472,15 +465,11 @@ model Customer {
 
   // Soft Delete
   deletedAt    DateTime?
-  
-  // Soft Delete
-  deletedAt    DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
 
   
-  @@index([companyId])
   @@index([companyId])
   @@index([companyId, deletedAt])
   @@unique([companyId, code])
@@ -524,7 +513,6 @@ model Vendor {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
-  @@index([companyId])
   @@index([companyId])
   @@index([companyId, deletedAt])
   @@unique([companyId, code])
@@ -622,7 +610,6 @@ model Product {
   @@index([companyId])
   @@index([companyId, deletedAt])
   @@unique([companyId, code])
-  @@index([companyId])
 }
 
 // ============================================
@@ -684,15 +671,12 @@ model Invoice {
   isJournaled     Boolean   @default(false)
   journalId       String?
 
-  // Soft Delete
-  deletedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   @@index([companyId])
   @@index([companyId, deletedAt])
   @@unique([companyId, invoiceNumber])
-  @@index([companyId])
   @@index([customerId])
 }
   
@@ -1006,9 +990,6 @@ model Payment {
   
   accountId       String?   // The Cash/Bank account used
   account         Account?  @relation(fields: [accountId], references: [id])
-  
-  // Soft Delete
-  deletedAt       DateTime?
   
   // Soft Delete
   deletedAt       DateTime?

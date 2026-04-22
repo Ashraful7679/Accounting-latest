@@ -284,7 +284,6 @@ export class NotificationController {
     action: string;
     performedById: string;
     targetUserId?: string | null;
-    branchId?: string | null;
     metadata?: any;
   }) {
     try {
@@ -296,7 +295,6 @@ export class NotificationController {
           action: params.action,
           performedById: params.performedById,
           targetUserId: params.targetUserId,
-          branchId: params.branchId,
           metadata: params.metadata || {},
         },
       });
@@ -311,10 +309,8 @@ export class NotificationController {
    */
   async listActivities(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { branchId } = request.query as { branchId?: string };
 
     const where: any = { companyId };
-    if (branchId) where.branchId = branchId;
 
     const activities = await prisma.activityLog.findMany({
       where,

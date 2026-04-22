@@ -100,6 +100,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/bank/mark-reconciled', reconcileController.markAsReconciled.bind(reconcileController));
   fastify.post('/:id/bank/unmark-reconciled', reconcileController.unmarkReconciled.bind(reconcileController));
   fastify.post('/:id/bank/reconcile-entry', reconcileController.createReconcileEntry.bind(reconcileController));
+  fastify.post('/:id/bank/import-statement', reconcileController.importStatement.bind(reconcileController));
 
   // Get company info
   fastify.get('/:id', controller.getCompany.bind(controller));
@@ -216,7 +217,6 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/:id/reports/cash-flow', reportController.getCashFlowStatement.bind(reportController));
 
   // Dimensions
-  fastify.get('/:id/branches', dimensionController.getBranches.bind(dimensionController));
   fastify.get('/:id/projects', dimensionController.getProjects.bind(dimensionController));
   fastify.post('/:id/projects', dimensionController.createProject.bind(dimensionController));
   fastify.get('/:id/cost-centers', dimensionController.getCostCenters.bind(dimensionController));

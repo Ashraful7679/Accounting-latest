@@ -4,6 +4,7 @@ import { TransactionRepository } from '../../repositories/TransactionRepository'
 import { NotificationController } from './notification.controller';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../middleware/errorHandler';
 import { BaseCompanyController } from './base.controller';
+import { JournalService } from '../accounting/journal.service';
 
 export class InvoiceController extends BaseCompanyController {
   // ============ INVOICES ============
@@ -353,7 +354,8 @@ export class InvoiceController extends BaseCompanyController {
           },
         });
 
-        await TransactionRepository.generateInvoiceJournal(tx, invoice, companyId, userId);
+
+        await JournalService.handleDocumentApproval('INVOICE', invoiceId, userId);
 
         return inv;
       });

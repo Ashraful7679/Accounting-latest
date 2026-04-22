@@ -147,19 +147,6 @@ export class AdminController {
       },
     });
 
-    // Create default branch
-    const branchCode = `${code}-BR001`;
-    await prisma.branch.upsert({
-      where: { companyId_code: { companyId: company.id, code: branchCode } },
-      update: {},
-      create: {
-        companyId: company.id,
-        code: branchCode,
-        name: 'Main Branch',
-        isActive: true,
-      },
-    });
-
     // Create default account types
     const accountTypes = [
       { name: 'ASSET', type: 'DEBIT' },

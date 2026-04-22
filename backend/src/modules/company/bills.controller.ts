@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
 import { ValidationError, NotFoundError, ForbiddenError } from '../../middleware/errorHandler';
 import { TransactionRepository } from '../../repositories/TransactionRepository';
+import { JournalService } from '../accounting/journal.service';
 
 export class BillsController {
   async getBills(request: FastifyRequest, reply: FastifyReply) {
@@ -103,7 +104,7 @@ export class BillsController {
       const b = await tx.bill.update({ where: { id: billId }, data: { status: 'APPROVED' } });
       
       // Auto-journal: Dr Expense / Cr Accounts Payable
-      await TransactionRepository.generateBillJournal(tx, bill, companyId, userId);
+      await JournalService.handleDocumentApproval('BILL', billId, userId);
       
       return b;
     });

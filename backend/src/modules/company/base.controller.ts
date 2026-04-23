@@ -26,15 +26,16 @@ export class BaseCompanyController {
   }
 
   protected canEdit(status: string, role: string, userId?: string, createdById?: string): boolean {
-    const lockedStatuses = ['VERIFIED', 'PENDING_APPROVAL', 'APPROVED', 'PAID', 'CLOSED'];
-    if (lockedStatuses.includes(status)) return false;
+    // Strict requirement: Only DRAFT and REJECTED documents can be edited
+    const editableStatuses = ['DRAFT', 'REJECTED'];
+    if (!editableStatuses.includes(status)) return false;
     
     if (role === 'Owner' || role === 'Admin' || role === 'Manager') return true;
     if (userId && createdById && userId === createdById) {
-      return status === 'DRAFT' || status === 'REJECTED';
+      return true; // Already checked editableStatuses above
     }
     
-    if (role === 'Accountant') return status === 'DRAFT' || status === 'REJECTED';
+    if (role === 'Accountant') return true; // Already checked editableStatuses above
     return false;
   }
 

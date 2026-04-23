@@ -11,13 +11,13 @@ export class JournalService {
   static async handleDocumentApproval(
     type: 'INVOICE' | 'BILL' | 'PAYMENT',
     documentId: string,
-    userId: string
+    userId: string,
+    tx?: any
   ): Promise<any> {
-    return await prisma.$transaction(async (tx) => {
+    const process = async (currentTx: any) => {
       // --- IDEMPOTENCY GUARD ---
-      // Check if this document has already been journaled to prevent double posting.
       if (type === 'INVOICE') {
-        const doc = await tx.invoice.findUnique({ where: { id: documentId }, select: { isJournaled: true, status: true } });
+        const doc = await currentTx.invoice.findUnique({ where: { id: documentId }, select: { isJournaled: true, status: true } });
         if (!doc) throw new Error('Invoice not found');
         if (doc.status !== 'APPROVED') throw new Error('Cannot generate journal for unapproved invoice');
         if (doc.isJournaled) {
@@ -25,7 +25,7 @@ export class JournalService {
           return { alreadyJournaled: true };
         }
       } else if (type === 'BILL') {
-        const doc = await tx.bill.findUnique({ where: { id: documentId }, select: { isJournaled: true, status: true } });
+        const doc = await currentTx.bill.findUnique({ where: { id: documentId }, select: { isJournaled: true, status: true } });
         if (!doc) throw new Error('Bill not found');
         if (doc.status !== 'APPROVED') throw new Error('Cannot generate journal for unapproved bill');
         if (doc.isJournaled) {
@@ -37,13 +37,19 @@ export class JournalService {
       // --- PROCESS JOURNAL ---
       switch (type) {
         case 'INVOICE':
-          return await this.generateInvoiceJournal(tx, documentId, userId);
+          return await this.generateInvoiceJournal(currentTx, documentId, userId);
         case 'BILL':
-          return await this.generateBillJournal(tx, documentId, userId);
+          return await this.generateBillJournal(currentTx, documentId, userId);
         default:
           throw new Error(`Unsupported document type for auto-journaling: ${type}`);
       }
-    });
+    };
+
+    if (tx) {
+      return await process(tx);
+    } else {
+      return await prisma.$transaction(async (newTx) => await process(newTx));
+    }
   }
 
   private static async generateInvoiceJournal(tx: any, invoiceId: string, userId: string) {

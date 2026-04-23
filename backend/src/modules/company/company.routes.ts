@@ -203,6 +203,9 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   // Payments
   fastify.get('/:id/payments', paymentController.listPayments.bind(paymentController));
   fastify.post('/:id/payments', paymentController.createPayment.bind(paymentController));
+  fastify.post('/:id/payments/make', paymentController.createPayment.bind(paymentController));
+  fastify.post('/:id/payments/receive', paymentController.createPayment.bind(paymentController));
+  fastify.post('/:id/payments/allocate', paymentController.allocatePayment.bind(paymentController));
   fastify.post('/:id/payments/transfer', paymentController.createTransfer.bind(paymentController));
   fastify.post('/:id/payments/:paymentId/verify', paymentController.verifyTransfer.bind(paymentController));
   fastify.post('/:id/payments/:paymentId/approve', paymentController.approveTransfer.bind(paymentController));

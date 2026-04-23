@@ -290,7 +290,7 @@ export default function PurchaseInvoicesPage() {
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       DRAFT: 'bg-gray-100 text-gray-800',
-      PENDING: 'bg-yellow-100 text-yellow-800',
+      PENDING_VERIFICATION: 'bg-yellow-100 text-yellow-800',
       VERIFIED: 'bg-blue-100 text-blue-800',
       APPROVED: 'bg-green-100 text-green-800',
       PAID: 'bg-green-100 text-green-800',
@@ -342,7 +342,7 @@ export default function PurchaseInvoicesPage() {
             >
               <option value="all">All Status</option>
               <option value="DRAFT">Draft</option>
-              <option value="PENDING">Pending</option>
+              <option value="PENDING_VERIFICATION">Pending Verification</option>
               <option value="VERIFIED">Verified</option>
               <option value="APPROVED">Approved</option>
               <option value="PAID">Paid</option>
@@ -387,8 +387,13 @@ export default function PurchaseInvoicesPage() {
                         <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(inv.status)}`}>{inv.status}</span>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <button onClick={() => openModal(inv)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={() => deleteMutation.mutate(inv.id)} className="p-1 text-red-600 hover:bg-red-50 rounded ml-1"><Trash2 className="w-4 h-4" /></button>
+                        {(inv.status === 'DRAFT' || inv.status === 'REJECTED') && (
+                          <>
+                            <button onClick={() => openModal(inv)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                            <button onClick={() => deleteMutation.mutate(inv.id)} className="p-1 text-red-600 hover:bg-red-50 rounded ml-1" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                          </>
+                        )}
+                        <button onClick={() => openModal(inv)} className="p-1 text-slate-600 hover:bg-slate-50 rounded ml-1" title="View"><Eye className="w-4 h-4" /></button>
                       </td>
                     </tr>
                   ))
@@ -557,9 +562,11 @@ export default function PurchaseInvoicesPage() {
 
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={closeModal} className="flex-1 px-6 py-3 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50">Cancel</button>
-                <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="flex-1 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 disabled:opacity-50">
-                  {createMutation.isPending || updateMutation.isPending ? 'Saving...' : selectedInvoice ? 'Update Invoice' : 'Save Invoice'}
-                </button>
+                {(selectedInvoice ? (selectedInvoice.status === 'DRAFT' || selectedInvoice.status === 'REJECTED') : true) && (
+                  <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="flex-1 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 disabled:opacity-50">
+                    {createMutation.isPending || updateMutation.isPending ? 'Saving...' : selectedInvoice ? 'Update Invoice' : 'Save Invoice'}
+                  </button>
+                )}
               </div>
 
               {/* Status Actions */}
@@ -576,7 +583,7 @@ export default function PurchaseInvoicesPage() {
                         Submit for Verification
                       </button>
                     )}
-                    {selectedInvoice.status === 'PENDING' && ['Manager', 'Owner', 'Admin'].includes(userRole || '') && (
+                    {selectedInvoice.status === 'PENDING_VERIFICATION' && ['Manager', 'Owner', 'Admin'].includes(userRole || '') && (
                       <>
                         <button
                           type="button"
@@ -597,7 +604,7 @@ export default function PurchaseInvoicesPage() {
                         </button>
                       </>
                     )}
-                    {(['VERIFIED', 'PENDING_APPROVAL'].includes(selectedInvoice.status)) && ['Owner', 'Admin'].includes(userRole || '') && (
+                    {(['VERIFIED', 'PENDING_APPROVAL'].includes(selectedInvoice.status)) && ['Owner', 'Admin', 'Manager'].includes(userRole || '') && (
                       <>
                         <button
                           type="button"

@@ -454,6 +454,7 @@ model Customer {
 
   company     Company  @relation(fields: [companyId], references: [id])
   invoices    Invoice[]
+  payments    Payment[]
   journalLines JournalEntryLine[]
   lcs         LC[]     @relation("CustomerLCs")
   pis         PI[]     @relation("CustomerPIs")
@@ -496,6 +497,7 @@ model Vendor {
 
   company     Company  @relation(fields: [companyId], references: [id])
   invoices    Invoice[]
+  payments    Payment[]
   purchaseOrders PurchaseOrder[]
   bills         Bill[]
   journalLines  JournalEntryLine[]
@@ -987,6 +989,12 @@ model Payment {
   
   accountId       String?   // The Cash/Bank account used
   account         Account?  @relation(fields: [accountId], references: [id])
+  
+  customerId      String?
+  customer        Customer? @relation(fields: [customerId], references: [id])
+  
+  vendorId        String?
+  vendor          Vendor?   @relation(fields: [vendorId], references: [id])
   
   // Soft Delete
   deletedAt       DateTime?

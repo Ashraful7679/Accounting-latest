@@ -104,7 +104,7 @@ export class BillsController {
       const b = await tx.bill.update({ where: { id: billId }, data: { status: 'APPROVED' } });
       
       // Auto-journal: Dr Expense / Cr Accounts Payable
-      await JournalService.handleDocumentApproval('BILL', billId, userId);
+      await JournalService.handleDocumentApproval('BILL', billId, userId, tx);
       
       return b;
     });

@@ -38,11 +38,13 @@ export class PaymentController {
           companyId,
           date: date ? new Date(date) : new Date(),
           amount: Number(amount),
-          method,
+          method: method || data.paymentMethod || 'BANK',
           reference,
           description,
           invoiceId,
           billId,
+          customerId: data.customerId || undefined,
+          vendorId: data.vendorId || undefined,
           lcId,
           accountId,
           status: 'APPROVED',
@@ -155,6 +157,32 @@ export class PaymentController {
         });
       }
 
+      if (billId) {
+        const bill = await tx.bill.findUnique({ where: { id: billId } });
+        if (!bill) throw new NotFoundError('Bill not found');
+
+        // Auto-journal for Regular Bill Payment
+        await TransactionRepository.generatePaymentJournal(tx, pmt, companyId, userId, 'PURCHASE');
+        
+        const previousPayments = await tx.payment.aggregate({
+          where: { billId: bill.id },
+          _sum: { amount: true }
+        });
+        
+        const totalPaid = (previousPayments._sum.amount || 0) + Number(amount);
+        let newStatus = totalPaid >= bill.total ? 'PAID' : (totalPaid > 0 ? 'PARTIALLY_PAID' : bill.status);
+        
+        await tx.bill.update({
+          where: { id: bill.id },
+          data: { status: newStatus }
+        });
+      }
+
+      // 4. Advance Payment Journal Entry (No Invoice/Bill yet)
+      if (!invoiceId && !billId && !lcId && (data.customerId || data.vendorId)) {
+        await TransactionRepository.generatePaymentJournal(tx, pmt, companyId, userId, data.customerId ? 'SALES' : 'PURCHASE');
+      }
+
       return pmt;
     });
 
@@ -173,26 +201,93 @@ export class PaymentController {
 
   async listPayments(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { method, status } = request.query as { method?: string; status?: string };
+    const { method, status, unallocated } = request.query as { method?: string; status?: string; unallocated?: string };
     
     const where: any = { companyId };
     if (method) where.method = method;
     if (status) where.status = status;
 
-    const payments = await (prisma as any).payment.findMany({
+    let payments = await (prisma as any).payment.findMany({
       where,
       include: { 
         invoice: true, 
         bill: true, 
         account: true,
         lc: true,
+        customer: { select: { name: true } },
+        vendor: { select: { name: true } },
         piAllocations: {
           include: { pi: true }
+        },
+        invoiceAllocations: {
+          include: { invoice: true }
         }
       },
       orderBy: { date: 'desc' }
     });
+
+    if (unallocated === 'true') {
+      payments = payments.filter((p: any) => {
+        const allocatedAmount = (p.invoiceAllocations || []).reduce((sum: number, a: any) => sum + a.amount, 0) + 
+                                (p.piAllocations || []).reduce((sum: number, a: any) => sum + a.allocatedAmount, 0);
+        (p as any).unallocatedAmount = p.amount - allocatedAmount;
+        return (p as any).unallocatedAmount > 0;
+      });
+    }
+
     return reply.send({ success: true, data: payments });
+  }
+
+  async allocatePayment(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { paymentId, allocations } = request.body as { paymentId: string; allocations: any[] };
+    const userId = (request.user as any).id;
+
+    if (!paymentId || !allocations || !Array.isArray(allocations)) {
+      throw new ValidationError('Payment ID and allocations array are required');
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const payment = await (tx as any).payment.findUnique({
+        where: { id: paymentId },
+        include: { invoiceAllocations: true }
+      });
+
+      if (!payment) throw new NotFoundError('Payment not found');
+
+      for (const alloc of allocations) {
+        // Create allocation record
+        await (tx as any).paymentInvoice.create({
+          data: {
+            paymentId,
+            invoiceId: alloc.invoiceId,
+            amount: Number(alloc.amount)
+          }
+        });
+
+        // Update invoice status
+        const invoice = await tx.invoice.findUnique({
+          where: { id: alloc.invoiceId },
+          include: { paymentAllocations: true, invoicePayments: true }
+        });
+
+        if (invoice) {
+          const totalPaid = (invoice as any).invoicePayments.reduce((sum: number, p: any) => sum + p.amount, 0) +
+                           (invoice as any).paymentAllocations.reduce((sum: number, a: any) => sum + a.amount, 0) +
+                           Number(alloc.amount);
+          
+          let newStatus = totalPaid >= invoice.total ? 'PAID' : 'PARTIALLY_PAID';
+          await tx.invoice.update({
+            where: { id: invoice.id },
+            data: { status: newStatus }
+          });
+        }
+      }
+
+      return payment;
+    });
+
+    return reply.send({ success: true, data: result });
   }
 
   async createTransfer(request: FastifyRequest, reply: FastifyReply) {

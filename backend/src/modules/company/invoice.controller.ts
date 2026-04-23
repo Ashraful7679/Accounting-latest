@@ -355,7 +355,7 @@ export class InvoiceController extends BaseCompanyController {
         });
 
 
-        await JournalService.handleDocumentApproval('INVOICE', invoiceId, userId);
+        await JournalService.handleDocumentApproval('INVOICE', invoiceId, userId, tx);
 
         return inv;
       });

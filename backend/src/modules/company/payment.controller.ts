@@ -268,11 +268,11 @@ export class PaymentController {
         // Update invoice status
         const invoice = await tx.invoice.findUnique({
           where: { id: alloc.invoiceId },
-          include: { paymentAllocations: true, invoicePayments: true }
+          include: { paymentAllocations: true, payments: true }
         });
 
         if (invoice) {
-          const totalPaid = (invoice as any).invoicePayments.reduce((sum: number, p: any) => sum + p.amount, 0) +
+          const totalPaid = (invoice as any).payments.reduce((sum: number, p: any) => sum + p.amount, 0) +
                            (invoice as any).paymentAllocations.reduce((sum: number, a: any) => sum + a.amount, 0) +
                            Number(alloc.amount);
           

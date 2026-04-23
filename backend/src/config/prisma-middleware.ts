@@ -30,7 +30,23 @@ export function registerSoftDelete(prisma: any) {
 
     if (softDeleteModels.includes(params.model || '')) {
       if (params.action === 'findUnique' || params.action === 'findFirst') {
-        params.action = 'findFirst'; // findUnique doesn't support 'where' modification easily
+        params.action = 'findFirst';
+        
+        // Flatten compound unique keys (e.g., { companyId_code: { companyId, code } } -> { companyId, code })
+        // findFirst doesn't support the companyId_code shorthand directly in the same way findUnique does.
+        if (params.args.where) {
+          const whereKeys = Object.keys(params.args.where);
+          for (const key of whereKeys) {
+            if (typeof params.args.where[key] === 'object' && params.args.where[key] !== null && !Array.isArray(params.args.where[key])) {
+              // This is likely a compound unique key (e.g., companyId_code)
+              // We flatten it into the main where clause
+              const compoundValue = params.args.where[key];
+              delete params.args.where[key];
+              params.args.where = { ...params.args.where, ...compoundValue };
+            }
+          }
+        }
+        
         params.args.where = { ...params.args.where, deletedAt: null };
       }
       if (params.action === 'findMany' || params.action === 'count') {

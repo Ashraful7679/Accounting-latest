@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { BASE_URL } from '@/lib/api';
+import { OfflineBanner } from '@/components/OfflineBanner';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -50,6 +51,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <Toaster position="top-right" />
+      <OfflineBanner />
       {children}
     </QueryClientProvider>
   );

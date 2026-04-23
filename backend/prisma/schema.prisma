@@ -606,7 +606,7 @@ model Product {
 
   @@index([companyId])
   @@index([companyId, deletedAt])
-  @@unique([companyId, code])
+  @@unique([companyId, code], name: "companyId_code")
 }
 
 // ============================================

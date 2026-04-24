@@ -53,6 +53,7 @@ export default function PurchaseInvoicesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [userRole, setUserRole] = useState('User');
+  const [isFetchingRate, setIsFetchingRate] = useState(false);
 
   const searchParams = useSearchParams();
   const editId = searchParams.get('edit');
@@ -111,7 +112,7 @@ export default function PurchaseInvoicesPage() {
   const { data: posData } = useQuery({
     queryKey: ['purchase-orders', companyId],
     queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/purchase/orders`);
+      const response = await api.get(`/company/${companyId}/purchase-orders`);
       return response.data.data;
     },
     enabled: !!companyId,
@@ -284,6 +285,76 @@ export default function PurchaseInvoicesPage() {
     setFormData({ ...formData, lines: newLines });
   };
 
+  // Fetch live spot rate from exchangerate.host (free, no auth required)
+  const fetchSpotRate = async (currency: string): Promise<number> => {
+    if (currency === 'BDT') return 1;
+    try {
+      setIsFetchingRate(true);
+      // Use exchangerate.host free endpoint
+      const res = await fetch(`https://open.er-api.com/v6/latest/${currency}`);
+      const json = await res.json();
+      const rate = json?.rates?.BDT;
+      if (rate && rate > 0) {
+        toast.success(`Spot rate: 1 ${currency} = ${rate.toFixed(4)} BDT`);
+        return Number(rate.toFixed(4));
+      }
+    } catch (e) {
+      toast.error('Could not fetch live rate. Using manual rate.');
+    } finally {
+      setIsFetchingRate(false);
+    }
+    // Fallback rates if API fails
+    const fallbackRates: Record<string, number> = { USD: 110, EUR: 120, GBP: 138, CNY: 15, INR: 1.32, SGD: 82 };
+    return fallbackRates[currency] || 1;
+  };
+
+  // Handle vendor change: auto-set currency, fetch spot rate, auto-load SENT POs
+  const handleVendorChange = async (vendorId: string) => {
+    if (!vendorId) {
+      setFormData(prev => ({ ...prev, vendorId: '', currency: 'USD', exchangeRate: 110, poIds: [], lines: [{ productId: '', description: '', quantity: 1, receivedQuantity: 1, unitPrice: 0, taxRate: 0, poId: '', taxAmount: 0 }] }));
+      return;
+    }
+    const vendor = vendorsData?.find((v: any) => v.id === vendorId);
+    const currency = vendor?.preferredCurrency || 'USD';
+    
+    // Start building new state
+    const rate = await fetchSpotRate(currency);
+    
+    // Auto-load all SENT/APPROVED POs for this vendor
+    const sentPOs = posData?.filter((po: any) => po.supplierId === vendorId && (po.status === 'SENT' || po.status === 'PARTIAL' || po.status === 'APPROVED')) || [];
+    const autoPoIds = sentPOs.map((po: any) => po.id);
+    let autoLines: any[] = [];
+    sentPOs.forEach((po: any) => {
+      (po.lines || []).forEach((l: any) => {
+        autoLines.push({
+          productId: l.productId || '',
+          description: l.description || '',
+          quantity: l.quantity,
+          receivedQuantity: l.quantity,
+          unitPrice: l.unitPrice,
+          taxRate: l.taxRate || 0,
+          poId: po.id,
+          taxAmount: (l.quantity * l.unitPrice) * ((l.taxRate || 0) / 100)
+        });
+      });
+    });
+    if (autoLines.length === 0) {
+      autoLines = [{ productId: '', description: '', quantity: 1, receivedQuantity: 1, unitPrice: 0, taxRate: 0, poId: '', taxAmount: 0 }];
+    }
+    setFormData(prev => ({ ...prev, vendorId, currency, exchangeRate: rate, poIds: autoPoIds, lines: autoLines }));
+  };
+
+  // Handle currency change: fetch new spot rate
+  const handleCurrencyChange = async (currency: string) => {
+    setFormData(prev => ({ ...prev, currency }));
+    if (currency !== 'BDT') {
+      const rate = await fetchSpotRate(currency);
+      setFormData(prev => ({ ...prev, currency, exchangeRate: rate }));
+    } else {
+      setFormData(prev => ({ ...prev, currency: 'BDT', exchangeRate: 1 }));
+    }
+  };
+
   const calculateSubtotal = () => {
     return formData.lines.reduce((sum, line) => sum + (line.receivedQuantity * line.unitPrice), 0);
   };
@@ -442,7 +513,12 @@ export default function PurchaseInvoicesPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">Supplier *</label>
-                    <select value={formData.vendorId} onChange={(e) => setFormData({...formData, vendorId: e.target.value})} className="w-full px-4 py-2 border rounded-lg" required>
+                    <select 
+                      value={formData.vendorId} 
+                      onChange={(e) => handleVendorChange(e.target.value)} 
+                      className="w-full px-4 py-2 border rounded-lg" 
+                      required
+                    >
                       <option value="">Select Supplier</option>
                       {vendorsData?.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
                     </select>
@@ -462,13 +538,22 @@ export default function PurchaseInvoicesPage() {
 
               {formData.vendorId && (
                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                  <label className="block text-sm font-bold text-blue-900 mb-2">Link Purchase Orders</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-bold text-blue-900">Linked Purchase Orders</label>
+                    <span className="text-xs text-blue-600 font-bold bg-blue-100 px-2 py-0.5 rounded-full">
+                      {formData.poIds.length} auto-selected
+                    </span>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {vendorPOs.length === 0 ? (
-                      <span className="text-sm text-blue-600">No active POs for this supplier.</span>
+                      <span className="text-sm text-blue-600">No SENT/APPROVED POs for this supplier.</span>
                     ) : (
                       vendorPOs.map((po: any) => (
-                        <label key={po.id} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-50 transition-colors">
+                        <label key={po.id} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${
+                          formData.poIds.includes(po.id) 
+                            ? 'bg-blue-600 border-blue-700 text-white' 
+                            : 'bg-white border-blue-200 text-blue-900 hover:bg-blue-50'
+                        }`}>
                           <input 
                             type="checkbox" 
                             className="rounded text-blue-600 focus:ring-blue-500"
@@ -477,9 +562,7 @@ export default function PurchaseInvoicesPage() {
                               const newPoIds = e.target.checked 
                                 ? [...formData.poIds, po.id] 
                                 : formData.poIds.filter(id => id !== po.id);
-                              setFormData({...formData, poIds: newPoIds});
                               
-                              // Auto-import lines if checked
                               if (e.target.checked) {
                                 const poLines = po.lines.map((l: any) => ({
                                   productId: l.productId,
@@ -488,18 +571,27 @@ export default function PurchaseInvoicesPage() {
                                   unitPrice: l.unitPrice,
                                   taxRate: l.taxRate || 0,
                                   poId: po.id,
-                                  receivedQuantity: l.quantity, // Default to receiving all
+                                  receivedQuantity: l.quantity,
                                   taxAmount: (l.quantity * l.unitPrice) * ((l.taxRate || 0) / 100)
                                 }));
                                 setFormData(prev => ({
                                   ...prev, 
                                   poIds: newPoIds,
-                                  lines: prev.lines[0].productId === '' && prev.lines.length === 1 ? poLines : [...prev.lines, ...poLines]
+                                  lines: prev.lines[0].productId === '' && prev.lines.length === 1 ? poLines : [...prev.lines.filter(ln => ln.poId !== po.id), ...poLines]
+                                }));
+                              } else {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  poIds: newPoIds,
+                                  lines: prev.lines.filter(ln => ln.poId !== po.id).length > 0
+                                    ? prev.lines.filter(ln => ln.poId !== po.id)
+                                    : [{ productId: '', description: '', quantity: 1, receivedQuantity: 1, unitPrice: 0, taxRate: 0, poId: '', taxAmount: 0 }]
                                 }));
                               }
                             }}
                           />
-                          <span className="text-sm font-medium text-blue-900">{po.poNumber}</span>
+                          <span className="text-sm font-bold">{po.poNumber}</span>
+                          <span className="text-xs opacity-70">{po.status}</span>
                         </label>
                       ))
                     )}
@@ -509,16 +601,27 @@ export default function PurchaseInvoicesPage() {
 
               <div className="grid grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl">
                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Currency</label>
-                    <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full px-4 py-2 border rounded-lg bg-white">
-                      <option value="USD">USD</option>
-                      <option value="BDT">BDT</option>
-                      <option value="EUR">EUR</option>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">
+                      Currency {isFetchingRate && <span className="text-blue-500 text-xs font-normal animate-pulse ml-1">↻ fetching rate...</span>}
+                    </label>
+                    <select 
+                      value={formData.currency} 
+                      onChange={(e) => handleCurrencyChange(e.target.value)} 
+                      className="w-full px-4 py-2 border rounded-lg bg-white"
+                    >
+                      {['USD','EUR','GBP','CNY','INR','SGD','JPY','AED','BDT'].map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Exchange Rate</label>
-                    <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})} className="w-full px-4 py-2 border rounded-lg bg-white" />
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Rate → BDT {formData.currency !== 'BDT' && <span className="text-slate-400 text-xs font-normal">(today&apos;s spot)</span>}</label>
+                    <input 
+                      type="number" step="0.0001" 
+                      value={formData.exchangeRate} 
+                      onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})} 
+                      className="w-full px-4 py-2 border rounded-lg bg-white font-mono" 
+                    />
                   </div>
                   <div className="col-span-2">
                     <label className="block text-sm font-bold text-slate-700 mb-1">Overall Description</label>

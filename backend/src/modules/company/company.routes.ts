@@ -53,6 +53,9 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   // All routes require authentication
   fastify.addHook('preHandler', authenticate);
 
+  // Settings
+  fastify.put('/:id/settings', controller.updateSettings.bind(controller));
+
   // Dashboards
   fastify.get('/:id/dashboard-stats', dashboardController.getStats.bind(dashboardController));
   fastify.get('/:id/dashboard/stats', dashboardController.getStats.bind(dashboardController));

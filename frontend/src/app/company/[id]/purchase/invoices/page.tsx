@@ -47,7 +47,8 @@ export default function PurchaseInvoicesPage() {
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
     description: '',
-    lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0 }]
+    poIds: [] as string[],
+    lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0, poId: '', receivedQuantity: 0, taxAmount: 0 }]
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -106,6 +107,17 @@ export default function PurchaseInvoicesPage() {
     },
     enabled: !!companyId,
   });
+
+  const { data: posData } = useQuery({
+    queryKey: ['purchase-orders', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/purchase/orders`);
+      return response.data.data;
+    },
+    enabled: !!companyId,
+  });
+
+  const vendorPOs = posData?.filter((po: any) => po.vendorId === formData.vendorId && (po.status === 'SENT' || po.status === 'PARTIAL' || po.status === 'APPROVED')) || [];
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -202,13 +214,17 @@ export default function PurchaseInvoicesPage() {
         invoiceDate: invoice.invoiceDate ? invoice.invoiceDate.split('T')[0] : '',
         dueDate: invoice.dueDate ? invoice.dueDate.split('T')[0] : '',
         description: invoice.description || '',
+        poIds: invoice.poIds || [],
         lines: invoice.lines?.length ? invoice.lines.map((l: any) => ({
           productId: l.productId || '',
           description: l.description || '',
           quantity: l.quantity,
+          receivedQuantity: l.quantity, // Pre-fill with original quantity for invoices
           unitPrice: l.unitPrice,
-          taxRate: l.taxRate
-        })) : [{ productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0 }]
+          taxRate: l.taxRate,
+          poId: l.poId || '',
+          taxAmount: (l.quantity * l.unitPrice) * (l.taxRate / 100)
+        })) : [{ productId: '', description: '', quantity: 1, receivedQuantity: 1, unitPrice: 0, taxRate: 0, poId: '', taxAmount: 0 }]
       });
     } else {
       setSelectedInvoice(null);
@@ -220,7 +236,8 @@ export default function PurchaseInvoicesPage() {
         invoiceDate: new Date().toISOString().split('T')[0],
         dueDate: '',
         description: '',
-        lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0 }]
+        poIds: [],
+        lines: [{ productId: '', description: '', quantity: 1, receivedQuantity: 1, unitPrice: 0, taxRate: 0, poId: '', taxAmount: 0 }]
       });
     }
     setShowModal(true);
@@ -245,6 +262,10 @@ export default function PurchaseInvoicesPage() {
         line.description = product.name;
       }
     }
+
+    if (['receivedQuantity', 'unitPrice', 'taxRate'].includes(field)) {
+      line.taxAmount = (line.receivedQuantity || 0) * (line.unitPrice || 0) * ((line.taxRate || 0) / 100);
+    }
     
     newLines[index] = line;
     setFormData({ ...formData, lines: newLines });
@@ -253,7 +274,7 @@ export default function PurchaseInvoicesPage() {
   const addLine = () => {
     setFormData({
       ...formData,
-      lines: [...formData.lines, { productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0 }]
+      lines: [...formData.lines, { productId: '', description: '', quantity: 1, receivedQuantity: 1, unitPrice: 0, taxRate: 0, poId: '', taxAmount: 0 }]
     });
   };
 
@@ -264,11 +285,11 @@ export default function PurchaseInvoicesPage() {
   };
 
   const calculateSubtotal = () => {
-    return formData.lines.reduce((sum, line) => sum + (line.quantity * line.unitPrice), 0);
+    return formData.lines.reduce((sum, line) => sum + (line.receivedQuantity * line.unitPrice), 0);
   };
 
   const calculateTax = () => {
-    return formData.lines.reduce((sum, line) => sum + (line.quantity * line.unitPrice * line.taxRate / 100), 0);
+    return formData.lines.reduce((sum, line) => sum + ((line.receivedQuantity * line.unitPrice) * (line.taxRate / 100)), 0);
   };
 
   const calculateTotal = () => {
@@ -439,6 +460,53 @@ export default function PurchaseInvoicesPage() {
                 </div>
               </div>
 
+              {formData.vendorId && (
+                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                  <label className="block text-sm font-bold text-blue-900 mb-2">Link Purchase Orders</label>
+                  <div className="flex flex-wrap gap-2">
+                    {vendorPOs.length === 0 ? (
+                      <span className="text-sm text-blue-600">No active POs for this supplier.</span>
+                    ) : (
+                      vendorPOs.map((po: any) => (
+                        <label key={po.id} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-blue-200 cursor-pointer hover:bg-blue-50 transition-colors">
+                          <input 
+                            type="checkbox" 
+                            className="rounded text-blue-600 focus:ring-blue-500"
+                            checked={formData.poIds.includes(po.id)}
+                            onChange={(e) => {
+                              const newPoIds = e.target.checked 
+                                ? [...formData.poIds, po.id] 
+                                : formData.poIds.filter(id => id !== po.id);
+                              setFormData({...formData, poIds: newPoIds});
+                              
+                              // Auto-import lines if checked
+                              if (e.target.checked) {
+                                const poLines = po.lines.map((l: any) => ({
+                                  productId: l.productId,
+                                  description: l.description || '',
+                                  quantity: l.quantity,
+                                  unitPrice: l.unitPrice,
+                                  taxRate: l.taxRate || 0,
+                                  poId: po.id,
+                                  receivedQuantity: l.quantity, // Default to receiving all
+                                  taxAmount: (l.quantity * l.unitPrice) * ((l.taxRate || 0) / 100)
+                                }));
+                                setFormData(prev => ({
+                                  ...prev, 
+                                  poIds: newPoIds,
+                                  lines: prev.lines[0].productId === '' && prev.lines.length === 1 ? poLines : [...prev.lines, ...poLines]
+                                }));
+                              }
+                            }}
+                          />
+                          <span className="text-sm font-medium text-blue-900">{po.poNumber}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl">
                  <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">Currency</label>
@@ -467,64 +535,94 @@ export default function PurchaseInvoicesPage() {
                   </button>
                 </div>
 
-                <div className="space-y-3">
-                  {formData.lines.map((line, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-3 items-end p-3 border rounded-xl bg-white shadow-sm">
-                      <div className="col-span-3">
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Product</label>
-                        <select 
-                          value={line.productId} 
-                          onChange={(e) => handleLineChange(index, 'productId', e.target.value)}
-                          className="w-full px-2 py-1.5 text-sm border rounded-lg"
-                        >
-                          <option value="">Custom Item</option>
-                          {productsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
+                <div className="space-y-6">
+                  {Object.entries(
+                    formData.lines.reduce((acc: any, line: any, index: number) => {
+                      const group = line.poId ? (posData?.find((po:any)=>po.id === line.poId)?.poNumber || 'PO Not Found') : 'Direct Items';
+                      if (!acc[group]) acc[group] = [];
+                      acc[group].push({ ...line, originalIndex: index });
+                      return acc;
+                    }, {})
+                  ).map(([groupName, lines]: [string, any]) => (
+                    <div key={groupName} className="space-y-3 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                      <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+                        <h5 className="font-bold text-slate-700 text-xs uppercase tracking-wider">{groupName}</h5>
                       </div>
-                      <div className="col-span-3">
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Description</label>
-                        <input 
-                          type="text" 
-                          value={line.description} 
-                          onChange={(e) => handleLineChange(index, 'description', e.target.value)}
-                          className="w-full px-2 py-1.5 text-sm border rounded-lg"
-                        />
-                      </div>
-                      <div className="col-span-1">
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Qty</label>
-                        <input 
-                          type="number" 
-                          value={line.quantity} 
-                          onChange={(e) => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1.5 text-sm border rounded-lg"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Price</label>
-                        <input 
-                          type="number" 
-                          value={line.unitPrice} 
-                          onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1.5 text-sm border rounded-lg"
-                        />
-                      </div>
-                      <div className="col-span-1">
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tax%</label>
-                        <input 
-                          type="number" 
-                          value={line.taxRate} 
-                          onChange={(e) => handleLineChange(index, 'taxRate', parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1.5 text-sm border rounded-lg"
-                        />
-                      </div>
-                      <div className="col-span-1 text-right self-center">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total</div>
-                        <div className="text-sm font-black">{(line.quantity * line.unitPrice).toLocaleString()}</div>
-                      </div>
-                      <div className="col-span-1 text-right">
-                        <button type="button" onClick={() => removeLine(index)} className="p-1.5 text-slate-400 hover:text-red-600">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                          <thead className="bg-white text-slate-500 text-[10px] uppercase font-bold border-b">
+                            <tr>
+                              <th className="px-4 py-2">Product & Description</th>
+                              <th className="px-2 py-2">Ordered</th>
+                              <th className="px-2 py-2 bg-blue-50/50">Received</th>
+                              <th className="px-2 py-2 text-slate-400">Remaining</th>
+                              <th className="px-2 py-2">Unit Price</th>
+                              <th className="px-2 py-2">Tax %</th>
+                              <th className="px-2 py-2">Tax Amt</th>
+                              <th className="px-4 py-2 text-right">Line Total</th>
+                              <th className="px-2 py-2"></th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {lines.map((line: any) => {
+                              const idx = line.originalIndex;
+                              const remaining = line.quantity - line.receivedQuantity;
+                              return (
+                                <tr key={idx} className="hover:bg-slate-50">
+                                  <td className="px-4 py-2 w-64">
+                                    <select 
+                                      value={line.productId} 
+                                      onChange={(e) => handleLineChange(idx, 'productId', e.target.value)}
+                                      className="w-full px-2 py-1.5 text-xs font-medium border rounded-lg bg-white mb-1.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                                    >
+                                      <option value="">Custom Item</option>
+                                      {productsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                    </select>
+                                    <input 
+                                      type="text" placeholder="Description"
+                                      value={line.description} 
+                                      onChange={(e) => handleLineChange(idx, 'description', e.target.value)}
+                                      className="w-full px-2 py-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                  </td>
+                                  <td className="px-2 py-2 align-top pt-3">
+                                    <input type="number" step="any" value={line.quantity} onChange={(e) => handleLineChange(idx, 'quantity', parseFloat(e.target.value) || 0)} className="w-16 px-2 py-1.5 text-xs border rounded-lg font-mono text-center bg-slate-50 text-slate-500" readOnly={!!line.poId} />
+                                  </td>
+                                  <td className="px-2 py-2 align-top pt-3 bg-blue-50/20">
+                                    <input type="number" step="any" value={line.receivedQuantity} onChange={(e) => handleLineChange(idx, 'receivedQuantity', parseFloat(e.target.value) || 0)} className="w-20 px-2 py-1.5 text-xs border-blue-200 border rounded-lg font-mono text-center font-bold text-blue-700 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                                  </td>
+                                  <td className="px-2 py-2 align-top pt-4 text-center">
+                                    <span className={`font-mono text-xs font-bold ${remaining < 0 ? 'text-red-500' : remaining === 0 ? 'text-emerald-500' : 'text-slate-400'}`}>
+                                      {remaining}
+                                    </span>
+                                  </td>
+                                  <td className="px-2 py-2 align-top pt-3">
+                                    <input type="number" step="any" value={line.unitPrice} onChange={(e) => handleLineChange(idx, 'unitPrice', parseFloat(e.target.value) || 0)} className="w-24 px-2 py-1.5 text-xs border rounded-lg font-mono text-right focus:ring-2 focus:ring-blue-500 outline-none" />
+                                  </td>
+                                  <td className="px-2 py-2 align-top pt-3">
+                                    <input type="number" step="any" value={line.taxRate} onChange={(e) => {
+                                      const taxRate = parseFloat(e.target.value) || 0;
+                                      const taxAmount = (line.receivedQuantity * line.unitPrice) * (taxRate / 100);
+                                      handleLineChange(idx, 'taxRate', taxRate);
+                                      handleLineChange(idx, 'taxAmount', taxAmount);
+                                    }} className="w-16 px-2 py-1.5 text-xs border rounded-lg font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+                                  </td>
+                                  <td className="px-2 py-2 align-top pt-4 font-mono text-slate-500 text-xs text-right">
+                                    {((line.receivedQuantity || 0) * (line.unitPrice || 0) * ((line.taxRate || 0) / 100)).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                  </td>
+                                  <td className="px-4 py-2 align-top pt-4 text-right">
+                                    <div className="font-black text-slate-900 tabular-nums">
+                                      {((line.receivedQuantity || 0) * (line.unitPrice || 0)).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                    </div>
+                                  </td>
+                                  <td className="px-2 py-2 align-top pt-3 text-right">
+                                    <button type="button" onClick={() => removeLine(idx)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   ))}

@@ -133,6 +133,8 @@ model Company {
   purchaseOrders PurchaseOrder[]
   activityLogs  ActivityLog[]
   notifications Notification[]
+  grns          GRN[]
+  dns           DN[]
   
   // Employee Relations
   employees            Employee[]
@@ -240,6 +242,7 @@ model LC {
   updatedAt       DateTime  @updatedAt
 
   @@index([companyId])
+  @@index([companyId, deletedAt])
   @@index([lcNumber])
   @@index([customerId])
   @@unique([companyId, lcNumber])
@@ -285,6 +288,8 @@ model PI {
   updatedAt       DateTime  @updatedAt
 
 
+  @@index([companyId])
+  @@index([companyId, deletedAt])
   @@index([lcId])
   @@unique([companyId, piNumber])
 }
@@ -335,6 +340,7 @@ model Loan {
   updatedAt           DateTime  @updatedAt
 
   @@index([companyId])
+  @@index([companyId, deletedAt])
   @@index([loanNumber])
   @@unique([companyId, loanNumber])
 }
@@ -548,6 +554,7 @@ model PurchaseOrder {
   supplier       Vendor    @relation(fields: [supplierId], references: [id])
   lc             LC?       @relation(fields: [lcId], references: [id])
   lines          PurchaseOrderLine[]
+  grns           GRN[]
   
   // Soft Delete
   deletedAt      DateTime?
@@ -580,6 +587,72 @@ model PurchaseOrderLine {
 }
 
 // ============================================
+// GOODS RECEIVED NOTE (GRN) & DELIVERY NOTE (DN)
+// ============================================
+
+model GRN {
+  id              String    @id @default(uuid())
+  grnNumber       String
+  companyId       String
+  purchaseOrderId String?
+  invoiceId       String?   // Linked to Purchase Invoice
+  receivedDate    DateTime  @default(now())
+  status          String    @default("RECEIVED") // RECEIVED, CANCELLED
+  
+  company         Company   @relation(fields: [companyId], references: [id])
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  invoice         Invoice?  @relation("InvoiceGRNs", fields: [invoiceId], references: [id])
+  lines           GRNLine[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([companyId])
+  @@unique([companyId, grnNumber])
+}
+
+model GRNLine {
+  id          String   @id @default(uuid())
+  grnId       String
+  productId   String?
+  quantity    Float
+  unitPrice   Float?   // Optional: captured at time of receipt
+  
+  grn         GRN      @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  product     Product? @relation(fields: [productId], references: [id])
+}
+
+model DN {
+  id              String    @id @default(uuid())
+  dnNumber        String
+  companyId       String
+  salesOrderId    String?   // Currently using Invoice, but added for future SO scaling
+  invoiceId       String?   // Linked to Sales Invoice
+  shipmentDate    DateTime  @default(now())
+  status          String    @default("SHIPPED") // SHIPPED, DELIVERED, CANCELLED
+  
+  company         Company   @relation(fields: [companyId], references: [id])
+  invoice         Invoice?  @relation("InvoiceDNs", fields: [invoiceId], references: [id])
+  lines           DNLine[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([companyId])
+  @@unique([companyId, dnNumber])
+}
+
+model DNLine {
+  id          String   @id @default(uuid())
+  dnId        String
+  productId   String?
+  quantity    Float
+  
+  dn          DN       @relation(fields: [dnId], references: [id], onDelete: Cascade)
+  product     Product? @relation(fields: [productId], references: [id])
+}
+
+// ============================================
 // PRODUCTS
 // ============================================
 
@@ -605,6 +678,8 @@ model Product {
   invoiceLines InvoiceLine[]
   poLines      PurchaseOrderLine[]
   piLines      PILine[]
+  grnLines     GRNLine[]
+  dnLines      DNLine[]
 
   @@index([companyId])
   @@index([companyId, deletedAt])
@@ -666,6 +741,10 @@ model Invoice {
   payments        Payment[] @relation("InvoicePayments")
   paymentAllocations PaymentInvoice[]
   
+  // Industrial Workflow Links
+  grns            GRN[]     @relation("InvoiceGRNs")
+  dns             DN[]      @relation("InvoiceDNs")
+  
   // Internal Accounting Logic
   isJournaled     Boolean   @default(false)
   journalId       String?
@@ -687,6 +766,7 @@ model InvoiceLine {
   quantity    Float   @default(1)
   unitPrice   Float
   taxRate     Float   @default(0)
+  taxAmount   Float   @default(0)
   amount      Float
   invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   product     Product? @relation(fields: [productId], references: [id])
@@ -931,6 +1011,7 @@ model ActivityLog {
   // branch        Branch?  @relation(fields: [branchId], references: [id])
 
   @@index([companyId])
+  @@index([companyId, deletedAt])
   @@index([performedById])
   @@index([targetUserId])
   @@index([entityType, entityId])
@@ -1002,6 +1083,7 @@ model Payment {
   updatedAt       DateTime  @updatedAt
 
   @@index([companyId])
+  @@index([companyId, deletedAt])
   @@index([invoiceId])
   @@index([billId])
   @@index([lcId])
@@ -1180,6 +1262,8 @@ model CompanySettings {
   id                    String   @id @default(uuid())
   companyId             String   @unique
   company               Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  lastUsedRate          Float    @default(1)
 
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt

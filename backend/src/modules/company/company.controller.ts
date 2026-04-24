@@ -26,4 +26,31 @@ export class CompanyController extends BaseCompanyController {
     });
     return reply.send({ success: true, data: companies });
   }
+
+  async updateSettings(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { baseCurrency, lastUsedRate } = request.body as { baseCurrency?: string, lastUsedRate?: number };
+
+    // Update Company Base Currency if provided
+    if (baseCurrency) {
+      await prisma.company.update({
+        where: { id: companyId },
+        data: { baseCurrency }
+      });
+    }
+
+    // Upsert Settings
+    const settings = await prisma.companySettings.upsert({
+      where: { companyId },
+      create: {
+        companyId,
+        lastUsedRate: lastUsedRate ?? 1,
+      },
+      update: {
+        ...(lastUsedRate !== undefined ? { lastUsedRate } : {})
+      }
+    });
+
+    return reply.send({ success: true, data: settings });
+  }
 }

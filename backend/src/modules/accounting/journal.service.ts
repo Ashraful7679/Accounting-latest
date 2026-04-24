@@ -55,7 +55,7 @@ export class JournalService {
   private static async generateInvoiceJournal(tx: any, invoiceId: string, userId: string) {
     const invoice = await tx.invoice.findUnique({
       where: { id: invoiceId },
-      include: { customer: true, lines: true }
+      include: { customer: true, vendor: true, lines: true }
     });
 
     if (!invoice) throw new Error('Invoice not found');
@@ -65,21 +65,100 @@ export class JournalService {
     const exchangeRate = Number(invoice.exchangeRate || 1);
     const totalBase = totalAmount * exchangeRate;
 
-    // Resolve AR and Revenue accounts
-    const arAccount = await TransactionRepository.ensureEntityAccount(
+    // Resolve AR/AP Accounts
+    const entityAccount = await TransactionRepository.ensureEntityAccount(
       tx,
       companyId,
-      invoice.customerId,
-      invoice.customer?.name || 'Accounts Receivable',
-      invoice.customer?.code || 'AR',
-      'AR'
+      invoice.type === 'PURCHASE' ? invoice.vendorId : invoice.customerId,
+      (invoice.type === 'PURCHASE' ? invoice.vendor?.name : invoice.customer?.name) || (invoice.type === 'PURCHASE' ? 'Accounts Payable' : 'Accounts Receivable'),
+      (invoice.type === 'PURCHASE' ? invoice.vendor?.code : invoice.customer?.code) || (invoice.type === 'PURCHASE' ? 'AP' : 'AR'),
+      invoice.type === 'PURCHASE' ? 'AP' : 'AR'
     );
 
+    // Resolve Control Accounts
     const revenueAccount = await tx.account.findFirst({
       where: { companyId, category: 'REVENUE', deletedAt: null }
     }) || await this.ensureGenericAccount(tx, companyId, 'REVENUE', 'Sales Revenue');
 
+    const inventoryAccount = await tx.account.findFirst({
+      where: { companyId, category: 'INVENTORY', deletedAt: null }
+    }) || await this.ensureGenericAccount(tx, companyId, 'INVENTORY', 'Inventory Stock');
+
+    const vatAccount = await tx.account.findFirst({
+      where: { companyId, category: 'TAX', deletedAt: null }
+    }) || await this.ensureGenericAccount(tx, companyId, 'TAX', 'VAT Control');
+
     const entryNumber = await SequenceService.generateDocumentNumber(companyId, 'journal', tx);
+
+    const subtotalBase = Number(invoice.subtotal || 0) * exchangeRate;
+    const taxBase = Number(invoice.taxAmount || 0) * exchangeRate;
+
+    const lines = [];
+
+    if (invoice.type === 'PURCHASE') {
+      // Dr Inventory (Subtotal)
+      lines.push({
+        accountId: inventoryAccount.id,
+        debit: subtotalBase, credit: 0,
+        debitBase: subtotalBase, creditBase: 0,
+        debitForeign: Number(invoice.subtotal || 0), creditForeign: 0,
+        exchangeRate,
+        description: `Inventory - Inv ${invoice.invoiceNumber}`
+      });
+      // Dr VAT (Tax)
+      if (taxBase > 0) {
+        lines.push({
+          accountId: vatAccount.id,
+          debit: taxBase, credit: 0,
+          debitBase: taxBase, creditBase: 0,
+          debitForeign: Number(invoice.taxAmount || 0), creditForeign: 0,
+          exchangeRate,
+          description: `VAT In - Inv ${invoice.invoiceNumber}`
+        });
+      }
+      // Cr AP (Total)
+      lines.push({
+        accountId: entityAccount.id,
+        debit: 0, credit: totalBase,
+        debitBase: 0, creditBase: totalBase,
+        debitForeign: 0, creditForeign: totalAmount,
+        exchangeRate,
+        vendorId: invoice.vendorId,
+        description: `AP - Inv ${invoice.invoiceNumber}`
+      });
+    } else {
+      // SALES
+      // Dr AR (Total)
+      lines.push({
+        accountId: entityAccount.id,
+        debit: totalBase, credit: 0,
+        debitBase: totalBase, creditBase: 0,
+        debitForeign: totalAmount, creditForeign: 0,
+        exchangeRate,
+        customerId: invoice.customerId,
+        description: `AR - Inv ${invoice.invoiceNumber}`
+      });
+      // Cr Revenue (Subtotal)
+      lines.push({
+        accountId: revenueAccount.id,
+        debit: 0, credit: subtotalBase,
+        debitBase: 0, creditBase: subtotalBase,
+        debitForeign: 0, creditForeign: Number(invoice.subtotal || 0),
+        exchangeRate,
+        description: `Revenue - Inv ${invoice.invoiceNumber}`
+      });
+      // Cr VAT (Tax)
+      if (taxBase > 0) {
+        lines.push({
+          accountId: vatAccount.id,
+          debit: 0, credit: taxBase,
+          debitBase: 0, creditBase: taxBase,
+          debitForeign: 0, creditForeign: Number(invoice.taxAmount || 0),
+          exchangeRate,
+          description: `VAT Out - Inv ${invoice.invoiceNumber}`
+        });
+      }
+    }
 
     // Create the journal entry
     const journal = await tx.journalEntry.create({
@@ -87,39 +166,13 @@ export class JournalService {
         entryNumber,
         companyId,
         date: invoice.invoiceDate || new Date(),
-        description: `Auto-Journal: Invoice ${invoice.invoiceNumber}`,
+        description: `Auto-Journal: ${invoice.type} Invoice ${invoice.invoiceNumber}`,
         reference: invoice.invoiceNumber,
         status: 'POSTED',
         totalDebit: totalBase,
         totalCredit: totalBase,
         createdById: userId,
-        lines: {
-          create: [
-            {
-              accountId: arAccount.id,
-              debit: totalBase,
-              credit: 0,
-              debitBase: totalBase,
-              creditBase: 0,
-              debitForeign: totalAmount,
-              creditForeign: 0,
-              exchangeRate,
-              customerId: invoice.customerId,
-              description: `AR - Inv ${invoice.invoiceNumber}`
-            },
-            {
-              accountId: revenueAccount.id,
-              debit: 0,
-              credit: totalBase,
-              debitBase: 0,
-              creditBase: totalBase,
-              debitForeign: 0,
-              creditForeign: totalAmount,
-              exchangeRate,
-              description: `Revenue - Inv ${invoice.invoiceNumber}`
-            }
-          ]
-        }
+        lines: { create: lines }
       }
     });
 

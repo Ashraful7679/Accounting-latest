@@ -5,6 +5,7 @@ import { NotificationController } from './notification.controller';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../middleware/errorHandler';
 import { BaseCompanyController } from './base.controller';
 import { JournalService } from '../accounting/journal.service';
+import { InventoryService } from './inventory.service';
 
 export class InvoiceController extends BaseCompanyController {
   // ============ INVOICES ============
@@ -354,7 +355,43 @@ export class InvoiceController extends BaseCompanyController {
           },
         });
 
+        // 1. Generate GRN/DN and Update Inventory
+        if (invoice.type === 'PURCHASE') {
+          const grn = await tx.gRN.create({
+            data: {
+              grnNumber: `GRN-${Date.now()}`,
+              companyId,
+              invoiceId: invoice.id,
+              status: 'RECEIVED',
+              lines: {
+                create: invoice.lines.map((l: any) => ({
+                  productId: l.productId,
+                  quantity: l.quantity,
+                  unitPrice: l.unitPrice
+                }))
+              }
+            }
+          });
+          await InventoryService.processGRN(tx, grn.id);
+        } else {
+          const dn = await tx.dN.create({
+            data: {
+              dnNumber: `DN-${Date.now()}`,
+              companyId,
+              invoiceId: invoice.id,
+              status: 'SHIPPED',
+              lines: {
+                create: invoice.lines.map((l: any) => ({
+                  productId: l.productId,
+                  quantity: l.quantity
+                }))
+              }
+            }
+          });
+          await InventoryService.processDN(tx, dn.id);
+        }
 
+        // 2. Automated Financial Journaling
         await JournalService.handleDocumentApproval('INVOICE', invoiceId, userId, tx);
 
         return inv;

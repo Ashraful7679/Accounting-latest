@@ -9,7 +9,7 @@ import {
   FileText, Plus, Search, Edit2, Trash2, Eye,
   Calendar, DollarSign, CheckCircle2, AlertCircle,
   Layers, Send, CheckCheck, X as CloseIcon, ArrowLeft,
-  Lock, RefreshCw
+  Lock, RefreshCw, ArrowUpRight
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { AttachmentManager } from '@/components/AttachmentManager';
@@ -51,7 +51,8 @@ export default function SalesInvoicesPage() {
     dueDate: '',
     description: '',
     status: '',
-    lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0 }]
+    piIds: [] as string[],
+    lines: [{ productId: '', description: '', quantity: 1, shippedQuantity: 1, unitPrice: 0, taxRate: 0, taxAmount: 0, piId: '' }]
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -78,7 +79,18 @@ export default function SalesInvoicesPage() {
     enabled: !!companyId,
   });
 
-  const productsData = allProductsData?.filter((p: any) => p.type === 'Sales') || [];
+  const productsData = allProductsData?.filter((p: any) => p.type === 'Sales' || !p.type) || [];
+
+  const { data: pisData } = useQuery({
+    queryKey: ['sales-orders', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/pis?type=export`);
+      return response.data.data;
+    },
+    enabled: !!companyId,
+  });
+
+  const customerPIs = pisData?.filter((pi: any) => pi.customerId === formData.customerId && (pi.status === 'SENT' || pi.status === 'PARTIAL' || pi.status === 'APPROVED')) || [];
 
   const { data: customersData } = useQuery({
     queryKey: ['customers', companyId],
@@ -197,13 +209,17 @@ export default function SalesInvoicesPage() {
         dueDate: invoice.dueDate ? invoice.dueDate.split('T')[0] : '',
         description: invoice.description || '',
         status: invoice.status || 'DRAFT',
+        piIds: invoice.piIds || [],
         lines: invoice.lines?.length ? invoice.lines.map((l: any) => ({
           productId: l.productId || '',
           description: l.description || '',
           quantity: l.quantity,
+          shippedQuantity: l.shippedQuantity || l.quantity,
           unitPrice: l.unitPrice,
-          taxRate: l.taxRate
-        })) : [{ productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0 }]
+          taxRate: l.taxRate,
+          taxAmount: (l.shippedQuantity || l.quantity) * l.unitPrice * (l.taxRate / 100),
+          piId: l.piId || ''
+        })) : [{ productId: '', description: '', quantity: 1, shippedQuantity: 1, unitPrice: 0, taxRate: 0, taxAmount: 0, piId: '' }]
       });
     } else {
       setSelectedInvoice(null);
@@ -216,7 +232,8 @@ export default function SalesInvoicesPage() {
         dueDate: '',
         description: '',
         status: 'DRAFT',
-        lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0 }]
+        piIds: [],
+        lines: [{ productId: '', description: '', quantity: 1, shippedQuantity: 1, unitPrice: 0, taxRate: 0, taxAmount: 0, piId: '' }]
       });
     }
     setShowModal(true);
@@ -237,10 +254,13 @@ export default function SalesInvoicesPage() {
       if (product) {
         line.unitPrice = product.unitPrice;
         line.description = product.name;
-        // Optionally sync invoice currency with product currency if it's a single item invoice,
-        // but for now we just use the price as is.
       }
     }
+    
+    if (['shippedQuantity', 'unitPrice', 'taxRate'].includes(field)) {
+      line.taxAmount = (line.shippedQuantity || 0) * (line.unitPrice || 0) * ((line.taxRate || 0) / 100);
+    }
+    
     newLines[index] = line;
     setFormData({ ...formData, lines: newLines });
   };
@@ -248,7 +268,7 @@ export default function SalesInvoicesPage() {
   const addLine = () => {
     setFormData({
       ...formData,
-      lines: [...formData.lines, { productId: '', description: '', quantity: 1, unitPrice: 0, taxRate: 0 }]
+      lines: [...formData.lines, { productId: '', description: '', quantity: 1, shippedQuantity: 1, unitPrice: 0, taxRate: 0, taxAmount: 0, piId: '' }]
     });
   };
 
@@ -259,11 +279,11 @@ export default function SalesInvoicesPage() {
   };
 
   const calculateSubtotal = () => {
-    return formData.lines.reduce((sum, line) => sum + (line.quantity * line.unitPrice), 0);
+    return formData.lines.reduce((sum, line) => sum + ((line.shippedQuantity || line.quantity) * line.unitPrice), 0);
   };
 
   const calculateTax = () => {
-    return formData.lines.reduce((sum, line) => sum + (line.quantity * line.unitPrice * line.taxRate / 100), 0);
+    return formData.lines.reduce((sum, line) => sum + (line.taxAmount || 0), 0);
   };
 
   const calculateTotal = () => {
@@ -279,16 +299,16 @@ export default function SalesInvoicesPage() {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      DRAFT: 'bg-gray-100 text-gray-800',
-      PENDING: 'bg-yellow-100 text-yellow-800',
-      VERIFIED: 'bg-blue-100 text-blue-800',
-      APPROVED: 'bg-green-100 text-green-800',
-      PAID: 'bg-green-100 text-green-800',
-      PARTIAL: 'bg-yellow-100 text-yellow-800',
-      OVERDUE: 'bg-red-100 text-red-800',
+      DRAFT: 'bg-slate-100 text-slate-600',
+      VERIFIED: 'bg-blue-100 text-blue-700',
+      APPROVED: 'bg-emerald-100 text-emerald-700',
+      SENT: 'bg-indigo-100 text-indigo-700',
+      PARTIAL: 'bg-amber-100 text-amber-700',
+      COMPLETED: 'bg-blue-600 text-white',
+      CANCELLED: 'bg-rose-100 text-rose-700',
       REJECTED: 'bg-rose-100 text-rose-800',
     };
-    return styles[status] || 'bg-gray-100 text-gray-800';
+    return styles[status] || 'bg-slate-100 text-slate-600';
   };
 
   const filteredInvoices = invoicesData?.filter((inv: Invoice) => {
@@ -349,12 +369,17 @@ export default function SalesInvoicesPage() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+            className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 font-bold text-slate-600 outline-none hover:bg-slate-100 transition-colors"
           >
-            <option value="all">All Status</option>
-            {['DRAFT', 'PENDING', 'VERIFIED', 'APPROVED', 'PAID', 'PARTIAL', 'OVERDUE', 'REJECTED'].map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
+            <option value="all">All Statuses</option>
+            <option value="DRAFT">Draft</option>
+            <option value="VERIFIED">Verified</option>
+            <option value="APPROVED">Approved</option>
+            <option value="SENT">Sent</option>
+            <option value="PARTIAL">Partial</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="CANCELLED">Cancelled</option>
+            <option value="REJECTED">Rejected</option>
           </select>
         </div>
 
@@ -393,10 +418,16 @@ export default function SalesInvoicesPage() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => openModal(inv)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
                         {(inv.status === 'DRAFT' || inv.status === 'REJECTED') && (
-                          <button onClick={() => deleteMutation.mutate(inv.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                          <>
+                            <button onClick={() => openModal(inv)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                            <button onClick={() => deleteMutation.mutate(inv.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                          </>
                         )}
+                        {inv.status === 'DRAFT' && <button onClick={() => verifyMutation.mutate(inv.id)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Verify"><CheckCircle2 className="w-4 h-4" /></button>}
+                        {inv.status === 'VERIFIED' && <button onClick={() => approveMutation.mutate(inv.id)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Approve"><CheckCircle2 className="w-4 h-4" /></button>}
+                        {inv.status === 'APPROVED' && <button onClick={() => submitMutation.mutate(inv.id)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Mark as Sent"><ArrowUpRight className="w-4 h-4" /></button>}
+                        <button onClick={() => openModal(inv)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View"><Eye className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -420,7 +451,7 @@ export default function SalesInvoicesPage() {
                 <div className="flex items-center gap-3 mt-1 px-1">
                   <span className={cn(
                     "text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md",
-                    formData.status === 'APPROVED' ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
+                    getStatusBadge(formData.status)
                   )}>
                     {formData.status}
                   </span>
@@ -517,12 +548,22 @@ export default function SalesInvoicesPage() {
                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Customer Selection *</label>
                     <select 
                       value={formData.customerId} 
-                      onChange={(e) => setFormData({...formData, customerId: e.target.value})} 
+                      onChange={(e) => setFormData({...formData, customerId: e.target.value, piIds: [], lines: [{ productId: '', description: '', quantity: 1, shippedQuantity: 1, unitPrice: 0, taxRate: 0, taxAmount: 0, piId: '' }]})} 
                       className="w-full px-4 py-3.5 bg-slate-50 border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 border transition-all text-sm font-black shadow-sm" 
                       required
                     >
                       <option value="">Choose a customer...</option>
                       {customersData?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Status</label>
+                    <select 
+                      value={formData.status} 
+                      onChange={(e) => setFormData({...formData, status: e.target.value})}
+                      className="w-full px-4 py-3.5 bg-slate-50 border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 border transition-all text-sm font-black shadow-sm"
+                    >
+                      {['DRAFT', 'VERIFIED', 'APPROVED', 'SENT', 'PARTIAL', 'COMPLETED', 'CANCELLED', 'REJECTED'].map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -538,6 +579,56 @@ export default function SalesInvoicesPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-indigo-50/30 p-6 rounded-[2.5rem] border border-indigo-100/50 shadow-sm shadow-indigo-500/5">
+                    <div className="md:col-span-2">
+                      <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1.5 px-1">Select Sales Orders (PIs)</label>
+                      <select 
+                        multiple
+                        value={formData.piIds}
+                        onChange={(e) => {
+                          const selectedOptions = Array.from(e.target.selectedOptions).map(opt => opt.value);
+                          setFormData(prev => {
+                            let newLines = [...prev.lines];
+                            
+                            // Remove lines from unselected PIs
+                            newLines = newLines.filter(line => !line.piId || selectedOptions.includes(line.piId));
+                            
+                            // Add lines from newly selected PIs
+                            const newlySelected = selectedOptions.filter(id => !prev.piIds.includes(id));
+                            newlySelected.forEach(piId => {
+                              const pi = customerPIs.find((p: any) => p.id === piId);
+                              if (pi && pi.lines) {
+                                pi.lines.forEach((l: any) => {
+                                  newLines.push({
+                                    productId: l.productId,
+                                    description: l.description,
+                                    quantity: l.quantity,
+                                    shippedQuantity: l.quantity, // Default to full shipment
+                                    unitPrice: l.unitPrice,
+                                    taxRate: l.taxRate || 0,
+                                    taxAmount: l.quantity * l.unitPrice * ((l.taxRate || 0) / 100),
+                                    piId: piId
+                                  });
+                                });
+                              }
+                            });
+                            
+                            // Remove the empty default line if we added actual lines
+                            if (newLines.length > 1 && newLines[0].productId === '' && newLines[0].piId === '') {
+                              newLines.shift();
+                            }
+                            
+                            return { ...prev, piIds: selectedOptions, lines: newLines };
+                          });
+                        }}
+                        className="w-full px-3 py-2.5 bg-white border-indigo-100/50 rounded-xl border text-sm font-black focus:ring-2 focus:ring-indigo-500 shadow-sm min-h-[100px]"
+                      >
+                        {customerPIs.map((pi: any) => (
+                          <option key={pi.id} value={pi.id}>{pi.piNumber} (৳{pi.totalBDT})</option>
+                        ))}
+                        {customerPIs.length === 0 && <option disabled>No verified/sent Sales Orders found for this customer.</option>}
+                      </select>
+                      <p className="text-[9px] text-indigo-400 font-bold mt-1.5 px-1">Hold Ctrl/Cmd to select multiple. Line items will auto-populate below.</p>
+                    </div>
                    <div>
                       <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1.5 px-1">Currency</label>
                       <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full px-3 py-2.5 bg-white border-indigo-100/50 rounded-xl border text-sm font-black focus:ring-2 focus:ring-indigo-500 shadow-sm">
@@ -567,70 +658,118 @@ export default function SalesInvoicesPage() {
                     </button>
                   </div>
 
-                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                    {formData.lines.map((line, index) => (
-                      <div key={index} className="grid grid-cols-12 gap-4 items-center p-6 border border-slate-100 rounded-[2rem] bg-slate-50/30 hover:border-indigo-200 hover:bg-white hover:shadow-xl hover:shadow-indigo-500/5 transition-all group/row relative">
-                        <div className="col-span-12 md:col-span-3">
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Product Model</label>
-                          <select 
-                            value={line.productId} 
-                            onChange={(e) => handleLineChange(index, 'productId', e.target.value)}
-                            className="w-full px-4 py-2.5 bg-white border-slate-200 rounded-xl border text-sm font-black focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm"
-                          >
-                            <option value="">Custom Line Item</option>
-                            {productsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                          </select>
-                        </div>
-                        <div className="col-span-12 md:col-span-3">
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Bill Description</label>
-                          <input 
-                            type="text" 
-                            value={line.description} 
-                            onChange={(e) => handleLineChange(index, 'description', e.target.value)}
-                            className="w-full px-4 py-2.5 bg-white border-slate-200 rounded-xl border text-sm font-black focus:ring-2 focus:ring-indigo-500 shadow-sm"
-                          />
-                        </div>
-                        <div className="col-span-4 md:col-span-1">
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1 text-center">Qty</label>
-                          <input 
-                            type="number" step="any"
-                            value={line.quantity} 
-                            onChange={(e) => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                            className="w-full px-3 py-2.5 bg-white border-slate-200 rounded-xl border text-sm font-black text-center focus:ring-2 focus:ring-indigo-500 shadow-sm"
-                          />
-                        </div>
-                        <div className="col-span-4 md:col-span-1.5 md:col-span-2">
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1 text-right">Unit Price ({formData.currency})</label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">{formData.currency}</span>
-                            <input 
-                              type="number" step="any"
-                              value={line.unitPrice} 
-                              onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                              className="w-full pl-12 pr-3 py-2.5 bg-white border-slate-200 rounded-xl border text-sm font-black text-right focus:ring-2 focus:ring-indigo-500 shadow-sm"
-                            />
+                  <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                    {/* Render grouped by Sales Order */}
+                    {[...new Set(['', ...formData.lines.map(l => l.piId || '')])].map(piId => {
+                      const groupLines = formData.lines.map((l, i) => ({...l, originalIndex: i})).filter(l => (l.piId || '') === piId);
+                      if (groupLines.length === 0) return null;
+                      
+                      const pi = customerPIs?.find((p: any) => p.id === piId);
+                      
+                      return (
+                        <div key={piId || 'custom'} className="mb-6 border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm">
+                          <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
+                            <span className="text-xs font-black text-slate-700 uppercase tracking-widest">
+                              {piId ? `Sales Order: ${pi?.piNumber || 'Unknown'}` : 'Custom Invoice Lines'}
+                            </span>
+                            {piId && (
+                              <span className="text-[10px] font-bold text-slate-500">
+                                Order Date: {pi?.piDate ? new Date(pi.piDate).toLocaleDateString() : '-'}
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="p-4 space-y-4">
+                            {/* Table Header */}
+                            <div className="hidden md:grid grid-cols-12 gap-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">
+                              <div className="col-span-2">Product</div>
+                              <div className="col-span-2">Description</div>
+                              <div className="col-span-1 text-center">Ordered Qty</div>
+                              <div className="col-span-1 text-center">Shipped Qty</div>
+                              <div className="col-span-1 text-center text-amber-500">Remaining</div>
+                              <div className="col-span-2 text-right">Unit Price</div>
+                              <div className="col-span-1 text-right">Tax Amt</div>
+                              <div className="col-span-2 text-right text-indigo-600">Shipped Total</div>
+                            </div>
+                            
+                            {groupLines.map((line) => {
+                              const originalIndex = line.originalIndex;
+                              const remaining = Number(line.quantity) - Number(line.shippedQuantity);
+                              return (
+                                <div key={originalIndex} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-3 border border-slate-100 rounded-xl bg-slate-50/50 hover:bg-slate-50 transition-all group/row relative">
+                                  <div className="col-span-12 md:col-span-2">
+                                    <select 
+                                      value={line.productId} 
+                                      onChange={(e) => handleLineChange(originalIndex, 'productId', e.target.value)}
+                                      className="w-full px-3 py-2 bg-white border-slate-200 rounded-lg text-sm font-black focus:ring-2 focus:ring-indigo-500"
+                                      disabled={!!piId}
+                                    >
+                                      <option value="">Custom Line</option>
+                                      {productsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                    </select>
+                                  </div>
+                                  <div className="col-span-12 md:col-span-2">
+                                    <input 
+                                      type="text" 
+                                      value={line.description} 
+                                      onChange={(e) => handleLineChange(originalIndex, 'description', e.target.value)}
+                                      className="w-full px-3 py-2 bg-white border-slate-200 rounded-lg text-sm font-black focus:ring-2 focus:ring-indigo-500"
+                                      disabled={!!piId}
+                                    />
+                                  </div>
+                                  <div className="col-span-4 md:col-span-1">
+                                    <input 
+                                      type="number" step="any"
+                                      value={line.quantity} 
+                                      onChange={(e) => handleLineChange(originalIndex, 'quantity', parseFloat(e.target.value) || 0)}
+                                      className="w-full px-2 py-2 bg-slate-100 border-transparent rounded-lg text-sm font-black text-center text-slate-500"
+                                      readOnly={!!piId}
+                                    />
+                                  </div>
+                                  <div className="col-span-4 md:col-span-1">
+                                    <input 
+                                      type="number" step="any"
+                                      value={line.shippedQuantity} 
+                                      onChange={(e) => handleLineChange(originalIndex, 'shippedQuantity', parseFloat(e.target.value) || 0)}
+                                      className="w-full px-2 py-2 bg-white border-indigo-200 rounded-lg text-sm font-black text-center focus:ring-2 focus:ring-indigo-500 text-indigo-700"
+                                      max={piId ? line.quantity : undefined}
+                                    />
+                                  </div>
+                                  <div className="col-span-4 md:col-span-1 text-center font-mono text-xs font-bold text-amber-500 pt-2">
+                                    {remaining > 0 ? remaining : 0}
+                                  </div>
+                                  <div className="col-span-6 md:col-span-2">
+                                    <input 
+                                      type="number" step="any"
+                                      value={line.unitPrice} 
+                                      onChange={(e) => handleLineChange(originalIndex, 'unitPrice', parseFloat(e.target.value) || 0)}
+                                      className="w-full px-3 py-2 bg-slate-100 border-transparent rounded-lg text-sm font-black text-right"
+                                      readOnly={!!piId}
+                                    />
+                                  </div>
+                                  <div className="col-span-6 md:col-span-1">
+                                    <input 
+                                      type="number" step="any"
+                                      value={line.taxAmount} 
+                                      readOnly
+                                      className="w-full px-2 py-2 bg-slate-100 border-transparent rounded-lg text-xs font-black text-right text-slate-500"
+                                    />
+                                  </div>
+                                  <div className="col-span-10 md:col-span-2 text-right border-l border-slate-200 pl-4 flex flex-col justify-center">
+                                    <div className="text-sm font-black text-indigo-600 tabular-nums">{(line.shippedQuantity * line.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                                  </div>
+                                  {!piId && (
+                                    <button type="button" onClick={() => removeLine(originalIndex)} className="absolute -right-2 -top-2 bg-white shadow-sm border border-slate-200 p-1.5 text-slate-400 hover:text-rose-500 rounded-full transition-all opacity-0 group-hover/row:opacity-100">
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
-                        <div className="col-span-4 md:col-span-1">
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1 text-center">Tax %</label>
-                          <input 
-                            type="number" 
-                            value={line.taxRate} 
-                            onChange={(e) => handleLineChange(index, 'taxRate', parseFloat(e.target.value) || 0)}
-                            className="w-full px-3 py-2.5 bg-white border-slate-200 rounded-xl border text-sm font-black text-center focus:ring-2 focus:ring-indigo-500 shadow-sm"
-                          />
-                        </div>
-                        <div className="col-span-10 md:col-span-1 text-right border-l border-slate-100 pl-4">
-                          <div className="text-[10px] font-black text-slate-300 uppercase mb-1.5">Row Value</div>
-                          <div className="text-sm font-black text-indigo-600 tabular-nums">{(line.quantity * line.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-                        </div>
-                        <div className="col-span-2 md:col-span-1 flex justify-end">
-                          <button type="button" onClick={() => removeLine(index)} className="p-2 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 

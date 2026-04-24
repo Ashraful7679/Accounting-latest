@@ -69,7 +69,7 @@ export default function ExportPIsPage() {
     customerId: '',
     lcId: '',
     description: '',
-    status: 'OPEN',
+    status: 'DRAFT',
     lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }] as PILine[]
   });
   const [isAutoPI, setIsAutoPI] = useState(true);
@@ -265,7 +265,7 @@ export default function ExportPIsPage() {
         customerId: pi.customer?.id || '',
         lcId: pi.lc?.id || '',
         description: pi.description || '',
-        status: pi.status || 'OPEN',
+        status: pi.status || 'DRAFT',
         lines: pi.lines?.length ? pi.lines.map((l: any) => ({
           productId: l.productId || '',
           description: l.description || '',
@@ -290,7 +290,7 @@ export default function ExportPIsPage() {
         customerId: '',
         lcId: '',
         description: '',
-        status: 'OPEN',
+        status: 'DRAFT',
         lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }]
       });
       setIsAutoPI(true);
@@ -318,10 +318,14 @@ export default function ExportPIsPage() {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      OPEN: 'bg-blue-100 text-blue-700 font-bold',
-      PAID: 'bg-emerald-100 text-emerald-700 font-bold',
-      PARTIALLY_PAID: 'bg-amber-100 text-amber-700 font-bold',
-      CLOSED: 'bg-slate-100 text-slate-600 font-bold',
+      DRAFT: 'bg-slate-100 text-slate-600',
+      VERIFIED: 'bg-blue-100 text-blue-700',
+      APPROVED: 'bg-emerald-100 text-emerald-700',
+      SENT: 'bg-indigo-100 text-indigo-700',
+      PARTIAL: 'bg-amber-100 text-amber-700',
+      COMPLETED: 'bg-blue-600 text-white',
+      CANCELLED: 'bg-rose-100 text-rose-700',
+      REJECTED: 'bg-rose-100 text-rose-800',
     };
     return styles[status] || 'bg-slate-100 text-slate-600';
   };
@@ -397,9 +401,14 @@ export default function ExportPIsPage() {
                 className="px-4 py-2 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 font-bold text-slate-600 outline-none"
               >
                 <option value="all">All Status</option>
-                <option value="OPEN">Open</option>
-                <option value="PAID">Paid</option>
-                <option value="PARTIALLY_PAID">Partial</option>
+                <option value="DRAFT">Draft</option>
+                <option value="VERIFIED">Verified</option>
+                <option value="APPROVED">Approved</option>
+                <option value="SENT">Sent</option>
+                <option value="PARTIAL">Partial</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="CANCELLED">Cancelled</option>
+                <option value="REJECTED">Rejected</option>
               </select>
             </div>
 
@@ -448,8 +457,25 @@ export default function ExportPIsPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex justify-center gap-2">
-                            <button onClick={() => openModal(pi)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
-                            <button onClick={() => deleteMutation.mutate(pi.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                            {(pi.status === 'DRAFT' || pi.status === 'REJECTED') && (
+                              <>
+                                <button onClick={() => openModal(pi)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
+                                <button onClick={() => deleteMutation.mutate(pi.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                              </>
+                            )}
+                            {pi.status === 'DRAFT' && (
+                              <button onClick={() => updateMutation.mutate({ id: pi.id, data: { ...pi, status: 'VERIFIED' } })} className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all" title="Verify"><CheckCircle2 className="w-4 h-4" /></button>
+                            )}
+                            {pi.status === 'VERIFIED' && (
+                              <>
+                                <button onClick={() => updateMutation.mutate({ id: pi.id, data: { ...pi, status: 'APPROVED' } })} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="Approve"><CheckCircle2 className="w-4 h-4" /></button>
+                                <button onClick={() => updateMutation.mutate({ id: pi.id, data: { ...pi, status: 'REJECTED' } })} className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Reject"><AlertCircle className="w-4 h-4" /></button>
+                              </>
+                            )}
+                            {pi.status === 'APPROVED' && (
+                              <button onClick={() => updateMutation.mutate({ id: pi.id, data: { ...pi, status: 'SENT' } })} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Mark as Sent"><ArrowUpRight className="w-4 h-4" /></button>
+                            )}
+                            <button onClick={() => openModal(pi)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all" title="View"><Eye className="w-4 h-4" /></button>
                           </div>
                         </td>
                       </tr>
@@ -479,7 +505,7 @@ export default function ExportPIsPage() {
                         onChange={(e) => setFormData({...formData, status: e.target.value})}
                         className="bg-transparent text-[10px] font-black text-amber-600 uppercase tracking-widest border-none outline-none cursor-pointer"
                       >
-                        {['OPEN', 'PAID', 'PARTIALLY_PAID', 'CLOSED', 'CANCELLED'].map(s => <option key={s} value={s}>{s} (OVERRIDE)</option>)}
+                        {['DRAFT', 'VERIFIED', 'APPROVED', 'SENT', 'PARTIAL', 'COMPLETED', 'CANCELLED', 'REJECTED'].map(s => <option key={s} value={s}>{s} (OVERRIDE)</option>)}
                       </select>
                     </div>
                   )}
@@ -722,22 +748,22 @@ export default function ExportPIsPage() {
                 <div className="flex gap-2">
                   {selectedPI && (
                     <>
-                      {formData.status === 'OPEN' && (
+                      {formData.status === 'SENT' && (
                         <button 
                           type="button" 
-                          onClick={() => setFormData({...formData, status: 'PAID'})}
+                          onClick={() => setFormData({...formData, status: 'COMPLETED'})}
                           className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all border border-emerald-200 uppercase tracking-widest"
                         >
-                          Record Payment
+                          Mark as Completed
                         </button>
                       )}
-                      {formData.status !== 'CLOSED' && formData.status !== 'CANCELLED' && (
+                      {formData.status !== 'COMPLETED' && formData.status !== 'CANCELLED' && (
                         <button 
                           type="button" 
-                          onClick={() => setFormData({...formData, status: 'CLOSED'})}
+                          onClick={() => setFormData({...formData, status: 'CANCELLED'})}
                           className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-black hover:bg-slate-200 transition-all border border-slate-200 uppercase tracking-widest"
                         >
-                          Complete PI
+                          Cancel PI
                         </button>
                       )}
                     </>

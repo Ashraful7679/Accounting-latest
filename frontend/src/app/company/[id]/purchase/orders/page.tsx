@@ -354,10 +354,13 @@ export default function PurchaseOrdersPage() {
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       DRAFT: 'bg-slate-100 text-slate-600',
+      REJECTED: 'bg-rose-100 text-rose-700',
+      VERIFIED: 'bg-emerald-50 text-emerald-600',
       APPROVED: 'bg-emerald-100 text-emerald-700',
-      SENT: 'bg-blue-100 text-blue-700',
-      RECEIVED: 'bg-purple-100 text-purple-700',
-      CLOSED: 'bg-gray-100 text-gray-800',
+      SENT: 'bg-slate-100 text-slate-500',
+      PARTIAL: 'bg-blue-50 text-blue-500',
+      COMPLETED: 'bg-blue-100 text-blue-700',
+      CANCELLED: 'bg-red-100 text-red-700'
     };
     return styles[status] || 'bg-slate-100 text-slate-600';
   };
@@ -474,11 +477,30 @@ export default function PurchaseOrdersPage() {
                             {po.status === 'DRAFT' && (
                               <>
                                 <button 
+                                  onClick={() => statusMutation.mutate({ id: po.id, status: 'VERIFIED' })}
+                                  className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                  title="Verify (Tic)"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={() => statusMutation.mutate({ id: po.id, status: 'REJECTED' })}
+                                  className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                  title="Cancel/Reject (Cross)"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+
+                            {po.status === 'VERIFIED' && (
+                              <>
+                                <button 
                                   onClick={() => statusMutation.mutate({ id: po.id, status: 'APPROVED' })}
                                   className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                                   title="Approve"
                                 >
-                                  <Check className="w-4 h-4" />
+                                  <CheckCircle2 className="w-4 h-4" />
                                 </button>
                                 <button 
                                   onClick={() => statusMutation.mutate({ id: po.id, status: 'REJECTED' })}
@@ -510,23 +532,13 @@ export default function PurchaseOrdersPage() {
                               </button>
                             )}
 
-                            {po.status === 'SENT' && (
+                            {(po.status === 'SENT' || po.status === 'PARTIAL') && (
                               <button 
-                                onClick={() => statusMutation.mutate({ id: po.id, status: 'RECEIVED' })}
+                                onClick={() => statusMutation.mutate({ id: po.id, status: 'COMPLETED' })}
                                 className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                title="Mark as Received"
+                                title="Mark as Completed"
                               >
                                 <Package className="w-4 h-4" />
-                              </button>
-                            )}
-
-                            {po.status === 'RECEIVED' && (
-                              <button 
-                                onClick={() => statusMutation.mutate({ id: po.id, status: 'CLOSED' })}
-                                className="p-1.5 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
-                                title="Close Order"
-                              >
-                                <Lock className="w-4 h-4" />
                               </button>
                             )}
 
@@ -538,7 +550,7 @@ export default function PurchaseOrdersPage() {
                               <Printer className="w-4 h-4" />
                             </button>
 
-                            {(po.status === 'DRAFT' || isOwner) && (
+                            {po.status === 'DRAFT' && (
                               <>
                                 <button onClick={() => openModal(po)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><Edit2 className="w-4 h-4" /></button>
                                 <button onClick={() => {
@@ -747,37 +759,7 @@ export default function PurchaseOrdersPage() {
               {/* Footer */}
               <div className="flex justify-between items-center pt-8 mt-4 border-t border-slate-100">
                 <div className="flex gap-2">
-                  {selectedPO && (
-                    <>
-                      {formData.status === 'OPEN' && (
-                        <button 
-                          type="button" 
-                          onClick={() => setFormData({...formData, status: 'RECEIVED'})}
-                          className="px-4 py-2 bg-amber-50 text-amber-700 rounded-xl text-xs font-black hover:bg-amber-100 transition-all border border-amber-200 uppercase tracking-widest"
-                        >
-                          Mark as Received
-                        </button>
-                      )}
-                      {(formData.status === 'RECEIVED' || formData.status === 'PARTIALLY_PAID') && (
-                        <button 
-                          type="button" 
-                          onClick={() => setFormData({...formData, status: 'PAID'})}
-                          className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all border border-emerald-200 uppercase tracking-widest"
-                        >
-                          Record Full Payment
-                        </button>
-                      )}
-                      {formData.status !== 'CLOSED' && formData.status !== 'CANCELLED' && (
-                        <button 
-                          type="button" 
-                          onClick={() => setFormData({...formData, status: 'CLOSED'})}
-                          className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-black hover:bg-slate-200 transition-all border border-slate-200 uppercase tracking-widest"
-                        >
-                          Close Order
-                        </button>
-                      )}
-                    </>
-                  )}
+                   {/* Status transitions are handled via row actions */}
                 </div>
                 
                 <div className="flex gap-3">

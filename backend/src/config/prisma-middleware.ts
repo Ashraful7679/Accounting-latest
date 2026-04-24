@@ -25,7 +25,8 @@ export function registerSoftDelete(prisma: any) {
     // Only apply if the model has a 'deletedAt' field
     const softDeleteModels = [
       'Account', 'JournalEntry', 'Invoice', 'Bill', 'PurchaseOrder', 
-      'ProformaInvoice', 'Product', 'Vendor', 'Customer', 'Employee', 'Company'
+      'ProformaInvoice', 'Product', 'Vendor', 'Customer', 'Employee', 'Company',
+      'LC', 'Loan', 'Project', 'CostCenter', 'Payment', 'ActivityLog', 'PI'
     ];
 
     if (softDeleteModels.includes(params.model || '')) {
@@ -35,14 +36,21 @@ export function registerSoftDelete(prisma: any) {
         // Flatten compound unique keys (e.g., { companyId_code: { companyId, code } } -> { companyId, code })
         // findFirst doesn't support the companyId_code shorthand directly in the same way findUnique does.
         if (params.args.where) {
+          const prismaOperators = ['contains', 'mode', 'gte', 'lte', 'gt', 'lt', 'in', 'not', 'equals', 'search', 'startsWith', 'endsWith'];
           const whereKeys = Object.keys(params.args.where);
           for (const key of whereKeys) {
-            if (typeof params.args.where[key] === 'object' && params.args.where[key] !== null && !Array.isArray(params.args.where[key])) {
-              // This is likely a compound unique key (e.g., companyId_code)
-              // We flatten it into the main where clause
-              const compoundValue = params.args.where[key];
-              delete params.args.where[key];
-              params.args.where = { ...params.args.where, ...compoundValue };
+            const value = params.args.where[key];
+            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+              // Check if this object contains any Prisma operators
+              const valueKeys = Object.keys(value);
+              const hasOperator = valueKeys.some(k => prismaOperators.includes(k));
+              
+              if (!hasOperator) {
+                // This is likely a compound unique key (e.g., companyId_code)
+                // We flatten it into the main where clause
+                delete params.args.where[key];
+                params.args.where = { ...params.args.where, ...value };
+              }
             }
           }
         }

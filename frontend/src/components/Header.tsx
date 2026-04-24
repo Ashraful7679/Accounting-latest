@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Bell, Plus, FileText, Receipt } from 'lucide-react';
+import { Bell, Plus, FileText, Receipt, Clock, Save, RefreshCw } from 'lucide-react';
 import UserDropdown from './UserDropdown';
 import NotificationPanel from './NotificationPanel';
 import CompanySwitcher from './CompanySwitcher';
@@ -18,6 +18,55 @@ export default function Header({ companyId, breadcrumbs, role: propRole, unreadC
   const [notifOpen, setNotifOpen] = useState(false);
   const [role, setRole] = useState(propRole || 'User');
   const [permissions, setPermissions] = useState<any[]>([]);
+  const [time, setTime] = useState(new Date());
+  const [exchangeRate, setExchangeRate] = useState(1);
+  const [baseCurrency, setBaseCurrency] = useState('USD');
+  const [isSavingRate, setIsSavingRate] = useState(false);
+
+  // Tick clock
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Fetch initial settings
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/company/${companyId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const json = await res.json();
+        if (json.success && json.data) {
+          setBaseCurrency(json.data.baseCurrency || 'USD');
+          setExchangeRate(json.data.settings?.lastUsedRate || 1);
+        }
+      } catch (err) {
+        console.error('Failed to fetch settings', err);
+      }
+    };
+    if (companyId) fetchSettings();
+  }, [companyId]);
+
+  const saveSettings = async (rate: number, currency: string) => {
+    setIsSavingRate(true);
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/company/${companyId}/settings`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ lastUsedRate: rate, baseCurrency: currency })
+      });
+    } catch (err) {
+      console.error('Failed to update settings', err);
+    } finally {
+      setIsSavingRate(false);
+    }
+  };
 
   useEffect(() => {
     if (!propRole) {
@@ -43,6 +92,64 @@ export default function Header({ companyId, breadcrumbs, role: propRole, unreadC
             </React.Fragment>
           ))}
         </h2>
+      </div>
+
+      {/* Center: Clock & Currency */}
+      <div className="hidden lg:flex items-center gap-4 px-4 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+        {/* Clock */}
+        <div className="flex items-center gap-2 text-slate-600 border-r border-slate-200 pr-4">
+          <Clock className="w-4 h-4 text-blue-500" />
+          <div className="flex flex-col">
+            <span className="text-xs font-bold leading-none">
+              {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium leading-none mt-1">
+              {time.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+            </span>
+          </div>
+        </div>
+
+        {/* Currency & Rate */}
+        <div className="flex items-center gap-2">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Base Currency</span>
+            <select 
+              value={baseCurrency}
+              onChange={(e) => {
+                const val = e.target.value;
+                setBaseCurrency(val);
+                saveSettings(exchangeRate, val);
+              }}
+              className="text-xs font-bold bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:border-blue-500"
+            >
+              <option value="USD">USD</option>
+              <option value="BDT">BDT</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </div>
+          
+          <span className="text-slate-300">=</span>
+          
+          <div className="flex flex-col relative group">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Spot Rate</span>
+            <div className="relative">
+              <input 
+                type="number" 
+                step="0.01"
+                value={exchangeRate}
+                onChange={(e) => setExchangeRate(parseFloat(e.target.value))}
+                onBlur={() => saveSettings(exchangeRate, baseCurrency)}
+                className="w-20 text-xs font-bold bg-white border border-slate-200 rounded px-2 py-0.5 outline-none focus:border-blue-500 text-right pr-6"
+              />
+              {isSavingRate ? (
+                <RefreshCw className="w-3 h-3 text-slate-400 animate-spin absolute right-1.5 top-1" />
+              ) : (
+                <Save className="w-3 h-3 text-emerald-500 absolute right-1.5 top-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="flex items-center gap-4">

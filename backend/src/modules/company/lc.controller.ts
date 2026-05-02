@@ -14,7 +14,7 @@ export class LCController {
       include: {
         customer: { select: { id: true, name: true, code: true } },
         vendor: { select: { id: true, name: true, code: true } },
-        salesOrders: { select: { id: true, soNumber: true, status: true, totalAmount: true, currency: true, customer: { select: { name: true } } } },
+        salesOrders: { select: { id: true, soNumber: true, status: true, totalBDT: true, currency: true, customer: { select: { name: true } } } },
         purchaseOrders: { select: { id: true, poNumber: true, status: true, totalBDT: true, currency: true, supplier: { select: { name: true } } } }
       },
       orderBy: { createdAt: 'desc' }

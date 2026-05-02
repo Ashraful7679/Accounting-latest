@@ -86,15 +86,18 @@ export default function PurchaseOrdersPage() {
   if (!mounted) return null;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6 bg-white min-h-screen">
-      <div className="flex justify-between items-end border-b border-gray-900 pb-4">
+    <div className="p-6 max-w-[1600px] mx-auto space-y-6 bg-gray-50 min-h-screen">
+      <div className="flex justify-between items-center border-b border-gray-200 pb-6">
         <div>
-          <h1 className="text-3xl font-light text-gray-900 tracking-tight">Purchase Orders</h1>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <ShoppingBag className="w-6 h-6 text-gray-600" />
+            Purchase Orders
+          </h1>
           <p className="text-sm text-gray-500 mt-1">Supply chain and inventory procurement</p>
         </div>
         <button 
           onClick={() => router.push(`/company/${companyId}/purchase/orders/create`)}
-          className="px-4 py-2 bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors flex items-center gap-2"
+          className="bg-gray-900 text-white px-4 py-2 rounded-sm text-sm font-medium hover:bg-gray-800 transition-colors flex items-center gap-2"
         >
           <Plus className="w-4 h-4" /> New Purchase Order
         </button>
@@ -108,16 +111,16 @@ export default function PurchaseOrdersPage() {
             placeholder="Search orders..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 text-sm focus:outline-none focus:border-gray-900 transition-colors"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-sm text-sm focus:outline-none focus:border-gray-900 transition-colors bg-white"
           />
         </div>
       </div>
 
-      <div className="border border-gray-200 shadow-sm overflow-hidden">
-        <table className="w-full border-collapse text-sm">
+      <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
+        <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="w-12 py-3 px-4"></th>
+            <tr className="bg-gray-100 border-b border-gray-200">
+              <th className="w-10 py-3 px-4"></th>
               <th className="text-left py-3 px-4 font-semibold text-gray-700">Order Number</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-700">Supplier</th>
@@ -139,11 +142,11 @@ export default function PurchaseOrdersPage() {
               ).map((po) => (
                 <React.Fragment key={po.id}>
                   <tr className={cn(
-                    "hover:bg-gray-50/50 transition-colors",
+                    "hover:bg-gray-50 transition-colors",
                     expandedOrders.has(po.id) && "bg-gray-50"
                   )}>
                     <td className="py-3 px-4">
-                      <button onClick={() => toggleExpand(po.id)} className="p-1 hover:bg-gray-200 rounded transition-colors text-gray-400">
+                      <button onClick={() => toggleExpand(po.id)} className="p-1 hover:bg-gray-200 rounded-sm transition-colors text-gray-400">
                         {expandedOrders.has(po.id) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       </button>
                     </td>
@@ -159,83 +162,83 @@ export default function PurchaseOrdersPage() {
                     <td className="py-3 px-4 text-center">
                       <span className={cn(
                         "px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded border",
-                        po.status === 'RECEIVED' ? "bg-white text-gray-900 border-gray-900" : "bg-white text-gray-400 border-gray-200"
+                        po.status === 'RECEIVED' ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-gray-50 text-gray-600 border-gray-200"
                       )}>
                         {po.status}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1">
                         <button 
                           onClick={() => setShowSOSelector({ poId: po.id })}
-                          className="p-1.5 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                          className="p-1.5 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-sm transition-colors"
                           title="Link SO"
                         >
                           <Tag className="w-4 h-4" />
                         </button>
                         <button 
                           onClick={() => router.push(`/company/${companyId}/purchase/orders/${po.id}`)}
-                          className="p-1.5 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                          className="p-1.5 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-sm transition-colors"
                           title="Edit"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
+                        <button className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
                   </tr>
                   {expandedOrders.has(po.id) && (
-                    <tr className="bg-gray-50/30">
-                      <td colSpan={8} className="p-0 border-b border-gray-100">
-                        <div className="px-16 py-6 border-l-2 border-gray-900 bg-white">
-                          <div className="flex justify-between items-center mb-4">
-                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Linked Sales Orders</h4>
-                            <div className="flex gap-4">
-                              <button 
-                                onClick={() => router.push(`/company/${companyId}/sales/orders/create?poId=${po.id}`)}
-                                className="text-[10px] font-bold text-gray-900 hover:underline flex items-center gap-1.5 uppercase"
-                              >
-                                <Plus className="w-3 h-3" /> Create New SO
-                              </button>
-                            </div>
+                    <tr className="bg-gray-50/50">
+                      <td colSpan={8} className="p-0">
+                        <div className="px-12 py-4 border-l-2 border-gray-900 bg-white ml-4 my-2">
+                          <div className="flex justify-between items-center mb-3">
+                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Linked Sales Orders</h4>
+                            <button 
+                              onClick={() => router.push(`/company/${companyId}/sales/orders/create?poId=${po.id}`)}
+                              className="text-[10px] font-bold text-gray-900 hover:underline flex items-center gap-1 uppercase"
+                            >
+                              <Plus className="w-3 h-3" /> Create New SO
+                            </button>
                           </div>
                           
                           {po.salesOrders.length === 0 ? (
-                            <div className="text-[11px] text-gray-400 italic py-4 border border-dashed border-gray-200 text-center rounded">
+                            <div className="text-[11px] text-gray-400 italic py-3 border border-dashed border-gray-200 text-center rounded-sm">
                               No sales orders linked to this purchase order.
                             </div>
                           ) : (
-                            <table className="w-full text-xs border border-gray-200">
-                              <thead>
-                                <tr className="bg-gray-50 text-[10px] text-gray-500 uppercase tracking-wider">
-                                  <th className="px-4 py-2 border-b border-gray-200 text-left">SO #</th>
-                                  <th className="px-4 py-2 border-b border-gray-200 text-left">Customer</th>
-                                  <th className="px-4 py-2 border-b border-gray-200 text-right">Value</th>
-                                  <th className="px-4 py-2 border-b border-gray-200 text-center">Action</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-100">
-                                {po.salesOrders.map((so: any) => (
-                                  <tr key={so.id} className="hover:bg-gray-50/50">
-                                    <td className="px-4 py-2 font-medium text-gray-900">{so.soNumber}</td>
-                                    <td className="px-4 py-2 text-gray-600">{so.customer?.name}</td>
-                                    <td className="px-4 py-2 text-right font-mono text-gray-900">
-                                      {formatCurrency(so.totalAmount)} {so.currency}
-                                    </td>
-                                    <td className="px-4 py-2 text-center">
-                                      <button 
-                                        onClick={() => assignSOMutation.mutate({ poId: po.id, soId: so.id, action: 'disconnect' })}
-                                        className="text-[10px] font-bold text-red-400 hover:text-red-600 uppercase tracking-tighter"
-                                      >
-                                        Unlink
-                                      </button>
-                                    </td>
+                            <div className="border border-gray-200 rounded-sm">
+                              <table className="w-full text-xs">
+                                <thead className="bg-gray-50 border-b border-gray-200">
+                                  <tr className="text-[10px] text-gray-500 uppercase font-bold">
+                                    <th className="px-4 py-2 text-left">SO #</th>
+                                    <th className="px-4 py-2 text-left">Customer</th>
+                                    <th className="px-4 py-2 text-right">Value</th>
+                                    <th className="px-4 py-2 text-center">Action</th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {po.salesOrders.map((so: any) => (
+                                    <tr key={so.id} className="hover:bg-gray-50">
+                                      <td className="px-4 py-2 font-medium text-gray-900">{so.soNumber}</td>
+                                      <td className="px-4 py-2 text-gray-600">{so.customer?.name}</td>
+                                      <td className="px-4 py-2 text-right font-mono text-gray-900">
+                                        {formatCurrency(so.totalBDT)} {so.currency}
+                                      </td>
+                                      <td className="px-4 py-2 text-center">
+                                        <button 
+                                          onClick={() => assignSOMutation.mutate({ poId: po.id, soId: so.id, action: 'disconnect' })}
+                                          className="text-[10px] font-bold text-red-500 hover:underline uppercase"
+                                        >
+                                          Unlink
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
                           )}
                         </div>
                       </td>
@@ -250,32 +253,32 @@ export default function PurchaseOrdersPage() {
 
       {/* SO Selector Modal */}
       {showSOSelector && (
-        <div className="fixed inset-0 bg-gray-900/10 backdrop-blur-[1px] flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-gray-900 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-              <h3 className="font-medium text-gray-900 flex items-center gap-2">
-                <LinkIcon className="w-4 h-4" />
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-sm shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
+            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <LinkIcon className="w-4 h-4 text-gray-600" />
                 Assign Sales Order
               </h3>
-              <button onClick={() => setShowSOSelector(null)} className="p-1 hover:bg-gray-200 rounded transition-colors">
+              <button onClick={() => setShowSOSelector(null)} className="p-1 hover:bg-gray-200 rounded-sm transition-colors">
                 <X className="w-4 h-4 text-gray-400" />
               </button>
             </div>
-            <div className="p-6">
-              <div className="max-h-[60vh] overflow-y-auto border border-gray-200">
-                <table className="w-full text-sm border-collapse">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">
-                      <th className="p-3 border-b text-left">SO #</th>
-                      <th className="p-3 border-b text-right">Value</th>
-                      <th className="p-3 border-b text-center">Action</th>
+            <div className="p-4">
+              <div className="max-h-[60vh] overflow-y-auto border border-gray-200 rounded-sm">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 sticky top-0 border-b border-gray-200">
+                    <tr className="text-[10px] text-gray-500 uppercase font-bold">
+                      <th className="p-3 text-left">SO #</th>
+                      <th className="p-3 text-right">Value</th>
+                      <th className="p-3 text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {salesOrders?.filter((so: any) => !purchaseOrders?.find(p => p.id === showSOSelector.poId)?.salesOrders.find(s => s.id === so.id)).map((so: any) => (
-                      <tr key={so.id} className="hover:bg-gray-50">
+                      <tr key={so.id} className="hover:bg-gray-50 transition-colors">
                         <td className="p-3 font-medium text-gray-900">{so.soNumber}</td>
-                        <td className="p-3 text-right font-mono text-gray-600">{formatCurrency(so.totalAmount)} {so.currency}</td>
+                        <td className="p-3 text-right font-mono text-gray-600">{formatCurrency(so.totalBDT)} {so.currency}</td>
                         <td className="p-3 text-center">
                           <button 
                             onClick={() => {
@@ -293,10 +296,10 @@ export default function PurchaseOrdersPage() {
                 </table>
               </div>
             </div>
-            <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+            <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-end">
               <button 
                 onClick={() => setShowSOSelector(null)} 
-                className="px-4 py-2 border border-gray-200 text-sm font-medium hover:bg-white transition-colors"
+                className="px-4 py-2 border border-gray-300 rounded-sm text-sm font-medium hover:bg-white transition-colors"
               >
                 Close
               </button>
@@ -305,6 +308,6 @@ export default function PurchaseOrdersPage() {
         </div>
       )}
     </div>
-  );
+);  );
 }
 

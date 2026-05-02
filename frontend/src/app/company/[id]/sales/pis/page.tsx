@@ -6,17 +6,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
   FileText, Plus, Search, Edit2, Trash2,
-  CheckCircle2, X, AlertCircle, ArrowUpRight, Eye, Globe, Lock, ChevronDown, DollarSign, Calendar, ArrowDownRight
+  CheckCircle2, X, AlertCircle, ArrowUpRight, Eye, Globe, Lock, ChevronDown, DollarSign, Calendar, ArrowDownRight, Loader2, ShoppingBag
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { formatCurrency, getCurrencySymbol } from '@/lib/decimalUtils';
 import { useCompany } from '@/lib/CompanyContext';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '@/lib/utils';
+import React from 'react';
 
 interface PILine {
   productId?: string;
@@ -78,9 +74,7 @@ export default function ExportPIsPage() {
 
   useEffect(() => {
     setMounted(true);
-    const token = localStorage.getItem('token');
-    if (!token) router.push('/login');
-  }, [router]);
+  }, []);
 
   const { data: pisData, isLoading } = useQuery({
     queryKey: ['export-pis', companyId],
@@ -109,16 +103,6 @@ export default function ExportPIsPage() {
     enabled: !!companyId,
   });
 
-  const { data: customerProductsData } = useQuery({
-    queryKey: ['customer-products', companyId, formData.customerId],
-    queryFn: async () => {
-      if (!formData.customerId) return [];
-      const response = await api.get(`/company/${companyId}/customers/${formData.customerId}`);
-      return response.data.data?.products || [];
-    },
-    enabled: !!companyId && !!formData.customerId,
-  });
-
   const { data: lcsData } = useQuery({
     queryKey: ['lcs', companyId],
     queryFn: async () => {
@@ -131,7 +115,9 @@ export default function ExportPIsPage() {
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       const totalForeign = data.lines.reduce((acc: number, line: PILine) => acc + (line.quantity * line.unitPrice), 0);
-      const response = await api.post(`/company/${companyId}/pis`, { 
+      const endpoint = selectedPI ? `/company/${companyId}/pis/${selectedPI.id}` : `/company/${companyId}/pis`;
+      const method = selectedPI ? 'put' : 'post';
+      const response = await api[method](endpoint, { 
         ...data, 
         amount: totalForeign, 
         exchangeRate: exchangeRate,
@@ -142,47 +128,30 @@ export default function ExportPIsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['export-pis', companyId] });
-      toast.success('Export PI registered successfully');
+      toast.success(selectedPI ? 'PI updated' : 'Export PI registered');
       setShowModal(false);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create PI');
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const totalForeign = data.lines.reduce((acc: number, line: PILine) => acc + (line.quantity * line.unitPrice), 0);
-      const response = await api.put(`/company/${companyId}/pis/${id}`, { 
-        ...data, 
-        amount: totalForeign, 
-        exchangeRate: exchangeRate,
-        totalBDT: totalForeign * exchangeRate 
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['export-pis', companyId] });
-      toast.success('PI details updated');
-      setShowModal(false);
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to update PI');
+      toast.error(error.response?.data?.error?.message || 'Action failed');
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await api.delete(`/company/${companyId}/pis/${id}`);
-      return response.data;
-    },
+    mutationFn: async (id: string) => api.delete(`/company/${companyId}/pis/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['export-pis', companyId] });
       toast.success('PI deleted');
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to delete PI');
+    onError: (error: any) => toast.error(error.response?.data?.error?.message || 'Delete failed'),
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => api.put(`/company/${companyId}/pis/${id}`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['export-pis', companyId] });
+      toast.success('Status updated');
     },
+    onError: (error: any) => toast.error(error.response?.data?.error?.message || 'Update failed'),
   });
 
   const handleLineChange = (index: number, field: string, value: any) => {
@@ -267,32 +236,24 @@ export default function ExportPIsPage() {
     setShowModal(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedPI) {
-      updateMutation.mutate({ id: selectedPI.id, data: formData });
-    } else {
-      createMutation.mutate(formData);
+  const getStatusStyle = (status: string) => {
+    switch (status) {
+      case 'APPROVED':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+      case 'VERIFIED':
+        return 'bg-blue-50 text-blue-700 border-blue-100';
+      case 'SENT':
+        return 'bg-indigo-50 text-indigo-700 border-indigo-100';
+      case 'DRAFT':
+        return 'bg-gray-50 text-gray-600 border-gray-200';
+      case 'COMPLETED':
+        return 'bg-gray-900 text-white border-gray-900';
+      case 'CANCELLED':
+      case 'REJECTED':
+        return 'bg-red-50 text-red-700 border-red-100';
+      default:
+        return 'bg-gray-50 text-gray-600 border-gray-200';
     }
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setSelectedPI(null);
-  };
-
-  const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      DRAFT: 'bg-slate-100 text-slate-600',
-      VERIFIED: 'bg-blue-100 text-blue-700',
-      APPROVED: 'bg-emerald-100 text-emerald-700',
-      SENT: 'bg-indigo-100 text-indigo-700',
-      PARTIAL: 'bg-amber-100 text-amber-700',
-      COMPLETED: 'bg-blue-600 text-white',
-      CANCELLED: 'bg-rose-100 text-rose-700',
-      REJECTED: 'bg-rose-100 text-rose-800',
-    };
-    return styles[status] || 'bg-slate-100 text-slate-600';
   };
 
   const filteredPIs = pisData?.filter(pi => {
@@ -306,457 +267,413 @@ export default function ExportPIsPage() {
   if (!mounted) return null;
 
   const stats = {
-    totalAmount: filteredPIs.reduce((acc, pi) => acc + (pi.totalBDT || 0), 0),
-    activeAmount: filteredPIs.filter(pi => pi.status === 'OPEN').reduce((acc, pi) => acc + (pi.totalBDT || 0), 0),
-    draftAmount: filteredPIs.filter(pi => pi.status === 'DRAFT').reduce((acc, pi) => acc + (pi.totalBDT || 0), 0),
+    totalValue: filteredPIs.reduce((acc, pi) => acc + (pi.totalBDT || 0), 0),
+    activeValue: filteredPIs.filter(pi => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(pi.status)).reduce((acc, pi) => acc + (pi.totalBDT || 0), 0),
+    completedValue: filteredPIs.filter(pi => pi.status === 'COMPLETED').reduce((acc, pi) => acc + (pi.totalBDT || 0), 0),
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="p-6 max-w-[1600px] mx-auto space-y-6 bg-gray-50 min-h-screen">
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Portfolio</p>
+          <p className="text-2xl font-bold text-gray-900 font-mono">৳{stats.totalValue.toLocaleString()}</p>
+        </div>
+        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Active PIs</p>
+          <p className="text-2xl font-bold text-blue-600 font-mono">৳{stats.activeValue.toLocaleString()}</p>
+        </div>
+        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Settled Value</p>
+          <p className="text-2xl font-bold text-emerald-600 font-mono">৳{stats.completedValue.toLocaleString()}</p>
+        </div>
+      </div>
 
+      <div className="flex justify-between items-center pb-6 border-b border-gray-200">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Globe className="w-6 h-6 text-gray-400" />
+            Export Proforma Invoices
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">International sales and banking documentation</p>
+        </div>
+        <button
+          onClick={() => openModal()}
+          className="bg-gray-900 text-white px-4 py-2 rounded-sm text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2 shadow-sm"
+        >
+          <Plus className="w-4 h-4" /> New Export PI
+        </button>
+      </div>
 
-        <div className="p-6 max-w-[1600px] mx-auto space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                <FileText className="w-8 h-8 text-blue-600" />
-                Export PIs
-              </h2>
-              <p className="text-slate-500 font-medium">Manage Proforma Invoices and export documentation</p>
-            </div>
-            <button 
-              onClick={() => openModal()}
-              className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 active:scale-95"
-            >
-              <Plus className="w-5 h-5" />
-              Create Export PI
-            </button>
-          </div>
+      <div className="flex flex-wrap gap-4 items-center">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by PI # or Customer..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gray-400 transition-colors bg-white shadow-sm"
+          />
+        </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="px-4 py-2 bg-white border border-gray-200 rounded-sm text-xs font-bold uppercase tracking-wider text-gray-600 outline-none hover:border-gray-400 transition-colors shadow-sm"
+        >
+          <option value="all">All Statuses</option>
+          {['DRAFT', 'VERIFIED', 'APPROVED', 'SENT', 'PARTIAL', 'COMPLETED', 'CANCELLED', 'REJECTED'].map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-white p-4 rounded-xl border border-slate-200">
-              <p className="text-sm text-slate-500 mb-1">Total PIs</p>
-              <p className="text-2xl font-bold text-blue-600">৳{stats.totalAmount.toLocaleString()}</p>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-slate-200">
-              <p className="text-sm text-slate-500 mb-1">Active PIs</p>
-              <p className="text-2xl font-bold text-emerald-600">৳{stats.activeAmount.toLocaleString()}</p>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-slate-200">
-              <p className="text-sm text-slate-500 mb-1">Draft PIs</p>
-              <p className="text-2xl font-bold text-amber-600">৳{stats.draftAmount.toLocaleString()}</p>
-            </div>
-          </div>
+      <div className="bg-white border border-gray-200 rounded-sm overflow-hidden shadow-sm">
+        <table className="w-full text-sm text-left">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200">
+              <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">PI Details</th>
+              <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Customer / LC</th>
+              <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Foreign Value</th>
+              <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Total (৳)</th>
+              <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Status</th>
+              <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {isLoading ? (
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400 italic">Loading portfolio...</td></tr>
+            ) : filteredPIs.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400 italic">No Proforma Invoices found</td></tr>
+            ) : (
+              filteredPIs.map((pi) => (
+                <tr key={pi.id} className="hover:bg-gray-50/50 transition-colors group">
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-gray-900">{pi.piNumber}</span>
+                      <span className="text-[10px] text-gray-400 uppercase tracking-wider">{new Date(pi.piDate).toLocaleDateString()}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-gray-700">{pi.customer?.name || '-'}</span>
+                      <span className="text-[10px] text-blue-600 font-bold uppercase tracking-tighter">
+                        {pi.lc?.lcNumber ? `LC: ${pi.lc.lcNumber}` : 'DIRECT EXPORT'}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono text-gray-500">
+                    {getCurrencySymbol(pi.currency)}{pi.amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono font-bold text-gray-900">
+                    ৳{pi.totalBDT?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={cn(
+                      "px-2 py-0.5 text-[10px] font-bold rounded-sm uppercase tracking-wider border",
+                      getStatusStyle(pi.status)
+                    )}>
+                      {pi.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {(pi.status === 'DRAFT' || pi.status === 'REJECTED') && (
+                        <>
+                          <button onClick={() => openModal(pi)} className="p-1.5 text-gray-400 hover:text-gray-900 hover:bg-white rounded-sm border border-transparent hover:border-gray-200 transition-all" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                          <button onClick={() => deleteMutation.mutate(pi.id)} className="p-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                        </>
+                      )}
+                      {pi.status === 'DRAFT' && <button onClick={() => updateStatusMutation.mutate({ id: pi.id, status: 'VERIFIED' })} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-sm transition-colors" title="Verify"><CheckCircle2 className="w-4 h-4" /></button>}
+                      {pi.status === 'VERIFIED' && <button onClick={() => updateStatusMutation.mutate({ id: pi.id, status: 'APPROVED' })} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-sm transition-colors" title="Approve"><CheckCircle2 className="w-4 h-4" /></button>}
+                      {pi.status === 'APPROVED' && <button onClick={() => updateStatusMutation.mutate({ id: pi.id, status: 'SENT' })} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-sm transition-colors" title="Mark as Sent"><ArrowUpRight className="w-4 h-4" /></button>}
+                      <button onClick={() => openModal(pi)} className="p-1.5 text-gray-400 hover:text-gray-900 hover:bg-white rounded-sm border border-transparent hover:border-gray-200 transition-all" title="View"><Eye className="w-4 h-4" /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="p-4 border-b border-slate-50 flex gap-4">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search by PI # or Customer..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-                />
-              </div>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 font-bold text-slate-600 outline-none"
-              >
-                <option value="all">All Status</option>
-                <option value="DRAFT">Draft</option>
-                <option value="VERIFIED">Verified</option>
-                <option value="APPROVED">Approved</option>
-                <option value="SENT">Sent</option>
-                <option value="PARTIAL">Partial</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="CANCELLED">Cancelled</option>
-                <option value="REJECTED">Rejected</option>
-              </select>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50/50">
-                  <tr>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">PI Details</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Client / Export LC</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Foreign Amount</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Total (৳)</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {isLoading ? (
-                    <tr><td colSpan={6} className="text-center py-12 animate-pulse font-bold text-slate-400">Loading export data...</td></tr>
-                  ) : filteredPIs.length === 0 ? (
-                    <tr><td colSpan={6} className="text-center py-12 text-slate-400">No Proforma Invoices found</td></tr>
-                  ) : (
-                    filteredPIs.map((pi) => (
-                      <tr key={pi.id} className="group hover:bg-blue-50/30 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{pi.piNumber}</span>
-                            <span className="text-[10px] text-slate-400 font-black">{new Date(pi.piDate).toLocaleDateString()}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-bold text-slate-700">{pi.customer?.name || '-'}</span>
-                            <span className="text-[10px] text-blue-500 font-black uppercase">{pi.lc?.lcNumber ? `LC: ${pi.lc.lcNumber}` : 'DIRECT EXPORT'}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <span className="font-mono font-bold text-slate-900">{getCurrencySymbol(pi.currency)}{formatCurrency(pi.amount)}</span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <span className="font-mono font-black text-slate-900">{getCurrencySymbol('BDT')}{formatCurrency(pi.totalBDT)}</span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-3 py-1 text-[10px] uppercase tracking-tighter rounded-full ${getStatusBadge(pi.status)}`}>
-                            {pi.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex justify-center gap-2">
-                            {(pi.status === 'DRAFT' || pi.status === 'REJECTED') && (
-                              <>
-                                <button onClick={() => openModal(pi)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Edit2 className="w-4 h-4" /></button>
-                                <button onClick={() => deleteMutation.mutate(pi.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
-                              </>
-                            )}
-                            {pi.status === 'DRAFT' && (
-                              <button onClick={() => updateMutation.mutate({ id: pi.id, data: { ...pi, status: 'VERIFIED' } })} className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all" title="Verify"><CheckCircle2 className="w-4 h-4" /></button>
-                            )}
-                            {pi.status === 'VERIFIED' && (
-                              <>
-                                <button onClick={() => updateMutation.mutate({ id: pi.id, data: { ...pi, status: 'APPROVED' } })} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="Approve"><CheckCircle2 className="w-4 h-4" /></button>
-                                <button onClick={() => updateMutation.mutate({ id: pi.id, data: { ...pi, status: 'REJECTED' } })} className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Reject"><AlertCircle className="w-4 h-4" /></button>
-                              </>
-                            )}
-                            {pi.status === 'APPROVED' && (
-                              <button onClick={() => updateMutation.mutate({ id: pi.id, data: { ...pi, status: 'SENT' } })} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Mark as Sent"><ArrowUpRight className="w-4 h-4" /></button>
-                            )}
-                            <button onClick={() => openModal(pi)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all" title="View"><Eye className="w-4 h-4" /></button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-      {/* PI MODAL */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">            <div className="px-8 py-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
-              <div>
-                <h3 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-                  <Globe className="w-6 h-6 text-blue-600" />
-                  {selectedPI ? `Edit Proforma Invoice ${selectedPI.piNumber}` : 'New Export PI Generation'}
+        <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-[1px] flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-sm shadow-xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden border border-gray-200 animate-in fade-in zoom-in duration-150">
+            {/* Sticky Header */}
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-wrap gap-4 items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Globe className="w-5 h-5 text-gray-400" />
+                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest">
+                  {selectedPI ? `Edit PI: ${selectedPI.piNumber}` : 'New Export Proforma Invoice'}
                 </h3>
-                <div className="flex items-center gap-4 mt-1">
-                  <p className="text-sm text-slate-500 font-medium">Configure export value and banking timelines</p>
-                  {selectedPI && (
-                    <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 rounded-lg border border-amber-100">
-                      <Lock className="w-3 h-3 text-amber-600" />
-                      <select 
-                        value={formData.status || selectedPI.status} 
-                        onChange={(e) => setFormData({...formData, status: e.target.value})}
-                        className="bg-transparent text-[10px] font-black text-amber-600 uppercase tracking-widest border-none outline-none cursor-pointer"
-                      >
-                        {['DRAFT', 'VERIFIED', 'APPROVED', 'SENT', 'PARTIAL', 'COMPLETED', 'CANCELLED', 'REJECTED'].map(s => <option key={s} value={s}>{s} (OVERRIDE)</option>)}
-                      </select>
-                    </div>
-                  )}
-                </div>
               </div>
-              <button onClick={closeModal} className="p-2 hover:bg-white rounded-xl transition-all border border-transparent hover:border-slate-100">
-                <ChevronDown className="w-6 h-6 text-slate-400" />
-              </button>
+
+              <div className="flex gap-2">
+                <button 
+                  type="submit" 
+                  form="pi-form"
+                  disabled={createMutation.isPending}
+                  className="px-6 py-2 bg-gray-900 text-white font-bold text-[10px] uppercase tracking-widest rounded-sm hover:bg-gray-800 disabled:bg-gray-300 transition-all shadow-sm flex items-center gap-2"
+                >
+                  {createMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {selectedPI ? 'Update PI' : 'Create PI'}
+                </button>
+
+                <button 
+                  type="button" 
+                  onClick={closeModal} 
+                  className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-200 rounded-sm transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-8">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Left Side: Details */}
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">PI Number *</label>
-                        {!selectedPI && (
-                          <label className="flex items-center gap-1 cursor-pointer group">
-                            <input type="checkbox" checked={isAutoPI} onChange={(e) => setIsAutoPI(e.target.checked)} className="w-3 h-3 rounded" />
-                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-tighter opacity-70 group-hover:opacity-100">Auto</span>
-                          </label>
-                        )}
-                      </div>
-                      <input 
-                        type="text" 
-                        value={isAutoPI && !selectedPI ? 'AUTO-GENERATED' : formData.piNumber} 
-                        onChange={(e) => setFormData({...formData, piNumber: e.target.value})} 
-                        disabled={isAutoPI && !selectedPI}
-                        placeholder={isAutoPI ? 'Auto-generated' : 'Enter PI Number'}
-                        className={cn(
-                          "w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-black text-sm",
-                          isAutoPI && !selectedPI && "opacity-50 cursor-not-allowed bg-slate-100"
-                        )} 
-                        required={!isAutoPI || !!selectedPI} 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">PI Date</label>
-                      <input type="date" value={formData.piDate} onChange={(e) => setFormData({...formData, piDate: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-black text-sm" required />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Buyer / Client *</label>
-                    <select 
-                      value={formData.customerId} 
-                      onChange={(e) => {
-                        const customerId = e.target.value;
-                        const customer = customersData?.find((c: any) => c.id === customerId);
-                        setFormData({
-                          ...formData, 
-                          customerId,
-                          currency: customer?.preferredCurrency || formData.currency
-                        });
-                      }}
-                      className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-3 py-2 outline-none transition-all text-sm"
-                      required
-                    >
-                      <option value="">Select Company</option>
-                      {customersData?.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                    </select>
-                  </div>
-
-                  {customerProductsData?.length > 0 && (
-                    <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-100 mb-4 animate-in fade-in duration-300">
-                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
-                        <CheckCircle2 className="w-3 h-3" /> Custom Pricing Enabled
-                      </p>
-                      <p className="text-[9px] text-slate-500 mt-1">This buyer has {customerProductsData.length} products assigned with specialized pricing.</p>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Export LC Link</label>
-                    <select 
-                      value={formData.lcId} 
-                      onChange={(e) => setFormData({...formData, lcId: e.target.value})}
-                      className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-3 py-2 outline-none transition-all text-sm"
-                    >
-                      <option value="">Direct Export</option>
-                      {lcsData?.filter((l: any) => l.type === 'EXPORT').map((l: any) => <option key={l.id} value={l.id}>{l.lcNumber}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 rounded-md border border-slate-300 space-y-3">
-                    <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                       <DollarSign className="w-4 h-4" /> Currency Sync
-                    </h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="bg-white rounded-md px-2 py-2 text-sm border border-slate-300 outline-none focus:border-slate-500">
-                        <option value="USD">USD</option>
-                        <option value="BDT">BDT</option>
-                        <option value="EUR">EUR</option>
-                      </select>
-                      <div className="bg-slate-100 rounded-md px-3 py-2 text-sm border border-slate-300 text-slate-600 flex items-center">
-                        {exchangeRate || 1} BDT
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Middle Side: Financials & Totals */}
-                <div className="space-y-6">
-                  <div className="p-6 bg-slate-50 border border-slate-100 rounded-[2rem] space-y-6">
-                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                       <DollarSign className="w-4 h-4" /> Financial Summary
-                    </h4>
+            <div className="flex-1 overflow-y-auto p-8 bg-white">
+              <form onSubmit={handleSubmit} id="pi-form" className="space-y-10">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                  {/* Left Column: Contract */}
+                  <div className="space-y-6">
+                    <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em] border-b border-gray-100 pb-2">Contract Data</h4>
+                    
                     <div className="space-y-4">
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Amount ({formData.currency})</p>
-                        <p className="text-3xl font-black text-slate-900 font-mono tracking-tight tabular-nums">{getCurrencySymbol(formData.currency)}{formatCurrency(calculateSubtotal())}</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">PI Number *</label>
+                          <input 
+                            type="text" 
+                            value={isAutoPI && !selectedPI ? 'AUTO-GENERATED' : formData.piNumber} 
+                            onChange={(e) => setFormData({...formData, piNumber: e.target.value})} 
+                            disabled={isAutoPI && !selectedPI}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:border-gray-900 text-sm bg-white"
+                            required={!isAutoPI} 
+                          />
+                          {!selectedPI && (
+                            <label className="flex items-center gap-2 mt-1 cursor-pointer group">
+                              <input type="checkbox" checked={isAutoPI} onChange={(e) => setIsAutoPI(e.target.checked)} className="w-3 h-3 rounded-sm border-gray-300 text-gray-900 focus:ring-0" />
+                              <span className="text-[9px] text-gray-400 group-hover:text-gray-600 font-bold uppercase transition-colors">Auto-generate</span>
+                            </label>
+                          )}
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">PI Date</label>
+                          <input type="date" value={formData.piDate} onChange={(e) => setFormData({...formData, piDate: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:border-gray-900 text-sm bg-white font-mono" required />
+                        </div>
                       </div>
-                      <div className="pt-4 border-t border-slate-200">
-                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1 flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> Total Local (BDT)</p>
-                        <p className="text-3xl font-black text-emerald-700 font-mono tracking-tight tabular-nums">{getCurrencySymbol('BDT')}{formatCurrency(calculateSubtotal() * exchangeRate)}</p>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Client Selection *</label>
+                        <select 
+                          value={formData.customerId} 
+                          onChange={(e) => setFormData({...formData, customerId: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:border-gray-900 text-sm bg-white transition-colors"
+                          required
+                        >
+                          <option value="">Select Buyer</option>
+                          {customersData?.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">LC Reference</label>
+                        <select 
+                          value={formData.lcId} 
+                          onChange={(e) => setFormData({...formData, lcId: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:border-gray-900 text-sm bg-white"
+                        >
+                          <option value="">Direct Export (No LC)</option>
+                          {lcsData?.filter((l: any) => l.type === 'EXPORT').map((l: any) => <option key={l.id} value={l.id}>{l.lcNumber}</option>)}
+                        </select>
                       </div>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Overall Memo / Description</label>
-                    <textarea 
-                      value={formData.description} 
-                      onChange={(e) => setFormData({...formData, description: e.target.value})}
-                      rows={3}
-                      className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-3 py-2 outline-none transition-all text-sm resize-none"
-                      placeholder="Add any special instructions or remarks..."
-                    />
-                  </div>
-                </div>
 
-                {/* Right Side: Timeline */}
-                <div className="space-y-6">
-                  <div className="p-6 bg-indigo-50/30 border border-indigo-100/50 rounded-[2rem] space-y-6 shadow-sm">
-                    <h4 className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
-                       <Calendar className="w-4 h-4" /> Banking Timeline
-                    </h4>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Invoice Reference</label>
-                        <input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({...formData, invoiceNumber: e.target.value})} className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-3 py-2 outline-none transition-all text-sm" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1.5">Subm. Buyer</label>
-                          <input type="date" value={formData.submissionToBuyerDate} onChange={(e) => setFormData({...formData, submissionToBuyerDate: e.target.value})} className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-2 py-1 outline-none transition-all text-sm" />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1.5">Subm. Bank</label>
-                          <input type="date" value={formData.submissionToBankDate} onChange={(e) => setFormData({...formData, submissionToBankDate: e.target.value})} className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-2 py-1 outline-none transition-all text-sm" />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1.5">Acceptance</label>
-                          <input type="date" value={formData.bankAcceptanceDate} onChange={(e) => setFormData({...formData, bankAcceptanceDate: e.target.value})} className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-2 py-1 outline-none transition-all text-sm" />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1.5">Maturity</label>
-                          <input type="date" value={formData.maturityDate} onChange={(e) => setFormData({...formData, maturityDate: e.target.value})} className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-2 py-1 outline-none transition-all text-sm" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Itemized Breakdown Section */}
-              <div className="pt-8 border-t border-slate-100">
-                <div className="flex items-center justify-between mb-6 px-2">
-                  <div className="flex items-center gap-2">
-                    <ArrowDownRight className="w-5 h-5 text-blue-600" />
-                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Itemized Breakdown</h4>
-                  </div>
-                  <button type="button" onClick={addLine} className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-4 py-2 rounded-xl text-xs font-black hover:bg-blue-100 transition-all active:scale-95 border border-blue-100">
-                    <Plus className="w-4 h-4" /> Add Line Item
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="grid grid-cols-12 gap-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                    <div className="col-span-3">Product Model</div>
-                    <div className="col-span-3">Bill Description</div>
-                    <div className="col-span-2 text-center">Quantity</div>
-                    <div className="col-span-2 text-right">Unit Price ({formData.currency})</div>
-                    <div className="col-span-2 text-right font-black text-blue-600">Row Value</div>
-                  </div>
-
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                    {formData.lines.map((line, idx) => (
-                      <div key={idx} className="group grid grid-cols-12 gap-4 items-center p-5 border border-slate-100 rounded-[2rem] bg-slate-50/30 hover:border-blue-200 hover:bg-white hover:shadow-xl hover:shadow-blue-500/5 transition-all relative">
-                        <div className="col-span-3">
-                          <select 
-                            value={line.productId} 
-                            onChange={(e) => handleLineChange(idx, 'productId', e.target.value)}
-                            className="w-full px-4 py-2 bg-white border-2 border-slate-100 rounded-xl text-sm font-black focus:border-blue-600 transition-all outline-none"
-                          >
-                            <option value="">Custom Line</option>
-                            {allProductsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {/* Center Column: Financials */}
+                  <div className="space-y-6">
+                    <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em] border-b border-gray-100 pb-2">Value & Currency</h4>
+                    
+                    <div className="bg-gray-50 p-6 border border-gray-100 rounded-sm space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Currency</label>
+                          <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-sm bg-white focus:outline-none focus:border-gray-900 font-bold">
+                            <option value="USD">USD</option>
+                            <option value="BDT">BDT</option>
+                            <option value="EUR">EUR</option>
                           </select>
                         </div>
-                        <div className="col-span-3">
-                          <input 
-                            type="text" value={line.description} placeholder="Itemized breakdown..."
-                            onChange={(e) => handleLineChange(idx, 'description', e.target.value)}
-                            className="w-full px-4 py-2 bg-white border-2 border-slate-100 rounded-xl text-sm font-black focus:border-blue-600 transition-all outline-none" required
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <input 
-                            type="number" step="any" value={line.quantity}
-                            onChange={(e) => handleLineChange(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                            className="w-full px-3 py-2 bg-white border-2 border-slate-100 rounded-xl text-sm font-black text-center focus:border-blue-600 transition-all outline-none"
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <input 
-                            type="number" step="any" value={line.unitPrice}
-                            onChange={(e) => handleLineChange(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
-                            className="w-full px-3 py-2 bg-white border-2 border-slate-100 rounded-xl text-sm font-black text-right focus:border-blue-600 transition-all outline-none"
-                          />
-                        </div>
-                        <div className="col-span-2 relative pr-12">
-                          <div className="w-full text-right font-black text-blue-600 text-sm font-mono tracking-tight tabular-nums mt-1">
-                            {line.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Fixed Rate (BDT)</label>
+                          <div className="w-full px-2 py-1.5 bg-white border border-gray-200 rounded-sm text-sm text-gray-900 font-mono font-bold">
+                            {exchangeRate || 1}
                           </div>
-                          <button 
-                            type="button" onClick={() => removeLine(idx)}
-                            className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
                         </div>
                       </div>
-                    ))}
+
+                      <div className="space-y-3 pt-4 border-t border-gray-200">
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Foreign Amount</span>
+                          <span className="text-xl font-mono font-black text-gray-900">
+                             {getCurrencySymbol(formData.currency)}{calculateSubtotal().toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Local Valuation</span>
+                          <span className="text-xl font-mono font-black text-blue-600">
+                             ৳{(calculateSubtotal() * (exchangeRate || 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Banking */}
+                  <div className="space-y-6">
+                    <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em] border-b border-gray-100 pb-2">Banking Compliance</h4>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Commercial Invoice Ref</label>
+                        <input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({...formData, invoiceNumber: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:border-gray-900 text-sm bg-white" placeholder="Inv-XXX..." />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Submission (Buyer)</label>
+                          <input type="date" value={formData.submissionToBuyerDate} onChange={(e) => setFormData({...formData, submissionToBuyerDate: e.target.value})} className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-[11px] font-mono" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Submission (Bank)</label>
+                          <input type="date" value={formData.submissionToBankDate} onChange={(e) => setFormData({...formData, submissionToBankDate: e.target.value})} className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-[11px] font-mono" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Acceptance Date</label>
+                          <input type="date" value={formData.bankAcceptanceDate} onChange={(e) => setFormData({...formData, bankAcceptanceDate: e.target.value})} className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-[11px] font-mono" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Maturity Date</label>
+                          <input type="date" value={formData.maturityDate} onChange={(e) => setFormData({...formData, maturityDate: e.target.value})} className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-[11px] font-mono" />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex justify-between items-center pt-8 mt-4 border-t border-slate-200">
-                <div className="flex gap-2">
-                  {selectedPI && (
-                    <>
-                      {formData.status === 'SENT' && (
-                        <button 
-                          type="button" 
-                          onClick={() => setFormData({...formData, status: 'COMPLETED'})}
-                          className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all border border-emerald-200 uppercase tracking-widest"
-                        >
-                          Mark as Completed
-                        </button>
-                      )}
-                      {formData.status !== 'COMPLETED' && formData.status !== 'CANCELLED' && (
-                        <button 
-                          type="button" 
-                          onClick={() => setFormData({...formData, status: 'CANCELLED'})}
-                          className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-black hover:bg-slate-200 transition-all border border-slate-200 uppercase tracking-widest"
-                        >
-                          Cancel PI
-                        </button>
-                      )}
-                    </>
-                  )}
+                {/* Schedule Table */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                    <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em] flex items-center gap-2">
+                       <ShoppingBag className="w-4 h-4 text-gray-400" />
+                       PI Schedule Breakdown
+                    </h4>
+                    <button type="button" onClick={addLine} className="text-gray-900 hover:text-blue-600 transition-colors text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                      <Plus className="w-3.5 h-3.5" /> Add Row
+                    </button>
+                  </div>
+
+                  <div className="border border-gray-200 rounded-sm overflow-hidden shadow-sm">
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-500 uppercase font-bold tracking-wider">
+                        <tr>
+                          <th className="px-4 py-3 text-left">Product / Service</th>
+                          <th className="px-4 py-3 text-left">Description</th>
+                          <th className="px-4 py-3 text-center w-24">Qty</th>
+                          <th className="px-4 py-3 text-right w-32">Unit Price</th>
+                          <th className="px-4 py-3 text-right w-40">Line Total</th>
+                          <th className="px-4 py-3 text-center w-10"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {formData.lines.map((line, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50/50 group transition-colors">
+                            <td className="px-4 py-2">
+                              <select 
+                                value={line.productId} 
+                                onChange={(e) => handleLineChange(idx, 'productId', e.target.value)}
+                                className="w-full bg-transparent border-none focus:ring-0 text-xs font-bold text-gray-900 p-0"
+                              >
+                                <option value="">Select Category</option>
+                                {allProductsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                              </select>
+                            </td>
+                            <td className="px-4 py-2">
+                              <input 
+                                type="text" value={line.description}
+                                onChange={(e) => handleLineChange(idx, 'description', e.target.value)}
+                                className="w-full bg-transparent border-none focus:ring-0 text-xs text-gray-600 p-0"
+                                placeholder="Details..."
+                              />
+                            </td>
+                            <td className="px-4 py-2">
+                              <input 
+                                type="number" step="any" value={line.quantity}
+                                onChange={(e) => handleLineChange(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                                className="w-full bg-transparent border-none focus:ring-0 text-xs text-center font-mono font-bold text-gray-900 p-0"
+                              />
+                            </td>
+                            <td className="px-4 py-2">
+                              <input 
+                                type="number" step="any" value={line.unitPrice}
+                                onChange={(e) => handleLineChange(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
+                                className="w-full bg-transparent border-none focus:ring-0 text-xs text-right font-mono p-0"
+                              />
+                            </td>
+                            <td className="px-4 py-2 text-right font-mono font-black text-gray-900 text-[13px]">
+                              {line.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="px-4 py-2 text-center">
+                              <button 
+                                type="button" onClick={() => removeLine(idx)}
+                                className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-                
-                <div className="flex gap-3">
-                  <button type="button" onClick={closeModal} className="px-8 py-3 rounded-2xl text-slate-500 font-bold hover:bg-slate-50 transition-all active:scale-95 uppercase text-[10px] tracking-widest border border-slate-200">
-                    Discard Draft
-                  </button>
-                  <button 
-                    type="submit" 
-                    disabled={createMutation.isPending || updateMutation.isPending}
-                    className="px-12 py-3 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/30 active:scale-95 disabled:bg-slate-200 uppercase text-[10px] tracking-widest"
-                  >
-                    {createMutation.isPending || updateMutation.isPending ? 'Saving Document...' : (selectedPI ? 'Update Proforma Invoice' : 'Generate Export PI')}
-                  </button>
+
+                <div className="flex justify-between items-start">
+                   <div className="w-1/2">
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Remarks / Internal Notes</label>
+                      <textarea 
+                        value={formData.description} 
+                        onChange={(e) => setFormData({...formData, description: e.target.value})}
+                        rows={3}
+                        className="w-full border border-gray-200 rounded-sm p-3 text-sm focus:outline-none focus:border-gray-900 bg-white resize-none"
+                        placeholder="Compliance details, shipping instructions..."
+                      />
+                   </div>
+                   <div className="w-80 space-y-3">
+                      <div className="flex justify-between items-center text-gray-400">
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Total Valuation</span>
+                        <span className="font-mono text-sm font-bold text-gray-900">{formData.currency} {calculateSubtotal().toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="pt-4 border-t border-gray-100 flex justify-between items-end">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em]">Local Equiv.</span>
+                          <p className="text-[10px] text-gray-400 italic">@ Rate {exchangeRate || 1}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-mono text-xl font-black text-blue-600 leading-none">
+                            ৳{(calculateSubtotal() * (exchangeRate || 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">BDT</p>
+                        </div>
+                      </div>
+                   </div>
                 </div>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
     </div>
-  </div>
-);
+  );
 }
-
-

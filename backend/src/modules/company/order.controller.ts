@@ -19,7 +19,7 @@ export class OrderController extends BaseCompanyController {
     const { id: companyId } = request.params as { id: string };
     const { 
       customerId, lcId, orderDate, expectedDeliveryDate, 
-      currency, exchangeRate, totalAmount, status, lines, 
+      currency, exchangeRate, totalBDT, status, lines, 
       createdById, purchaseOrderIds 
     } = request.body as any;
 
@@ -34,7 +34,7 @@ export class OrderController extends BaseCompanyController {
       expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : undefined,
       currency,
       exchangeRate,
-      totalAmount,
+      totalBDT,
       status: status || 'DRAFT',
       createdById,
       lines,

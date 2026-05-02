@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 
 import { useEffect, useState } from 'react';
@@ -8,8 +8,9 @@ import api from '@/lib/api';
 import { 
 
   CheckCircle2, Search, FileText, DollarSign, Calendar,
-  Building2, AlertCircle, ArrowRight
+  Building2, AlertCircle, ArrowRight, ArrowLeft
 } from 'lucide-react';
+import Link from 'next/link';
 
 interface LC {
   id: string;
@@ -122,113 +123,128 @@ export default function LCSettlementPage() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen">
-
-
-
-        <div className="p-6 max-w-[1600px] mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">LC Settlement Summary</h2>
-          </div>
-
-          <div className="flex gap-4 mb-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search by LC Number or Bank..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">LC Number</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Bank</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Customer</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">LC Amount</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">PI Total</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">PI Paid</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">PI Due</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Loan Amount</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Loan Paid</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Loan Due</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {isLoading ? (
-                  <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-500">Loading...</td></tr>
-                ) : filteredLCs.length === 0 ? (
-                  <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-500">No LCs found</td></tr>
-                ) : (
-                  filteredLCs.map((lc: LC) => {
-                    const piSummary = getLCPITotal(lc.id);
-                    const loanSummary = getLCLoanTotal(lc.id);
-                    return (
-                      <tr key={lc.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 font-medium">{lc.lcNumber}</td>
-                        <td className="px-4 py-3">{lc.bankName}</td>
-                        <td className="px-4 py-3">{lc.customer?.name || '-'}</td>
-                        <td className="px-4 py-3 text-right font-mono">{lc.currency} {lc.amount?.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right font-mono text-blue-600">{lc.currency} {piSummary.totalPI?.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right font-mono text-green-600">{lc.currency} {piSummary.totalPaid?.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right font-mono text-red-600">{lc.currency} {piSummary.totalDue?.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right font-mono">{lc.currency} {loanSummary.totalLoan?.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right font-mono text-green-600">{lc.currency} {loanSummary.totalPaid?.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-right font-mono text-red-600">{lc.currency} {loanSummary.totalDue?.toLocaleString()}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(lc.status)}`}>{lc.status}</span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-6 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-            <h3 className="font-semibold mb-4">Understanding LC Settlement</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-slate-600">
-              <div className="flex gap-2">
-                <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="font-medium">PI Total</p>
-                  <p className="text-xs">Total value of all PIs under this LC</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <div className="w-8 h-8 bg-green-100 text-green-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <DollarSign className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="font-medium">PI Paid</p>
-                  <p className="text-xs">Amount received against PIs</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <div className="w-8 h-8 bg-red-100 text-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <AlertCircle className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="font-medium">PI Due</p>
-                  <p className="text-xs">Outstanding amount to be received</p>
-                </div>
-              </div>
-            </div>
+    <div className="p-6 max-w-[1600px] mx-auto space-y-6 bg-gray-50 min-h-screen">
+      <div className="flex items-center justify-between border-b border-gray-200 pb-6">
+        <div className="flex items-center gap-4">
+          <Link href={`/company/${companyId}/lc`} className="p-2 hover:bg-gray-200 rounded-sm transition-colors text-gray-400">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <CheckCircle2 className="w-6 h-6 text-gray-400" />
+              Settlement Ledger
+            </h1>
+            <p className="text-sm text-gray-500 mt-1 font-medium tracking-tight">Consolidated Utilization & Liability Matrix</p>
           </div>
         </div>
+        <div className="relative w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="FILTER BY LC OR BANK..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-[10px] font-bold uppercase tracking-widest transition-colors"
+          />
+        </div>
+      </div>
 
+      <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-r border-gray-100">LC Identity</th>
+                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-r border-gray-100">Bank / Agent</th>
+                <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest border-r border-gray-100">LC Value</th>
+                <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-emerald-50/30 border-r border-gray-100">Order Book</th>
+                <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-emerald-50/50 border-r border-gray-100">Realized</th>
+                <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-rose-50/50 border-r border-gray-100 text-rose-600">Pending</th>
+                <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-blue-50/30 border-r border-gray-100">Loan Exposure</th>
+                <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-blue-50/50 border-r border-gray-100">Retired</th>
+                <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-rose-50/50 text-rose-600">Debt</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {isLoading ? (
+                <tr><td colSpan={9} className="px-4 py-12 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest animate-pulse">Synchronizing Data...</td></tr>
+              ) : filteredLCs.length === 0 ? (
+                <tr><td colSpan={9} className="px-4 py-12 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">No matching records found</td></tr>
+              ) : (
+                filteredLCs.map((lc: LC) => {
+                  const pi = getLCPITotal(lc.id);
+                  const loan = getLCLoanTotal(lc.id);
+                  return (
+                    <tr key={lc.id} className="hover:bg-gray-50 transition-colors group">
+                      <td className="px-4 py-4 border-r border-gray-100">
+                        <div className="text-xs font-black text-gray-900 uppercase tracking-tight">{lc.lcNumber}</div>
+                        <div className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">{lc.type}</div>
+                      </td>
+                      <td className="px-4 py-4 border-r border-gray-100">
+                        <div className="text-[10px] font-bold text-gray-700 uppercase">{lc.bankName}</div>
+                        <div className="text-[9px] font-medium text-gray-400 mt-0.5 italic">{lc.customer?.name || 'internal'}</div>
+                      </td>
+                      <td className="px-4 py-4 text-right font-mono text-xs font-black text-gray-900 border-r border-gray-100">
+                        {lc.currency} {lc.amount?.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-4 text-right font-mono text-xs font-bold text-emerald-600 bg-emerald-50/10 border-r border-gray-100">
+                        {pi.totalPI?.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-4 text-right font-mono text-xs font-bold text-emerald-700 bg-emerald-50/20 border-r border-gray-100">
+                        {pi.totalPaid?.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-4 text-right font-mono text-xs font-bold text-rose-600 bg-rose-50/20 border-r border-gray-100">
+                        {pi.totalDue?.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-4 text-right font-mono text-xs font-bold text-blue-600 bg-blue-50/10 border-r border-gray-100">
+                        {loan.totalLoan?.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-4 text-right font-mono text-xs font-bold text-blue-700 bg-blue-50/20 border-r border-gray-100">
+                        {loan.totalPaid?.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-4 text-right font-mono text-xs font-bold text-rose-600 bg-rose-50/20">
+                        {loan.totalDue?.toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-gray-200">
+        <div className="space-y-2 p-4 bg-white border border-gray-200 rounded-sm shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-sm">
+              <FileText className="w-3.5 h-3.5" />
+            </div>
+            <h3 className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Order Utilization</h3>
+          </div>
+          <p className="text-[10px] font-medium text-gray-500 leading-relaxed uppercase tracking-tight">Total value of linked sales/purchase proforma invoices against the credit limit.</p>
+        </div>
+        
+        <div className="space-y-2 p-4 bg-white border border-gray-200 rounded-sm shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1.5 bg-blue-50 text-blue-600 rounded-sm">
+              <Building2 className="w-3.5 h-3.5" />
+            </div>
+            <h3 className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Loan Retirement</h3>
+          </div>
+          <p className="text-[10px] font-medium text-gray-500 leading-relaxed uppercase tracking-tight">Active bank financing (LIM/LTR) and repayment progress for the specific instrument.</p>
+        </div>
+
+        <div className="space-y-2 p-4 bg-white border border-gray-200 rounded-sm shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1.5 bg-rose-50 text-rose-600 rounded-sm">
+              <AlertCircle className="w-3.5 h-3.5" />
+            </div>
+            <h3 className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Residual Liability</h3>
+          </div>
+          <p className="text-[10px] font-medium text-gray-500 leading-relaxed uppercase tracking-tight">Unfulfilled orders or outstanding debt that must be settled prior to LC expiry.</p>
+        </div>
+      </div>
     </div>
   );
 }
-
-

@@ -42,7 +42,7 @@ export function FinanceCharts({ charts, formatCurrency }: FinanceChartsProps) {
     <div className="space-y-8">
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         {/* Revenue vs Expenses */}
-        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
+        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm min-h-[400px] flex flex-col">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-[10px] font-bold text-gray-900 uppercase tracking-[0.2em]">Operating Performance</h3>
@@ -53,8 +53,8 @@ export function FinanceCharts({ charts, formatCurrency }: FinanceChartsProps) {
               <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-gray-200 rounded-full"/>Expenses</div>
             </div>
           </div>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="99%" height="100%">
+          <div className="flex-1 w-full min-h-[300px]">
+            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
               <BarChart data={getChartData('Revenue vs Expenses')} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#9CA3AF' }} />
@@ -68,7 +68,7 @@ export function FinanceCharts({ charts, formatCurrency }: FinanceChartsProps) {
         </div>
 
         {/* Net Cash Flow */}
-        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
+        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm min-h-[400px] flex flex-col">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-[10px] font-bold text-gray-900 uppercase tracking-[0.2em]">Cash Flow Dynamics</h3>
@@ -78,8 +78,8 @@ export function FinanceCharts({ charts, formatCurrency }: FinanceChartsProps) {
               Monthly Trend
             </div>
           </div>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="99%" height="100%">
+          <div className="flex-1 w-full min-h-[300px]">
+            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
               <AreaChart data={getChartData('Monthly Net Cash Flow')} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
@@ -100,11 +100,11 @@ export function FinanceCharts({ charts, formatCurrency }: FinanceChartsProps) {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         {/* Buyer Distribution */}
-        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
+        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm min-h-[400px] flex flex-col">
           <h3 className="text-[10px] font-bold text-gray-900 uppercase tracking-[0.2em] mb-8">Revenue Concentration</h3>
-          <div className="h-[300px] flex items-center">
+          <div className="flex-1 flex items-center min-h-[300px]">
             <div className="w-1/2 h-full">
-              <ResponsiveContainer width="99%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                 <PieChart>
                   <Pie
                     data={getChartData('Revenue by Buyer')}
@@ -142,7 +142,7 @@ export function FinanceCharts({ charts, formatCurrency }: FinanceChartsProps) {
         </div>
 
         {/* Liquidity Position */}
-        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
+        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm min-h-[400px] flex flex-col">
           <div className="flex items-center justify-between mb-8">
              <h3 className="text-[10px] font-bold text-gray-900 uppercase tracking-[0.2em]">Liquidity Breakdown</h3>
              <div className="flex items-center gap-1.5">
@@ -150,8 +150,8 @@ export function FinanceCharts({ charts, formatCurrency }: FinanceChartsProps) {
                 <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Active Accounts</span>
              </div>
           </div>
-          <div className="h-[300px] w-full">
-             <ResponsiveContainer width="99%" height="100%">
+          <div className="flex-1 w-full min-h-[300px]">
+             <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                 <BarChart data={getChartData('Cash Position')} layout="vertical" margin={{ left: 40, right: 10 }}>
                   <XAxis type="number" hide />
                   <YAxis 

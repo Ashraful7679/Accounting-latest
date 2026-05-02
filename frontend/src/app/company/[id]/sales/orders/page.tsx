@@ -30,7 +30,7 @@ interface SalesOrder {
   totalBDT: number;
   currency: string;
   status: string;
-  customer?: { name: string };
+  customer?: { name: string; code: string };
   lines: SalesOrderLine[];
   purchaseOrders: any[];
 }
@@ -112,11 +112,11 @@ export default function SalesOrdersPage() {
       case 'SENT':
         return 'bg-blue-50 text-blue-700 border-blue-100';
       case 'DRAFT':
-        return 'bg-gray-50 text-gray-600 border-gray-200';
+        return 'bg-gray-50 text-gray-600 border-gray-100';
       case 'CANCELLED':
         return 'bg-red-50 text-red-700 border-red-100';
       default:
-        return 'bg-gray-50 text-gray-600 border-gray-200';
+        return 'bg-gray-50 text-gray-600 border-gray-100';
     }
   };
 
@@ -124,54 +124,57 @@ export default function SalesOrdersPage() {
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto space-y-6 bg-gray-50 min-h-screen">
+      {/* Header section */}
       <div className="flex justify-between items-center pb-6 border-b border-gray-200">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ShoppingBag className="w-6 h-6 text-gray-400" />
+          <h1 className="text-xl font-bold text-gray-900 uppercase tracking-tight flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5 text-gray-400" />
             Sales Orders
           </h1>
-          <p className="text-sm text-gray-500 mt-1">Manage customer contracts and allocations</p>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Manage customer contracts and allocations</p>
         </div>
         <button 
           onClick={() => router.push(`/company/${companyId}/sales/orders/create`)}
-          className="bg-gray-900 text-white px-4 py-2 rounded-sm text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2"
+          className="bg-gray-900 text-white px-4 py-2 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2"
         >
-          <Plus className="w-4 h-4" /> New Sales Order
+          <Plus className="w-3.5 h-3.5" /> Create SO
         </button>
       </div>
 
+      {/* Filters */}
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by order # or customer..."
+            placeholder="SEARCH ORDERS..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gray-400 transition-colors bg-white"
+            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-[10px] font-bold uppercase tracking-widest focus:outline-none focus:border-gray-900 transition-colors bg-white shadow-sm"
           />
         </div>
       </div>
 
+      {/* Table */}
       <div className="bg-white border border-gray-200 rounded-sm overflow-hidden shadow-sm">
-        <table className="w-full text-sm text-left">
+        <table className="w-full text-[11px]">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
               <th className="w-10 py-3 px-4"></th>
-              <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Order Number</th>
-              <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Customer</th>
-              <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Total Value</th>
-              <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Allocated</th>
-              <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Status</th>
-              <th className="py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+              <th className="py-3 px-4 text-left font-bold text-gray-400 uppercase tracking-widest">Order Number</th>
+              <th className="py-3 px-4 text-left font-bold text-gray-400 uppercase tracking-widest">Date</th>
+              <th className="py-3 px-4 text-left font-bold text-gray-400 uppercase tracking-widest">Customer</th>
+              <th className="py-3 px-4 text-right font-bold text-gray-400 uppercase tracking-widest">Total Value</th>
+              <th className="py-3 px-4 text-right font-bold text-gray-400 uppercase tracking-widest">Allocated</th>
+              <th className="py-3 px-4 text-center font-bold text-gray-400 uppercase tracking-widest">Status</th>
+              <th className="py-3 px-4 text-right font-bold text-gray-400 uppercase tracking-widest">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {isLoading ? (
-              <tr><td colSpan={8} className="text-center py-12 text-gray-400 italic">Loading orders...</td></tr>
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 font-mono">LOADING DATA...</td></tr>
             ) : salesOrders?.length === 0 ? (
-              <tr><td colSpan={8} className="text-center py-12 text-gray-400 italic">No orders found</td></tr>
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 font-mono uppercase tracking-widest">No orders found</td></tr>
             ) : (
               salesOrders?.filter(so => 
                 so.soNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -182,36 +185,39 @@ export default function SalesOrdersPage() {
                     "hover:bg-gray-50/50 transition-colors group",
                     expandedOrders.has(so.id) && "bg-gray-50"
                   )}>
-                    <td className="py-3 px-4">
+                    <td className="py-4 px-4">
                       <button onClick={() => toggleExpand(so.id)} className="p-1 hover:bg-gray-200 rounded-sm transition-colors text-gray-400">
-                        {expandedOrders.has(so.id) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                        {expandedOrders.has(so.id) ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                       </button>
                     </td>
-                    <td className="py-3 px-4 font-bold text-gray-900">{so.soNumber}</td>
-                    <td className="py-3 px-4 text-gray-600">{new Date(so.orderDate).toLocaleDateString()}</td>
-                    <td className="py-3 px-4 font-medium text-gray-700">{so.customer?.name}</td>
-                    <td className="py-3 px-4 text-right font-mono font-bold text-gray-900">
+                    <td className="py-4 px-4 font-mono font-bold text-gray-900 uppercase">{so.soNumber}</td>
+                    <td className="py-4 px-4 font-mono text-gray-600">{new Date(so.orderDate).toLocaleDateString()}</td>
+                    <td className="py-4 px-4">
+                      <div className="font-bold text-gray-700 uppercase tracking-tight">{so.customer?.name}</div>
+                      <div className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">{so.customer?.code}</div>
+                    </td>
+                    <td className="py-4 px-4 text-right font-mono font-bold text-gray-900">
                       {formatCurrency(so.totalBDT)} {so.currency}
                     </td>
-                    <td className="py-3 px-4 text-right font-mono text-gray-500">
+                    <td className="py-4 px-4 text-right font-mono text-gray-500">
                       {formatCurrency(calculateUsedValue(so))} {so.currency}
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-4 px-4 text-center">
                       <span className={cn(
-                        "px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded border",
+                        "px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded-sm border",
                         getStatusStyle(so.status)
                       )}>
                         {so.status}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <td className="py-4 px-4 text-right opacity-40 group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-end gap-1">
                         <button 
                           onClick={() => setShowPOSelector({ soId: so.id })}
-                          className="p-1.5 text-gray-400 hover:text-gray-900 hover:bg-white rounded-sm border border-transparent hover:border-gray-200 transition-all"
+                          className="p-1.5 text-gray-400 hover:text-gray-900 rounded-sm transition-colors"
                           title="Link PO"
                         >
-                          <Tag className="w-4 h-4" />
+                          <Tag className="w-3.5 h-3.5" />
                         </button>
                         <button 
                           onClick={() => {
@@ -219,58 +225,63 @@ export default function SalesOrdersPage() {
                               generateChallanMutation.mutate(so.id);
                             }
                           }}
-                          className="p-1.5 text-gray-400 hover:text-gray-900 hover:bg-white rounded-sm border border-transparent hover:border-gray-200 transition-all"
+                          className="p-1.5 text-gray-400 hover:text-gray-900 rounded-sm transition-colors"
                           title="Generate Challan"
                         >
-                          <Truck className="w-4 h-4" />
+                          <Truck className="w-3.5 h-3.5" />
                         </button>
-                        <button className="p-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors">
-                          <Trash2 className="w-4 h-4" />
+                        <button 
+                          onClick={() => router.push(`/company/${companyId}/sales/orders/${so.id}`)}
+                          className="p-1.5 text-gray-400 hover:text-gray-900 rounded-sm transition-colors"
+                          title="Edit"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
                   </tr>
                   {expandedOrders.has(so.id) && (
                     <tr className="bg-gray-50/30">
-                      <td colSpan={8} className="p-0 border-b border-gray-100">
-                        <div className="px-12 py-6 border-l-2 border-gray-900 bg-white ml-4 my-2 rounded-sm shadow-sm border-y border-r border-gray-200">
-                          <div className="flex justify-between items-center mb-4">
-                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Linked Procurement (PO)</h4>
+                      <td colSpan={8} className="p-0">
+                        <div className="mx-16 my-4 p-6 bg-white border border-gray-200 rounded-sm shadow-sm relative overflow-hidden">
+                          <div className="absolute top-0 left-0 w-1 h-full bg-gray-900" />
+                          <div className="flex justify-between items-center mb-6">
+                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Linked Procurement (PO)</h4>
                             <button 
                               onClick={() => router.push(`/company/${companyId}/purchase/orders/create?soId=${so.id}`)}
-                              className="text-[10px] font-bold text-gray-900 hover:underline flex items-center gap-1.5 uppercase"
+                              className="text-[9px] font-bold text-gray-900 hover:underline flex items-center gap-1.5 uppercase tracking-widest"
                             >
-                              <Plus className="w-3.5 h-3.5" /> Create New PO
+                              <Plus className="w-3 h-3" /> Create New PO
                             </button>
                           </div>
                           
                           {so.purchaseOrders.length === 0 ? (
-                            <div className="text-[11px] text-gray-400 italic py-6 border border-dashed border-gray-200 text-center rounded-sm">
-                              No purchase orders linked to this sales contract.
+                            <div className="text-[10px] text-gray-400 font-mono uppercase text-center py-8 border border-dashed border-gray-100 rounded-sm">
+                              NO LINKED PROCUREMENT
                             </div>
                           ) : (
-                            <div className="border border-gray-200 rounded-sm overflow-hidden">
-                              <table className="w-full text-xs">
-                                <thead className="bg-gray-50 border-b border-gray-200">
-                                  <tr className="text-[10px] text-gray-500 uppercase font-bold">
+                            <div className="border border-gray-100 rounded-sm overflow-hidden">
+                              <table className="w-full text-[11px]">
+                                <thead className="bg-gray-50/50 border-b border-gray-100">
+                                  <tr className="text-[9px] text-gray-400 uppercase font-bold tracking-[0.15em]">
                                     <th className="px-4 py-2 text-left">PO #</th>
                                     <th className="px-4 py-2 text-left">Supplier</th>
                                     <th className="px-4 py-2 text-right">Value (BDT)</th>
                                     <th className="px-4 py-2 text-center w-20">Action</th>
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100">
+                                <tbody className="divide-y divide-gray-50 font-mono">
                                   {so.purchaseOrders.map((po: any) => (
-                                    <tr key={po.id} className="hover:bg-gray-50">
-                                      <td className="px-4 py-2 font-bold text-gray-900">{po.poNumber}</td>
-                                      <td className="px-4 py-2 text-gray-600">{po.supplier?.name}</td>
-                                      <td className="px-4 py-2 text-right font-mono font-bold text-gray-900">
+                                    <tr key={po.id} className="hover:bg-gray-50/30 transition-colors">
+                                      <td className="px-4 py-3 font-bold text-gray-900 uppercase">{po.poNumber}</td>
+                                      <td className="px-4 py-3 text-gray-600 uppercase">{po.supplier?.name}</td>
+                                      <td className="px-4 py-3 text-right font-bold text-gray-900">
                                         {formatCurrency(po.totalBDT)}
                                       </td>
-                                      <td className="px-4 py-2 text-center">
+                                      <td className="px-4 py-3 text-center">
                                         <button 
                                           onClick={() => assignPOMutation.mutate({ soId: so.id, poId: po.id, action: 'disconnect' })}
-                                          className="text-red-500 hover:text-red-700 p-1 rounded-sm hover:bg-red-50 transition-colors"
+                                          className="text-gray-300 hover:text-red-600 transition-colors"
                                           title="Unlink PO"
                                         >
                                           <X className="w-3.5 h-3.5" />
@@ -295,39 +306,39 @@ export default function SalesOrdersPage() {
 
       {/* PO Selector Modal */}
       {showPOSelector && (
-        <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-[1px] flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-sm shadow-xl w-full max-w-lg overflow-hidden flex flex-col border border-gray-200 animate-in fade-in zoom-in duration-150">
-            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest flex items-center gap-2">
-                <LinkIcon className="w-4 h-4 text-gray-400" />
+        <div className="fixed inset-0 bg-gray-900/10 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-sm shadow-2xl w-full max-w-lg overflow-hidden flex flex-col border border-gray-200 animate-in fade-in zoom-in duration-150">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+              <h3 className="text-[10px] font-bold text-gray-900 uppercase tracking-[0.2em] flex items-center gap-2">
+                <LinkIcon className="w-3.5 h-3.5 text-gray-400" />
                 Assign Purchase Order
               </h3>
-              <button onClick={() => setShowPOSelector(null)} className="p-1 hover:bg-gray-200 rounded-sm transition-colors text-gray-400">
+              <button onClick={() => setShowPOSelector(null)} className="p-1 hover:bg-gray-100 rounded-sm transition-colors text-gray-400">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-4">
-              <div className="max-h-[60vh] overflow-y-auto border border-gray-200 rounded-sm">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-gray-50 sticky top-0 border-b border-gray-200">
-                    <tr className="text-[10px] text-gray-500 uppercase font-bold">
-                      <th className="p-3">PO #</th>
-                      <th className="p-3 text-right">Value (BDT)</th>
-                      <th className="p-3 text-center">Action</th>
+            <div className="p-6">
+              <div className="max-h-[60vh] overflow-y-auto border border-gray-100 rounded-sm">
+                <table className="w-full text-[11px] text-left">
+                  <thead className="bg-gray-50 sticky top-0 border-b border-gray-100">
+                    <tr className="text-[9px] text-gray-400 uppercase font-bold tracking-widest">
+                      <th className="p-4">PO #</th>
+                      <th className="p-4 text-right">Value (BDT)</th>
+                      <th className="p-4 text-center w-24">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-50 font-mono">
                     {purchaseOrders?.filter((po: any) => !salesOrders?.find(s => s.id === showPOSelector.soId)?.purchaseOrders.find(p => p.id === po.id)).map((po: any) => (
-                      <tr key={po.id} className="hover:bg-gray-50 transition-colors group">
-                        <td className="p-3 font-bold text-gray-900">{po.poNumber}</td>
-                        <td className="p-3 text-right font-mono font-bold text-gray-900">{formatCurrency(po.totalBDT)}</td>
-                        <td className="p-3 text-center">
+                      <tr key={po.id} className="hover:bg-gray-50/50 transition-colors group">
+                        <td className="p-4 font-bold text-gray-900 uppercase">{po.poNumber}</td>
+                        <td className="p-4 text-right font-bold text-gray-900">{formatCurrency(po.totalBDT)}</td>
+                        <td className="p-4 text-center">
                           <button 
                             onClick={() => {
                               assignPOMutation.mutate({ soId: showPOSelector.soId, poId: po.id, action: 'connect' });
                               setShowPOSelector(null);
                             }}
-                            className="bg-gray-900 text-white px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors"
+                            className="bg-gray-900 text-white px-3 py-1.5 rounded-sm text-[9px] font-bold uppercase tracking-widest hover:bg-gray-800 transition-colors"
                           >
                             Assign
                           </button>
@@ -335,16 +346,16 @@ export default function SalesOrdersPage() {
                       </tr>
                     ))}
                     {purchaseOrders?.length === 0 && (
-                      <tr><td colSpan={3} className="p-8 text-center text-gray-400 italic">No available purchase orders</td></tr>
+                      <tr><td colSpan={3} className="p-12 text-center text-gray-400 font-mono uppercase tracking-widest">NO AVAILABLE POs</td></tr>
                     )}
                   </tbody>
                 </table>
               </div>
             </div>
-            <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-end">
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end">
               <button 
                 onClick={() => setShowPOSelector(null)} 
-                className="px-4 py-2 border border-gray-300 rounded-sm text-xs font-bold uppercase tracking-wider text-gray-600 hover:bg-white transition-colors"
+                className="px-4 py-2 border border-gray-200 rounded-sm text-[9px] font-bold uppercase tracking-widest text-gray-500 hover:bg-white hover:text-gray-900 transition-all"
               >
                 Close
               </button>
@@ -355,3 +366,4 @@ export default function SalesOrdersPage() {
     </div>
   );
 }
+

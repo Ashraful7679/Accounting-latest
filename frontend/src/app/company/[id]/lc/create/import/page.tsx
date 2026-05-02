@@ -80,39 +80,38 @@ export default function CreateImportLCPage() {
   const totalBDT = (parseFloat(formData.amount) || 0) * exchangeRate;
 
   return (
-    <div className="p-4 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between bg-white p-4 border border-gray-200 rounded-sm shadow-sm">
+    <div className="p-6 max-w-5xl mx-auto space-y-6 bg-gray-50 min-h-screen">
+      <div className="flex items-center justify-between border-b border-gray-200 pb-6">
         <div className="flex items-center gap-4">
-          <Link href={`/company/${companyId}/lc`} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-            <ArrowLeft className="w-5 h-5 text-gray-500" />
+          <Link href={`/company/${companyId}/lc`} className="p-2 hover:bg-gray-200 rounded-sm transition-colors text-gray-400">
+            <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <Package className="w-5 h-5 text-gray-700" />
-              New Import Letter of Credit
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Package className="w-6 h-6 text-gray-400" />
+              New Import LC
             </h1>
-            <p className="text-xs text-gray-500 font-medium tracking-tight">Standard Letter of Credit for Foreign Purchases</p>
+            <p className="text-sm text-gray-500 mt-1 font-medium tracking-tight">Standard Letter of Credit for Foreign Purchases</p>
           </div>
         </div>
         <div className="text-right">
           <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">System Spot Rate</div>
-          <div className="text-sm font-bold text-blue-600">1 {formData.currency} = {exchangeRate} BDT</div>
+          <div className="text-sm font-bold text-gray-900">1 {formData.currency} = <span className="text-emerald-600 font-mono">{exchangeRate}</span> BDT</div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Left Column: Basic Info */}
-          <div className="bg-white border border-gray-200 rounded-sm p-4 space-y-4">
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2 flex items-center gap-2">
-              <Landmark className="w-3.5 h-3.5" /> General Information
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 space-y-6">
+          <div className="bg-white border border-gray-200 rounded-sm p-6 shadow-sm space-y-6">
+            <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] border-b border-gray-100 pb-3 flex items-center gap-2">
+              <Landmark className="w-4 h-4" /> Financial Instruments
             </h2>
             
-            <div className="space-y-3">
-              <div>
-                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Supplier / Vendor</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Supplier / Vendor</label>
                 <select
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-medium"
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-sm font-bold text-gray-900 transition-colors"
                   value={formData.vendorId}
                   onChange={e => set('vendorId', e.target.value)}
                 >
@@ -124,11 +123,11 @@ export default function CreateImportLCPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">LC Number *</label>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">LC Number *</label>
                 <input
                   required
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-medium"
-                  placeholder="e.g. IMP-LC-2025-001"
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-sm font-bold text-gray-900 transition-colors"
+                  placeholder="IMP-LC-XXXX"
                   value={formData.lcNumber}
                   onChange={e => set('lcNumber', e.target.value)}
                 />
@@ -136,19 +135,19 @@ export default function CreateImportLCPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Amount *</label>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Amount *</label>
                   <input
                     required type="number" step="0.01"
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-bold"
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-sm font-black text-gray-900 font-mono transition-colors"
                     placeholder="0.00"
                     value={formData.amount}
                     onChange={e => set('amount', e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Currency</label>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Currency</label>
                   <select
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-bold"
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-sm font-bold text-gray-900 transition-colors"
                     value={formData.currency}
                     onChange={e => set('currency', e.target.value)}
                   >
@@ -160,97 +159,101 @@ export default function CreateImportLCPage() {
                 </div>
               </div>
 
-              {formData.currency !== 'BDT' && (
-                <div className="p-3 bg-blue-50 border border-blue-100 rounded-sm flex justify-between items-center">
-                  <span className="text-[10px] font-bold text-blue-600 uppercase">Estimated Value (BDT)</span>
-                  <span className="text-sm font-black text-blue-700">{totalBDT.toLocaleString(undefined, { minimumFractionDigits: 2 })} BDT</span>
-                </div>
-              )}
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Issuing Bank *</label>
+                <select
+                  required
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-sm font-bold text-gray-900 transition-colors"
+                  value={formData.bankName}
+                  onChange={e => set('bankName', e.target.value)}
+                >
+                  <option value="">Select Bank</option>
+                  {(bankAccounts || []).map((b: any) => (
+                    <option key={b.id} value={b.name}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Issuing Bank *</label>
-                  <select
-                    required
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-medium"
-                    value={formData.bankName}
-                    onChange={e => set('bankName', e.target.value)}
-                  >
-                    <option value="">Select Bank</option>
-                    {(bankAccounts || []).map((b: any) => (
-                      <option key={b.id} value={b.name}>{b.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Bank Branch</label>
-                  <input
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-medium"
-                    placeholder="e.g. Main Branch"
-                    value={formData.bankBranch}
-                    onChange={e => set('bankBranch', e.target.value)}
-                  />
-                </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Branch</label>
+                <input
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-sm font-bold text-gray-900 transition-colors"
+                  placeholder="Main Branch"
+                  value={formData.bankBranch}
+                  onChange={e => set('bankBranch', e.target.value)}
+                />
               </div>
             </div>
           </div>
 
-          {/* Right Column: Dates & Logistics */}
-          <div className="space-y-4">
-            <div className="bg-white border border-gray-200 rounded-sm p-4 space-y-4">
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2 flex items-center gap-2">
-                <Calendar className="w-3.5 h-3.5" /> Schedule & Logistics
-              </h2>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Issue Date</label>
-                  <input type="date" className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-medium"
-                    value={formData.issueDate} onChange={e => set('issueDate', e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Expiry Date *</label>
-                  <input required type="date" className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-medium"
-                    value={formData.expiryDate} onChange={e => set('expiryDate', e.target.value)} />
-                </div>
-              </div>
+          <div className="bg-white border border-gray-200 rounded-sm p-6 shadow-sm space-y-4">
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+              <Package className="w-3.5 h-3.5" /> Description / Product Details
+            </label>
+            <textarea 
+              rows={4} 
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-sm font-medium text-gray-900 transition-colors resize-none"
+              placeholder="List major items or general description of goods..." 
+              value={formData.description} 
+              onChange={e => set('description', e.target.value)} 
+            />
+          </div>
+        </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Port of Loading</label>
-                  <input className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-medium"
-                    placeholder="e.g. Shanghai" value={formData.portOfLoading} onChange={e => set('portOfLoading', e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Port of Destination</label>
-                  <input className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-medium"
-                    placeholder="e.g. Chittagong" value={formData.portOfDestination} onChange={e => set('portOfDestination', e.target.value)} />
-                </div>
+        <div className="space-y-6">
+          <div className="bg-white border border-gray-200 rounded-sm p-6 shadow-sm space-y-6">
+            <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] border-b border-gray-100 pb-3 flex items-center gap-2">
+              <Calendar className="w-4 h-4" /> Timeline
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Issue Date</label>
+                <input 
+                  type="date" 
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-sm font-bold text-gray-900 font-mono transition-colors"
+                  value={formData.issueDate} 
+                  onChange={e => set('issueDate', e.target.value)} 
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Expiry Date *</label>
+                <input 
+                  required type="date" 
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-sm font-bold text-gray-900 font-mono transition-colors"
+                  value={formData.expiryDate} 
+                  onChange={e => set('expiryDate', e.target.value)} 
+                />
               </div>
             </div>
+          </div>
 
-            <div className="bg-white border border-gray-200 rounded-sm p-4">
-              <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Loan Coverage Type</label>
-              <div className="flex gap-4">
+          <div className="bg-white border border-gray-200 rounded-sm p-6 shadow-sm space-y-6">
+            <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] border-b border-gray-100 pb-3 flex items-center gap-2">
+              <Landmark className="w-4 h-4" /> Credit Terms
+            </h2>
+            <div className="space-y-4">
+              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Loan Coverage</label>
+              <div className="flex flex-wrap gap-4">
                 {['NONE', 'PERCENTAGE', 'FIXED'].map((type) => (
-                  <label key={type} className="flex items-center gap-2 cursor-pointer">
+                  <label key={type} className="flex items-center gap-2 cursor-pointer group">
                     <input 
                       type="radio" 
                       name="loanType" 
                       value={type} 
                       checked={formData.loanType === type}
                       onChange={e => set('loanType', e.target.value)}
-                      className="w-3.5 h-3.5 text-blue-600 focus:ring-blue-500"
+                      className="w-3.5 h-3.5 text-gray-900 border-gray-300 focus:ring-gray-900"
                     />
-                    <span className="text-xs font-bold text-gray-600 uppercase">{type}</span>
+                    <span className="text-[10px] font-black text-gray-400 group-hover:text-gray-900 uppercase transition-colors">{type}</span>
                   </label>
                 ))}
               </div>
               {formData.loanType !== 'NONE' && (
-                <div className="mt-3">
+                <div className="animate-in slide-in-from-top-2 duration-200">
                   <input
                     type="number" step="0.01"
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-bold"
-                    placeholder={formData.loanType === 'PERCENTAGE' ? 'Percentage %' : 'Amount'}
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-sm font-black text-gray-900 font-mono"
+                    placeholder={formData.loanType === 'PERCENTAGE' ? 'Margin %' : 'Fixed Amount'}
                     value={formData.loanValue}
                     onChange={e => set('loanValue', e.target.value)}
                   />
@@ -258,29 +261,33 @@ export default function CreateImportLCPage() {
               )}
             </div>
           </div>
-        </div>
 
-        <div className="bg-white border border-gray-200 rounded-sm p-4">
-          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Description / Notes</label>
-          <textarea rows={2} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-medium resize-none"
-            placeholder="Additional notes..." value={formData.description} onChange={e => set('description', e.target.value)} />
-        </div>
+          {formData.currency !== 'BDT' && formData.amount && (
+            <div className="bg-gray-900 rounded-sm p-6 shadow-xl space-y-2 border border-gray-800">
+              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Estimated Local Value</div>
+              <div className="text-2xl font-black text-white font-mono flex items-baseline gap-2">
+                {totalBDT.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                <span className="text-xs font-bold text-gray-500">BDT</span>
+              </div>
+            </div>
+          )}
 
-        <div className="flex justify-end gap-3 pt-2">
-          <Link
-            href={`/company/${companyId}/lc`}
-            className="px-6 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-bold rounded-sm hover:bg-gray-50 transition-all"
-          >
-            Cancel
-          </Link>
-          <button
-            type="submit"
-            disabled={createMutation.isPending}
-            className="px-6 py-2 bg-gray-900 text-white text-sm font-bold rounded-sm hover:bg-black transition-all disabled:opacity-50 flex items-center gap-2"
-          >
-            {createMutation.isPending ? 'Creating...' : 'Save Import LC'}
-            <CheckCircle2 className="w-4 h-4" />
-          </button>
+          <div className="flex flex-col gap-3 pt-4">
+            <button
+              type="submit"
+              disabled={createMutation.isPending}
+              className="w-full px-6 py-3 bg-gray-900 text-white text-xs font-bold uppercase tracking-[0.2em] rounded-sm hover:bg-black transition-all disabled:opacity-50 flex items-center justify-center gap-3 shadow-lg"
+            >
+              {createMutation.isPending ? 'Processing...' : 'Issue Import LC'}
+              <CheckCircle2 className="w-4 h-4" />
+            </button>
+            <Link
+              href={`/company/${companyId}/lc`}
+              className="w-full px-6 py-3 bg-white border border-gray-200 text-gray-500 text-xs font-bold uppercase tracking-[0.2em] rounded-sm hover:bg-gray-50 hover:text-gray-900 transition-all text-center"
+            >
+              Cancel Entry
+            </Link>
+          </div>
         </div>
       </form>
     </div>

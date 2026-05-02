@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 
 import { useEffect, useState } from 'react';
@@ -7,8 +7,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
   FileText, Plus, Search, Edit2, Trash2, Eye,
-  Calendar, DollarSign, CheckCircle2, Building2
+  Calendar, DollarSign, CheckCircle2, Building2, ArrowLeft
 } from 'lucide-react';
+import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 
 
@@ -164,133 +165,212 @@ export default function LCPIsPage() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen">
-
-
-
-        <div className="p-6 max-w-[1600px] mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">LC PIs</h2>
-            <button
-              onClick={() => openModal()}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700"
-            >
-              <Plus className="w-4 h-4" />
-              Add LC PI
-            </button>
-          </div>
-
-          <div className="flex gap-4 mb-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search by PI Number..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Status</option>
-              <option value="DRAFT">Draft</option>
-              <option value="SUBMITTED">Submitted</option>
-              <option value="ACCEPTED">Accepted</option>
-              <option value="PAID">Paid</option>
-            </select>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">PI Number</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">LC</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Customer</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {isLoading ? (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Loading...</td></tr>
-                ) : filteredPIs.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">No LC PIs found</td></tr>
-                ) : (
-                  filteredPIs.map((pi: LCPI) => (
-                    <tr key={pi.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium">{pi.piNumber}</td>
-                      <td className="px-4 py-3 text-slate-500">{pi.piDate ? new Date(pi.piDate).toLocaleDateString() : '-'}</td>
-                      <td className="px-4 py-3">{pi.lc?.lcNumber || '-'}</td>
-                      <td className="px-4 py-3">{pi.customer?.name || '-'}</td>
-                      <td className="px-4 py-3 text-right font-mono">{pi.currency} {pi.amount?.toLocaleString()}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(pi.status)}`}>{pi.status}</span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button onClick={() => openModal(pi)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={() => deleteMutation.mutate(pi.id)} className="p-1 text-red-600 hover:bg-red-50 rounded ml-1"><Trash2 className="w-4 h-4" /></button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+    <div className="p-6 max-w-[1600px] mx-auto space-y-6 bg-gray-50 min-h-screen">
+      <div className="flex items-center justify-between border-b border-gray-200 pb-6">
+        <div className="flex items-center gap-4">
+          <Link href={`/company/${companyId}/lc`} className="p-2 hover:bg-gray-200 rounded-sm transition-colors text-gray-400">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <FileText className="w-6 h-6 text-gray-400" />
+              Proforma Invoices (LC)
+            </h1>
+            <p className="text-sm text-gray-500 mt-1 font-medium tracking-tight">Manage and track PIs associated with Letters of Credit</p>
           </div>
         </div>
-      
+        <button 
+          onClick={() => openModal()} 
+          className="bg-gray-900 text-white px-6 py-2.5 rounded-sm text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-2 hover:bg-black transition-all shadow-lg shadow-gray-200"
+        >
+          <Plus className="w-4 h-4" /> Create PI
+        </button>
+      </div>
+
+      <div className="flex gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+          <input 
+            type="text" 
+            placeholder="FILTER BY PI NUMBER..." 
+            value={searchTerm} 
+            onChange={(e) => setSearchTerm(e.target.value)} 
+            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-[10px] font-bold uppercase tracking-widest transition-colors" 
+          />
+        </div>
+        <select 
+          value={filterStatus} 
+          onChange={(e) => setFilterStatus(e.target.value)} 
+          className="px-4 py-2 bg-white border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-[10px] font-bold uppercase tracking-widest transition-colors"
+        >
+          <option value="all">ALL STATUS</option>
+          <option value="DRAFT">DRAFT</option>
+          <option value="SUBMITTED">SUBMITTED</option>
+          <option value="ACCEPTED">ACCEPTED</option>
+          <option value="PAID">PAID</option>
+        </select>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200">
+              <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest">PI Reference</th>
+              <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest">Date</th>
+              <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest">Instrument (LC)</th>
+              <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest">Customer / Client</th>
+              <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest">Valuation</th>
+              <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest">Status</th>
+              <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase tracking-widest">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {isLoading ? (
+              <tr><td colSpan={7} className="px-4 py-12 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest animate-pulse">Syncing Invoices...</td></tr>
+            ) : filteredPIs.length === 0 ? (
+              <tr><td colSpan={7} className="px-4 py-12 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">No proforma invoices found</td></tr>
+            ) : (
+              filteredPIs.map((pi: LCPI) => (
+                <tr key={pi.id} className="hover:bg-gray-50 transition-colors group">
+                  <td className="px-4 py-4 text-xs font-black text-gray-900 uppercase tracking-tight">{pi.piNumber}</td>
+                  <td className="px-4 py-4 text-[10px] font-bold text-gray-500 uppercase">{pi.piDate ? new Date(pi.piDate).toLocaleDateString() : '-'}</td>
+                  <td className="px-4 py-4 text-[10px] font-black text-blue-600 uppercase tracking-tighter">{pi.lc?.lcNumber || '-'}</td>
+                  <td className="px-4 py-4 text-[10px] font-bold text-gray-700 uppercase">{pi.customer?.name || '-'}</td>
+                  <td className="px-4 py-4 text-right">
+                    <div className="font-mono text-xs font-black text-gray-900">{pi.currency} {pi.amount?.toLocaleString()}</div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-full border ${
+                      pi.status === 'PAID' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                      pi.status === 'ACCEPTED' ? 'bg-purple-50 text-purple-600 border-purple-100' : 
+                      'bg-gray-50 text-gray-500 border-gray-100'
+                    }`}>
+                      {pi.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4 text-center">
+                    <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => openModal(pi)} 
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-sm transition-colors"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button 
+                        onClick={() => deleteMutation.mutate(pi.id)} 
+                        className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-sm transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-lg">
-            <h3 className="text-xl font-semibold mb-4">{selectedPI ? 'Edit LC PI' : 'Create LC PI'}</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200 p-4">
+          <div className="bg-white rounded-sm border border-gray-200 shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+              <h3 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em] flex items-center gap-2">
+                {selectedPI ? <Edit2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />} 
+                {selectedPI ? 'Modify Proforma' : 'Initialize Proforma'}
+              </h3>
+            </div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-6">
               <div>
-                <label className="block text-sm font-medium mb-1">PI Number *</label>
-                <input type="text" value={formData.piNumber} onChange={(e) => setFormData({...formData, piNumber: e.target.value})} className="input" required />
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">PI Reference Number *</label>
+                <input 
+                  type="text" 
+                  value={formData.piNumber} 
+                  onChange={(e) => setFormData({...formData, piNumber: e.target.value})} 
+                  placeholder="PI-XXXX-XXXX"
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-sm font-bold text-gray-900 transition-colors" 
+                  required 
+                />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Amount *</label>
-                  <input type="number" step="0.01" value={formData.amount} onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value)})} className="input" required />
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Valuation Amount *</label>
+                  <input 
+                    type="number" step="0.01" 
+                    value={formData.amount} 
+                    onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value)})} 
+                    placeholder="0.00"
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-sm font-black text-gray-900 font-mono transition-colors" 
+                    required 
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Currency</label>
-                  <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="input">
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Currency</label>
+                  <select 
+                    value={formData.currency} 
+                    onChange={(e) => setFormData({...formData, currency: e.target.value})} 
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-sm font-bold text-gray-900 transition-colors"
+                  >
+                    <option value="USD">USD - US DOLLAR</option>
+                    <option value="EUR">EUR - EURO</option>
+                    <option value="GBP">GBP - BRITISH POUND</option>
+                    <option value="BDT">BDT - TAKA</option>
                   </select>
                 </div>
               </div>
+
               <div>
-                <label className="block text-sm font-medium mb-1">LC *</label>
-                <select value={formData.lcId} onChange={(e) => setFormData({...formData, lcId: e.target.value})} className="input" required>
-                  <option value="">Select LC</option>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Linked LC Instrument *</label>
+                <select 
+                  value={formData.lcId} 
+                  onChange={(e) => setFormData({...formData, lcId: e.target.value})} 
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-sm font-bold text-gray-900 transition-colors" 
+                  required
+                >
+                  <option value="">SELECT INSTRUMENT</option>
                   {lcsData?.map((lc: any) => <option key={lc.id} value={lc.id}>{lc.lcNumber}</option>)}
                 </select>
               </div>
+
               <div>
-                <label className="block text-sm font-medium mb-1">Customer *</label>
-                <select value={formData.customerId} onChange={(e) => setFormData({...formData, customerId: e.target.value})} className="input" required>
-                  <option value="">Select Customer</option>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Target Customer *</label>
+                <select 
+                  value={formData.customerId} 
+                  onChange={(e) => setFormData({...formData, customerId: e.target.value})} 
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-sm font-bold text-gray-900 transition-colors" 
+                  required
+                >
+                  <option value="">SELECT CUSTOMER</option>
                   {customersData?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
+
               <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
-                <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="input" rows={2} />
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Memo / Description</label>
+                <textarea 
+                  value={formData.description} 
+                  onChange={(e) => setFormData({...formData, description: e.target.value})} 
+                  placeholder="ADDITIONAL NOTES..."
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-gray-400 outline-none text-xs font-medium text-gray-900 transition-colors resize-none" 
+                  rows={2} 
+                />
               </div>
+
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={closeModal} className="btn btn-secondary flex-1">Cancel</button>
-                <button type="submit" disabled={createMutation.isPending} className="btn btn-primary flex-1">
-                  {createMutation.isPending ? 'Saving...' : 'Save'}
+                <button 
+                  type="button" 
+                  onClick={closeModal} 
+                  className="flex-1 px-6 py-2.5 bg-white border border-gray-200 text-gray-500 text-[10px] font-bold uppercase tracking-widest rounded-sm hover:bg-gray-50 transition-colors"
+                >
+                  Discard
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={createMutation.isPending} 
+                  className="flex-1 px-6 py-2.5 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest rounded-sm hover:bg-black transition-colors shadow-lg shadow-gray-200"
+                >
+                  {createMutation.isPending ? 'PROCESSING...' : 'INITIALIZE'}
                 </button>
               </div>
             </form>
@@ -300,5 +380,3 @@ export default function LCPIsPage() {
     </div>
   );
 }
-
-

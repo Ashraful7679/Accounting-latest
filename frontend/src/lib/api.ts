@@ -1,10 +1,25 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-let API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.hurainjannatoyshee.com/api';
+let API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5002';
+
+// In production (not localhost), use the default production URL if env is not set
+if (typeof window !== 'undefined' &&
+  !window.location.hostname.includes('localhost') &&
+  !window.location.hostname.includes('127.0.0.1')) {
+  if (!process.env.NEXT_PUBLIC_API_URL) {
+    API_URL = 'http://localhost:5002';
+  }
+}
+
 if (!API_URL.endsWith('/api')) {
   API_URL = `${API_URL.replace(/\/$/, '')}/api`;
 }
+
+if (typeof window !== 'undefined') {
+  console.log('[API] Using Base URL:', API_URL);
+}
+
 export const BASE_URL = API_URL.replace('/api', '');
 
 export const api = axios.create({
@@ -12,6 +27,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 15000, // 15s timeout
 });
 
 // Add auth token to requests
@@ -55,14 +71,14 @@ api.interceptors.response.use(
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
-    
+
     const systemMode = error.response?.headers?.['x-system-mode'];
     if (systemMode) {
       window.dispatchEvent(new CustomEvent('system-mode-change', { detail: systemMode }));
     }
 
     showDetailedError(error);
-    
+
     return Promise.reject(error);
   }
 );

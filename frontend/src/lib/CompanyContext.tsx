@@ -21,6 +21,10 @@ interface CompanyContextType {
   permissions: Permission[];
   hasPermission: (module: string, action: keyof Permission) => boolean;
   isLoading: boolean;
+  exchangeRate: number;
+  baseCurrency: string;
+  setExchangeRate: (rate: number) => void;
+  setBaseCurrency: (currency: string) => void;
 }
 
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
@@ -34,6 +38,8 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState('User');
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [exchangeRate, setExchangeRate] = useState(1);
+  const [baseCurrency, setBaseCurrency] = useState('USD');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -72,6 +78,8 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         .then((res: any) => {
           const name = res.data.data.name;
           setCompanyName(name);
+          setExchangeRate(res.data.data.settings?.lastUsedRate || 1);
+          setBaseCurrency(res.data.data.baseCurrency || 'USD');
           localStorage.setItem(`company_name_${realId}`, name);
         })
         .catch(() => setCompanyName('AccaBiz'))
@@ -89,7 +97,10 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <CompanyContext.Provider value={{ companyId, companyName, role, permissions, hasPermission, isLoading }}>
+    <CompanyContext.Provider value={{ 
+      companyId, companyName, role, permissions, hasPermission, isLoading,
+      exchangeRate, baseCurrency, setExchangeRate, setBaseCurrency
+    }}>
       {children}
     </CompanyContext.Provider>
   );

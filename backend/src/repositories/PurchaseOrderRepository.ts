@@ -10,7 +10,8 @@ export class PurchaseOrderRepository {
           include: {
             supplier: true,
             lc: true,
-            lines: true
+            lines: true,
+            salesOrders: true
           },
           orderBy: { createdAt: 'desc' }
         });
@@ -30,7 +31,8 @@ export class PurchaseOrderRepository {
           include: {
             supplier: true,
             lc: true,
-            lines: true
+            lines: true,
+            salesOrders: true
           }
         });
       } catch (e) {
@@ -122,5 +124,19 @@ export class PurchaseOrderRepository {
       });
     }
     return { id };
+  }
+
+  static async assignSalesOrder(poId: string, soId: string, action: 'connect' | 'disconnect') {
+    if (SYSTEM_MODE === "LIVE") {
+      return await prisma.purchaseOrder.update({
+        where: { id: poId },
+        data: {
+          salesOrders: {
+            [action === 'connect' ? 'connect' : 'disconnect']: { id: soId }
+          }
+        }
+      });
+    }
+    return { poId, soId, action };
   }
 }

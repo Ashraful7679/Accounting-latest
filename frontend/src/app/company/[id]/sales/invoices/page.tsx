@@ -9,11 +9,13 @@ import {
   FileText, Plus, Search, Edit2, Trash2, Eye,
   Calendar, DollarSign, CheckCircle2, AlertCircle,
   Layers, Send, CheckCheck, X as CloseIcon, ArrowLeft,
-  Lock, RefreshCw, ArrowUpRight
+  Lock, RefreshCw, ArrowUpRight, Printer, Truck
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { AttachmentManager } from '@/components/AttachmentManager';
 import { cn } from '@/lib/utils';
+import { useCompany } from '@/lib/CompanyContext';
+import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
 
 
 interface Invoice {
@@ -38,6 +40,7 @@ export default function SalesInvoicesPage() {
   const router = useRouter();
   const params = useParams();
   const companyId = params.id as string;
+  const { exchangeRate: globalExchangeRate, companyName } = useCompany();
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -226,8 +229,8 @@ export default function SalesInvoicesPage() {
       setFormData({
         invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
         customerId: '',
-        currency: 'BDT',
-        exchangeRate: 1,
+        currency: 'USD',
+        exchangeRate: globalExchangeRate || 1,
         invoiceDate: new Date().toISOString().split('T')[0],
         dueDate: '',
         description: '',
@@ -289,7 +292,7 @@ export default function SalesInvoicesPage() {
   const calculateTotal = () => {
     const sub = calculateSubtotal();
     const tax = calculateTax();
-    return (sub + tax) * formData.exchangeRate;
+    return (sub + tax) * (formData.exchangeRate || globalExchangeRate || 1);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -319,6 +322,66 @@ export default function SalesInvoicesPage() {
     return matchesSearch && matchesStatus;
   }) || [];
 
+  const handlePrintChallan = (inv: Invoice) => {
+    const linesHtml = inv.lines?.map((line: any, index: number) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${line.product?.name || line.description || 'N/A'}</td>
+        <td style="text-align: right;">${line.quantity}</td>
+        <td style="text-align: right;">${line.shippedQuantity || line.quantity}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="4" style="text-align: center;">No items found</td></tr>';
+
+    const html = `
+      <div style="margin-bottom: 30px;">
+        <h1 style="font-size: 24px; font-weight: bold; margin: 0 0 8px 0; color: #0f172a; text-transform: uppercase;">Delivery Challan</h1>
+        <p style="margin: 0; color: #64748b; font-size: 14px;"><strong>Invoice #:</strong> ${inv.invoiceNumber}</p>
+        <p style="margin: 0; color: #64748b; font-size: 14px;"><strong>Date:</strong> ${inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString() : '-'}</p>
+      </div>
+
+      <div style="margin-bottom: 30px; background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <h3 style="font-size: 14px; font-weight: bold; margin: 0 0 8px 0; color: #0f172a; text-transform: uppercase;">Delivery To:</h3>
+        <p style="margin: 0; color: #334155; font-weight: 600; font-size: 16px;">${inv.customer?.name || '-'}</p>
+        ${inv.customer?.code ? `<p style="margin: 4px 0 0 0; color: #64748b; font-size: 12px;">Code: ${inv.customer.code}</p>` : ''}
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
+        <thead>
+          <tr style="background-color: #f1f5f9;">
+            <th style="padding: 12px; border: 1px solid #cbd5e1; text-align: left; font-weight: bold; color: #475569; width: 50px;">Sl</th>
+            <th style="padding: 12px; border: 1px solid #cbd5e1; text-align: left; font-weight: bold; color: #475569;">Item Description</th>
+            <th style="padding: 12px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold; color: #475569; width: 120px;">Ordered Qty</th>
+            <th style="padding: 12px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold; color: #475569; width: 120px;">Delivered Qty</th>
+          </tr>
+        </thead>
+        <tbody style="border: 1px solid #cbd5e1;">
+          ${linesHtml.replace(/<td/g, '<td style="padding: 12px; border: 1px solid #cbd5e1;"')}
+        </tbody>
+      </table>
+
+      <div style="display: flex; justify-content: space-between; margin-top: 80px;">
+        <div style="text-align: center;">
+          <div style="border-top: 1px solid #94a3b8; padding-top: 8px; width: 200px;">
+            <p style="margin: 0; font-weight: bold; color: #475569;">Received By</p>
+            <p style="margin: 0; font-size: 12px; color: #94a3b8;">Signature & Date</p>
+          </div>
+        </div>
+        <div style="text-align: center;">
+          <div style="border-top: 1px solid #94a3b8; padding-top: 8px; width: 200px;">
+            <p style="margin: 0; font-weight: bold; color: #475569;">Authorized Signature</p>
+            <p style="margin: 0; font-size: 12px; color: #94a3b8;">For ${companyName || 'AccaBiz'}</p>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    openPrintWindow(buildPrintDocument({
+      title: `Delivery_Challan_${inv.invoiceNumber}`,
+      company: { name: companyName || 'AccaBiz' },
+      body: html
+    }));
+  };
+
   if (!mounted) return null;
 
   const stats = {
@@ -331,27 +394,27 @@ export default function SalesInvoicesPage() {
     <div className="min-h-screen">
       <div className="p-6 max-w-[1600px] mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-xl border border-slate-200">
-            <p className="text-sm text-slate-500 mb-1">Total Sales</p>
-            <p className="text-2xl font-bold text-blue-600">৳{stats.totalSales.toLocaleString()}</p>
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Sales</p>
+            <p className="text-xl font-black text-slate-900">৳{stats.totalSales.toLocaleString()}</p>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200">
-            <p className="text-sm text-slate-500 mb-1">Paid Amount</p>
-            <p className="text-2xl font-bold text-emerald-600">৳{stats.paidTotal.toLocaleString()}</p>
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Paid Amount</p>
+            <p className="text-xl font-black text-slate-900">৳{stats.paidTotal.toLocaleString()}</p>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200">
-            <p className="text-sm text-slate-500 mb-1">Due Amount</p>
-            <p className="text-2xl font-bold text-amber-600">৳{stats.dueTotal.toLocaleString()}</p>
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Due Amount</p>
+            <p className="text-xl font-black text-slate-900">৳{stats.dueTotal.toLocaleString()}</p>
           </div>
         </div>
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Sales Invoices</h2>
+          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Sales Invoices</h2>
           <button
             onClick={() => openModal()}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700"
+            className="bg-slate-900 text-white px-4 py-2 rounded-md font-bold text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-slate-800 transition-all active:scale-95"
           >
-            <Plus className="w-4 h-4" />
-            Create Sales Invoice
+            <Plus className="w-3 h-3" />
+            Create Invoice
           </button>
         </div>
 
@@ -427,6 +490,7 @@ export default function SalesInvoicesPage() {
                         {inv.status === 'DRAFT' && <button onClick={() => verifyMutation.mutate(inv.id)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Verify"><CheckCircle2 className="w-4 h-4" /></button>}
                         {inv.status === 'VERIFIED' && <button onClick={() => approveMutation.mutate(inv.id)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Approve"><CheckCircle2 className="w-4 h-4" /></button>}
                         {inv.status === 'APPROVED' && <button onClick={() => submitMutation.mutate(inv.id)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Mark as Sent"><ArrowUpRight className="w-4 h-4" /></button>}
+                        <button onClick={() => handlePrintChallan(inv)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Print Delivery Challan"><Truck className="w-4 h-4" /></button>
                         <button onClick={() => openModal(inv)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View"><Eye className="w-4 h-4" /></button>
                       </div>
                     </td>
@@ -439,24 +503,15 @@ export default function SalesInvoicesPage() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-[40px] shadow-[0_20px_50px_rgba(0,0,0,0.2)] w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 animate-in fade-in zoom-in duration-150">
             {/* STICKY HEADER WITH ACTIONS */}
-            <div className="px-8 py-6 border-b border-slate-100 bg-white/80 backdrop-blur-md sticky top-0 z-20 flex flex-wrap gap-4 items-center justify-between">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap gap-4 items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  <FileText className="w-6 h-6 text-indigo-600" />
-                  {selectedInvoice ? `Edit Invoice: ${selectedInvoice.invoiceNumber}` : 'Create New Invoice'}
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-slate-600" />
+                  {selectedInvoice ? `Edit Invoice: ${selectedInvoice.invoiceNumber}` : 'New Invoice'}
                 </h3>
-                <div className="flex items-center gap-3 mt-1 px-1">
-                  <span className={cn(
-                    "text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md",
-                    getStatusBadge(formData.status)
-                  )}>
-                    {formData.status}
-                  </span>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest tracking-[0.1em]">Commercial Billing Hub</p>
-                </div>
               </div>
 
               <div className="flex gap-2">
@@ -464,13 +519,10 @@ export default function SalesInvoicesPage() {
                   type="submit" 
                   form="invoice-form"
                   disabled={createMutation.isPending}
-                  className="px-6 py-3 bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all flex items-center gap-2 disabled:bg-slate-300 active:scale-95"
+                  className="px-4 py-2 bg-slate-900 text-white font-bold text-[10px] uppercase tracking-widest rounded hover:bg-slate-800 disabled:bg-slate-300 transition-all active:scale-95"
                 >
-                  <RefreshCw className={cn("w-4 h-4", createMutation.isPending && "animate-spin")} />
-                  {selectedInvoice ? (createMutation.isPending ? 'Syncing...' : 'Update Record') : (createMutation.isPending ? 'Saving...' : 'Create Record')}
+                  {selectedInvoice ? (createMutation.isPending ? 'Saving...' : 'Update') : (createMutation.isPending ? 'Saving...' : 'Create')}
                 </button>
-
-                <div className="h-10 w-px bg-slate-200 mx-2 hidden sm:block" />
 
                 {selectedInvoice && (
                   <div className="flex gap-2">
@@ -478,54 +530,20 @@ export default function SalesInvoicesPage() {
                       <button
                         type="button"
                         onClick={() => submitMutation.mutate(selectedInvoice.id)}
-                        className="px-6 py-3 bg-indigo-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-indigo-600 shadow-lg shadow-indigo-500/30 transition-all active:scale-95"
+                        className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-[10px] uppercase tracking-widest border border-slate-200 rounded hover:bg-slate-200"
                       >
-                        Submit For Verification
+                        Submit
                       </button>
                     )}
 
                     {selectedInvoice.status === 'PENDING' && ['Manager', 'Owner', 'Admin'].includes(userRole) && (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => verifyMutation.mutate(selectedInvoice.id)}
-                          className="px-6 py-3 bg-emerald-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all active:scale-95"
-                        >
-                          Verify
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const reason = window.prompt('Provide rejection reason:') ?? '';
-                            rejectMutation.mutate({ id: selectedInvoice.id, reason });
-                          }}
-                          className="px-6 py-3 bg-rose-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-rose-600 shadow-lg shadow-rose-500/30 transition-all active:scale-95"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    )}
-
-                    {(['VERIFIED', 'PENDING_APPROVAL'].includes(selectedInvoice.status)) && ['Owner', 'Admin'].includes(userRole) && (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => approveMutation.mutate(selectedInvoice.id)}
-                          className="px-6 py-3 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 transition-all active:scale-95"
-                        >
-                          Final Approve
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const reason = window.prompt('Provide rejection reason:') ?? '';
-                            rejectMutation.mutate({ id: selectedInvoice.id, reason });
-                          }}
-                          className="px-6 py-3 bg-rose-500 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-rose-600 shadow-lg shadow-rose-500/30 transition-all active:scale-95"
-                        >
-                          Reject
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => verifyMutation.mutate(selectedInvoice.id)}
+                        className="px-4 py-2 bg-blue-50 text-blue-700 font-bold text-[10px] uppercase tracking-widest border border-blue-100 rounded hover:bg-blue-100"
+                      >
+                        Verify
+                      </button>
                     )}
                   </div>
                 )}
@@ -533,10 +551,9 @@ export default function SalesInvoicesPage() {
                 <button 
                   type="button" 
                   onClick={closeModal} 
-                  className="p-3 bg-slate-100 text-slate-500 rounded-2xl hover:bg-slate-200 transition-all active:scale-90"
-                  title="Close Model"
+                  className="p-2 text-slate-400 hover:text-slate-600 transition-all"
                 >
-                  <Plus className="w-6 h-6 rotate-45" />
+                  <Plus className="w-5 h-5 rotate-45" />
                 </button>
               </div>
             </div>
@@ -549,7 +566,7 @@ export default function SalesInvoicesPage() {
                     <select 
                       value={formData.customerId} 
                       onChange={(e) => setFormData({...formData, customerId: e.target.value, piIds: [], lines: [{ productId: '', description: '', quantity: 1, shippedQuantity: 1, unitPrice: 0, taxRate: 0, taxAmount: 0, piId: '' }]})} 
-                      className="w-full px-4 py-3.5 bg-slate-50 border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 border transition-all text-sm font-black shadow-sm" 
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:border-slate-500 text-sm bg-white" 
                       required
                     >
                       <option value="">Choose a customer...</option>
@@ -561,7 +578,7 @@ export default function SalesInvoicesPage() {
                     <select 
                       value={formData.status} 
                       onChange={(e) => setFormData({...formData, status: e.target.value})}
-                      className="w-full px-4 py-3.5 bg-slate-50 border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 border transition-all text-sm font-black shadow-sm"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:border-slate-500 text-sm bg-white"
                     >
                       {['DRAFT', 'VERIFIED', 'APPROVED', 'SENT', 'PARTIAL', 'COMPLETED', 'CANCELLED', 'REJECTED'].map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
@@ -569,18 +586,18 @@ export default function SalesInvoicesPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Issuance Date</label>
-                      <input type="date" value={formData.invoiceDate} onChange={(e) => setFormData({...formData, invoiceDate: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 border transition-all text-sm font-black shadow-sm" required />
+                      <input type="date" value={formData.invoiceDate} onChange={(e) => setFormData({...formData, invoiceDate: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:border-slate-500 text-sm bg-white" required />
                     </div>
                     <div>
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Maturity Date</label>
-                      <input type="date" value={formData.dueDate} onChange={(e) => setFormData({...formData, dueDate: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 border transition-all text-sm font-black shadow-sm" />
+                      <input type="date" value={formData.dueDate} onChange={(e) => setFormData({...formData, dueDate: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:border-slate-500 text-sm bg-white" />
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-indigo-50/30 p-6 rounded-[2.5rem] border border-indigo-100/50 shadow-sm shadow-indigo-500/5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-4 rounded-md border border-slate-300">
                     <div className="md:col-span-2">
-                      <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1.5 px-1">Select Sales Orders (PIs)</label>
+                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 px-1">Select Sales Orders (PIs)</label>
                       <select 
                         multiple
                         value={formData.piIds}
@@ -588,11 +605,7 @@ export default function SalesInvoicesPage() {
                           const selectedOptions = Array.from(e.target.selectedOptions).map(opt => opt.value);
                           setFormData(prev => {
                             let newLines = [...prev.lines];
-                            
-                            // Remove lines from unselected PIs
                             newLines = newLines.filter(line => !line.piId || selectedOptions.includes(line.piId));
-                            
-                            // Add lines from newly selected PIs
                             const newlySelected = selectedOptions.filter(id => !prev.piIds.includes(id));
                             newlySelected.forEach(piId => {
                               const pi = customerPIs.find((p: any) => p.id === piId);
@@ -602,7 +615,7 @@ export default function SalesInvoicesPage() {
                                     productId: l.productId,
                                     description: l.description,
                                     quantity: l.quantity,
-                                    shippedQuantity: l.quantity, // Default to full shipment
+                                    shippedQuantity: l.quantity,
                                     unitPrice: l.unitPrice,
                                     taxRate: l.taxRate || 0,
                                     taxAmount: l.quantity * l.unitPrice * ((l.taxRate || 0) / 100),
@@ -611,49 +624,48 @@ export default function SalesInvoicesPage() {
                                 });
                               }
                             });
-                            
-                            // Remove the empty default line if we added actual lines
                             if (newLines.length > 1 && newLines[0].productId === '' && newLines[0].piId === '') {
                               newLines.shift();
                             }
-                            
                             return { ...prev, piIds: selectedOptions, lines: newLines };
                           });
                         }}
-                        className="w-full px-3 py-2.5 bg-white border-indigo-100/50 rounded-xl border text-sm font-black focus:ring-2 focus:ring-indigo-500 shadow-sm min-h-[100px]"
+                        className="w-full px-3 py-2 bg-white border-slate-200 rounded-md border text-sm font-bold focus:ring-1 focus:ring-slate-400 min-h-[100px]"
                       >
                         {customerPIs.map((pi: any) => (
                           <option key={pi.id} value={pi.id}>{pi.piNumber} (৳{pi.totalBDT})</option>
                         ))}
-                        {customerPIs.length === 0 && <option disabled>No verified/sent Sales Orders found for this customer.</option>}
-                      </select>
-                      <p className="text-[9px] text-indigo-400 font-bold mt-1.5 px-1">Hold Ctrl/Cmd to select multiple. Line items will auto-populate below.</p>
-                    </div>
-                   <div>
-                      <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1.5 px-1">Currency</label>
-                      <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full px-3 py-2.5 bg-white border-indigo-100/50 rounded-xl border text-sm font-black focus:ring-2 focus:ring-indigo-500 shadow-sm">
-                        <option value="BDT">BDT (Local)</option>
-                        <option value="USD">USD (Dollar)</option>
-                        <option value="EUR">EUR (Euro)</option>
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1.5 px-1">FX Rate (BDT)</label>
-                      <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})} className="w-full px-3 py-2.5 bg-white border-indigo-100/50 rounded-xl border text-sm font-black focus:ring-2 focus:ring-indigo-500 shadow-sm" />
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 px-1">Currency</label>
+                        <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full px-3 py-2 bg-white border-slate-300 rounded-md border text-sm focus:outline-none focus:border-slate-500">
+                          <option value="BDT">BDT (Local)</option>
+                          <option value="USD">USD (Dollar)</option>
+                          <option value="EUR">EUR (Euro)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 px-1">System Spot Rate</label>
+                        <div className="w-full px-3 py-2 bg-slate-50 border-slate-300 rounded-md border text-sm text-slate-700">
+                          {formData.exchangeRate || globalExchangeRate || 1} BDT
+                        </div>
+                      </div>
                     </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1.5 px-1">Invoice Memo / Notes</label>
-                      <input type="text" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} placeholder="Internal notes or overall description..." className="w-full px-3 py-2.5 bg-white border-indigo-100/50 rounded-xl border text-sm font-black focus:ring-2 focus:ring-indigo-500 shadow-sm" />
+                    <div className="md:col-span-3">
+                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 px-1">Memo / Description</label>
+                      <input type="text" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} placeholder="Notes for this invoice..." className="w-full px-3 py-2 bg-white border-slate-300 rounded-md border text-sm focus:outline-none focus:border-slate-500" />
                     </div>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center bg-slate-900 px-6 py-4 rounded-[2rem] shadow-xl shadow-slate-900/10">
-                    <h4 className="font-black text-white uppercase text-[10px] tracking-[0.3em] flex items-center gap-2">
-                       <Layers className="w-4 h-4 text-indigo-400" />
+                  <div className="flex justify-between items-center bg-slate-100 border border-slate-300 px-4 py-3 rounded-md">
+                    <h4 className="font-semibold text-slate-800 uppercase text-xs tracking-wider flex items-center gap-2">
+                       <Layers className="w-4 h-4 text-slate-500" />
                        Transaction Components
                     </h4>
-                    <button type="button" onClick={addLine} className="text-indigo-400 hover:text-white transition-colors text-[10px] font-black uppercase tracking-widest flex items-center gap-2 group">
+                    <button type="button" onClick={addLine} className="text-slate-600 hover:text-slate-900 transition-colors text-xs font-bold uppercase tracking-wider flex items-center gap-2 group">
                       <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform bg-indigo-500/20 rounded-lg p-0.5" /> Add New Row
                     </button>
                   </div>
@@ -667,8 +679,8 @@ export default function SalesInvoicesPage() {
                       const pi = customerPIs?.find((p: any) => p.id === piId);
                       
                       return (
-                        <div key={piId || 'custom'} className="mb-6 border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm">
-                          <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
+                        <div key={piId || 'custom'} className="mb-6 border border-slate-300 rounded-md overflow-hidden bg-white">
+                          <div className="bg-slate-50 px-4 py-2 border-b border-slate-300 flex justify-between items-center">
                             <span className="text-xs font-black text-slate-700 uppercase tracking-widest">
                               {piId ? `Sales Order: ${pi?.piNumber || 'Unknown'}` : 'Custom Invoice Lines'}
                             </span>

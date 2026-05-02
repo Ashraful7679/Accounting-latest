@@ -1,20 +1,18 @@
 'use client';
 
-
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
-  FileText, Plus, Search, Filter, Edit2, Trash2, Eye,
-  ChevronDown, CheckCircle2, AlertCircle, DollarSign, Calendar,
-  ArrowUpRight, ArrowDownRight, Building2, Globe, ArrowRightLeft, Lock
+  FileText, Plus, Search, Edit2, Trash2,
+  CheckCircle2, X, AlertCircle, ArrowUpRight, Eye, Globe, Lock, ChevronDown, DollarSign, Calendar, ArrowDownRight
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
-
+import { formatCurrency, getCurrencySymbol } from '@/lib/decimalUtils';
+import { useCompany } from '@/lib/CompanyContext';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -53,13 +51,16 @@ export default function ExportPIsPage() {
   const params = useParams();
   const companyId = params.id as string;
   const queryClient = useQueryClient();
+  const { exchangeRate } = useCompany();
   const [mounted, setMounted] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedPI, setSelectedPI] = useState<PI | null>(null);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [isAutoPI, setIsAutoPI] = useState(false);
+  
   const [formData, setFormData] = useState({
     piNumber: '',
     currency: 'USD',
-    exchangeRate: 110,
     piDate: new Date().toISOString().split('T')[0],
     invoiceNumber: '',
     submissionToBuyerDate: '',
@@ -72,9 +73,8 @@ export default function ExportPIsPage() {
     status: 'DRAFT',
     lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }] as PILine[]
   });
-  const [isAutoPI, setIsAutoPI] = useState(true);
+  
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
     setMounted(true);
@@ -100,15 +100,6 @@ export default function ExportPIsPage() {
     enabled: !!companyId,
   });
 
-  const { data: lcsData } = useQuery({
-    queryKey: ['lcs', companyId],
-    queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/lcs`);
-      return response.data.data;
-    },
-    enabled: !!companyId,
-  });
-
   const { data: allProductsData } = useQuery({
     queryKey: ['products', companyId],
     queryFn: async () => {
@@ -121,49 +112,62 @@ export default function ExportPIsPage() {
   const { data: customerProductsData } = useQuery({
     queryKey: ['customer-products', companyId, formData.customerId],
     queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/products/entity?customerId=${formData.customerId}`);
-      return response.data.data;
+      if (!formData.customerId) return [];
+      const response = await api.get(`/company/${companyId}/customers/${formData.customerId}`);
+      return response.data.data?.products || [];
     },
     enabled: !!companyId && !!formData.customerId,
   });
 
-  const productsData = customerProductsData?.length > 0 
-    ? customerProductsData.map((m: any) => ({ ...m.product, customPrice: m.price, customCurrency: m.currency }))
-    : allProductsData;
+  const { data: lcsData } = useQuery({
+    queryKey: ['lcs', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/lcs`);
+      return response.data.data;
+    },
+    enabled: !!companyId,
+  });
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       const totalForeign = data.lines.reduce((acc: number, line: PILine) => acc + (line.quantity * line.unitPrice), 0);
-      const response = await api.post(`/company/${companyId}/pis`, { ...data, amount: totalForeign, totalBDT: totalForeign * data.exchangeRate, type: 'EXPORT' });
+      const response = await api.post(`/company/${companyId}/pis`, { 
+        ...data, 
+        amount: totalForeign, 
+        exchangeRate: exchangeRate,
+        totalBDT: totalForeign * exchangeRate, 
+        type: 'EXPORT' 
+      });
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['export-pis', companyId] });
       toast.success('Export PI registered successfully');
-      closeModal();
+      setShowModal(false);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to create PI');
+      toast.error(error.response?.data?.message || 'Failed to create PI');
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       const totalForeign = data.lines.reduce((acc: number, line: PILine) => acc + (line.quantity * line.unitPrice), 0);
-      const response = await api.put(`/company/${companyId}/pis/${id}`, { ...data, amount: totalForeign, totalBDT: totalForeign * data.exchangeRate });
+      const response = await api.put(`/company/${companyId}/pis/${id}`, { 
+        ...data, 
+        amount: totalForeign, 
+        exchangeRate: exchangeRate,
+        totalBDT: totalForeign * exchangeRate 
+      });
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['export-pis', companyId] });
       toast.success('PI details updated');
-      closeModal();
+      setShowModal(false);
     },
     onError: (error: any) => {
-      const msg = error.response?.data?.error?.message || 'Failed to update PI';
-      toast.error(msg);
-      if (msg.toLowerCase().includes('already exists')) {
-        // Highlight PI number field error if needed
-      }
+      toast.error(error.response?.data?.message || 'Failed to update PI');
     },
   });
 
@@ -177,50 +181,19 @@ export default function ExportPIsPage() {
       toast.success('PI deleted');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to delete PI');
+      toast.error(error.response?.data?.message || 'Failed to delete PI');
     },
   });
-
-  // Task 2.6: Reactive Currency Sync
-  useEffect(() => {
-    if (!mounted || !productsData) return;
-    
-    setFormData(prev => {
-      const rate = Number(prev.exchangeRate) || 1;
-      const updatedLines = prev.lines.map(line => {
-        if (line.productId) {
-          const product = productsData.find((p: any) => p.id === line.productId);
-          if (product) {
-            const newPrice = Number((product.unitPrice / rate).toFixed(2));
-            const newTotal = Number((line.quantity * newPrice).toFixed(2));
-            return { ...line, unitPrice: newPrice, total: newTotal };
-          }
-        }
-        return line;
-      });
-      
-      if (JSON.stringify(updatedLines) === JSON.stringify(prev.lines)) return prev;
-      return { ...prev, lines: updatedLines };
-    });
-  }, [formData.currency, formData.exchangeRate, productsData, mounted]);
 
   const handleLineChange = (index: number, field: string, value: any) => {
     const newLines = [...formData.lines];
     const line = { ...newLines[index], [field]: value };
-    const exchangeRate = Number(formData.exchangeRate) || 1;
     
-    // Auto-fill from product
     if (field === 'productId' && value) {
-      const product = productsData?.find((p: any) => p.id === value);
+      const product = allProductsData?.find((p: any) => p.id === value);
       if (product) {
         line.description = product.name;
-        // Task 6: Use custom price if available, otherwise fallback to BDT conversion
-        if (product.customPrice) {
-          line.unitPrice = product.customPrice;
-          setFormData(prev => ({ ...prev, currency: product.customCurrency || prev.currency }));
-        } else {
-          line.unitPrice = Number((product.unitPrice / exchangeRate).toFixed(2));
-        }
+        line.unitPrice = Number((product.unitPrice / exchangeRate).toFixed(2));
       }
     }
     
@@ -255,7 +228,6 @@ export default function ExportPIsPage() {
       setFormData({
         piNumber: pi.piNumber || '',
         currency: pi.currency || 'USD',
-        exchangeRate: pi.exchangeRate || 110,
         piDate: pi.piDate ? pi.piDate.split('T')[0] : '',
         invoiceNumber: pi.invoiceNumber || '',
         submissionToBuyerDate: pi.submissionToBuyerDate ? pi.submissionToBuyerDate.split('T')[0] : '',
@@ -274,13 +246,11 @@ export default function ExportPIsPage() {
           total: Number((l.quantity * l.unitPrice).toFixed(2))
         })) : [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }]
       });
-      setIsAutoPI(false);
     } else {
       setSelectedPI(null);
       setFormData({
         piNumber: '',
         currency: 'USD',
-        exchangeRate: 110,
         piDate: new Date().toISOString().split('T')[0],
         invoiceNumber: '',
         submissionToBuyerDate: '',
@@ -293,14 +263,8 @@ export default function ExportPIsPage() {
         status: 'DRAFT',
         lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }]
       });
-      setIsAutoPI(true);
     }
     setShowModal(true);
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setSelectedPI(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -308,12 +272,13 @@ export default function ExportPIsPage() {
     if (selectedPI) {
       updateMutation.mutate({ id: selectedPI.id, data: formData });
     } else {
-      const dataToSubmit = { ...formData };
-      if (isAutoPI) {
-        delete (dataToSubmit as any).piNumber;
-      }
-      createMutation.mutate(dataToSubmit);
+      createMutation.mutate(formData);
     }
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedPI(null);
   };
 
   const getStatusBadge = (status: string) => {
@@ -563,7 +528,7 @@ export default function ExportPIsPage() {
                           currency: customer?.preferredCurrency || formData.currency
                         });
                       }}
-                      className="w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-black text-sm"
+                      className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-3 py-2 outline-none transition-all text-sm"
                       required
                     >
                       <option value="">Select Company</option>
@@ -585,24 +550,26 @@ export default function ExportPIsPage() {
                     <select 
                       value={formData.lcId} 
                       onChange={(e) => setFormData({...formData, lcId: e.target.value})}
-                      className="w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-black text-sm"
+                      className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-3 py-2 outline-none transition-all text-sm"
                     >
                       <option value="">Direct Export</option>
                       {lcsData?.filter((l: any) => l.type === 'EXPORT').map((l: any) => <option key={l.id} value={l.id}>{l.lcNumber}</option>)}
                     </select>
                   </div>
 
-                  <div className="p-4 bg-emerald-50/50 rounded-[2rem] border border-emerald-100 space-y-3">
-                    <h4 className="text-xs font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2">
+                  <div className="p-4 bg-slate-50 rounded-md border border-slate-300 space-y-3">
+                    <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-widest flex items-center gap-2">
                        <DollarSign className="w-4 h-4" /> Currency Sync
                     </h4>
                     <div className="grid grid-cols-2 gap-2">
-                      <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="bg-white rounded-xl px-2 py-2 text-sm font-black border border-emerald-100 outline-none focus:ring-2 focus:ring-emerald-500">
+                      <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="bg-white rounded-md px-2 py-2 text-sm border border-slate-300 outline-none focus:border-slate-500">
                         <option value="USD">USD</option>
                         <option value="BDT">BDT</option>
                         <option value="EUR">EUR</option>
                       </select>
-                      <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})} className="bg-white rounded-xl px-2 py-2 text-sm font-black border border-emerald-100 outline-none w-full focus:ring-2 focus:ring-emerald-500" placeholder="Rate" />
+                      <div className="bg-slate-100 rounded-md px-3 py-2 text-sm border border-slate-300 text-slate-600 flex items-center">
+                        {exchangeRate || 1} BDT
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -619,8 +586,8 @@ export default function ExportPIsPage() {
                         <p className="text-3xl font-black text-slate-900 font-mono tracking-tight tabular-nums">{getCurrencySymbol(formData.currency)}{formatCurrency(calculateSubtotal())}</p>
                       </div>
                       <div className="pt-4 border-t border-slate-200">
-                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Equivalent BDT</p>
-                        <p className="text-3xl font-black text-emerald-700 font-mono tracking-tight tabular-nums">{getCurrencySymbol('BDT')}{formatCurrency(calculateSubtotal() * formData.exchangeRate)}</p>
+                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1 flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> Total Local (BDT)</p>
+                        <p className="text-3xl font-black text-emerald-700 font-mono tracking-tight tabular-nums">{getCurrencySymbol('BDT')}{formatCurrency(calculateSubtotal() * exchangeRate)}</p>
                       </div>
                     </div>
                   </div>
@@ -630,7 +597,7 @@ export default function ExportPIsPage() {
                       value={formData.description} 
                       onChange={(e) => setFormData({...formData, description: e.target.value})}
                       rows={3}
-                      className="w-full bg-slate-50 border-2 border-slate-100 focus:border-blue-600 focus:bg-white rounded-2xl px-4 py-3 outline-none transition-all font-bold text-sm resize-none"
+                      className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-3 py-2 outline-none transition-all text-sm resize-none"
                       placeholder="Add any special instructions or remarks..."
                     />
                   </div>
@@ -645,26 +612,26 @@ export default function ExportPIsPage() {
                     <div className="space-y-4">
                       <div>
                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Invoice Reference</label>
-                        <input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({...formData, invoiceNumber: e.target.value})} className="w-full bg-white border-2 border-slate-100 focus:border-indigo-600 rounded-xl px-4 py-2.5 outline-none transition-all font-bold text-sm shadow-sm" />
+                        <input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({...formData, invoiceNumber: e.target.value})} className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-3 py-2 outline-none transition-all text-sm" />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1.5">Subm. Buyer</label>
-                          <input type="date" value={formData.submissionToBuyerDate} onChange={(e) => setFormData({...formData, submissionToBuyerDate: e.target.value})} className="w-full bg-white border-2 border-slate-100 focus:border-indigo-600 rounded-xl px-3 py-2 outline-none transition-all font-bold text-[10px] shadow-sm" />
+                          <input type="date" value={formData.submissionToBuyerDate} onChange={(e) => setFormData({...formData, submissionToBuyerDate: e.target.value})} className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-2 py-1 outline-none transition-all text-sm" />
                         </div>
                         <div>
                           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1.5">Subm. Bank</label>
-                          <input type="date" value={formData.submissionToBankDate} onChange={(e) => setFormData({...formData, submissionToBankDate: e.target.value})} className="w-full bg-white border-2 border-slate-100 focus:border-indigo-600 rounded-xl px-3 py-2 outline-none transition-all font-bold text-[10px] shadow-sm" />
+                          <input type="date" value={formData.submissionToBankDate} onChange={(e) => setFormData({...formData, submissionToBankDate: e.target.value})} className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-2 py-1 outline-none transition-all text-sm" />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1.5">Acceptance</label>
-                          <input type="date" value={formData.bankAcceptanceDate} onChange={(e) => setFormData({...formData, bankAcceptanceDate: e.target.value})} className="w-full bg-white border-2 border-slate-100 focus:border-indigo-600 rounded-xl px-3 py-2 outline-none transition-all font-bold text-[10px] shadow-sm" />
+                          <input type="date" value={formData.bankAcceptanceDate} onChange={(e) => setFormData({...formData, bankAcceptanceDate: e.target.value})} className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-2 py-1 outline-none transition-all text-sm" />
                         </div>
                         <div>
                           <label className="block text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1.5">Maturity</label>
-                          <input type="date" value={formData.maturityDate} onChange={(e) => setFormData({...formData, maturityDate: e.target.value})} className="w-full bg-white border-2 border-slate-100 focus:border-indigo-600 rounded-xl px-3 py-2 outline-none transition-all font-bold text-[10px] shadow-sm" />
+                          <input type="date" value={formData.maturityDate} onChange={(e) => setFormData({...formData, maturityDate: e.target.value})} className="w-full bg-white border border-slate-300 focus:border-slate-500 rounded-md px-2 py-1 outline-none transition-all text-sm" />
                         </div>
                       </div>
                     </div>
@@ -703,7 +670,7 @@ export default function ExportPIsPage() {
                             className="w-full px-4 py-2 bg-white border-2 border-slate-100 rounded-xl text-sm font-black focus:border-blue-600 transition-all outline-none"
                           >
                             <option value="">Custom Line</option>
-                            {productsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            {allProductsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
                         </div>
                         <div className="col-span-3">

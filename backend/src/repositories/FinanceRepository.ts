@@ -14,7 +14,16 @@ export class FinanceRepository {
   static async findLCs(companyId: string) {
     if (SYSTEM_MODE === "LIVE") {
       try {
-        return await prisma.lC.findMany({ where: { companyId }, orderBy: { createdAt: 'desc' } });
+        return await prisma.lC.findMany({ 
+          where: { companyId }, 
+          include: {
+            purchaseOrders: true,
+            salesOrders: true,
+            customer: true,
+            vendor: true
+          },
+          orderBy: { createdAt: 'desc' } 
+        });
       } catch (error) {
         console.error('LC fetch failed, using demo data');
       }

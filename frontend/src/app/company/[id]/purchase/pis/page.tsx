@@ -1,19 +1,20 @@
 'use client';
 
-
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
   FileText, Plus, Search, Edit2, Trash2,
-  Calendar, Building2, Eye, X, Send, CheckCircle
+  Calendar, Building2, Eye, X, Send, CheckCircle,
+  Link as LinkIcon
 } from 'lucide-react';
 import { AttachmentManager } from '@/components/AttachmentManager';
+import { useCompany } from '@/lib/CompanyContext';
 import { toast } from 'react-hot-toast';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-
+import { formatCurrency } from '@/lib/decimalUtils';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -44,6 +45,8 @@ export default function ImportPIsPage() {
   const [mounted, setMounted] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedPI, setSelectedPI] = useState<PI | null>(null);
+  const { exchangeRate: globalRate } = useCompany();
+  
   const [formData, setFormData] = useState({
     piNumber: '',
     amount: 0,
@@ -55,22 +58,11 @@ export default function ImportPIsPage() {
     vendorId: '',
     lcId: '',
     description: '',
-    exchangeRate: 120,
   });
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [role, setRole] = useState('User');
-
-  const statusOrder: Record<string, number> = {
-    'DRAFT': 0,
-    'SUBMITTED': 1,
-    'VERIFIED': 2,
-    'APPROVED': 3,
-    'PAID': 4,
-    'CLOSED': 5
-  };
-
-  const isOwner = role === 'Owner' || role === 'Admin';
 
   useEffect(() => {
     setMounted(true);
@@ -112,53 +104,41 @@ export default function ImportPIsPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await api.post(`/company/${companyId}/pis`, { ...data, type: 'IMPORT' });
+      const response = await api.post(`/company/${companyId}/pis`, { 
+        ...data, 
+        type: 'IMPORT',
+        exchangeRate: globalRate,
+        totalBDT: data.amount * globalRate
+      });
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['import-pis', companyId] });
-      toast.success('Import PI created successfully');
-      closeModal();
+      toast.success('Import PI registered');
+      setShowModal(false);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to create PI');
+      toast.error(error.response?.data?.message || 'Failed to register PI');
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const response = await api.put(`/company/${companyId}/pis/${id}`, data);
+      const response = await api.put(`/company/${companyId}/pis/${id}`, {
+        ...data,
+        exchangeRate: globalRate,
+        totalBDT: data.amount * globalRate
+      });
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['import-pis', companyId] });
-      toast.success('PI updated successfully');
-      closeModal();
+      toast.success('PI details updated');
+      setShowModal(false);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to update PI');
+      toast.error(error.response?.data?.message || 'Failed to update PI');
     },
-  });
-
-  const statusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string, status: string }) => {
-      let endpoint = '';
-      if (status === 'VERIFIED') endpoint = 'verify';
-      else if (status === 'APPROVED') endpoint = 'approve';
-      else if (status === 'REJECTED') endpoint = 'reject';
-      
-      if (endpoint) {
-        return await api.patch(`/company/${companyId}/pis/${id}/${endpoint}`);
-      }
-      return await api.put(`/company/${companyId}/pis/${id}`, { status });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['import-pis', companyId] });
-      toast.success('PI status updated');
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to update status');
-    }
   });
 
   const deleteMutation = useMutation({
@@ -168,10 +148,10 @@ export default function ImportPIsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['import-pis', companyId] });
-      toast.success('PI deleted successfully');
+      toast.success('PI deleted');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to delete PI');
+      toast.error(error.response?.data?.message || 'Failed to delete PI');
     },
   });
 
@@ -189,7 +169,6 @@ export default function ImportPIsPage() {
         vendorId: pi.vendor?.id || '',
         lcId: pi.lc?.id || '',
         description: pi.description || '',
-        exchangeRate: pi.exchangeRate || 120,
       });
     } else {
       setSelectedPI(null);
@@ -204,15 +183,9 @@ export default function ImportPIsPage() {
         vendorId: '',
         lcId: '',
         description: '',
-        exchangeRate: 120,
       });
     }
     setShowModal(true);
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setSelectedPI(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -224,217 +197,220 @@ export default function ImportPIsPage() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      DRAFT: 'bg-gray-100 text-gray-800',
-      SUBMITTED: 'bg-blue-100 text-blue-800',
-      APPROVED: 'bg-purple-100 text-purple-800',
-      PAID: 'bg-green-100 text-green-800',
-      PARTIAL: 'bg-yellow-100 text-yellow-800',
-      OVERDUE: 'bg-red-100 text-red-800',
-    };
-    return styles[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const filteredPIs = pisData?.filter(pi => {
-    const matchesSearch = !searchTerm || 
-      pi.piNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      pi.vendor?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || pi.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  }) || [];
-
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen">
-
-
-
-        <div className="p-6 max-w-[1600px] mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Import Proforma Invoices</h2>
-            <button
-              onClick={() => openModal()}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700"
-            >
-              <Plus className="w-4 h-4" />
-              Add Import PI
-            </button>
+    <div className="p-4 space-y-4">
+      <div className="flex justify-between items-center bg-white p-4 border border-gray-200 rounded-sm shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-gray-50 border border-gray-200 rounded-sm flex items-center justify-center">
+            <Building2 className="w-6 h-6 text-gray-700" />
           </div>
-
-          <div className="flex gap-4 mb-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search by PI Number or Supplier..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Status</option>
-              <option value="DRAFT">Draft</option>
-              <option value="SUBMITTED">Submitted</option>
-              <option value="APPROVED">Approved</option>
-              <option value="PAID">Paid</option>
-              <option value="PARTIAL">Partial</option>
-              <option value="OVERDUE">Overdue</option>
-            </select>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">PI Number</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Supplier</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">LC</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Amount (Foreign)</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Total (৳)</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Due Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {isLoading ? (
-                  <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">Loading...</td></tr>
-                ) : filteredPIs.length === 0 ? (
-                  <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500">No Import PIs found</td></tr>
-                ) : (
-                  filteredPIs.map((pi) => (
-                    <tr key={pi.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium">{pi.piNumber}</td>
-                      <td className="px-4 py-3 text-slate-500">{pi.piDate ? new Date(pi.piDate).toLocaleDateString() : '-'}</td>
-                      <td className="px-4 py-3">{pi.vendor?.name || '-'}</td>
-                      <td className="px-4 py-3 text-slate-500">{pi.lc?.lcNumber || '-'}</td>
-                      <td className="px-4 py-3 text-right font-mono text-slate-600">
-                        {pi.currency} {pi.amount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
-                        ৳{(pi.totalBDT || (pi.amount * (pi.exchangeRate || 1)))?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-4 py-3 text-slate-500">{pi.paymentDueDate ? new Date(pi.paymentDueDate).toLocaleDateString() : '-'}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(pi.status)}`}>{pi.status}</span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <select 
-                             value={pi.status}
-                             onChange={(e) => {
-                               const nextStatus = e.target.value;
-                               if (statusOrder[nextStatus] < statusOrder[pi.status] && !isOwner) {
-                                 toast.error(`Cannot change status backward to ${nextStatus}`);
-                                 return;
-                               }
-                               statusMutation.mutate({ id: pi.id, status: nextStatus });
-                             }}
-                             className="px-2 py-1 text-xs rounded border border-slate-200 bg-white"
-                           >
-                              <option value="DRAFT">DRAFT</option>
-                              <option value="SUBMITTED">SUBMITTED</option>
-                              <option value="VERIFIED">VERIFIED</option>
-                              <option value="APPROVED">APPROVED</option>
-                              <option value="PAID">PAID</option>
-                           </select>
-                          {(pi.status === 'DRAFT' || isOwner) && (
-                            <>
-                              <button onClick={() => openModal(pi)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="w-4 h-4" /></button>
-                              <button onClick={() => {
-                                  if (window.confirm("Are you sure?")) deleteMutation.mutate(pi.id);
-                              }} className="p-1 text-red-600 hover:bg-red-50 rounded ml-1"><Trash2 className="w-4 h-4" /></button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Proforma Invoices (Import)</h1>
+            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Procurement & LC Tracking</p>
           </div>
         </div>
-      
+        <button 
+          onClick={() => openModal()}
+          className="btn btn-primary bg-gray-900 hover:bg-black flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" /> New Import PI
+        </button>
+      </div>
 
+      <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
+        <div className="p-3 border-b border-gray-100 flex gap-4 bg-gray-50">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by PI # or Supplier..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-gray-200 rounded-sm outline-none focus:border-blue-500 font-medium"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-4 py-3 font-bold text-gray-500 uppercase tracking-wider">PI Number</th>
+                <th className="px-4 py-3 font-bold text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-4 py-3 font-bold text-gray-500 uppercase tracking-wider">Supplier</th>
+                <th className="px-4 py-3 font-bold text-gray-500 uppercase tracking-wider text-right">Amount</th>
+                <th className="px-4 py-3 font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 font-bold text-gray-500 uppercase tracking-wider text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {isLoading ? (
+                <tr><td colSpan={6} className="text-center py-10 text-gray-400 font-medium">Loading records...</td></tr>
+              ) : pisData?.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-10 text-gray-400 font-medium">No records found</td></tr>
+              ) : (
+                pisData?.filter(pi => !searchTerm || pi.piNumber.toLowerCase().includes(searchTerm.toLowerCase()) || pi.vendor?.name.toLowerCase().includes(searchTerm.toLowerCase())).map((pi) => (
+                  <tr key={pi.id} className="hover:bg-gray-50 transition-colors group">
+                    <td className="px-4 py-3 font-black text-gray-900">{pi.piNumber}</td>
+                    <td className="px-4 py-3 text-gray-600 font-medium">{new Date(pi.piDate).toLocaleDateString()}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-bold text-gray-800">{pi.vendor?.name}</div>
+                      <div className="text-[10px] text-gray-400 font-black">{pi.vendor?.code}</div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="font-black text-gray-900">{pi.currency} {formatCurrency(pi.amount)}</div>
+                      <div className="text-[10px] text-gray-400 font-bold">{formatCurrency(pi.amount * (pi.exchangeRate || globalRate))} BDT</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={cn(
+                        "px-1.5 py-0.5 text-[9px] font-black rounded border",
+                        pi.status === 'APPROVED' ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-gray-50 text-gray-600 border-gray-200"
+                      )}>
+                        {pi.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openModal(pi)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-sm">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            if (confirm('Delete this PI?')) deleteMutation.mutate(pi.id);
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-sm"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* PI Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-4">{selectedPI ? 'Edit Import PI' : 'Create Import PI'}</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">PI Number *</label>
-                  <input type="text" value={formData.piNumber} onChange={(e) => setFormData({...formData, piNumber: e.target.value})} className="input" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">PI Date *</label>
-                  <input type="date" value={formData.piDate} onChange={(e) => setFormData({...formData, piDate: e.target.value})} className="input" required />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Amount *</label>
-                  <input type="number" step="0.01" value={formData.amount} onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value)})} className="input" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Currency</label>
-                  <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="input">
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                    <option value="BDT">BDT</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Exchange Rate</label>
-                  <input type="number" step="0.01" value={formData.exchangeRate} onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})} className="input" />
-                </div>
-              </div>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-gray-200 shadow-2xl w-full max-w-2xl rounded-sm overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
               <div>
-                <label className="block text-sm font-medium mb-1">Supplier *</label>
-                <select value={formData.vendorId} onChange={(e) => setFormData({...formData, vendorId: e.target.value})} className="input" required>
+                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-gray-600" />
+                  {selectedPI ? 'Edit Import PI' : 'Register Import PI'}
+                </h3>
+                <p className="text-[10px] text-gray-500 font-bold uppercase">Procurement Module • System Spot Rate Tracking</p>
+              </div>
+              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-200 rounded-full">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">PI Number *</label>
+                  <input
+                    required
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-bold"
+                    value={formData.piNumber}
+                    onChange={(e) => setFormData({ ...formData, piNumber: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">PI Date *</label>
+                  <input
+                    required type="date"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-medium"
+                    value={formData.piDate}
+                    onChange={(e) => setFormData({ ...formData, piDate: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Supplier / Vendor *</label>
+                <select
+                  required
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-bold"
+                  value={formData.vendorId}
+                  onChange={(e) => setFormData({ ...formData, vendorId: e.target.value })}
+                >
                   <option value="">Select Supplier</option>
-                  {vendorsData?.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                  {vendorsData?.map((v: any) => (
+                    <option key={v.id} value={v.id}>{v.name} ({v.code})</option>
+                  ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Linked LC</label>
-                <select value={formData.lcId} onChange={(e) => setFormData({...formData, lcId: e.target.value})} className="input">
-                  <option value="">Select LC (Optional)</option>
-                  {lcsData?.map((lc: any) => <option key={lc.id} value={lc.id}>{lc.lcNumber} - {lc.bankName}</option>)}
-                </select>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">PI Total Amount *</label>
+                  <div className="flex">
+                    <select
+                      className="px-3 bg-gray-100 border border-gray-200 border-r-0 rounded-l-sm text-xs font-black"
+                      value={formData.currency}
+                      onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                    >
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="BDT">BDT</option>
+                    </select>
+                    <input
+                      required type="number" step="0.01"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-r-sm focus:border-blue-500 outline-none text-sm font-black"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Current Spot Rate</label>
+                  <div className="px-3 py-2 bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm font-black rounded-sm text-center">
+                    {globalRate} <span className="text-[9px] opacity-60">BDT</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Invoice Number</label>
-                <input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({...formData, invoiceNumber: e.target.value})} className="input" />
-              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Submission Date</label>
-                  <input type="date" value={formData.submissionDate} onChange={(e) => setFormData({...formData, submissionDate: e.target.value})} className="input" />
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Submission Date</label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-medium"
+                    value={formData.submissionDate}
+                    onChange={(e) => setFormData({ ...formData, submissionDate: e.target.value })}
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Payment Due Date</label>
-                  <input type="date" value={formData.paymentDueDate} onChange={(e) => setFormData({...formData, paymentDueDate: e.target.value})} className="input" />
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Payment Due Date</label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-sm font-medium"
+                    value={formData.paymentDueDate}
+                    onChange={(e) => setFormData({ ...formData, paymentDueDate: e.target.value })}
+                  />
                 </div>
               </div>
+
               <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
-                <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="input" rows={3} />
+                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Description / Notes</label>
+                <textarea
+                  rows={2}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-sm focus:border-blue-500 outline-none text-xs font-medium resize-none"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
               </div>
-              {/* Attachments Section */}
+
               {selectedPI && (
-                <div className="pt-6 border-t mt-4">
-                  <AttachmentManager 
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-sm">
+                   <AttachmentManager 
                     entityType="PI" 
                     entityId={selectedPI.id} 
                     canEdit={selectedPI.status === 'DRAFT'} 
@@ -442,10 +418,32 @@ export default function ImportPIsPage() {
                 </div>
               )}
 
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={closeModal} className="btn btn-secondary flex-1">Cancel</button>
-                <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="btn btn-primary flex-1">
-                  {createMutation.isPending || updateMutation.isPending ? 'Saving...' : 'Save'}
+              <div className="bg-gray-900 p-4 rounded-sm flex justify-between items-center shadow-inner">
+                <div>
+                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Estimated Value</p>
+                  <p className="text-xl font-black text-white">{formatCurrency(formData.amount * globalRate)} <span className="text-xs opacity-40">BDT</span></p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Base Amount</p>
+                  <p className="text-lg font-bold text-gray-300">{formData.currency} {formatCurrency(formData.amount)}</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-6 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-bold rounded-sm hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                  className="px-8 py-2 bg-gray-900 text-white text-sm font-black rounded-sm hover:bg-black disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-gray-200"
+                >
+                  {createMutation.isPending || updateMutation.isPending ? 'Processing...' : (selectedPI ? 'Update PI' : 'Register PI')}
+                  <CheckCircle className="w-4 h-4" />
                 </button>
               </div>
             </form>

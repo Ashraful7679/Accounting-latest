@@ -12,7 +12,7 @@ export class SequenceService {
    */
   static async generateDocumentNumber(
     companyId: string,
-    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product' | 'employee' | 'account',
+    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product' | 'employee' | 'account' | 'so' | 'dn',
     prismaOverride?: any
   ): Promise<string> {
     const client = prismaOverride || prisma;
@@ -27,6 +27,8 @@ export class SequenceService {
       product: 'PRD',
       employee: 'EMP',
       account: 'ACC',
+      so: 'SO',
+      dn: 'DN',
     };
 
     const prefix = prefixes[type];
@@ -65,6 +67,12 @@ export class SequenceService {
         break;
       case 'account':
         count = await client.account.count({ where: { companyId, code: { startsWith: prefixYear } } });
+        break;
+      case 'so':
+        count = await (client as any).salesOrder.count({ where: { companyId, soNumber: { startsWith: prefixYear } } });
+        break;
+      case 'dn':
+        count = await (client as any).dN.count({ where: { companyId, dnNumber: { startsWith: prefixYear } } });
         break;
     }
 
@@ -106,6 +114,12 @@ export class SequenceService {
           break;
         case 'account':
           alreadyExists = !!(await client.account.findUnique({ where: { companyId_code: { companyId, code: candidate } } }));
+          break;
+        case 'so':
+          alreadyExists = !!(await (client as any).salesOrder.findUnique({ where: { companyId_soNumber: { companyId, soNumber: candidate } } }));
+          break;
+        case 'dn':
+          alreadyExists = !!(await (client as any).dN.findUnique({ where: { companyId_dnNumber: { companyId, dnNumber: candidate } } }));
           break;
       }
 

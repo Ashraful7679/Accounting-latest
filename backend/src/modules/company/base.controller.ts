@@ -63,7 +63,7 @@ export class BaseCompanyController {
 
   protected async generateDocumentNumber(
     companyId: string, 
-    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product' | 'employee',
+    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product' | 'employee' | 'account' | 'so' | 'dn',
     prismaOverride?: any
   ): Promise<string> {
     return SequenceService.generateDocumentNumber(companyId, type, prismaOverride);

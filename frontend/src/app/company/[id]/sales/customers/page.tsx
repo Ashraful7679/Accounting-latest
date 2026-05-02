@@ -136,8 +136,8 @@ export default function CompanyCustomersPage() {
   };
 
   const filteredCustomers = customersData?.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    c.code.toLowerCase().includes(searchTerm.toLowerCase())
+    (c.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || 
+    (c.code?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   ) || [];
 
   return (

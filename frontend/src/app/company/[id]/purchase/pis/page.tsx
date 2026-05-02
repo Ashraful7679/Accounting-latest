@@ -219,7 +219,11 @@ export default function ImportPIsPage() {
             ) : pisData?.length === 0 ? (
               <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400 font-mono uppercase tracking-widest">No records found</td></tr>
             ) : (
-              pisData?.filter(pi => !searchTerm || pi.piNumber.toLowerCase().includes(searchTerm.toLowerCase()) || pi.vendor?.name.toLowerCase().includes(searchTerm.toLowerCase())).map((pi) => (
+              pisData?.filter(pi => 
+                !searchTerm || 
+                (pi.piNumber?.toLowerCase() ?? '').includes(searchTerm.toLowerCase()) || 
+                (pi.vendor?.name?.toLowerCase() ?? '').includes(searchTerm.toLowerCase())
+              ).map((pi) => (
                 <tr key={pi.id} className="hover:bg-gray-50/50 transition-colors group">
                   <td className="px-4 py-4 font-mono font-bold text-gray-900 uppercase">{pi.piNumber}</td>
                   <td className="px-4 py-4 font-mono text-gray-500">{new Date(pi.piDate).toLocaleDateString()}</td>

@@ -177,8 +177,8 @@ export default function SalesOrdersPage() {
               <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 font-mono uppercase tracking-widest">No orders found</td></tr>
             ) : (
               salesOrders?.filter(so => 
-                so.soNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                so.customer?.name.toLowerCase().includes(searchTerm.toLowerCase())
+                (so.soNumber?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                (so.customer?.name?.toLowerCase() || '').includes(searchTerm.toLowerCase())
               ).map((so) => (
                 <React.Fragment key={so.id}>
                   <tr className={cn(

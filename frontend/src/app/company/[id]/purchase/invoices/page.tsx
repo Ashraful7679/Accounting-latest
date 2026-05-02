@@ -48,7 +48,7 @@ export default function PurchaseInvoicesPage() {
     invoiceNumber: '',
     vendorId: '',
     currency: 'USD',
-    exchangeRate: 1,
+    exchangeRate: globalExchangeRate || 1,
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
     description: '',
@@ -288,8 +288,8 @@ export default function PurchaseInvoicesPage() {
 
   const filteredInvoices = invoicesData?.filter((inv: Invoice) => {
     const matchesSearch = !searchTerm || 
-      inv.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.vendor?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      (inv.invoiceNumber?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (inv.vendor?.name?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || inv.status === filterStatus;
     return matchesSearch && matchesStatus;
   }) || [];
@@ -558,10 +558,17 @@ export default function PurchaseInvoicesPage() {
                         <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Currency</label>
                         <select 
                           value={formData.currency} 
-                          onChange={(e) => setFormData({...formData, currency: e.target.value})} 
+                          onChange={(e) => {
+                            const newCurr = e.target.value;
+                            setFormData({
+                              ...formData, 
+                              currency: newCurr,
+                              exchangeRate: newCurr === 'BDT' ? 1 : (globalExchangeRate || 1)
+                            });
+                          }} 
                           className="w-full px-3 py-2 border border-gray-200 rounded-sm bg-white text-[11px] font-bold uppercase focus:outline-none focus:border-gray-900"
                         >
-                           {['USD','EUR','GBP','CNY','INR','SGD','JPY','AED','BDT'].map(c => (
+                           {['USD','BDT'].map(c => (
                             <option key={c} value={c}>{c}</option>
                           ))}
                         </select>
@@ -698,13 +705,16 @@ export default function PurchaseInvoicesPage() {
                               />
                             </td>
                             <td className="px-4 py-4 align-top">
-                              <input 
-                                type="number" step="any"
-                                value={line.unitPrice} 
-                                onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                                className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-[11px] text-right font-mono focus:outline-none focus:border-gray-900"
-                                readOnly={!!line.poId}
-                              />
+                              <div className="flex items-center gap-1.5 border border-gray-200 rounded-sm px-2 py-1.5 bg-white">
+                                <span className="text-[10px] font-bold text-gray-400">{getCurrencySymbol(formData.currency)}</span>
+                                <input 
+                                  type="number" step="any"
+                                  value={line.unitPrice} 
+                                  onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                                  className="w-full text-[11px] text-right font-mono focus:outline-none border-none p-0"
+                                  readOnly={!!line.poId}
+                                />
+                              </div>
                             </td>
                             <td className="px-4 py-4 align-top">
                                <input 
@@ -715,7 +725,12 @@ export default function PurchaseInvoicesPage() {
                               />
                             </td>
                             <td className="px-4 py-4 text-right align-top pt-5 font-mono font-bold text-gray-900">
-                              {formatCurrency((line.receivedQuantity || 0) * (line.unitPrice || 0))}
+                              <div className="flex flex-col text-right">
+                                <span>{getCurrencySymbol(formData.currency)} {formatCurrency((line.receivedQuantity || 0) * (line.unitPrice || 0))}</span>
+                                {formData.currency !== 'BDT' && (
+                                  <span className="text-[9px] text-gray-400">৳ {formatCurrency((line.receivedQuantity || 0) * (line.unitPrice || 0) * formData.exchangeRate)}</span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-4 py-4 text-center align-top pt-5">
                               {!line.poId && (

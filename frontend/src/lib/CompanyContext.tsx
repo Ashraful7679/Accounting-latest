@@ -23,6 +23,7 @@ interface CompanyContextType {
   isLoading: boolean;
   exchangeRate: number;
   baseCurrency: string;
+  updateExchangeRate: (rate: number) => Promise<void>;
   setExchangeRate: (rate: number) => void;
   setBaseCurrency: (currency: string) => void;
 }
@@ -96,10 +97,20 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     return !!perm[action];
   };
 
+  const updateExchangeRate = async (rate: number) => {
+    try {
+      await api.put(`/company/${companyId}/settings`, { lastUsedRate: rate });
+      setExchangeRate(rate);
+    } catch (error) {
+      console.error('Failed to update global exchange rate', error);
+      throw error;
+    }
+  };
+
   return (
     <CompanyContext.Provider value={{ 
       companyId, companyName, role, permissions, hasPermission, isLoading,
-      exchangeRate, baseCurrency, setExchangeRate, setBaseCurrency
+      exchangeRate, baseCurrency, updateExchangeRate, setExchangeRate, setBaseCurrency
     }}>
       {children}
     </CompanyContext.Provider>

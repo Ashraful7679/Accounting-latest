@@ -35,8 +35,8 @@ export default function CreateSalesOrderPage() {
     lcId: '',
     soDate: new Date().toISOString().split('T')[0],
     expectedDeliveryDate: '',
-    currency: 'BDT',
-    exchangeRate: 1,
+    currency: 'USD',
+    exchangeRate: companyExchangeRate || 1,
     status: 'DRAFT',
     lines: [{ productId: '', itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }] as SalesOrderLine[]
   });
@@ -307,15 +307,23 @@ export default function CreateSalesOrderPage() {
                         />
                       </td>
                       <td className="px-6 py-3">
-                        <input 
-                          type="number"
-                          value={line.unitPrice}
-                          onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                          className="w-full bg-transparent border-none focus:ring-0 text-sm p-0 text-right font-mono font-medium"
-                        />
+                        <div className="flex items-center gap-1 border border-gray-100 rounded-sm px-2 py-1">
+                          <span className="text-[10px] font-bold text-gray-400">{formData.currency === 'USD' ? '$' : '৳'}</span>
+                          <input 
+                            type="number"
+                            value={line.unitPrice}
+                            onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                            className="w-full bg-transparent border-none focus:ring-0 text-sm p-0 text-right font-mono font-medium"
+                          />
+                        </div>
                       </td>
-                      <td className="px-6 py-3 text-right font-mono font-bold text-gray-900">
-                        {formatCurrency(line.total)}
+                      <td className="px-6 py-3 text-right">
+                        <div className="flex flex-col">
+                          <span className="font-mono font-bold text-gray-900">{formatCurrency(line.total)}</span>
+                          {formData.currency !== 'BDT' && (
+                            <span className="text-[10px] text-gray-400 font-mono">৳{formatCurrency(line.total * formData.exchangeRate)}</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-3 text-center">
                         <button 
@@ -346,12 +354,18 @@ export default function CreateSalesOrderPage() {
                 </label>
                 <select 
                   value={formData.currency}
-                  onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                  onChange={(e) => {
+                    const newCurr = e.target.value;
+                    setFormData({ 
+                      ...formData, 
+                      currency: newCurr,
+                      exchangeRate: newCurr === 'BDT' ? 1 : (companyExchangeRate || 1)
+                    });
+                  }}
                   className="w-full bg-white border border-gray-200 rounded-sm px-4 py-2 text-sm focus:outline-none focus:border-gray-900 transition-colors"
                 >
-                  <option value="BDT">BDT - Taka</option>
                   <option value="USD">USD - Dollar</option>
-                  <option value="EUR">EUR - Euro</option>
+                  <option value="BDT">BDT - Taka</option>
                 </select>
               </div>
 

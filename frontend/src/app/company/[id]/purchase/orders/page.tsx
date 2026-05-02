@@ -139,8 +139,8 @@ export default function PurchaseOrdersPage() {
               <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 font-mono uppercase tracking-widest">No orders found</td></tr>
             ) : (
               purchaseOrders?.filter(po => 
-                po.poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                po.supplier?.name.toLowerCase().includes(searchTerm.toLowerCase())
+                (po.poNumber?.toLowerCase() ?? '').includes(searchTerm.toLowerCase()) ||
+                (po.supplier?.name?.toLowerCase() ?? '').includes(searchTerm.toLowerCase())
               ).map((po) => (
                 <React.Fragment key={po.id}>
                   <tr className={cn(

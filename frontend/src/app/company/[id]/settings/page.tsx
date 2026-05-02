@@ -1,17 +1,19 @@
-﻿'use client';
+'use client';
 
 
 import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Settings, Shield, Calendar, CheckCircle, ToggleLeft, ToggleRight, Save, RefreshCw } from 'lucide-react';
+import { Settings, Shield, Calendar, CheckCircle, ToggleLeft, ToggleRight, Save, RefreshCw, AlertCircle } from 'lucide-react';
+import { useCompany } from '@/lib/CompanyContext';
 
 interface CompanySettings {
   companyId: string;
   disallowFutureDates: boolean;
   lockPreviousMonths: boolean;
   approvalWorkflow: boolean;
+  lastUsedRate: number;
 }
 
 function ToggleRow({
@@ -60,6 +62,7 @@ export default function CompanySettingsPage() {
   const params = useParams();
   const companyId = params.id as string;
   const queryClient = useQueryClient();
+  const { updateExchangeRate } = useCompany();
   const [saved, setSaved] = useState(false);
 
   const { data: settings, isLoading } = useQuery<CompanySettings>({
@@ -85,13 +88,20 @@ export default function CompanySettingsPage() {
     setLocal(prev => ({ ...(prev ?? current!), [key]: value }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!current) return;
-    mutation.mutate({
-      disallowFutureDates: current.disallowFutureDates,
-      lockPreviousMonths: current.lockPreviousMonths,
-      approvalWorkflow: current.approvalWorkflow,
-    });
+    try {
+      if (local && local.lastUsedRate !== settings?.lastUsedRate) {
+        await updateExchangeRate(local.lastUsedRate);
+      }
+      mutation.mutate({
+        disallowFutureDates: current.disallowFutureDates,
+        lockPreviousMonths: current.lockPreviousMonths,
+        approvalWorkflow: current.approvalWorkflow,
+      });
+    } catch (error) {
+      console.error('Failed to save settings', error);
+    }
   };
 
   if (isLoading || !current) {
@@ -141,6 +151,43 @@ export default function CompanySettingsPage() {
             onChange={handleToggle('approvalWorkflow')}
             icon={CheckCircle}
           />
+        </div>
+        
+        {/* Currency Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Currency & Financials</h2>
+          
+          <div className="space-y-6">
+            <div className="flex items-start justify-between gap-6 py-2">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                  <RefreshCw className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-slate-800 text-sm">Global Exchange Rate (USD to BDT)</p>
+                  <p className="text-xs text-slate-400 mt-0.5">This rate will be used application-wide for all new documents.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-400">1 USD =</span>
+                <input 
+                  type="number" 
+                  step="any"
+                  value={current.lastUsedRate}
+                  onChange={(e) => setLocal(prev => ({ ...(prev ?? current!), lastUsedRate: parseFloat(e.target.value) || 1 }))}
+                  className="w-24 px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-mono font-bold focus:outline-none focus:border-blue-600 transition-colors"
+                />
+                <span className="text-xs font-bold text-slate-400">BDT</span>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
+              <AlertCircle className="w-4 h-4 text-slate-400 mt-0.5" />
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                <span className="font-bold text-slate-700">Restricted Mode:</span> Only USD and BDT are supported for new transactions. Legacy EUR/GBP records remain readable but disabled for new entries.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Save Button */}

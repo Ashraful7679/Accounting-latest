@@ -61,7 +61,13 @@ export class SalesOrderRepository {
         data: {
           ...soData,
           lines: {
-            create: lines
+            create: lines.map((l: any) => ({
+              productId: l.productId,
+              itemDescription: l.itemDescription || l.description || '',
+              quantity: l.quantity,
+              unitPrice: l.unitPrice,
+              total: l.total
+            }))
           },
           purchaseOrders: purchaseOrderIds ? {
             connect: purchaseOrderIds.map((id: string) => ({ id }))
@@ -94,7 +100,13 @@ export class SalesOrderRepository {
           where: { salesOrderId: id }
         });
         updatePayload.lines = {
-          create: lines
+          create: lines.map((l: any) => ({
+            productId: l.productId,
+            itemDescription: l.itemDescription || l.description || '',
+            quantity: l.quantity,
+            unitPrice: l.unitPrice,
+            total: l.total
+          }))
         };
       }
 

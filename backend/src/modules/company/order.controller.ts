@@ -18,9 +18,9 @@ export class OrderController extends BaseCompanyController {
   async createSalesOrder(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
     const { 
-      customerId, lcId, orderDate, expectedDeliveryDate, 
-      currency, exchangeRate, totalBDT, status, lines, 
-      createdById, purchaseOrderIds 
+      customerId, lcId, orderDate, soDate, expectedDeliveryDate, 
+      currency, exchangeRate, totalBDT, totalForeign, status, lines, 
+      purchaseOrderIds 
     } = request.body as any;
 
     const soNumber = await this.generateDocumentNumber(companyId, 'so');
@@ -30,14 +30,20 @@ export class OrderController extends BaseCompanyController {
       companyId,
       customerId,
       lcId,
-      orderDate: orderDate ? new Date(orderDate) : undefined,
+      soDate: (soDate || orderDate) ? new Date(soDate || orderDate) : undefined,
       expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : undefined,
       currency,
       exchangeRate,
       totalBDT,
+      totalForeign: totalForeign || (totalBDT / (exchangeRate || 1)),
       status: status || 'DRAFT',
-      createdById,
-      lines,
+      lines: lines?.map((l: any) => ({
+        productId: l.productId,
+        itemDescription: l.description || '',
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        total: l.total
+      })),
       purchaseOrderIds
     });
 
@@ -70,7 +76,10 @@ export class OrderController extends BaseCompanyController {
     delete updateData.soNumber;
     delete updateData.createdById;
 
-    if (updateData.orderDate) updateData.orderDate = new Date(updateData.orderDate);
+    if (updateData.orderDate) {
+      updateData.soDate = new Date(updateData.orderDate);
+      delete updateData.orderDate;
+    }
     if (updateData.expectedDeliveryDate) updateData.expectedDeliveryDate = new Date(updateData.expectedDeliveryDate);
 
     const updatedSo = await SalesOrderRepository.update(soId, updateData);
@@ -140,8 +149,14 @@ export class OrderController extends BaseCompanyController {
       totalForeign,
       totalBDT,
       status: status || 'DRAFT',
-      createdById,
-      lines
+      createdById: createdById || (request.user as any).id,
+      lines: lines?.map((l: any) => ({
+        productId: l.productId,
+        itemDescription: l.description || '',
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        total: l.total
+      }))
     });
 
     await NotificationController.logActivity({

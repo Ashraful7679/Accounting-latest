@@ -26,7 +26,7 @@ interface SalesOrderLine {
 interface SalesOrder {
   id: string;
   soNumber: string;
-  orderDate: string;
+  soDate: string;
   totalBDT: number;
   currency: string;
   status: string;
@@ -191,7 +191,7 @@ export default function SalesOrdersPage() {
                       </button>
                     </td>
                     <td className="py-4 px-4 font-mono font-bold text-gray-900 uppercase">{so.soNumber}</td>
-                    <td className="py-4 px-4 font-mono text-gray-600">{new Date(so.orderDate).toLocaleDateString()}</td>
+                    <td className="py-4 px-4 font-mono text-gray-600">{new Date(so.soDate).toLocaleDateString()}</td>
                     <td className="py-4 px-4">
                       <div className="font-bold text-gray-700 uppercase tracking-tight">{so.customer?.name}</div>
                       <div className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">{so.customer?.code}</div>

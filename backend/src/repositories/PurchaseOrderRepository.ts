@@ -56,7 +56,13 @@ export class PurchaseOrderRepository {
         data: {
           ...poData,
           lines: {
-            create: lines
+            create: lines.map((l: any) => ({
+              productId: l.productId,
+              itemDescription: l.itemDescription || l.description || '',
+              quantity: l.quantity,
+              unitPrice: l.unitPrice,
+              total: l.total
+            }))
           }
         },
         include: {
@@ -93,7 +99,13 @@ export class PurchaseOrderRepository {
           data: {
             ...poData,
             lines: {
-              create: lines
+              create: lines.map((l: any) => ({
+                productId: l.productId,
+                itemDescription: l.itemDescription || l.description || '',
+                quantity: l.quantity,
+                unitPrice: l.unitPrice,
+                total: l.total
+              }))
             }
           },
           include: {

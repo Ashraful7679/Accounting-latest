@@ -117,11 +117,12 @@ export default function ExportPIsPage() {
       const totalForeign = data.lines.reduce((acc: number, line: PILine) => acc + (line.quantity * line.unitPrice), 0);
       const endpoint = selectedPI ? `/company/${companyId}/pis/${selectedPI.id}` : `/company/${companyId}/pis`;
       const method = selectedPI ? 'put' : 'post';
+      const effectiveRate = data.currency === 'BDT' ? 1 : (exchangeRate || 1);
       const response = await api[method](endpoint, { 
         ...data, 
         amount: totalForeign, 
-        exchangeRate: exchangeRate,
-        totalBDT: totalForeign * exchangeRate, 
+        exchangeRate: effectiveRate,
+        totalBDT: totalForeign * effectiveRate, 
         type: 'EXPORT' 
       });
       return response.data;
@@ -268,8 +269,8 @@ export default function ExportPIsPage() {
 
   const filteredPIs = pisData?.filter(pi => {
     const matchesSearch = !searchTerm || 
-      pi.piNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      pi.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      (pi.piNumber?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (pi.customer?.name?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || pi.status === filterStatus;
     return matchesSearch && matchesStatus;
   }) || [];
@@ -515,13 +516,12 @@ export default function ExportPIsPage() {
                           <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-[11px] bg-white focus:outline-none focus:border-gray-900 font-bold uppercase tracking-widest">
                             <option value="USD">USD</option>
                             <option value="BDT">BDT</option>
-                            <option value="EUR">EUR</option>
                           </select>
                         </div>
                         <div className="space-y-2">
                           <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Spot Rate</label>
                           <div className="w-full px-2 py-1.5 bg-white border border-gray-100 rounded-sm text-[11px] text-gray-900 font-mono font-bold">
-                            {exchangeRate || 1}
+                            {formData.currency === 'BDT' ? 1 : (exchangeRate || 1)}
                           </div>
                         </div>
                       </div>
@@ -536,7 +536,7 @@ export default function ExportPIsPage() {
                         <div className="flex justify-between items-baseline">
                           <span className="text-[9px] font-bold text-blue-600 uppercase tracking-[0.2em]">Equiv. BDT</span>
                           <span className="text-2xl font-mono font-black text-blue-600">
-                             ৳{(calculateSubtotal() * (exchangeRate || 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                             ৳{(calculateSubtotal() * (formData.currency === 'BDT' ? 1 : (exchangeRate || 1))).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                       </div>
@@ -629,14 +629,22 @@ export default function ExportPIsPage() {
                               />
                             </td>
                             <td className="px-4 py-3">
-                              <input 
-                                type="number" step="any" value={line.unitPrice}
-                                onChange={(e) => handleLineChange(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
-                                className="w-full bg-transparent border-none focus:ring-0 text-[11px] text-right font-mono font-bold text-gray-600 p-0"
-                              />
+                              <div className="flex items-center gap-1 border border-gray-50 rounded px-2 py-1">
+                                <span className="text-[9px] font-bold text-gray-400">{formData.currency === 'USD' ? '$' : '৳'}</span>
+                                <input 
+                                  type="number" step="any" value={line.unitPrice}
+                                  onChange={(e) => handleLineChange(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
+                                  className="w-full bg-transparent border-none focus:ring-0 text-[11px] text-right font-mono font-bold text-gray-600 p-0"
+                                />
+                              </div>
                             </td>
-                            <td className="px-4 py-3 text-right font-mono font-black text-gray-900 text-[12px]">
-                              {line.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex flex-col">
+                                <span className="font-mono font-black text-gray-900 text-[12px]">{line.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                {formData.currency !== 'BDT' && (
+                                  <span className="text-[9px] text-gray-400 font-mono">৳{(line.total * (exchangeRate || 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-4 py-3 text-center">
                               <button 

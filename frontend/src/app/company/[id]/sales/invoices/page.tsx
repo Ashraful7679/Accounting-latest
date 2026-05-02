@@ -280,8 +280,8 @@ export default function SalesInvoicesPage() {
 
   const filteredInvoices = invoicesData?.filter((inv: Invoice) => {
     const matchesSearch = !searchTerm || 
-      inv.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      (inv.invoiceNumber?.toLowerCase() ?? '').includes(searchTerm.toLowerCase()) ||
+      (inv.customer?.name?.toLowerCase() ?? '').includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || inv.status === filterStatus;
     return matchesSearch && matchesStatus;
   }) || [];
@@ -570,23 +570,24 @@ export default function SalesInvoicesPage() {
                         <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Currency Selection</label>
                         <select 
                           value={formData.currency} 
-                          onChange={(e) => setFormData({...formData, currency: e.target.value})} 
+                          onChange={(e) => {
+                            const newCurr = e.target.value;
+                            setFormData({
+                              ...formData,
+                              currency: newCurr,
+                              exchangeRate: newCurr === 'BDT' ? 1 : (globalExchangeRate || 1)
+                            });
+                          }} 
                           className="w-full px-3 py-2 border border-gray-200 rounded-sm bg-white text-[11px] font-bold uppercase focus:outline-none focus:border-gray-900"
                         >
-                          <option value="BDT">BDT (Local)</option>
                           <option value="USD">USD (Foreign)</option>
-                          <option value="EUR">EUR (Foreign)</option>
+                          <option value="BDT">BDT (Local)</option>
                         </select>
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Exchange Rate</label>
-                        <div className="flex items-center gap-2">
-                           <input 
-                            type="number" step="any"
-                            value={formData.exchangeRate} 
-                            onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})}
-                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-sm text-[11px] font-mono font-bold focus:outline-none focus:border-gray-900"
-                          />
+                        <div className="w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-sm text-[11px] font-mono font-bold text-gray-600">
+                           {formData.currency === 'BDT' ? 1 : (globalExchangeRate || 1)}
                         </div>
                       </div>
                     </div>
@@ -712,13 +713,16 @@ export default function SalesInvoicesPage() {
                               />
                             </td>
                             <td className="px-4 py-4 align-top">
-                              <input 
-                                type="number" step="any"
-                                value={line.unitPrice} 
-                                onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                                className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-[11px] text-right font-mono focus:outline-none focus:border-gray-900"
-                                readOnly={!!line.piId}
-                              />
+                              <div className="flex items-center gap-1 border border-gray-200 rounded-sm px-2 py-1 bg-white">
+                                <span className="text-[9px] font-bold text-gray-400">{formData.currency === 'USD' ? '$' : '৳'}</span>
+                                <input 
+                                  type="number" step="any"
+                                  value={line.unitPrice} 
+                                  onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                                  className="w-full bg-transparent border-none focus:ring-0 text-[11px] text-right font-mono focus:outline-none"
+                                  readOnly={!!line.piId}
+                                />
+                              </div>
                             </td>
                             <td className="px-4 py-4 align-top">
                                <input 
@@ -728,8 +732,13 @@ export default function SalesInvoicesPage() {
                                 className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-[11px] text-center font-mono focus:outline-none focus:border-gray-900"
                               />
                             </td>
-                            <td className="px-4 py-4 text-right align-top pt-5 font-mono font-bold text-gray-900">
-                              {formatCurrency((line.shippedQuantity || 0) * (line.unitPrice || 0))}
+                            <td className="px-4 py-4 text-right align-top pt-5">
+                              <div className="flex flex-col">
+                                <span className="font-mono font-bold text-gray-900">{formatCurrency((line.shippedQuantity || 0) * (line.unitPrice || 0))}</span>
+                                {formData.currency !== 'BDT' && (
+                                  <span className="text-[9px] text-gray-400 font-mono">৳{formatCurrency((line.shippedQuantity || 0) * (line.unitPrice || 0) * (globalExchangeRate || 1))}</span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-4 py-4 text-center align-top pt-5">
                               {!line.piId && (

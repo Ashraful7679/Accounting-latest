@@ -16,7 +16,7 @@ import React from 'react';
 
 interface SalesOrderLine {
   productId: string;
-  description: string;
+  itemDescription: string;
   quantity: number;
   unitPrice: number;
   total: number;
@@ -33,12 +33,12 @@ export default function CreateSalesOrderPage() {
   const [formData, setFormData] = useState({
     customerId: '',
     lcId: '',
-    orderDate: new Date().toISOString().split('T')[0],
+    soDate: new Date().toISOString().split('T')[0],
     expectedDeliveryDate: '',
     currency: 'BDT',
     exchangeRate: 1,
     status: 'DRAFT',
-    lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }] as SalesOrderLine[]
+    lines: [{ productId: '', itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }] as SalesOrderLine[]
   });
 
   useEffect(() => {
@@ -103,7 +103,7 @@ export default function CreateSalesOrderPage() {
     if (field === 'productId') {
       const product = products?.find((p: any) => p.id === value);
       if (product) {
-        line.description = product.name;
+        line.itemDescription = product.name;
         line.unitPrice = product.unitPrice || 0;
       }
     }
@@ -116,7 +116,7 @@ export default function CreateSalesOrderPage() {
   const addLine = () => {
     setFormData({
       ...formData,
-      lines: [...formData.lines, { productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }]
+      lines: [...formData.lines, { productId: '', itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }]
     });
   };
 
@@ -136,7 +136,7 @@ export default function CreateSalesOrderPage() {
       toast.error('Please select a customer');
       return;
     }
-    if (formData.lines.some(l => !l.description || l.quantity <= 0)) {
+    if (formData.lines.some(l => !l.itemDescription || l.quantity <= 0)) {
       toast.error('Please complete all line items');
       return;
     }
@@ -229,8 +229,8 @@ export default function CreateSalesOrderPage() {
                 <input 
                   type="date"
                   required
-                  value={formData.orderDate}
-                  onChange={(e) => setFormData({ ...formData, orderDate: e.target.value })}
+                  value={formData.soDate}
+                  onChange={(e) => setFormData({ ...formData, soDate: e.target.value })}
                   className="w-full bg-white border border-gray-200 rounded-sm px-4 py-2.5 text-sm focus:outline-none focus:border-gray-900 transition-colors font-mono"
                 />
               </div>
@@ -292,8 +292,8 @@ export default function CreateSalesOrderPage() {
                       <td className="px-6 py-3">
                         <input 
                           type="text"
-                          value={line.description}
-                          onChange={(e) => handleLineChange(index, 'description', e.target.value)}
+                          value={line.itemDescription}
+                          onChange={(e) => handleLineChange(index, 'itemDescription', e.target.value)}
                           className="w-full bg-transparent border-none focus:ring-0 text-sm p-0 placeholder:text-gray-300 text-gray-600"
                           placeholder="Specific details..."
                         />

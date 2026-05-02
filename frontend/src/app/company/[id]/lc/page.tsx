@@ -373,7 +373,7 @@ export default function LCPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {salesOrders?.filter((so: any) => !lcs?.find(l => l.id === showSOSelector.lcId)?.salesOrders.find(s => s.id === so.id)).map((so: any) => (
+                    {salesOrders?.filter((so: any) => !lcs?.find((l: any) => l.id === showSOSelector.lcId)?.salesOrders.find((s: any) => s.id === so.id)).map((so: any) => (
                       <tr key={so.id} className="hover:bg-gray-50">
                         <td className="p-3 font-medium text-gray-900">{so.soNumber}</td>
                         <td className="p-3 text-right font-mono text-gray-600">{formatCurrency(so.totalAmount)} {so.currency}</td>
@@ -433,7 +433,7 @@ export default function LCPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {purchaseOrders?.filter((po: any) => !lcs?.find(l => l.id === showPOSelector.lcId)?.purchaseOrders.find(p => p.id === po.id)).map((po: any) => (
+                    {purchaseOrders?.filter((po: any) => !lcs?.find((l: any) => l.id === showPOSelector.lcId)?.purchaseOrders.find((p: any) => p.id === po.id)).map((po: any) => (
                       <tr key={po.id} className="hover:bg-gray-50">
                         <td className="p-3 font-medium text-gray-900">{po.poNumber}</td>
                         <td className="p-3 text-right font-mono text-gray-600">{formatCurrency(po.totalBDT)}</td>

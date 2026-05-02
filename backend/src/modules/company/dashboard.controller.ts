@@ -12,12 +12,18 @@ async function generateNotifications(companyId: string) {
   const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   // 1. Overdue Invoices
+  const existingInvoiceNotifs = await prisma.notification.findMany({
+    where: { companyId, type: 'OVERDUE_INVOICE', isRead: false },
+    select: { entityId: true }
+  });
+  const notifiedInvoiceIds = existingInvoiceNotifs.map((n: any) => n.entityId);
+
   const overdueInvoices = await prisma.invoice.findMany({
     where: {
       companyId,
       status: 'APPROVED',
       dueDate: { lt: now },
-      notifications: { none: { type: 'OVERDUE_INVOICE', isRead: false } }
+      id: { notIn: notifiedInvoiceIds }
     },
     select: { id: true, invoiceNumber: true, total: true, dueDate: true },
     take: 5,
@@ -38,12 +44,18 @@ async function generateNotifications(companyId: string) {
   }
 
   // 2. LCs Expiring
+  const existingLCNotifs = await prisma.notification.findMany({
+    where: { companyId, type: 'LC_EXPIRY', isRead: false },
+    select: { entityId: true }
+  });
+  const notifiedLCIds = existingLCNotifs.map((n: any) => n.entityId);
+
   const expiringLCs = await prisma.lC.findMany({
     where: {
       companyId,
       status: 'OPEN',
       expiryDate: { lte: in7Days, gte: now },
-      notifications: { none: { type: 'LC_EXPIRY', isRead: false } }
+      id: { notIn: notifiedLCIds }
     },
     select: { id: true, lcNumber: true, amount: true, currency: true, expiryDate: true, conversionRate: true },
     take: 5,
@@ -83,12 +95,18 @@ async function generateNotifications(companyId: string) {
   }
 
   // 4. Loans Due
+  const existingLoanNotifs = await prisma.notification.findMany({
+    where: { companyId, type: 'LOAN_DUE', isRead: false },
+    select: { entityId: true }
+  });
+  const notifiedLoanIds = existingLoanNotifs.map((n: any) => n.entityId);
+
   const dueLoans = await prisma.loan.findMany({
     where: {
       companyId,
       status: 'ACTIVE',
       endDate: { lte: in30Days, gte: now },
-      notifications: { none: { type: 'LOAN_DUE', isRead: false } }
+      id: { notIn: notifiedLoanIds }
     },
     select: { id: true, loanNumber: true, outstandingBalance: true, endDate: true },
     take: 5,

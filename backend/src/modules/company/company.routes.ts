@@ -77,6 +77,8 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/lcs/:lcId/approve', lcController.approveLC.bind(lcController));
   fastify.post('/lcs/:lcId/settle', lcController.settleLC.bind(lcController));
   fastify.get('/lcs/:lcId/detail', lcController.getLCDetail.bind(lcController));
+  fastify.post('/:id/lcs/:lcId/assign-so', lcController.assignSO.bind(lcController));
+  fastify.post('/:id/lcs/:lcId/assign-po', lcController.assignPO.bind(lcController));
 
   // PI Management
   fastify.get('/lcs/:id/pis', piController.getPIs.bind(piController));
@@ -121,12 +123,23 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.put('/:id/vendors/:vendorId', entityController.updateVendor.bind(entityController));
   fastify.delete('/:id/vendors/:vendorId', entityController.deleteVendor.bind(entityController));
 
+  // Sales Orders
+  fastify.get('/:id/sales-orders', orderController.getSalesOrders.bind(orderController));
+  fastify.post('/:id/sales-orders', orderController.createSalesOrder.bind(orderController));
+  fastify.put('/:id/sales-orders/:soId', orderController.updateSalesOrder.bind(orderController));
+  fastify.post('/:id/sales-orders/:soId/assign-po', orderController.assignPurchaseOrder.bind(orderController));
+
   // Purchase Orders
   fastify.get('/:id/purchase-orders', orderController.getPurchaseOrders.bind(orderController));
   fastify.post('/:id/purchase-orders', orderController.createPurchaseOrder.bind(orderController));
   fastify.put('/:id/purchase-orders/:poId', orderController.updatePurchaseOrder.bind(orderController));
   fastify.patch('/:id/purchase-orders/:poId/status', orderController.updatePurchaseOrderStatus.bind(orderController));
   fastify.delete('/:id/purchase-orders/:poId', orderController.deletePurchaseOrder.bind(orderController));
+  fastify.post('/:id/purchase-orders/:poId/assign-so', orderController.assignSalesOrder.bind(orderController));
+
+  // Delivery Challans (DN)
+  fastify.get('/:id/challans', orderController.getDeliveryChallans.bind(orderController));
+  fastify.post('/:id/sales-orders/:soId/challan', orderController.generateDeliveryChallan.bind(orderController));
 
   // Accounts (COA)
   fastify.get('/:id/accounts', coaController.getAccounts.bind(coaController));

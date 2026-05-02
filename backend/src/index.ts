@@ -16,9 +16,9 @@ import { errorHandler } from './middleware/errorHandler';
 import { offlineCheck } from './middleware/offlineCheck';
 
 // --- STARTUP LOGGING ---
-const startupLog = join(process.cwd(), 'startup.log');
-fs.appendFileSync(startupLog, `[${new Date().toISOString()}] Backend Starting... CWD: ${process.cwd()}\n`);
-fs.appendFileSync(startupLog, `[${new Date().toISOString()}] ENV: PORT=${process.env.PORT}, NODE_ENV=${process.env.NODE_ENV}\n`);
+// const startupLog = join(process.cwd(), 'startup.log');
+// fs.appendFileSync(startupLog, `[${new Date().toISOString()}] Backend Starting... CWD: ${process.cwd()}\n`);
+// fs.appendFileSync(startupLog, `[${new Date().toISOString()}] ENV: PORT=${process.env.PORT}, NODE_ENV=${process.env.NODE_ENV}\n`);
 
 const fastify = Fastify({
 
@@ -26,7 +26,7 @@ const fastify = Fastify({
 });
 
 // Register plugins
-const corsOrigins: (string | RegExp)[] = [/http:\/\/localhost:\d+/];
+const corsOrigins: (string | RegExp)[] = [/http:\/\/localhost:\d+/, /http:\/\/127.0.0.1:\d+/];
 if (process.env.CORS_ORIGINS) {
   process.env.CORS_ORIGINS.split(',').map(o => o.trim()).forEach(o => corsOrigins.push(o));
 } else {

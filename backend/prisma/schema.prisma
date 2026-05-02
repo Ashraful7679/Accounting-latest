@@ -131,6 +131,7 @@ model Company {
   loans        Loan[]
   pis          PI[]
   purchaseOrders PurchaseOrder[]
+  salesOrders    SalesOrder[]
   activityLogs  ActivityLog[]
   notifications Notification[]
   grns          GRN[]
@@ -234,6 +235,7 @@ model LC {
   receivedDate    DateTime?
   pis             PI[]
   purchaseOrders  PurchaseOrder[]
+  salesOrders     SalesOrder[]
   payments        Payment[]
 
   // Soft Delete
@@ -466,6 +468,7 @@ model Customer {
   pis         PI[]     @relation("CustomerPIs")
   poLines     PurchaseOrderLine[] @relation("CustomerPOLines")
   piLines     PILine[] @relation("CustomerPILines")
+  salesOrders SalesOrder[]
 
   // Soft Delete
   deletedAt    DateTime?
@@ -556,6 +559,9 @@ model PurchaseOrder {
   lines          PurchaseOrderLine[]
   grns           GRN[]
   
+  // Many-to-many with SalesOrder
+  salesOrders    SalesOrder[] @relation("SalesOrderPurchaseOrders")
+  
   // Soft Delete
   deletedAt      DateTime?
   
@@ -566,6 +572,57 @@ model PurchaseOrder {
   @@index([supplierId])
   @@index([lcId])
   @@unique([companyId, poNumber])
+}
+
+model SalesOrder {
+  id              String    @id @default(uuid())
+  soNumber        String
+  companyId       String
+  customerId      String
+  lcId            String?
+  
+  soDate          DateTime  @default(now())
+  expectedDeliveryDate DateTime?
+  
+  // Currency
+  currency        String    @default("BDT")
+  exchangeRate    Float     @default(1)
+  totalForeign    Float     @default(0)
+  totalBDT        Float     @default(0)
+  
+  // Status: DRAFT, APPROVED, SENT, DELIVERED, CLOSED
+  status          String    @default("DRAFT")
+  
+  company        Company   @relation(fields: [companyId], references: [id])
+  customer       Customer  @relation(fields: [customerId], references: [id])
+  lc             LC?       @relation(fields: [lcId], references: [id])
+  lines          SalesOrderLine[]
+  dns            DN[]
+  
+  // Many-to-many with PurchaseOrder
+  purchaseOrders PurchaseOrder[] @relation("SalesOrderPurchaseOrders")
+
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([companyId])
+  @@index([customerId])
+  @@index([lcId])
+  @@unique([companyId, soNumber])
+}
+
+model SalesOrderLine {
+  id              String    @id @default(uuid())
+  salesOrderId    String
+  productId       String?
+  itemDescription String
+  quantity        Float     @default(1)
+  unitPrice       Float
+  total           Float
+  
+  salesOrder      SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  product         Product?    @relation(fields: [productId], references: [id])
 }
 
 model PurchaseOrderLine {
@@ -632,6 +689,7 @@ model DN {
   status          String    @default("SHIPPED") // SHIPPED, DELIVERED, CANCELLED
   
   company         Company   @relation(fields: [companyId], references: [id])
+  salesOrder      SalesOrder? @relation(fields: [salesOrderId], references: [id])
   invoice         Invoice?  @relation("InvoiceDNs", fields: [invoiceId], references: [id])
   lines           DNLine[]
   
@@ -680,6 +738,7 @@ model Product {
   piLines      PILine[]
   grnLines     GRNLine[]
   dnLines      DNLine[]
+  salesOrderLines SalesOrderLine[]
 
   @@index([companyId])
   @@index([companyId, deletedAt])

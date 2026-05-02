@@ -12,8 +12,10 @@ export class LCController {
     const lcs = await (prisma as any).lC.findMany({
       where: { companyId },
       include: {
-        customer: { select: { name: true, code: true } },
-        vendor: { select: { name: true, code: true } }
+        customer: { select: { id: true, name: true, code: true } },
+        vendor: { select: { id: true, name: true, code: true } },
+        salesOrders: { select: { id: true, soNumber: true, status: true, totalAmount: true, currency: true, customer: { select: { name: true } } } },
+        purchaseOrders: { select: { id: true, poNumber: true, status: true, totalBDT: true, currency: true, supplier: { select: { name: true } } } }
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -40,7 +42,13 @@ export class LCController {
           }
         },
         _count: {
-          select: { pis: true, payments: true }
+          select: { pis: true, payments: true, salesOrders: true, purchaseOrders: true }
+        },
+        salesOrders: {
+          include: { customer: { select: { name: true } } }
+        },
+        purchaseOrders: {
+          include: { supplier: { select: { name: true } } }
         }
       }
     });
@@ -304,5 +312,35 @@ export class LCController {
     });
 
     return reply.send({ success: true, data: result.lc, journal: result.journal, settledAmount: result.settledAmount });
+  }
+
+  async assignSO(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, lcId } = request.params as { id: string; lcId: string };
+    const { soId, action } = request.body as { soId: string; action: 'connect' | 'disconnect' };
+
+    const lc = await (prisma as any).lC.findUnique({ where: { id: lcId } });
+    if (!lc) return reply.status(404).send({ success: false, message: 'LC not found' });
+
+    await (prisma as any).salesOrder.update({
+      where: { id: soId },
+      data: { lcId: action === 'connect' ? lcId : null }
+    });
+
+    return reply.send({ success: true, message: `Sales Order ${action === 'connect' ? 'linked' : 'unlinked'} successfully` });
+  }
+
+  async assignPO(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, lcId } = request.params as { id: string; lcId: string };
+    const { poId, action } = request.body as { poId: string; action: 'connect' | 'disconnect' };
+
+    const lc = await (prisma as any).lC.findUnique({ where: { id: lcId } });
+    if (!lc) return reply.status(404).send({ success: false, message: 'LC not found' });
+
+    await (prisma as any).purchaseOrder.update({
+      where: { id: poId },
+      data: { lcId: action === 'connect' ? lcId : null }
+    });
+
+    return reply.send({ success: true, message: `Purchase Order ${action === 'connect' ? 'linked' : 'unlinked'} successfully` });
   }
 }

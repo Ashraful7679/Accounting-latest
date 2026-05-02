@@ -6,6 +6,7 @@ import { Bell, Plus, FileText, Receipt, Clock, Save, RefreshCw } from 'lucide-re
 import UserDropdown from './UserDropdown';
 import NotificationPanel from './NotificationPanel';
 import CompanySwitcher from './CompanySwitcher';
+import { useCompany } from '@/lib/CompanyContext';
 
 interface HeaderProps {
   companyId: string;
@@ -15,12 +16,13 @@ interface HeaderProps {
 }
 
 export default function Header({ companyId, breadcrumbs, role: propRole, unreadCount = 0 }: HeaderProps) {
+  const { 
+    exchangeRate, baseCurrency, setExchangeRate, setBaseCurrency 
+  } = useCompany();
   const [notifOpen, setNotifOpen] = useState(false);
   const [role, setRole] = useState(propRole || 'User');
   const [permissions, setPermissions] = useState<any[]>([]);
   const [time, setTime] = useState(new Date());
-  const [exchangeRate, setExchangeRate] = useState(1);
-  const [baseCurrency, setBaseCurrency] = useState('USD');
   const [isSavingRate, setIsSavingRate] = useState(false);
 
   // Tick clock
@@ -29,25 +31,10 @@ export default function Header({ companyId, breadcrumbs, role: propRole, unreadC
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch initial settings
+  // Fetching moved to CompanyContext
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/company/${companyId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const json = await res.json();
-        if (json.success && json.data) {
-          setBaseCurrency(json.data.baseCurrency || 'USD');
-          setExchangeRate(json.data.settings?.lastUsedRate || 1);
-        }
-      } catch (err) {
-        console.error('Failed to fetch settings', err);
-      }
-    };
-    if (companyId) fetchSettings();
-  }, [companyId]);
+    // Sync local header display if needed, but Context handles it
+  }, [exchangeRate, baseCurrency]);
 
   const saveSettings = async (rate: number, currency: string) => {
     setIsSavingRate(true);

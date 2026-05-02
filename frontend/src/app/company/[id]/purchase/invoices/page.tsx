@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { AttachmentManager } from '@/components/AttachmentManager';
 import { toast } from 'react-hot-toast';
+import { useCompany } from '@/lib/CompanyContext';
+import { cn } from '@/lib/utils';
 
 
 interface Invoice {
@@ -35,6 +37,7 @@ export default function PurchaseInvoicesPage() {
   const router = useRouter();
   const params = useParams();
   const companyId = params.id as string;
+  const { exchangeRate: globalExchangeRate } = useCompany();
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -53,7 +56,6 @@ export default function PurchaseInvoicesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [userRole, setUserRole] = useState('User');
-  const [isFetchingRate, setIsFetchingRate] = useState(false);
 
   const searchParams = useSearchParams();
   const editId = searchParams.get('edit');
@@ -118,7 +120,7 @@ export default function PurchaseInvoicesPage() {
     enabled: !!companyId,
   });
 
-  const vendorPOs = posData?.filter((po: any) => po.vendorId === formData.vendorId && (po.status === 'SENT' || po.status === 'PARTIAL' || po.status === 'APPROVED')) || [];
+  const vendorPOs = posData?.filter((po: any) => po.supplierId === formData.vendorId && (po.status === 'SENT' || po.status === 'PARTIAL' || po.status === 'APPROVED')) || [];
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -233,7 +235,7 @@ export default function PurchaseInvoicesPage() {
         invoiceNumber: '',
         vendorId: '',
         currency: 'USD',
-        exchangeRate: 120,
+        exchangeRate: globalExchangeRate || 1,
         invoiceDate: new Date().toISOString().split('T')[0],
         dueDate: '',
         description: '',
@@ -285,28 +287,7 @@ export default function PurchaseInvoicesPage() {
     setFormData({ ...formData, lines: newLines });
   };
 
-  // Fetch live spot rate from exchangerate.host (free, no auth required)
-  const fetchSpotRate = async (currency: string): Promise<number> => {
-    if (currency === 'BDT') return 1;
-    try {
-      setIsFetchingRate(true);
-      // Use exchangerate.host free endpoint
-      const res = await fetch(`https://open.er-api.com/v6/latest/${currency}`);
-      const json = await res.json();
-      const rate = json?.rates?.BDT;
-      if (rate && rate > 0) {
-        toast.success(`Spot rate: 1 ${currency} = ${rate.toFixed(4)} BDT`);
-        return Number(rate.toFixed(4));
-      }
-    } catch (e) {
-      toast.error('Could not fetch live rate. Using manual rate.');
-    } finally {
-      setIsFetchingRate(false);
-    }
-    // Fallback rates if API fails
-    const fallbackRates: Record<string, number> = { USD: 110, EUR: 120, GBP: 138, CNY: 15, INR: 1.32, SGD: 82 };
-    return fallbackRates[currency] || 1;
-  };
+  // Removed fetchSpotRate as it's now global
 
   // Handle vendor change: auto-set currency, fetch spot rate, auto-load SENT POs
   const handleVendorChange = async (vendorId: string) => {
@@ -317,8 +298,8 @@ export default function PurchaseInvoicesPage() {
     const vendor = vendorsData?.find((v: any) => v.id === vendorId);
     const currency = vendor?.preferredCurrency || 'USD';
     
-    // Start building new state
-    const rate = await fetchSpotRate(currency);
+    // Use global spot rate
+    const rate = globalExchangeRate || 1;
     
     // Auto-load all SENT/APPROVED POs for this vendor
     const sentPOs = posData?.filter((po: any) => po.supplierId === vendorId && (po.status === 'SENT' || po.status === 'PARTIAL' || po.status === 'APPROVED')) || [];
@@ -344,15 +325,9 @@ export default function PurchaseInvoicesPage() {
     setFormData(prev => ({ ...prev, vendorId, currency, exchangeRate: rate, poIds: autoPoIds, lines: autoLines }));
   };
 
-  // Handle currency change: fetch new spot rate
+  // Handle currency change
   const handleCurrencyChange = async (currency: string) => {
-    setFormData(prev => ({ ...prev, currency }));
-    if (currency !== 'BDT') {
-      const rate = await fetchSpotRate(currency);
-      setFormData(prev => ({ ...prev, currency, exchangeRate: rate }));
-    } else {
-      setFormData(prev => ({ ...prev, currency: 'BDT', exchangeRate: 1 }));
-    }
+    setFormData(prev => ({ ...prev, currency, exchangeRate: currency === 'BDT' ? 1 : (globalExchangeRate || 1) }));
   };
 
   const calculateSubtotal = () => {
@@ -366,7 +341,7 @@ export default function PurchaseInvoicesPage() {
   const calculateTotal = () => {
     const sub = calculateSubtotal();
     const tax = calculateTax();
-    return (sub + tax) * (formData.exchangeRate || 1);
+    return (sub + tax) * (formData.exchangeRate || globalExchangeRate || 1);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -406,13 +381,13 @@ export default function PurchaseInvoicesPage() {
     <div className="min-h-screen">
         <div className="p-6 max-w-[1600px] mx-auto">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Purchase Invoices</h2>
+            <h2 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Purchase Invoices</h2>
             <button
               onClick={() => openModal()}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700"
+              className="bg-slate-900 text-white px-4 py-2 rounded-md font-bold text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-slate-800 transition-all active:scale-95"
             >
-              <Plus className="w-4 h-4" />
-              Create Purchase Invoice
+              <Plus className="w-3 h-3" />
+              Create Invoice
             </button>
           </div>
 
@@ -496,18 +471,38 @@ export default function PurchaseInvoicesPage() {
         </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-6">{selectedInvoice ? 'Edit Purchase Invoice' : 'Create Purchase Invoice'}</h3>
-            <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 animate-in fade-in zoom-in duration-150">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap gap-4 items-center justify-between">
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">{selectedInvoice ? 'Edit Purchase Invoice' : 'New Purchase Invoice'}</h3>
+              <div className="flex gap-2">
+                <button 
+                  type="submit" 
+                  form="purchase-invoice-form"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                  className="px-4 py-2 bg-slate-900 text-white font-bold text-[10px] uppercase tracking-widest rounded hover:bg-slate-800 disabled:bg-slate-300 transition-all active:scale-95"
+                >
+                  {createMutation.isPending || updateMutation.isPending ? 'Saving...' : selectedInvoice ? 'Update' : 'Create'}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={closeModal} 
+                  className="p-2 text-slate-400 hover:text-slate-600 transition-all"
+                >
+                  <Plus className="w-5 h-5 rotate-45" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <form onSubmit={handleSubmit} id="purchase-invoice-form" className="space-y-6">
               <div className="grid grid-cols-2 gap-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">Invoice Number</label>
-                    <input 
+                      <input 
                       type="text" 
                       value={selectedInvoice ? formData.invoiceNumber : '[Auto-Generated]'} 
-                      className="w-full px-4 py-2 border rounded-lg bg-slate-50 font-bold text-slate-500" 
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-slate-50 font-bold text-slate-500" 
                       readOnly 
                     />
                   </div>
@@ -516,7 +511,7 @@ export default function PurchaseInvoicesPage() {
                     <select 
                       value={formData.vendorId} 
                       onChange={(e) => handleVendorChange(e.target.value)} 
-                      className="w-full px-4 py-2 border rounded-lg" 
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:border-slate-500 text-sm bg-white" 
                       required
                     >
                       <option value="">Select Supplier</option>
@@ -527,11 +522,11 @@ export default function PurchaseInvoicesPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">Invoice Date *</label>
-                    <input type="date" value={formData.invoiceDate} onChange={(e) => setFormData({...formData, invoiceDate: e.target.value})} className="w-full px-4 py-2 border rounded-lg" required />
+                    <input type="date" value={formData.invoiceDate} onChange={(e) => setFormData({...formData, invoiceDate: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:border-slate-500 text-sm bg-white" required />
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">Due Date</label>
-                    <input type="date" value={formData.dueDate} onChange={(e) => setFormData({...formData, dueDate: e.target.value})} className="w-full px-4 py-2 border rounded-lg" />
+                    <input type="date" value={formData.dueDate} onChange={(e) => setFormData({...formData, dueDate: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:border-slate-500 text-sm bg-white" />
                   </div>
                 </div>
               </div>
@@ -599,15 +594,13 @@ export default function PurchaseInvoicesPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-4 rounded-md border border-slate-300">
                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">
-                      Currency {isFetchingRate && <span className="text-blue-500 text-xs font-normal animate-pulse ml-1">↻ fetching rate...</span>}
-                    </label>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 px-1">Currency</label>
                     <select 
                       value={formData.currency} 
                       onChange={(e) => handleCurrencyChange(e.target.value)} 
-                      className="w-full px-4 py-2 border rounded-lg bg-white"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white text-sm focus:outline-none focus:border-slate-500"
                     >
                       {['USD','EUR','GBP','CNY','INR','SGD','JPY','AED','BDT'].map(c => (
                         <option key={c} value={c}>{c}</option>
@@ -615,17 +608,14 @@ export default function PurchaseInvoicesPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Rate → BDT {formData.currency !== 'BDT' && <span className="text-slate-400 text-xs font-normal">(today&apos;s spot)</span>}</label>
-                    <input 
-                      type="number" step="0.0001" 
-                      value={formData.exchangeRate} 
-                      onChange={(e) => setFormData({...formData, exchangeRate: parseFloat(e.target.value) || 1})} 
-                      className="w-full px-4 py-2 border rounded-lg bg-white font-mono" 
-                    />
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 px-1">System Spot Rate</label>
+                    <div className="w-full px-3 py-2 bg-slate-50 border-slate-300 rounded-md border text-sm text-slate-700">
+                      {formData.exchangeRate || globalExchangeRate || 1} BDT
+                    </div>
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Overall Description</label>
-                    <input type="text" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} placeholder="e.g. Purchase for Feb" className="w-full px-4 py-2 border rounded-lg bg-white" />
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 px-1">Memo / Description</label>
+                    <input type="text" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} placeholder="Notes for this invoice..." className="w-full px-3 py-2 border border-slate-300 rounded-md bg-white text-sm focus:outline-none focus:border-slate-500" />
                   </div>
               </div>
 
@@ -703,12 +693,22 @@ export default function PurchaseInvoicesPage() {
                                     <input type="number" step="any" value={line.unitPrice} onChange={(e) => handleLineChange(idx, 'unitPrice', parseFloat(e.target.value) || 0)} className="w-24 px-2 py-1.5 text-xs border rounded-lg font-mono text-right focus:ring-2 focus:ring-blue-500 outline-none" />
                                   </td>
                                   <td className="px-2 py-2 align-top pt-3">
-                                    <input type="number" step="any" value={line.taxRate} onChange={(e) => {
-                                      const taxRate = parseFloat(e.target.value) || 0;
-                                      const taxAmount = (line.receivedQuantity * line.unitPrice) * (taxRate / 100);
-                                      handleLineChange(idx, 'taxRate', taxRate);
-                                      handleLineChange(idx, 'taxAmount', taxAmount);
-                                    }} className="w-16 px-2 py-1.5 text-xs border rounded-lg font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+                                    <input 
+                                      type="number" 
+                                      step="any" 
+                                      value={line.taxRate} 
+                                      onChange={(e) => {
+                                        const taxRate = parseFloat(e.target.value) || 0;
+                                        const newLines = [...formData.lines];
+                                        newLines[idx] = {
+                                          ...newLines[idx],
+                                          taxRate,
+                                          taxAmount: (newLines[idx].receivedQuantity * newLines[idx].unitPrice) * (taxRate / 100)
+                                        };
+                                        setFormData({ ...formData, lines: newLines });
+                                      }} 
+                                      className="w-16 px-2 py-1.5 text-xs border rounded-lg font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none" 
+                                    />
                                   </td>
                                   <td className="px-2 py-2 align-top pt-4 font-mono text-slate-500 text-xs text-right">
                                     {((line.receivedQuantity || 0) * (line.unitPrice || 0) * ((line.taxRate || 0) / 100)).toLocaleString(undefined, {minimumFractionDigits: 2})}
@@ -831,6 +831,7 @@ export default function PurchaseInvoicesPage() {
               )}
             </form>
           </div>
+        </div>
         </div>
       )}
     </div>

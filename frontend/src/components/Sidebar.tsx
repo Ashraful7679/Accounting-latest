@@ -99,24 +99,25 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
 
   const menuItems: MenuItem[] = [
     { name: 'Dashboard', href: `/company/${companyId}/dashboard`, icon: LayoutDashboard },
-    { name: 'Products', href: `/company/${companyId}/products`, icon: Package },
-    { 
-      name: 'Purchase', 
-      icon: CreditCard,
-      children: [
-        { name: 'Suppliers', href: `/company/${companyId}/vendors` },
-        { name: 'Purchase Order', href: `/company/${companyId}/purchase/orders` },
-        { name: 'Purchase Invoices', href: `/company/${companyId}/purchase/invoices` },
-        { name: 'Import PI', href: `/company/${companyId}/purchase/pis` },
-      ]
-    },
+    { name: 'Chart of Accounts', href: `/company/${companyId}/accounts`, icon: ClipboardList },
     { 
       name: 'Sales', 
       icon: TrendingUp,
       children: [
         { name: 'Customers', href: `/company/${companyId}/sales/customers` },
+        { name: 'Sales Orders', href: `/company/${companyId}/sales/orders` },
         { name: 'Proforma Invoice', href: `/company/${companyId}/sales/pis` },
         { name: 'Sales Invoices', href: `/company/${companyId}/sales/invoices` },
+      ]
+    },
+    { 
+      name: 'Purchase', 
+      icon: CreditCard,
+      children: [
+        { name: 'Suppliers', href: `/company/${companyId}/vendors` },
+        { name: 'Purchase Orders', href: `/company/${companyId}/purchase/orders` },
+        { name: 'Purchase Invoices', href: `/company/${companyId}/purchase/invoices` },
+        { name: 'Import PI', href: `/company/${companyId}/purchase/pis` },
       ]
     },
     { 
@@ -141,8 +142,8 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
         { name: 'Payment Allocation', href: `/company/${companyId}/payments/allocate` },
       ]
     },
-    { name: 'Chart of Accounts', href: `/company/${companyId}/accounts`, icon: ClipboardList },
     { name: 'Journal Entries', href: `/company/${companyId}/journals`, icon: History },
+    { name: 'Products', href: `/company/${companyId}/products`, icon: Package },
     { name: 'Employees', href: `/company/${companyId}/employees`, icon: User },
     { name: 'Bank Reconciliation', href: `/company/${companyId}/bank/reconcile`, icon: CheckCircle2 },
     { name: 'Reports', href: `/company/${companyId}/reports`, icon: FileBarChart },
@@ -162,127 +163,128 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
   };
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-white">
       {/* Logo / Company Name */}
-      <div className="p-6 pb-4">
+      <div className="p-4 border-b border-gray-200 bg-gray-50">
         {isOwner ? (
           <Link
             href="/owner/dashboard"
             onClick={() => setMobileOpen(false)}
-            className="flex items-center gap-3 mb-8 transition-transform active:scale-95 group"
+            className="flex items-center gap-2 transition-transform active:scale-95 group"
           >
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 group-hover:rotate-6 transition-transform flex-shrink-0">
-              <Building2 className="w-6 h-6 text-white" />
+            <div className="w-8 h-8 bg-gray-700 rounded flex items-center justify-center shadow-sm flex-shrink-0">
+              <Building2 className="w-5 h-5 text-white" />
             </div>
             <div className="overflow-hidden">
-              <h1 className="text-white font-bold text-lg leading-tight truncate">{companyName}</h1>
-              <p className="text-blue-400 text-[10px] font-bold tracking-widest uppercase">Accounting Pro</p>
+              <h1 className="text-gray-900 font-bold text-sm leading-tight truncate">{companyName}</h1>
+              <p className="text-gray-500 text-[9px] font-bold tracking-tight uppercase">Accounting</p>
             </div>
           </Link>
         ) : (
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 flex-shrink-0">
-              <Building2 className="w-6 h-6 text-white" />
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gray-700 rounded flex items-center justify-center shadow-sm flex-shrink-0">
+              <Building2 className="w-5 h-5 text-white" />
             </div>
             <div className="overflow-hidden">
-              <h1 className="text-white font-bold text-lg leading-tight truncate">{companyName}</h1>
-              <p className="text-blue-400 text-[10px] font-bold tracking-widest uppercase">Accounting Pro</p>
+              <h1 className="text-gray-900 font-bold text-sm leading-tight truncate">{companyName}</h1>
+              <p className="text-gray-500 text-[9px] font-bold tracking-tight uppercase">Accounting</p>
             </div>
           </div>
         )}
+      </div>
 
-        {/* Navigation */}
-        <nav className="space-y-1">
-          {(!mounted || !realCompanyId) ? (
-            <div className="flex justify-center p-8">
-              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-          ) : menuItems.map((item) => (
-            <div key={item.name}>
-              {item.children ? (
-                <div>
-                  <button
-                    onClick={() => toggleMenu(item.name)}
+      {/* Navigation */}
+      <nav className="flex-1 py-2 overflow-y-auto">
+        {(!mounted || !realCompanyId) ? (
+          <div className="flex justify-center p-4">
+            <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <div className="space-y-[1px]">
+            {menuItems.map((item) => (
+              <div key={item.name} className="px-2">
+                {item.children ? (
+                  <div>
+                    <button
+                      onClick={() => toggleMenu(item.name)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-2 py-1.5 rounded transition-colors text-left",
+                        isParentActive(item) || expandedMenus.has(item.name)
+                          ? "bg-gray-100 text-gray-900 font-semibold"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      )}
+                    >
+                      {item.icon && (
+                        <item.icon className={cn(
+                          "w-4 h-4 flex-shrink-0",
+                          isParentActive(item) || expandedMenus.has(item.name) ? "text-gray-900" : "text-gray-400"
+                        )} />
+                      )}
+                      <span className="text-[13px] flex-1">{item.name}</span>
+                      <ChevronRight className={cn(
+                        "w-3 h-3 transition-transform",
+                        expandedMenus.has(item.name) && "rotate-90 text-gray-900"
+                      )} />
+                    </button>
+                    {expandedMenus.has(item.name) && (
+                      <div className="ml-5 border-l border-gray-200 mt-0.5 space-y-[1px]">
+                        {item.children.map((child) => (
+                          <Link
+                            key={child.name}
+                            href={child.href || '#'}
+                            onClick={() => setMobileOpen(false)}
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-1 hover:bg-gray-50 transition-colors block",
+                              isActive(child.href || '')
+                                ? "text-blue-600 font-bold bg-blue-50/50"
+                                : "text-gray-500 hover:text-gray-800"
+                            )}
+                          >
+                            <span className="text-[12px]">{child.name}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <Link
+                    href={item.href || '#'}
+                    onClick={() => setMobileOpen(false)}
                     className={cn(
-                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
-                      isParentActive(item) || expandedMenus.has(item.name)
-                        ? "bg-blue-600 text-white"
-                        : "text-slate-400 hover:text-white hover:bg-[#1E293B]"
+                      "flex items-center gap-2 px-2 py-1.5 rounded transition-colors group",
+                      isActive(item.href || '')
+                        ? "bg-gray-100 text-gray-900 font-bold"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     )}
                   >
                     {item.icon && (
                       <item.icon className={cn(
-                        "w-5 h-5 flex-shrink-0",
-                        isParentActive(item) || expandedMenus.has(item.name) ? "text-white" : "text-slate-400"
+                        "w-4 h-4 flex-shrink-0",
+                        isActive(item.href || '') ? "text-gray-900" : "text-gray-400 group-hover:text-gray-600"
                       )} />
                     )}
-                    <span className="font-medium text-sm flex-1 text-left">{item.name}</span>
-                    <ChevronRight className={cn(
-                      "w-4 h-4 transition-transform",
-                      expandedMenus.has(item.name) && "rotate-90"
-                    )} />
-                  </button>
-                  {expandedMenus.has(item.name) && (
-                    <div className="ml-4 mt-1 space-y-1">
-                      {item.children.map((child) => (
-                        <Link
-                          key={child.name}
-                          href={child.href || '#'}
-                          onClick={() => setMobileOpen(false)}
-                          className={cn(
-                            "flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200",
-                            isActive(child.href || '')
-                              ? "bg-blue-500/20 text-white text-sm"
-                              : "text-slate-400 hover:text-white hover:bg-[#1E293B] text-sm"
-                          )}
-                        >
-                          <span>{child.name}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <Link
-                  href={item.href || '#'}
-                  onClick={() => setMobileOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative",
-                    isActive(item.href || '')
-                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                      : "text-slate-400 hover:text-white hover:bg-[#1E293B]"
-                  )}
-                >
-                  {item.icon && (
-                    <item.icon className={cn(
-                      "w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110",
-                      isActive(item.href || '') ? "text-white" : "text-slate-400 group-hover:text-blue-400"
-                    )} />
-                  )}
-                  <span className="font-medium text-sm">{item.name}</span>
-                  {isActive(item.href || '') && (
-                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                  )}
-                </Link>
-              )}
-            </div>
-          ))}
-        </nav>
-      </div>
+                    <span className="text-[13px]">{item.name}</span>
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </nav>
     </div>
   );
 
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-64 bg-[#0F172A] border-r border-[#1E293B] z-40 hidden lg:block shadow-2xl print-hide overflow-y-auto">
+      <aside className="fixed left-0 top-0 h-full w-56 bg-white border-r border-gray-300 z-40 hidden lg:block print-hide overflow-y-auto">
         <SidebarContent />
       </aside>
 
       {/* Mobile Hamburger Button */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-[#0F172A] text-white rounded-xl shadow-lg print-hide"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white text-gray-800 border border-gray-300 rounded shadow-sm print-hide"
         aria-label="Open menu"
       >
         <Menu className="w-5 h-5" />
@@ -291,20 +293,20 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
       {/* Mobile Backdrop */}
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm print-hide"
+          className="lg:hidden fixed inset-0 bg-black/20 z-40 backdrop-blur-[1px] print-hide"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
       {/* Mobile Drawer */}
       <aside className={cn(
-        "lg:hidden fixed left-0 top-0 h-full w-72 bg-[#0F172A] border-r border-[#1E293B] z-50 shadow-2xl print-hide overflow-y-auto transition-transform duration-300",
+        "lg:hidden fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-300 z-50 print-hide overflow-y-auto transition-transform duration-300",
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Close button */}
         <button
           onClick={() => setMobileOpen(false)}
-          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-lg hover:bg-[#1E293B] transition-colors"
+          className="absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-800 transition-colors"
           aria-label="Close menu"
         >
           <X className="w-5 h-5" />

@@ -1,11 +1,116 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
 import { PurchaseOrderRepository } from '../../repositories/PurchaseOrderRepository';
+import { SalesOrderRepository } from '../../repositories/SalesOrderRepository';
 import { NotificationController } from './notification.controller';
+import { InventoryService } from './inventory.service';
 import { NotFoundError, ForbiddenError } from '../../middleware/errorHandler';
 import { BaseCompanyController } from './base.controller';
 
 export class OrderController extends BaseCompanyController {
+  // ============ SALES ORDERS ============
+  async getSalesOrders(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const sos = await SalesOrderRepository.findMany({ companyId });
+    return reply.send({ success: true, data: sos });
+  }
+
+  async createSalesOrder(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { 
+      customerId, lcId, orderDate, expectedDeliveryDate, 
+      currency, exchangeRate, totalAmount, status, lines, 
+      createdById, purchaseOrderIds 
+    } = request.body as any;
+
+    const soNumber = await this.generateDocumentNumber(companyId, 'so');
+    
+    const so = await SalesOrderRepository.create({
+      soNumber,
+      companyId,
+      customerId,
+      lcId,
+      orderDate: orderDate ? new Date(orderDate) : undefined,
+      expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : undefined,
+      currency,
+      exchangeRate,
+      totalAmount,
+      status: status || 'DRAFT',
+      createdById,
+      lines,
+      purchaseOrderIds
+    });
+
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'sales_order',
+      entityId: so.id,
+      action: 'CREATED',
+      performedById: (request.user as any).id,
+      metadata: { docNumber: soNumber }
+    });
+
+    return reply.status(201).send({ success: true, data: so });
+  }
+
+  async updateSalesOrder(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, soId } = request.params as { id: string, soId: string };
+    const updateData = request.body as any;
+    const userId = (request.user as any).id;
+
+    const so = await (prisma as any).salesOrder.findUnique({ where: { id: soId } });
+    if (!so) throw new NotFoundError('Sales Order not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canEdit(so.status, role)) {
+      throw new ForbiddenError('Cannot edit this sales order in current status');
+    }
+
+    delete updateData.companyId;
+    delete updateData.soNumber;
+    delete updateData.createdById;
+
+    if (updateData.orderDate) updateData.orderDate = new Date(updateData.orderDate);
+    if (updateData.expectedDeliveryDate) updateData.expectedDeliveryDate = new Date(updateData.expectedDeliveryDate);
+
+    const updatedSo = await SalesOrderRepository.update(soId, updateData);
+
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'sales_order',
+      entityId: updatedSo.id,
+      action: 'UPDATED',
+      performedById: userId,
+      metadata: { docNumber: updatedSo.soNumber }
+    });
+
+    return reply.send({ success: true, data: updatedSo });
+  }
+
+  async assignPurchaseOrder(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, soId } = request.params as { id: string, soId: string };
+    const { poId, action } = request.body as { poId: string, action: 'connect' | 'disconnect' };
+    const userId = (request.user as any).id;
+
+    let updated;
+    if (action === 'connect') {
+      updated = await SalesOrderRepository.assignPurchaseOrder(soId, poId);
+    } else {
+      updated = await SalesOrderRepository.unassignPurchaseOrder(soId, poId);
+    }
+
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'sales_order',
+      entityId: soId,
+      action: action === 'connect' ? 'LINK_PO' : 'UNLINK_PO',
+      performedById: userId,
+      metadata: { poId }
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
   // ============ PURCHASE ORDERS ============
   async getPurchaseOrders(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
@@ -172,5 +277,80 @@ export class OrderController extends BaseCompanyController {
 
     await PurchaseOrderRepository.delete(poId);
     return reply.send({ success: true, message: 'Purchase Order deleted' });
+  }
+
+  async assignSalesOrder(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, poId } = request.params as { id: string, poId: string };
+    const { soId, action } = request.body as { soId: string, action: 'connect' | 'disconnect' };
+    const userId = (request.user as any).id;
+
+    const updated = await PurchaseOrderRepository.assignSalesOrder(poId, soId, action);
+
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'purchase_order',
+      entityId: poId,
+      action: action === 'connect' ? 'LINK_SO' : 'UNLINK_SO',
+      performedById: userId,
+      metadata: { soId }
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
+  async getDeliveryChallans(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const dns = await (prisma as any).dN.findMany({
+      where: { companyId },
+      include: { salesOrder: true, lines: { include: { product: true } } },
+      orderBy: { createdAt: 'desc' }
+    });
+    return reply.send({ success: true, data: dns });
+  }
+
+  async generateDeliveryChallan(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, soId } = request.params as { id: string, soId: string };
+    const userId = (request.user as any).id;
+
+    const so = await (prisma as any).salesOrder.findUnique({
+      where: { id: soId },
+      include: { lines: true }
+    });
+
+    if (!so) throw new NotFoundError('Sales Order not found');
+
+    const dnNumber = await this.generateDocumentNumber(companyId, 'dn');
+
+    const dn = await (prisma as any).dN.create({
+      data: {
+        dnNumber,
+        companyId,
+        salesOrderId: soId,
+        shipmentDate: new Date(),
+        status: 'SHIPPED',
+        lines: {
+          create: so.lines.map((line: any) => ({
+            productId: line.productId,
+            quantity: line.quantity
+          }))
+        }
+      },
+      include: { lines: true }
+    });
+
+    await prisma.$transaction(async (tx: any) => {
+      await InventoryService.processDN(tx, dn.id);
+    });
+
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'delivery_note',
+      entityId: dn.id,
+      action: 'CREATED',
+      performedById: userId,
+      metadata: { docNumber: dnNumber, soNumber: so.soNumber }
+    });
+
+    return reply.status(201).send({ success: true, data: dn });
   }
 }

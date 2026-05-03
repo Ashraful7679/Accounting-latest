@@ -32,7 +32,7 @@ export default function ProductsPage() {
   const params = useParams();
   const companyId = params.id as string;
   const queryClient = useQueryClient();
-  const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'local' | 'foreign'>('local');
   const [searchTerm, setSearchTerm] = useState('');
   const [showAdjustModal, setShowAdjustModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -89,10 +89,11 @@ export default function ProductsPage() {
     },
   });
 
-  const filteredProducts = products?.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredProducts = products?.filter(p =>
+    (p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     p.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     p.sku?.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    ((activeTab === 'local' && p.currency === 'BDT') || (activeTab === 'foreign' && p.currency !== 'BDT'))
   ) || [];
 
   if (!mounted) return null;
@@ -118,6 +119,23 @@ export default function ProductsPage() {
           </button>
         </div>
 
+{/* Tabs */}
+        <div className="flex space-x-4 mb-4">
+          <button
+            onClick={() => setActiveTab('local')}
+            className={cn(
+              "px-4 py-2 rounded",
+              activeTab === 'local' ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-800"
+            )}
+          >Local</button>
+          <button
+            onClick={() => setActiveTab('foreign')}
+            className={cn(
+              "px-4 py-2 rounded",
+              activeTab === 'foreign' ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-800"
+            )}
+          >Foreign</button>
+        </div>
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-4 border-b border-slate-100 bg-slate-50/30 flex flex-col md:flex-row gap-4 items-center">
             <div className="relative flex-1 w-full">

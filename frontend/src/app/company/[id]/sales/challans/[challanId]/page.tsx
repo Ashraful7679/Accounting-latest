@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Truck, Eye, Printer, Package, ArrowUpRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import Link from 'next/link';
 import { formatCurrency } from '@/lib/decimalUtils';
 import { useCompany } from '@/lib/CompanyContext';
 import React from 'react';

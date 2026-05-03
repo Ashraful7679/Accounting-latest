@@ -6,14 +6,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
   Plus, Trash2, ArrowLeft, Save, 
-  User, Calendar, ShoppingCart, Loader2
+  User, Calendar, Receipt, Loader2, Link as LinkIcon
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
 import { useCompany } from '@/lib/CompanyContext';
 import React from 'react';
 
-export default function CreatePurchaseOrderPage() {
+export default function CreatePurchaseInvoicePage() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -28,9 +28,10 @@ export default function CreatePurchaseOrderPage() {
 
   const [formData, setFormData] = useState({
     vendorName: '',
-    poDate: new Date().toISOString().split('T')[0],
-    expectedDeliveryDate: '',
-    lines: [{ itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }] as any[]
+    invoiceDate: new Date().toISOString().split('T')[0],
+    dueDate: '',
+    poIds: [] as string[],
+    lines: [{ itemDescription: '', quantity: 1, unitPrice: 0, total: 0, poId: '' }] as any[]
   });
 
   useEffect(() => { setMounted(true); }, []);
@@ -53,9 +54,21 @@ export default function CreatePurchaseOrderPage() {
     enabled: !!companyId,
   });
 
+  const { data: pos } = useQuery({
+    queryKey: ['purchase-orders', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/purchase-orders`);
+      return response.data.data;
+    },
+    enabled: !!companyId,
+  });
+
   const filteredVendors = vendors?.filter((v: any) => 
     orderType === 'local' ? v.type === 'Local' || !v.type : v.type === 'Foreign'
   );
+
+  const selectedVendor = vendors?.find((v: any) => v.name === formData.vendorName);
+  const vendorPOs = pos?.filter((po: any) => po.supplierId === selectedVendor?.id && (po.status === 'SENT' || po.status === 'APPROVED' || po.status === 'PARTIALLY_RECEIVED')) || [];
 
   const handleLineChange = (index: number, field: string, value: any) => {
     const newLines = [...formData.lines];
@@ -85,7 +98,7 @@ export default function CreatePurchaseOrderPage() {
   const addLine = () => {
     setFormData({
       ...formData,
-      lines: [...formData.lines, { itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }]
+      lines: [...formData.lines, { itemDescription: '', quantity: 1, unitPrice: 0, total: 0, poId: '' }]
     });
   };
 
@@ -95,6 +108,40 @@ export default function CreatePurchaseOrderPage() {
     setFormData({ ...formData, lines: newLines });
   };
 
+  const handlePOToggle = (poId: string) => {
+    const currentPOs = [...formData.poIds];
+    const poIndex = currentPOs.indexOf(poId);
+    
+    if (poIndex > -1) {
+      currentPOs.splice(poIndex, 1);
+      // Remove lines linked to this PO
+      setFormData({
+        ...formData,
+        poIds: currentPOs,
+        lines: formData.lines.filter(l => l.poId !== poId)
+      });
+    } else {
+      currentPOs.push(poId);
+      const po = vendorPOs.find((p: any) => p.id === poId);
+      if (po && po.lines) {
+        const newLinesFromPO = po.lines.map((l: any) => ({
+          productId: l.productId,
+          itemDescription: l.itemDescription,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          total: l.quantity * l.unitPrice,
+          poId: po.id
+        }));
+        
+        setFormData({
+          ...formData,
+          poIds: currentPOs,
+          lines: [...formData.lines.filter(l => l.itemDescription !== ''), ...newLinesFromPO]
+        });
+      }
+    }
+  };
+
   const calculateTotal = () => {
     return formData.lines.reduce((sum, line) => sum + line.total, 0);
   };
@@ -102,17 +149,14 @@ export default function CreatePurchaseOrderPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.vendorName) { toast.error('Please enter or select a vendor'); return; }
-    if (formData.lines.some(l => !l.itemDescription || l.quantity <= 0)) {
-      toast.error('Please complete all product lines'); return;
+    if (formData.lines.length === 0 || formData.lines.some(l => !l.itemDescription || l.quantity <= 0)) {
+      toast.error('Please complete all item lines'); return;
     }
 
     setIsSaving(true);
     try {
-      let finalVendorId = '';
-      const existingVendor = vendors?.find((v: any) => v.name === formData.vendorName);
-      if (existingVendor) {
-        finalVendorId = existingVendor.id;
-      } else {
+      let finalVendorId = selectedVendor?.id;
+      if (!finalVendorId) {
         const res = await api.post(`/company/${companyId}/vendors`, {
           name: formData.vendorName,
           type: orderType === 'local' ? 'Local' : 'Foreign',
@@ -122,40 +166,51 @@ export default function CreatePurchaseOrderPage() {
       }
 
       const finalLines = await Promise.all(formData.lines.map(async (line) => {
-        let finalProductId = '';
-        const existingProduct = products?.find((p: any) => p.name === line.itemDescription);
-        if (existingProduct) {
-          finalProductId = existingProduct.id;
-        } else {
-          const res = await api.post(`/company/${companyId}/products`, {
-            name: line.itemDescription,
-            unitPrice: line.unitPrice,
-            currency: orderType === 'local' ? 'BDT' : 'USD'
-          });
-          finalProductId = res.data.data.id;
+        let finalProductId = line.productId;
+        if (!finalProductId) {
+          const existingProduct = products?.find((p: any) => p.name === line.itemDescription);
+          if (existingProduct) {
+            finalProductId = existingProduct.id;
+          } else {
+            const res = await api.post(`/company/${companyId}/products`, {
+              name: line.itemDescription,
+              unitPrice: line.unitPrice,
+              currency: orderType === 'local' ? 'BDT' : 'USD'
+            });
+            finalProductId = res.data.data.id;
+          }
         }
-        return { ...line, productId: finalProductId, itemDescription: line.itemDescription };
+        return { 
+          productId: finalProductId, 
+          description: line.itemDescription, 
+          quantity: line.quantity, 
+          unitPrice: line.unitPrice,
+          total: line.total,
+          poId: line.poId || undefined
+        };
       }));
 
       const total = calculateTotal();
       const payload = {
-        supplierId: finalVendorId,
-        poDate: formData.poDate,
-        expectedDeliveryDate: formData.expectedDeliveryDate,
+        vendorId: finalVendorId,
+        invoiceDate: formData.invoiceDate,
+        dueDate: formData.dueDate || undefined,
+        type: 'purchase',
         currency: orderType === 'local' ? 'BDT' : 'USD',
         exchangeRate: orderType === 'local' ? 1 : companyExchangeRate,
         status: 'DRAFT',
         lines: finalLines,
-        totalBDT: orderType === 'local' ? total : total * companyExchangeRate,
-        totalForeign: orderType === 'foreign' ? total : 0
+        poIds: formData.poIds,
+        totalAmount: total,
+        totalBDT: orderType === 'local' ? total : total * companyExchangeRate
       };
 
-      await api.post(`/company/${companyId}/purchase-orders`, payload);
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders', companyId] });
-      toast.success('Purchase Order created successfully');
-      router.push(`/company/${companyId}/purchase/orders`);
+      await api.post(`/company/${companyId}/invoices?type=purchase`, payload);
+      queryClient.invalidateQueries({ queryKey: ['purchase-invoices', companyId] });
+      toast.success('Purchase Invoice registered successfully');
+      router.push(`/company/${companyId}/purchase/invoices`);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to create purchase order');
+      toast.error(err.response?.data?.message || 'Failed to register invoice');
       setIsSaving(false);
     }
   };
@@ -179,8 +234,8 @@ export default function CreatePurchaseOrderPage() {
           </button>
           <div>
             <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-indigo-600" />
-              Create Purchase Order
+              <Receipt className="w-5 h-5 text-emerald-600" />
+              Register Purchase Invoice
             </h1>
           </div>
         </div>
@@ -212,7 +267,7 @@ export default function CreatePurchaseOrderPage() {
         {/* Basic Info */}
         <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Vendor / Supplier</label>
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Vendor</label>
             <div className="relative">
               <User className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
               <input 
@@ -220,46 +275,71 @@ export default function CreatePurchaseOrderPage() {
                 required
                 value={formData.vendorName}
                 onChange={(e) => setFormData({ ...formData, vendorName: e.target.value })}
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
                 placeholder="Type or select..."
               />
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">PO Date</label>
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Invoice Date</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
               <input 
                 type="date"
                 required
-                value={formData.poDate}
-                onChange={(e) => setFormData({ ...formData, poDate: e.target.value })}
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
+                value={formData.invoiceDate}
+                onChange={(e) => setFormData({ ...formData, invoiceDate: e.target.value })}
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm font-mono focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Expected Delivery</label>
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Due Date</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
               <input 
                 type="date"
-                value={formData.expectedDeliveryDate}
-                onChange={(e) => setFormData({ ...formData, expectedDeliveryDate: e.target.value })}
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
+                value={formData.dueDate}
+                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm font-mono focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
               />
             </div>
           </div>
         </div>
 
-        {/* Schedule */}
+        {/* Linked POs */}
+        {selectedVendor && vendorPOs.length > 0 && (
+          <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
+            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <LinkIcon className="w-3 h-3" /> Link Purchase Orders
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {vendorPOs.map((po: any) => (
+                <button
+                  key={po.id}
+                  type="button"
+                  onClick={() => handlePOToggle(po.id)}
+                  className={`px-3 py-1.5 rounded-sm text-[10px] font-bold transition-all border ${
+                    formData.poIds.includes(po.id) 
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm' 
+                    : 'bg-gray-50 border-gray-100 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  {po.poNumber}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Lines */}
         <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
           <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50">
-            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Order Schedule</h3>
+            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Invoice Items</h3>
             <button 
               type="button"
               onClick={addLine}
-              className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 uppercase transition-colors"
+              className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 uppercase transition-colors"
             >
               <Plus className="w-3.5 h-3.5" /> Add Item
             </button>
@@ -268,7 +348,7 @@ export default function CreatePurchaseOrderPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-500 uppercase font-bold tracking-wider">
-                <th className="px-4 py-3 text-left">Product / Description</th>
+                <th className="px-4 py-3 text-left">Description</th>
                 <th className="px-4 py-3 text-right w-24">Qty</th>
                 {orderType === 'foreign' ? (
                   <>
@@ -286,16 +366,19 @@ export default function CreatePurchaseOrderPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {formData.lines.map((line, index) => (
-                <tr key={index} className="hover:bg-gray-50/50 group transition-colors">
+                <tr key={index} className={`hover:bg-gray-50/50 group transition-colors ${line.poId ? 'bg-blue-50/20' : ''}`}>
                   <td className="px-4 py-2">
                     <input 
                       list="product-list"
                       required
                       value={line.itemDescription}
                       onChange={(e) => handleLineChange(index, 'itemDescription', e.target.value)}
-                      className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-indigo-500 rounded-sm px-2 py-1.5 text-sm focus:ring-0 outline-none text-gray-900 transition-colors"
+                      className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-emerald-500 rounded-sm px-2 py-1.5 text-sm focus:ring-0 outline-none text-gray-900 transition-colors"
                       placeholder="Type or select..."
                     />
+                    {line.poId && (
+                      <span className="text-[8px] font-bold text-blue-500 uppercase tracking-tighter pl-2">Linked to {vendorPOs.find((p: any) => p.id === line.poId)?.poNumber}</span>
+                    )}
                   </td>
                   <td className="px-4 py-2">
                     <input 
@@ -303,7 +386,7 @@ export default function CreatePurchaseOrderPage() {
                       required min="0.01" step="any"
                       value={line.quantity}
                       onChange={(e) => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                      className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-indigo-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none transition-colors"
+                      className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-emerald-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none transition-colors"
                     />
                   </td>
                   {orderType === 'foreign' ? (
@@ -314,7 +397,7 @@ export default function CreatePurchaseOrderPage() {
                             type="number" step="any"
                             value={line.unitPrice}
                             onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                            className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-indigo-500 rounded-sm px-2 py-1 text-sm text-right font-mono outline-none transition-colors"
+                            className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-emerald-500 rounded-sm px-2 py-1 text-sm text-right font-mono outline-none transition-colors"
                           />
                           <span className="text-[10px] text-gray-400 font-mono pr-2">BDT {formatCurrency(line.unitPrice * companyExchangeRate)}</span>
                         </div>
@@ -333,7 +416,7 @@ export default function CreatePurchaseOrderPage() {
                           type="number" step="any"
                           value={line.unitPrice}
                           onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                          className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-indigo-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none transition-colors"
+                          className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-emerald-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none transition-colors"
                         />
                       </td>
                       <td className="px-4 py-2 text-right font-mono font-bold text-gray-900">
@@ -357,7 +440,7 @@ export default function CreatePurchaseOrderPage() {
 
           <div className="flex justify-end p-6 bg-gray-50 border-t border-gray-200">
             <div className="text-right">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Order Total</p>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Invoice Total</p>
               {orderType === 'foreign' ? (
                 <>
                   <p className="text-2xl font-black text-gray-900 font-mono">USD {formatCurrency(calculateTotal())}</p>
@@ -377,7 +460,7 @@ export default function CreatePurchaseOrderPage() {
             className="px-8 py-3 bg-gray-900 text-white rounded-sm text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
           >
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Confirm Purchase Order
+            Confirm Purchase Invoice
           </button>
         </div>
       </form>

@@ -143,6 +143,7 @@ model Company {
   employeeLoans        EmployeeLoan[]
   employeeLoanRepayments EmployeeLoanRepayment[]
   employeeExpenses     EmployeeExpense[]
+  sequences           DocumentSequence[]
 
   settings      CompanySettings?
   
@@ -150,6 +151,18 @@ model Company {
   deletedAt    DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+model DocumentSequence {
+  id        String   @id @default(uuid())
+  companyId String
+  type      String
+  year      Int
+  lastValue Int      @default(0)
+  
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, type, year])
 }
 
 model UserCompany {

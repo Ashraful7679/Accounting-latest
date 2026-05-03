@@ -20,6 +20,7 @@ interface PurchaseOrder {
   poDate: string;
   totalBDT: number;
   currency: string;
+  exchangeRate: number;
   status: string;
   supplier?: { name: string; code: string };
   salesOrders: any[];
@@ -126,7 +127,7 @@ export default function PurchaseOrdersPage() {
               <th className="py-3 px-4 text-left font-bold text-gray-400 uppercase tracking-widest">Order Number</th>
               <th className="py-3 px-4 text-left font-bold text-gray-400 uppercase tracking-widest">Date</th>
               <th className="py-3 px-4 text-left font-bold text-gray-400 uppercase tracking-widest">Supplier</th>
-              <th className="py-3 px-4 text-right font-bold text-gray-400 uppercase tracking-widest">Total (BDT)</th>
+              <th className="py-3 px-4 text-right font-bold text-gray-400 uppercase tracking-widest">Amount</th>
               <th className="py-3 px-4 text-right font-bold text-gray-400 uppercase tracking-widest">Allocated</th>
               <th className="py-3 px-4 text-center font-bold text-gray-400 uppercase tracking-widest">Status</th>
               <th className="py-3 px-4 text-right font-bold text-gray-400 uppercase tracking-widest">Actions</th>
@@ -158,8 +159,9 @@ export default function PurchaseOrdersPage() {
                       <div className="font-bold text-gray-700 uppercase tracking-tight">{po.supplier?.name}</div>
                       <div className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">{po.supplier?.code}</div>
                     </td>
-                    <td className="py-4 px-4 text-right font-mono font-bold text-gray-900">
-                      {formatCurrency(po.totalBDT)}
+                    <td className="py-4 px-4 text-right">
+                      <div className="font-mono font-bold text-gray-900">{po.currency} {formatCurrency(po.totalBDT / (po.exchangeRate || 1))}</div>
+                      <div className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">৳{formatCurrency(po.totalBDT)}</div>
                     </td>
                     <td className="py-4 px-4 text-right font-mono text-gray-500">
                       {formatCurrency(calculateUsedValue(po))}

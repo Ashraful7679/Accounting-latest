@@ -242,9 +242,10 @@ export default function CompanyInvoicesPage() {
           </tbody>
         </table>
         <div class="totals">
-          <p>Subtotal: ${invoice.subtotal.toLocaleString()}</p>
-          <p>Tax: ${invoice.taxAmount.toLocaleString()}</p>
-          <p class="grand-total">Total: ${invoice.total.toLocaleString()}</p>
+          <p>Subtotal (\${invoice.currency}): \${invoice.subtotal.toLocaleString()}</p>
+          <p>Tax (\${invoice.currency}): \${invoice.taxAmount.toLocaleString()}</p>
+          <p class="grand-total">Total (\${invoice.currency}): \${invoice.total.toLocaleString()}</p>
+          <p style="margin-top: 8px; font-weight: bold; color: #64748b; font-size: 14px;">Local Valuation (BDT): ৳\${(invoice.total * (invoice.exchangeRate || 1)).toLocaleString()}</p>
         </div>
       `;
 

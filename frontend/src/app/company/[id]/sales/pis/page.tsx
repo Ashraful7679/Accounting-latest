@@ -9,7 +9,7 @@ import {
   CheckCircle2, X, ArrowUpRight, Eye, Globe, ChevronDown, Loader2, ShoppingBag, DollarSign
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { formatCurrency, getCurrencySymbol } from '@/lib/decimalUtils';
+import { formatCurrency, getCurrencySymbol, convertCurrency } from '@/lib/decimalUtils';
 import { useCompany } from '@/lib/CompanyContext';
 import { cn } from '@/lib/utils';
 import React from 'react';
@@ -162,8 +162,12 @@ export default function ExportPIsPage() {
     if (field === 'productId' && value) {
       const product = allProductsData?.find((p: any) => p.id === value);
       if (product) {
+        const rawUnitPrice = product.unitPrice || 0;
+        const productCurrency = product.currency || 'BDT';
+        
         line.description = product.name;
-        line.unitPrice = Number((product.unitPrice / exchangeRate).toFixed(2));
+        // Convert product price to form currency
+        line.unitPrice = convertCurrency(rawUnitPrice, productCurrency, formData.currency, exchangeRate || 1);
       }
     }
     
@@ -629,23 +633,26 @@ export default function ExportPIsPage() {
                               />
                             </td>
                             <td className="px-4 py-3">
-                              <div className="flex items-center gap-1 border border-gray-50 rounded px-2 py-1">
-                                <span className="text-[9px] font-bold text-gray-400">{formData.currency === 'USD' ? '$' : '৳'}</span>
-                                <input 
-                                  type="number" step="any" value={line.unitPrice}
-                                  onChange={(e) => handleLineChange(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
-                                  className="w-full bg-transparent border-none focus:ring-0 text-[11px] text-right font-mono font-bold text-gray-600 p-0"
-                                />
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-1 border border-gray-50 rounded px-2 py-1">
+                                  <span className="text-[9px] font-bold text-gray-400">{formData.currency === 'USD' ? '$' : '৳'}</span>
+                                  <input 
+                                    type="number" step="any" value={line.unitPrice}
+                                    onChange={(e) => handleLineChange(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
+                                    className="w-full bg-transparent border-none focus:ring-0 text-[11px] text-right font-mono font-bold text-gray-600 p-0"
+                                  />
+                                </div>
+                                <div className="text-[9px] text-gray-400 mt-1 px-1 font-mono text-right">
+                                   ৳ {formatCurrency(line.unitPrice * (formData.currency === 'BDT' ? 1 : (exchangeRate || 1)))}
+                                </div>
                               </div>
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <div className="flex flex-col">
-                                <span className="font-mono font-black text-gray-900 text-[12px]">{line.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                {formData.currency !== 'BDT' && (
-                                  <span className="text-[9px] text-gray-400 font-mono">৳{(line.total * (exchangeRate || 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                )}
-                              </div>
-                            </td>
+                               <div className="flex flex-col">
+                                 <span className="font-mono font-black text-gray-900 text-[12px]">{getCurrencySymbol(formData.currency)} {line.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                 <span className="text-[9px] text-gray-400 font-mono">৳{(line.total * (formData.currency === 'BDT' ? 1 : (exchangeRate || 1))).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                               </div>
+                             </td>
                             <td className="px-4 py-3 text-center">
                               <button 
                                 type="button" onClick={() => removeLine(idx)}

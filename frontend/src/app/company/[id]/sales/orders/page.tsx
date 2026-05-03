@@ -42,6 +42,7 @@ export default function SalesOrdersPage() {
   const companyId = params.id as string;
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
+  const [challanMap, setChallanMap] = useState<Record<string, string>>({});
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [showPOSelector, setShowPOSelector] = useState<{ soId: string } | null>(null);
@@ -78,16 +79,35 @@ export default function SalesOrdersPage() {
 
   const generateChallanMutation = useMutation({
     mutationFn: async (soId: string) => {
-      await api.post(`/company/${companyId}/sales-orders/${soId}/challan`);
+      const response = await api.post(`/company/${companyId}/sales-orders/${soId}/challan`);
+      return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (result, variables) => {
+      const dn = result?.data;
+      if (dn?.id) {
+        setChallanMap(prev => ({ ...prev, [variables]: dn.id }));
+      }
       queryClient.invalidateQueries({ queryKey: ['sales-orders', companyId] });
       toast.success('Delivery Challan created');
-      router.push(`/company/${companyId}/sales/challans`);
     },
     onError: (err: any) => {
       console.error('Challan generation error:', err);
       const msg = err?.response?.data?.message || 'Failed to create delivery challan';
+      toast.error(msg);
+    },
+  });
+
+    const generateInvoiceMutation = useMutation({
+    mutationFn: async (soId: string) => {
+      const response = await api.post(`/company/${companyId}/sales-orders/${soId}/invoice`);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('Invoice created');
+      queryClient.invalidateQueries({ queryKey: ['sales-orders', companyId] });
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || 'Failed to create invoice';
       toast.error(msg);
     },
   });
@@ -192,14 +212,34 @@ export default function SalesOrdersPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => generateChallanMutation.mutate(so.id)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-200 text-[9px] font-black uppercase tracking-widest hover:border-gray-900 transition-all shadow-sm"
-                        >
-                           <Truck className="w-3.5 h-3.5" /> Dispatch
-                        </button>
-                        <button className="p-2 text-gray-400 hover:text-gray-900 transition-colors"><Eye className="w-4 h-4" /></button>
-                      </div>
+  {challanMap[so.id] ? (
+    <button
+      onClick={() => router.push(`/company/${companyId}/sales/challans/${challanMap[so.id]}`)}
+      className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
+    >
+      <Eye className="w-4 h-4" />
+    </button>
+  ) : (
+    <button
+      onClick={() => generateChallanMutation.mutate(so.id)}
+      className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
+    >
+      <Truck className="w-4 h-4" />
+    </button>
+  )}
+  <button
+    onClick={() => window.print()}
+    className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
+  >
+    <Printer className="w-4 h-4" />
+  </button>
+  <button
+    onClick={() => generateInvoiceMutation.mutate(so.id)}
+    className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
+  >
+    <FileText className="w-4 h-4" />
+  </button>
+</div>
                     </td>
                   </tr>
                   {expandedOrders.has(so.id) && (

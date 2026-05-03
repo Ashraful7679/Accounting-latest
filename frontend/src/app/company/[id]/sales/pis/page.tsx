@@ -71,6 +71,7 @@ export default function ExportPIsPage() {
   });
   
   const [searchTerm, setSearchTerm] = useState('');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -339,7 +340,8 @@ export default function ExportPIsPage() {
           )}
         >Foreign</button>
       </div>
-
+      {/* Search and Filter Area */}
+      <div className="flex flex-wrap items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <input

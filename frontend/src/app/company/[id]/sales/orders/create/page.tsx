@@ -1,52 +1,39 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
   Plus, Trash2, ArrowLeft, Save, 
-  User, Calendar, Globe, Hash,
-  ShoppingCart, AlertCircle, Loader2
+  User, Calendar, ShoppingCart, Loader2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { formatCurrency, convertCurrency } from '@/lib/decimalUtils';
+import { formatCurrency } from '@/lib/decimalUtils';
 import { useCompany } from '@/lib/CompanyContext';
 import React from 'react';
-
-interface SalesOrderLine {
-  productId: string;
-  itemDescription: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
-}
 
 export default function CreateSalesOrderPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const companyId = params.id as string;
   const queryClient = useQueryClient();
   const { exchangeRate: companyExchangeRate } = useCompany();
   const [mounted, setMounted] = useState(false);
 
+  const initialType = searchParams.get('type') === 'foreign' ? 'foreign' : 'local';
+  const [orderType, setOrderType] = useState<'local'|'foreign'>(initialType);
+  const [isSaving, setIsSaving] = useState(false);
+
   const [formData, setFormData] = useState({
-    customerId: '',
-    lcId: '',
+    customerName: '',
     soDate: new Date().toISOString().split('T')[0],
     expectedDeliveryDate: '',
-    currency: 'USD',
-    exchangeRate: companyExchangeRate || 1,
-    status: 'DRAFT',
-    lines: [{ productId: '', itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }] as SalesOrderLine[]
+    lines: [{ itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }] as any[]
   });
 
-  useEffect(() => {
-    setMounted(true);
-    if (companyExchangeRate) {
-      setFormData(prev => ({ ...prev, exchangeRate: companyExchangeRate }));
-    }
-  }, [companyExchangeRate]);
+  useEffect(() => { setMounted(true); }, []);
 
   const { data: customers } = useQuery({
     queryKey: ['customers', companyId],
@@ -66,53 +53,31 @@ export default function CreateSalesOrderPage() {
     enabled: !!companyId,
   });
 
-  const { data: lcs } = useQuery({
-    queryKey: ['lcs', companyId],
-    queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/lcs`);
-      return response.data.data;
-    },
-    enabled: !!companyId,
-  });
+  const filteredCustomers = customers?.filter((c: any) => 
+    orderType === 'local' ? c.type === 'Local' || !c.type : c.type === 'Foreign'
+  );
 
-  const createMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const totalBDT = data.lines.reduce((sum: number, line: SalesOrderLine) => sum + (line.quantity * line.unitPrice), 0);
-      const payload = {
-        ...data,
-        totalBDT,
-        totalForeign: totalBDT / data.exchangeRate
-      };
-      const response = await api.post(`/company/${companyId}/sales-orders`, payload);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sales-orders', companyId] });
-      toast.success('Sales Order created successfully');
-      router.push(`/company/${companyId}/sales/orders`);
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create sales order');
-    }
-  });
-
-  const handleLineChange = (index: number, field: keyof SalesOrderLine, value: any) => {
+  const handleLineChange = (index: number, field: string, value: any) => {
     const newLines = [...formData.lines];
     const line = { ...newLines[index], [field]: value };
 
-    if (field === 'productId') {
-      const product = products?.find((p: any) => p.id === value);
-      if (product) {
-        const rawUnitPrice = product.unitPrice || 0;
-        const productCurrency = product.currency || 'BDT';
+    if (field === 'itemDescription') {
+      const existingProduct = products?.find((p: any) => p.name === value);
+      if (existingProduct) {
+        let price = existingProduct.unitPrice || 0;
+        const targetCurrency = orderType === 'local' ? 'BDT' : 'USD';
         
-        line.itemDescription = product.name;
-        // Convert product price to form currency
-        line.unitPrice = convertCurrency(rawUnitPrice, productCurrency, formData.currency, formData.exchangeRate);
+        if (existingProduct.currency === 'USD' && targetCurrency === 'BDT') {
+          price = price * companyExchangeRate;
+        } else if (existingProduct.currency === 'BDT' && targetCurrency === 'USD') {
+          price = price / companyExchangeRate;
+        }
+        
+        line.unitPrice = Number(price.toFixed(2));
       }
     }
 
-    line.total = line.quantity * line.unitPrice;
+    line.total = Number((line.quantity * line.unitPrice).toFixed(2));
     newLines[index] = line;
     setFormData({ ...formData, lines: newLines });
   };
@@ -120,7 +85,7 @@ export default function CreateSalesOrderPage() {
   const addLine = () => {
     setFormData({
       ...formData,
-      lines: [...formData.lines, { productId: '', itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }]
+      lines: [...formData.lines, { itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }]
     });
   };
 
@@ -134,299 +99,286 @@ export default function CreateSalesOrderPage() {
     return formData.lines.reduce((sum, line) => sum + line.total, 0);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.customerId) {
-      toast.error('Please select a customer');
-      return;
-    }
+    if (!formData.customerName) { toast.error('Please enter or select a customer'); return; }
     if (formData.lines.some(l => !l.itemDescription || l.quantity <= 0)) {
-      toast.error('Please complete all line items');
-      return;
+      toast.error('Please complete all product lines'); return;
     }
-    createMutation.mutate(formData);
+
+    setIsSaving(true);
+    try {
+      let finalCustomerId = '';
+      const existingCustomer = customers?.find((c: any) => c.name === formData.customerName);
+      if (existingCustomer) {
+        finalCustomerId = existingCustomer.id;
+      } else {
+        const res = await api.post(`/company/${companyId}/customers`, {
+          name: formData.customerName,
+          type: orderType === 'local' ? 'Local' : 'Foreign',
+          preferredCurrency: orderType === 'local' ? 'BDT' : 'USD'
+        });
+        finalCustomerId = res.data.data.id;
+      }
+
+      const finalLines = await Promise.all(formData.lines.map(async (line) => {
+        let finalProductId = '';
+        const existingProduct = products?.find((p: any) => p.name === line.itemDescription);
+        if (existingProduct) {
+          finalProductId = existingProduct.id;
+        } else {
+          const res = await api.post(`/company/${companyId}/products`, {
+            name: line.itemDescription,
+            unitPrice: line.unitPrice,
+            currency: orderType === 'local' ? 'BDT' : 'USD'
+          });
+          finalProductId = res.data.data.id;
+        }
+        return { ...line, productId: finalProductId, itemDescription: line.itemDescription };
+      }));
+
+      const total = calculateTotal();
+      const payload = {
+        customerId: finalCustomerId,
+        soDate: formData.soDate,
+        expectedDeliveryDate: formData.expectedDeliveryDate,
+        currency: orderType === 'local' ? 'BDT' : 'USD',
+        exchangeRate: orderType === 'local' ? 1 : companyExchangeRate,
+        status: 'DRAFT',
+        lines: finalLines,
+        totalBDT: orderType === 'local' ? total : total * companyExchangeRate,
+        totalForeign: orderType === 'foreign' ? total : 0
+      };
+
+      await api.post(`/company/${companyId}/sales-orders`, payload);
+      queryClient.invalidateQueries({ queryKey: ['sales-orders', companyId] });
+      toast.success('Sales Order created successfully');
+      router.push(`/company/${companyId}/sales/orders`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to create sales order');
+      setIsSaving(false);
+    }
   };
 
   if (!mounted) return null;
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto space-y-8 bg-gray-50 min-h-screen">
-      {/* Sticky Header Actions */}
-      <div className="flex justify-between items-center border-b border-gray-200 pb-6">
+    <div className="p-6 max-w-5xl mx-auto space-y-6 bg-gray-50 min-h-screen">
+      <datalist id="customer-list">
+        {filteredCustomers?.map((c: any) => <option key={c.id} value={c.name} />)}
+      </datalist>
+      <datalist id="product-list">
+        {products?.map((p: any) => <option key={p.id} value={p.name} />)}
+      </datalist>
+
+      {/* Header */}
+      <div className="flex justify-between items-center bg-white p-4 rounded-sm border border-gray-200 shadow-sm">
         <div className="flex items-center gap-4">
-          <button 
-            onClick={() => router.back()}
-            className="p-2 hover:bg-white border border-transparent hover:border-gray-200 rounded-sm transition-all text-gray-400 hover:text-gray-900 shadow-sm hover:shadow-md"
-          >
+          <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-900 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <ShoppingCart className="w-6 h-6 text-gray-400" />
+            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-blue-600" />
               Create Sales Order
             </h1>
-            <p className="text-sm text-gray-500 mt-1">Initialize a new sales contract and allocate resources</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button 
-            onClick={() => router.back()}
-            className="px-4 py-2 border border-gray-300 rounded-sm text-xs font-bold uppercase tracking-wider text-gray-600 hover:bg-white transition-colors bg-white shadow-sm"
-          >
-            Cancel
-          </button>
-          <button 
-            onClick={handleSubmit}
-            disabled={createMutation.isPending}
-            className="px-6 py-2 bg-gray-900 text-white rounded-sm text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
-          >
-            {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Save Order
-          </button>
+
+        <div className="flex items-center gap-6">
+          {orderType === 'foreign' && (
+            <div className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-sm">
+              USD/BDT Rate: <span className="text-gray-900">{companyExchangeRate}</span>
+            </div>
+          )}
+          <div className="flex bg-gray-100 p-1 rounded-sm">
+            <button 
+              onClick={() => setOrderType('local')} 
+              className={`px-4 py-1.5 rounded-sm text-[10px] font-bold uppercase tracking-wider transition-colors ${orderType === 'local' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+            >
+              Local
+            </button>
+            <button 
+              onClick={() => setOrderType('foreign')} 
+              className={`px-4 py-1.5 rounded-sm text-[10px] font-bold uppercase tracking-wider transition-colors ${orderType === 'foreign' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+            >
+              Foreign
+            </button>
+          </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Left Column: Basic Info & Items */}
-        <div className="lg:col-span-3 space-y-8">
-          <div className="bg-white p-8 border border-gray-200 rounded-sm shadow-sm space-y-8">
-            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-50 pb-2">Contract Details</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-gray-500 uppercase flex items-center gap-2 tracking-wider">
-                  <User className="w-3 h-3 text-gray-400" /> Customer
-                </label>
-                <select 
-                  required
-                  value={formData.customerId}
-                  onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-                  className="w-full bg-white border border-gray-200 rounded-sm px-4 py-2.5 text-sm focus:outline-none focus:border-gray-900 transition-colors"
-                >
-                  <option value="">Select Customer</option>
-                  {customers?.map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-gray-500 uppercase flex items-center gap-2 tracking-wider">
-                  <Hash className="w-3 h-3 text-gray-400" /> Letter of Credit
-                </label>
-                <select 
-                  value={formData.lcId}
-                  onChange={(e) => setFormData({ ...formData, lcId: e.target.value })}
-                  className="w-full bg-white border border-gray-200 rounded-sm px-4 py-2.5 text-sm focus:outline-none focus:border-gray-900 transition-colors"
-                >
-                  <option value="">No LC Linked</option>
-                  {lcs?.map((l: any) => (
-                    <option key={l.id} value={l.id}>{l.lcNumber}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-gray-500 uppercase flex items-center gap-2 tracking-wider">
-                  <Calendar className="w-3 h-3 text-gray-400" /> Order Date
-                </label>
-                <input 
-                  type="date"
-                  required
-                  value={formData.soDate}
-                  onChange={(e) => setFormData({ ...formData, soDate: e.target.value })}
-                  className="w-full bg-white border border-gray-200 rounded-sm px-4 py-2.5 text-sm focus:outline-none focus:border-gray-900 transition-colors font-mono"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-gray-500 uppercase flex items-center gap-2 tracking-wider">
-                  <Calendar className="w-3 h-3 text-gray-400" /> Expected Delivery
-                </label>
-                <input 
-                  type="date"
-                  value={formData.expectedDeliveryDate}
-                  onChange={(e) => setFormData({ ...formData, expectedDeliveryDate: e.target.value })}
-                  className="w-full bg-white border border-gray-200 rounded-sm px-4 py-2.5 text-sm focus:outline-none focus:border-gray-900 transition-colors font-mono"
-                />
-              </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Basic Info */}
+        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Customer</label>
+            <div className="relative">
+              <User className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+              <input 
+                list="customer-list"
+                required
+                value={formData.customerName}
+                onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                placeholder="Type or select..."
+              />
             </div>
           </div>
-
-          {/* Line Items */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-center px-1">
-              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Order Schedule</h3>
-              <button 
-                type="button"
-                onClick={addLine}
-                className="text-[10px] font-bold text-gray-900 hover:text-blue-600 flex items-center gap-1.5 uppercase transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add New Item
-              </button>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Order Date</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+              <input 
+                type="date"
+                required
+                value={formData.soDate}
+                onChange={(e) => setFormData({ ...formData, soDate: e.target.value })}
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+              />
             </div>
-
-            <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-500 uppercase font-bold tracking-wider">
-                    <th className="px-6 py-4 text-left">Product</th>
-                    <th className="px-6 py-4 text-left w-1/3">Description</th>
-                    <th className="px-6 py-4 text-right w-24">Qty</th>
-                    <th className="px-6 py-4 text-right w-32">Unit Price</th>
-                    <th className="px-6 py-4 text-right w-32">Total</th>
-                    <th className="px-6 py-4 text-center w-12"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {formData.lines.map((line, index) => (
-                    <tr key={index} className="hover:bg-gray-50/50 group transition-colors">
-                      <td className="px-6 py-3">
-                        <select 
-                          value={line.productId}
-                          onChange={(e) => handleLineChange(index, 'productId', e.target.value)}
-                          className="w-full bg-transparent border-none focus:ring-0 text-sm p-0 font-bold text-gray-900"
-                        >
-                          <option value="">Select Product</option>
-                          {products?.map((p: any) => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-6 py-3">
-                        <input 
-                          type="text"
-                          value={line.itemDescription}
-                          onChange={(e) => handleLineChange(index, 'itemDescription', e.target.value)}
-                          className="w-full bg-transparent border-none focus:ring-0 text-sm p-0 placeholder:text-gray-300 text-gray-600"
-                          placeholder="Specific details..."
-                        />
-                      </td>
-                      <td className="px-6 py-3">
-                        <input 
-                          type="number"
-                          value={line.quantity}
-                          onChange={(e) => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                          className="w-full bg-transparent border-none focus:ring-0 text-sm p-0 text-right font-mono font-medium"
-                        />
-                      </td>
-                      <td className="px-6 py-3">
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-1 border border-gray-100 rounded-sm px-2 py-1">
-                            <span className="text-[10px] font-bold text-gray-400">{formData.currency === 'USD' ? '$' : '৳'}</span>
-                            <input 
-                              type="number"
-                              value={line.unitPrice}
-                              onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                              className="w-full bg-transparent border-none focus:ring-0 text-sm p-0 text-right font-mono font-medium"
-                            />
-                          </div>
-                          <div className="text-[9px] text-gray-400 mt-1 px-1 font-mono text-right">
-                             ৳ {formatCurrency(line.unitPrice * (formData.currency === 'BDT' ? 1 : formData.exchangeRate))}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-3 text-right">
-                        <div className="flex flex-col">
-                          <span className="font-mono font-bold text-gray-900">{formData.currency === 'USD' ? '$' : '৳'}{formatCurrency(line.total)}</span>
-                          <span className="text-[10px] text-gray-400 font-mono">৳{formatCurrency(line.total * (formData.currency === 'BDT' ? 1 : formData.exchangeRate))}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-3 text-center">
-                        <button 
-                          type="button"
-                          onClick={() => removeLine(index)}
-                          className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Expected Delivery</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+              <input 
+                type="date"
+                value={formData.expectedDeliveryDate}
+                onChange={(e) => setFormData({ ...formData, expectedDeliveryDate: e.target.value })}
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+              />
             </div>
           </div>
         </div>
 
-        {/* Right Column: Totals & Summary */}
-        <div className="space-y-6">
-          <div className="bg-white p-8 border border-gray-200 rounded-sm shadow-sm space-y-6">
-            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-50 pb-2">Financial Summary</h3>
-            
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-gray-500 uppercase flex items-center gap-2 tracking-wider">
-                  <Globe className="w-3 h-3 text-gray-400" /> Currency
-                </label>
-                <select 
-                  value={formData.currency}
-                  onChange={(e) => {
-                    const newCurr = e.target.value;
-                    setFormData({ 
-                      ...formData, 
-                      currency: newCurr,
-                      exchangeRate: newCurr === 'BDT' ? 1 : (companyExchangeRate || 1)
-                    });
-                  }}
-                  className="w-full bg-white border border-gray-200 rounded-sm px-4 py-2 text-sm focus:outline-none focus:border-gray-900 transition-colors"
-                >
-                  <option value="USD">USD - Dollar</option>
-                  <option value="BDT">BDT - Taka</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-gray-500 uppercase flex items-center gap-2 tracking-wider">
-                  <Hash className="w-3 h-3 text-gray-400" /> Exchange Rate
-                </label>
-                <input 
-                  type="number"
-                  step="0.01"
-                  value={formData.exchangeRate}
-                  onChange={(e) => setFormData({ ...formData, exchangeRate: parseFloat(e.target.value) || 1 })}
-                  className="w-full bg-white border border-gray-200 rounded-sm px-4 py-2 text-sm font-mono focus:outline-none focus:border-gray-900 transition-colors"
-                />
-              </div>
-
-              <div className="pt-6 border-t border-gray-100 space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Subtotal</span>
-                  <span className="font-mono text-sm font-medium text-gray-600">{formatCurrency(calculateTotal())} {formData.currency}</span>
-                </div>
-                <div className="flex justify-between items-end pt-2">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em]">Grand Total</span>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-mono text-xl font-black text-gray-900 leading-none">
-                      {formatCurrency(calculateTotal())}
-                    </p>
-                    <p className="text-[10px] font-bold text-gray-400 mt-1">{formData.currency}</p>
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 p-4 rounded-sm border border-gray-100 mt-6">
-                  <p className="text-[9px] text-gray-400 uppercase font-black tracking-widest mb-2">Base Value (Local)</p>
-                  <p className="font-mono text-sm text-gray-900 font-bold">
-                    {formatCurrency(calculateTotal() * formData.exchangeRate)} <span className="text-[10px] text-gray-500 ml-1">BDT</span>
-                  </p>
-                </div>
-              </div>
-            </div>
+        {/* Schedule */}
+        <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
+          <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50">
+            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Order Schedule</h3>
+            <button 
+              type="button"
+              onClick={addLine}
+              className="text-[10px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 uppercase transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Item
+            </button>
           </div>
 
-          <div className="bg-white border border-gray-200 p-6 rounded-sm flex gap-4 shadow-sm">
-            <div className="p-2 bg-blue-50 rounded-sm h-fit">
-              <AlertCircle className="w-4 h-4 text-blue-500" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-[10px] font-bold text-gray-900 uppercase tracking-widest">Policy Notice</h4>
-              <p className="text-[11px] text-gray-500 leading-relaxed">
-                Orders remain in <span className="font-bold text-gray-700">DRAFT</span> until manually approved. Approval locks the pricing and initiates procurement triggers.
-              </p>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-500 uppercase font-bold tracking-wider">
+                <th className="px-4 py-3 text-left">Product / Description</th>
+                <th className="px-4 py-3 text-right w-24">Qty</th>
+                {orderType === 'foreign' ? (
+                  <>
+                    <th className="px-4 py-3 text-right w-40">Unit Price (USD/BDT)</th>
+                    <th className="px-4 py-3 text-right w-40">Total (USD/BDT)</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="px-4 py-3 text-right w-32">Unit Price (BDT)</th>
+                    <th className="px-4 py-3 text-right w-32">Total (BDT)</th>
+                  </>
+                )}
+                <th className="px-4 py-3 text-center w-12"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {formData.lines.map((line, index) => (
+                <tr key={index} className="hover:bg-gray-50/50 group transition-colors">
+                  <td className="px-4 py-2">
+                    <input 
+                      list="product-list"
+                      required
+                      value={line.itemDescription}
+                      onChange={(e) => handleLineChange(index, 'itemDescription', e.target.value)}
+                      className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-blue-500 rounded-sm px-2 py-1.5 text-sm focus:ring-0 outline-none text-gray-900 transition-colors"
+                      placeholder="Type or select..."
+                    />
+                  </td>
+                  <td className="px-4 py-2">
+                    <input 
+                      type="number"
+                      required min="0.01" step="any"
+                      value={line.quantity}
+                      onChange={(e) => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                      className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-blue-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none transition-colors"
+                    />
+                  </td>
+                  {orderType === 'foreign' ? (
+                    <>
+                      <td className="px-4 py-2">
+                        <div className="flex flex-col items-end">
+                          <input 
+                            type="number" step="any"
+                            value={line.unitPrice}
+                            onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                            className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-blue-500 rounded-sm px-2 py-1 text-sm text-right font-mono outline-none transition-colors"
+                          />
+                          <span className="text-[10px] text-gray-400 font-mono pr-2">BDT {formatCurrency(line.unitPrice * companyExchangeRate)}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex flex-col items-end pr-2 justify-center h-full pt-1.5">
+                          <span className="font-mono font-bold text-gray-900">{formatCurrency(line.total)}</span>
+                          <span className="text-[10px] text-gray-400 font-mono mt-0.5">BDT {formatCurrency(line.total * companyExchangeRate)}</span>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-4 py-2">
+                        <input 
+                          type="number" step="any"
+                          value={line.unitPrice}
+                          onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                          className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-blue-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none transition-colors"
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono font-bold text-gray-900">
+                        {formatCurrency(line.total)}
+                      </td>
+                    </>
+                  )}
+                  <td className="px-4 py-2 text-center">
+                    <button 
+                      type="button"
+                      onClick={() => removeLine(index)}
+                      className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="flex justify-end p-6 bg-gray-50 border-t border-gray-200">
+            <div className="text-right">
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Order Total</p>
+              {orderType === 'foreign' ? (
+                <>
+                  <p className="text-2xl font-black text-gray-900 font-mono">USD {formatCurrency(calculateTotal())}</p>
+                  <p className="text-sm font-bold text-gray-500 font-mono mt-1">BDT {formatCurrency(calculateTotal() * companyExchangeRate)}</p>
+                </>
+              ) : (
+                <p className="text-2xl font-black text-gray-900 font-mono">BDT {formatCurrency(calculateTotal())}</p>
+              )}
             </div>
           </div>
+        </div>
+
+        <div className="flex justify-end">
+          <button 
+            type="submit"
+            disabled={isSaving}
+            className="px-8 py-3 bg-gray-900 text-white rounded-sm text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
+          >
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Confirm Sales Order
+          </button>
         </div>
       </form>
     </div>

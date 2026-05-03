@@ -107,7 +107,9 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
         { name: 'Customers', href: `/company/${companyId}/sales/customers` },
         { name: 'Sales Orders', href: `/company/${companyId}/sales/orders` },
         { name: 'Proforma Invoice', href: `/company/${companyId}/sales/pis` },
+        { name: 'Delivery Notes', href: `/company/${companyId}/sales/deliveries` },
         { name: 'Sales Invoices', href: `/company/${companyId}/sales/invoices` },
+        { name: 'Collections', href: `/company/${companyId}/payments/receive` },
       ]
     },
     { 
@@ -117,7 +119,6 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
         { name: 'Suppliers', href: `/company/${companyId}/vendors` },
         { name: 'Purchase Orders', href: `/company/${companyId}/purchase/orders` },
         { name: 'Purchase Invoices', href: `/company/${companyId}/purchase/invoices` },
-        { name: 'Import PI', href: `/company/${companyId}/purchase/pis` },
       ]
     },
     { 
@@ -147,7 +148,6 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
     { name: 'Employees', href: `/company/${companyId}/employees`, icon: User },
     { name: 'Bank Reconciliation', href: `/company/${companyId}/bank/reconcile`, icon: CheckCircle2 },
     { name: 'Reports', href: `/company/${companyId}/reports`, icon: FileBarChart },
-    { name: 'System Health', href: `/company/${companyId}/health`, icon: Activity },
     { name: 'Backup', href: `/company/${companyId}/settings/backup`, icon: Database },
   ];
 

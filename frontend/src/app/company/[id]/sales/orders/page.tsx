@@ -41,7 +41,7 @@ export default function SalesOrdersPage() {
   const params = useParams();
   const companyId = params.id as string;
   const queryClient = useQueryClient();
-  const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'local' | 'foreign'>('local');
   const [challanMap, setChallanMap] = useState<Record<string, string>>({});
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
@@ -119,11 +119,11 @@ export default function SalesOrdersPage() {
     setExpandedOrders(newExpanded);
   };
 
-  const filteredOrders = salesOrders?.filter(so => 
-    !searchTerm || 
-    so.soNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    so.customer?.name.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const filteredOrders = salesOrders?.filter(so =>
+    (!searchTerm ||
+      so.soNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      so.customer?.name.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    ((activeTab === 'local' && so.currency === 'BDT') || (activeTab === 'foreign' && so.currency !== 'BDT')) || [];
 
   if (!mounted) return null;
 
@@ -160,7 +160,24 @@ export default function SalesOrdersPage() {
         </div>
       </div>
 
-      {/* Table Area */}
+      {/* Tabs */}
+      <div className="flex space-x-4 mb-4">
+        <button
+          onClick={() => setActiveTab('local')}
+          className={cn(
+            "px-4 py-2 rounded",
+            activeTab === 'local' ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-800"
+          )}
+        >Local</button>
+        <button
+          onClick={() => setActiveTab('foreign')}
+          className={cn(
+            "px-4 py-2 rounded",
+            activeTab === 'foreign' ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-800"
+          )}
+        >Foreign</button>
+      </div>
+
       <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
         <table className="w-full text-left">
           <thead>

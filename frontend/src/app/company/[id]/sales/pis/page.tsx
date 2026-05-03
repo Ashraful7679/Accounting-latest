@@ -48,7 +48,7 @@ export default function ExportPIsPage() {
   const companyId = params.id as string;
   const queryClient = useQueryClient();
   const { exchangeRate } = useCompany();
-  const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'local' | 'foreign'>('local');
   const [showModal, setShowModal] = useState(false);
   const [selectedPI, setSelectedPI] = useState<PI | null>(null);
   const [filterStatus, setFilterStatus] = useState('all');
@@ -272,11 +272,12 @@ export default function ExportPIsPage() {
   };
 
   const filteredPIs = pisData?.filter(pi => {
-    const matchesSearch = !searchTerm || 
+    const matchesSearch = !searchTerm ||
       (pi.piNumber?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (pi.customer?.name?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || pi.status === filterStatus;
-    return matchesSearch && matchesStatus;
+    const matchesTab = (activeTab === 'local' && pi.currency === 'BDT') || (activeTab === 'foreign' && pi.currency !== 'BDT');
+    return matchesSearch && matchesStatus && matchesTab;
   }) || [];
 
   if (!mounted) return null;
@@ -321,7 +322,24 @@ export default function ExportPIsPage() {
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-4 items-center">
+      {/* Tabs */}
+      <div className="flex space-x-4 mb-4">
+        <button
+          onClick={() => setActiveTab('local')}
+          className={cn(
+            "px-4 py-2 rounded",
+            activeTab === 'local' ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-800"
+          )}
+        >Local</button>
+        <button
+          onClick={() => setActiveTab('foreign')}
+          className={cn(
+            "px-4 py-2 rounded",
+            activeTab === 'foreign' ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-800"
+          )}
+        >Foreign</button>
+      </div>
+
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <input

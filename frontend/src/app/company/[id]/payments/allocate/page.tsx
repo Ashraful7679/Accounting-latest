@@ -38,7 +38,7 @@ export default function PaymentAllocationPage() {
   const companyId = params.id as string;
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
-  const [showModal, setShowModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'local' | 'foreign'>('local');
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [allocations, setAllocations] = useState<{ invoiceId: string; amount: number }[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -49,7 +49,10 @@ export default function PaymentAllocationPage() {
     if (!token) router.push('/login');
   }, [router]);
 
-  const { data: paymentsData, isLoading: loadingPayments } = useQuery({
+  const filteredPayments = paymentsData?.filter(p =>
+    (activeTab === 'local' && p.currency === 'BDT') ||
+    (activeTab === 'foreign' && p.currency !== 'BDT')
+  ) || [];
     queryKey: ['unallocated-payments', companyId],
     queryFn: async () => {
       const response = await api.get(`/company/${companyId}/payments?status=COMPLETED&unallocated=true`);
@@ -133,6 +136,23 @@ export default function PaymentAllocationPage() {
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">Allocate Payments to Invoices</h2>
           </div>
 
+{/* Tabs */}
+          <div className="flex space-x-4 mb-4">
+            <button
+              onClick={() => setActiveTab('local')}
+              className={cn(
+                "px-4 py-2 rounded",
+                activeTab === 'local' ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-800"
+              )}
+            >Local</button>
+            <button
+              onClick={() => setActiveTab('foreign')}
+              className={cn(
+                "px-4 py-2 rounded",
+                activeTab === 'foreign' ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-800"
+              )}
+            >Foreign</button>
+          </div>
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
             <table className="w-full">
               <thead className="bg-slate-50">
@@ -151,7 +171,7 @@ export default function PaymentAllocationPage() {
                 ) : !paymentsData || paymentsData.length === 0 ? (
                   <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">No unallocated payments found</td></tr>
                 ) : (
-                  paymentsData.map((payment: Payment) => (
+                  filteredPayments.map((payment: Payment) => (
                     <tr key={payment.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 text-slate-500">
                         {payment.date ? new Date(payment.date).toLocaleDateString() : '-'}

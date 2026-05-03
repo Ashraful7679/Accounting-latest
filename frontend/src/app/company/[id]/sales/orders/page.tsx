@@ -1,4 +1,5 @@
 'use client';
+// Triggering fresh build after syntax fixes
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';

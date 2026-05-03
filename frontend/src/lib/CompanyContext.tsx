@@ -39,8 +39,19 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState('User');
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [exchangeRate, setExchangeRate] = useState(1);
+  const [exchangeRate, setExchangeRate] = useState<number>(1);
   const [baseCurrency, setBaseCurrency] = useState('USD');
+
+  // Load initial state from localStorage to prevent flash of '1' on reset
+  useEffect(() => {
+    const activeId = localStorage.getItem('active_company_id');
+    if (activeId) {
+      const cachedRate = localStorage.getItem(`company_rate_${activeId}`);
+      const cachedCurrency = localStorage.getItem(`company_currency_${activeId}`);
+      if (cachedRate) setExchangeRate(Number(cachedRate));
+      if (cachedCurrency) setBaseCurrency(cachedCurrency);
+    }
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -73,22 +84,39 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     const cached = localStorage.getItem(`company_name_${realId}`);
     if (cached) {
       setCompanyName(cached);
-      setIsLoading(false);
+      // Even if name is cached, we might want to refresh settings or at least not block the initial fetch if settings are missing
+      const cachedRate = localStorage.getItem(`company_rate_${realId}`);
+      if (!cachedRate) {
+        // Force a fetch if we don't have settings cached
+        fetchCompanyDetails(realId);
+      } else {
+        setIsLoading(false);
+      }
     } else if (realId && !['placeholder', '[id]', '%5Bid%5D'].includes(realId)) {
-      api.get(`/company/${realId}`)
-        .then((res: any) => {
-          const name = res.data.data.name;
-          setCompanyName(name);
-          setExchangeRate(res.data.data.settings?.lastUsedRate || 1);
-          setBaseCurrency(res.data.data.baseCurrency || 'USD');
-          localStorage.setItem(`company_name_${realId}`, name);
-        })
-        .catch(() => setCompanyName('AccaBiz'))
-        .finally(() => setIsLoading(false));
+      fetchCompanyDetails(realId);
     } else {
        setIsLoading(false);
     }
   }, [router, params.id, companyId]);
+
+  const fetchCompanyDetails = (id: string) => {
+    api.get(`/company/${id}`)
+      .then((res: any) => {
+        const name = res.data.data.name;
+        const rate = res.data.data.settings?.lastUsedRate || 1;
+        const currency = res.data.data.baseCurrency || 'USD';
+        
+        setCompanyName(name);
+        setExchangeRate(rate);
+        setBaseCurrency(currency);
+        
+        localStorage.setItem(`company_name_${id}`, name);
+        localStorage.setItem(`company_rate_${id}`, rate.toString());
+        localStorage.setItem(`company_currency_${id}`, currency);
+      })
+      .catch(() => setCompanyName('AccaBiz'))
+      .finally(() => setIsLoading(false));
+  };
 
   const hasPermission = (module: string, action: keyof Permission) => {
     if (role === 'Owner' || role === 'Admin') return true;
@@ -101,6 +129,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     try {
       await api.put(`/company/${companyId}/settings`, { lastUsedRate: rate });
       setExchangeRate(rate);
+      localStorage.setItem(`company_rate_${companyId}`, rate.toString());
     } catch (error) {
       console.error('Failed to update global exchange rate', error);
       throw error;

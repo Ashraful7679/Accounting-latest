@@ -25,6 +25,8 @@ export default function CreatePurchaseOrderPage() {
   const initialType = searchParams.get('type') === 'foreign' ? 'foreign' : 'local';
   const [orderType, setOrderType] = useState<'local'|'foreign'>(initialType);
   const [isSaving, setIsSaving] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingEntities, setPendingEntities] = useState<{vendors: string[], products: string[]}>({ vendors: [], products: [] });
 
   const [formData, setFormData] = useState({
     vendorName: '',
@@ -106,7 +108,27 @@ export default function CreatePurchaseOrderPage() {
       toast.error('Please complete all product lines'); return;
     }
 
+    // Check for new entities
+    const existingVendor = vendors?.find((v: any) => v.name === formData.vendorName);
+    const newVendors = !existingVendor ? [formData.vendorName] : [];
+    const newProducts = formData.lines
+      .filter(l => !products?.find((p: any) => p.name === l.itemDescription))
+      .map(l => l.itemDescription);
+    
+    const uniqueNewProducts = Array.from(new Set(newProducts));
+
+    if (newVendors.length > 0 || uniqueNewProducts.length > 0) {
+      setPendingEntities({ vendors: newVendors, products: uniqueNewProducts });
+      setShowConfirmModal(true);
+      return;
+    }
+
+    proceedWithSubmission();
+  };
+
+  const proceedWithSubmission = async () => {
     setIsSaving(true);
+    setShowConfirmModal(false);
     try {
       let finalVendorId = '';
       const existingVendor = vendors?.find((v: any) => v.name === formData.vendorName);
@@ -381,6 +403,59 @@ export default function CreatePurchaseOrderPage() {
           </button>
         </div>
       </form>
+
+      {/* Confirmation Modal for New Entities */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-sm shadow-2xl w-full max-w-md border border-gray-200 animate-in zoom-in-95 duration-200 overflow-hidden">
+            <div className="px-8 py-6 border-b border-gray-200 bg-gray-50">
+              <h3 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em]">New Records Detected</h3>
+            </div>
+            <div className="p-8 space-y-6">
+              <p className="text-[10px] font-bold text-gray-500 uppercase leading-relaxed tracking-widest">
+                The following entities do not exist in the system. Would you like to create them and proceed with the order?
+              </p>
+              
+              {pendingEntities.vendors.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">New Vendor</label>
+                  <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-sm font-bold text-xs text-indigo-900">
+                    {pendingEntities.vendors[0]}
+                  </div>
+                </div>
+              )}
+
+              {pendingEntities.products.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">New Products ({pendingEntities.products.length})</label>
+                  <div className="max-h-32 overflow-y-auto space-y-1 pr-2">
+                    {pendingEntities.products.map((p, i) => (
+                      <div key={i} className="p-2 bg-indigo-50 border border-indigo-100 rounded-sm font-bold text-[10px] text-indigo-900 uppercase">
+                        {p}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <button 
+                  onClick={() => setShowConfirmModal(false)} 
+                  className="flex-1 py-3 bg-white border border-gray-200 text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-sm"
+                >
+                  Edit Order
+                </button>
+                <button 
+                  onClick={proceedWithSubmission}
+                  className="flex-1 py-3 bg-gray-900 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-sm shadow-xl shadow-gray-200 hover:bg-black transition-all"
+                >
+                  Create & Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-  X, ShoppingBag, Eye, FileText, Printer
-} from 'lucide-react';
+import { Plus, Search, ChevronDown, ChevronRight, Truck, Tag, Link as LinkIcon, Trash2, X, ShoppingBag, Eye, FileText, Printer } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
 import { cn } from '@/lib/utils';
@@ -95,7 +94,7 @@ export default function SalesOrdersPage() {
     },
   });
 
-    const generateInvoiceMutation = useMutation({
+  const generateInvoiceMutation = useMutation({
     mutationFn: async (soId: string) => {
       const response = await api.post(`/company/${companyId}/sales-orders/${soId}/invoice`);
       return response.data;
@@ -221,41 +220,41 @@ export default function SalesOrdersPage() {
                       <span className={cn(
                         "px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-sm border",
                         so.status === 'SHIPPED' ? "bg-indigo-50 text-indigo-600 border-indigo-100" :
-                        so.status === 'PENDING' ? "bg-amber-50 text-amber-600 border-amber-100" : "bg-gray-50 text-gray-400 border-gray-100"
+                          so.status === 'PENDING' ? "bg-amber-50 text-amber-600 border-amber-100" : "bg-gray-50 text-gray-400 border-gray-100"
                       )}>
                         {so.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-  {challanMap[so.id] ? (
-    <button
-      onClick={() => router.push(`/company/${companyId}/sales/challans/${challanMap[so.id]}`)}
-      className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
-    >
-      <Eye className="w-4 h-4" />
-    </button>
-  ) : (
-    <button
-      onClick={() => generateChallanMutation.mutate(so.id)}
-      className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
-    >
-      <Truck className="w-4 h-4" />
-    </button>
-  )}
-  <button
-    onClick={() => window.print()}
-    className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
-  >
-    <Printer className="w-4 h-4" />
-  </button>
-  <button
-    onClick={() => generateInvoiceMutation.mutate(so.id)}
-    className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
-  >
-    <FileText className="w-4 h-4" />
-  </button>
-</div>
+                        {challanMap[so.id] ? (
+                          <button
+                            onClick={() => router.push(`/company/${companyId}/sales/challans/${challanMap[so.id]}`)}
+                            className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => generateChallanMutation.mutate(so.id)}
+                            className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
+                          >
+                            <Truck className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => window.print()}
+                          className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => generateInvoiceMutation.mutate(so.id)}
+                          className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   {expandedOrders.has(so.id) && (
@@ -327,24 +326,24 @@ export default function SalesOrdersPage() {
       {showPOSelector && (
         <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-sm shadow-2xl w-full max-w-lg border border-gray-200 animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col">
-             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-               <h3 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em]">Link Procurement Record</h3>
-               <button onClick={() => setShowPOSelector(null)} className="p-1 hover:bg-gray-200 rounded-sm transition-colors text-gray-400"><X className="w-4 h-4" /></button>
-             </div>
-             <div className="p-6 overflow-y-auto max-h-[60vh] space-y-2">
-                {purchaseOrders?.filter((po: any) => !salesOrders?.find(s => s.id === showPOSelector.soId)?.purchaseOrders.find((p: any) => p.id === po.id)).map((po: any) => (
-                  <div key={po.id} className="p-4 bg-gray-50 rounded-sm border border-gray-100 flex justify-between items-center hover:border-gray-900 transition-colors cursor-pointer group" onClick={() => { assignPOMutation.mutate({ soId: showPOSelector.soId, poId: po.id, action: 'connect' }); setShowPOSelector(null); }}>
-                    <div>
-                      <p className="text-[11px] font-black text-gray-900 uppercase">{po.poNumber}</p>
-                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{po.supplier?.name}</p>
-                    </div>
-                    <button className="px-4 py-1.5 bg-white border border-gray-200 text-[9px] font-black uppercase tracking-widest group-hover:bg-gray-900 group-hover:text-white transition-all">Link</button>
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+              <h3 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em]">Link Procurement Record</h3>
+              <button onClick={() => setShowPOSelector(null)} className="p-1 hover:bg-gray-200 rounded-sm transition-colors text-gray-400"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[60vh] space-y-2">
+              {purchaseOrders?.filter((po: any) => !salesOrders?.find(s => s.id === showPOSelector.soId)?.purchaseOrders.find((p: any) => p.id === po.id)).map((po: any) => (
+                <div key={po.id} className="p-4 bg-gray-50 rounded-sm border border-gray-100 flex justify-between items-center hover:border-gray-900 transition-colors cursor-pointer group" onClick={() => { assignPOMutation.mutate({ soId: showPOSelector.soId, poId: po.id, action: 'connect' }); setShowPOSelector(null); }}>
+                  <div>
+                    <p className="text-[11px] font-black text-gray-900 uppercase">{po.poNumber}</p>
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{po.supplier?.name}</p>
                   </div>
-                ))}
-             </div>
-             <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
-                <button onClick={() => setShowPOSelector(null)} className="px-6 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-900">Close</button>
-             </div>
+                  <button className="px-4 py-1.5 bg-white border border-gray-200 text-[9px] font-black uppercase tracking-widest group-hover:bg-gray-900 group-hover:text-white transition-all">Link</button>
+                </div>
+              ))}
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+              <button onClick={() => setShowPOSelector(null)} className="px-6 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-900">Close</button>
+            </div>
           </div>
         </div>
       )}

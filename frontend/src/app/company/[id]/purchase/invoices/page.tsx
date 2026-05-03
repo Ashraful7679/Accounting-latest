@@ -14,7 +14,7 @@ import { AttachmentManager } from '@/components/AttachmentManager';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { useCompany } from '@/lib/CompanyContext';
-import { formatCurrency, getCurrencySymbol } from '@/lib/decimalUtils';
+import { formatCurrency, getCurrencySymbol, convertCurrency } from '@/lib/decimalUtils';
 import React from 'react';
 
 interface Invoice {
@@ -222,7 +222,11 @@ export default function PurchaseInvoicesPage() {
     if (field === 'productId' && value) {
       const product = productsData?.find((p: any) => p.id === value);
       if (product) {
-        line.unitPrice = product.unitPrice || 0;
+        const rawUnitPrice = product.unitPrice || 0;
+        const productCurrency = product.currency || 'BDT';
+        
+        // Convert product price to form currency
+        line.unitPrice = convertCurrency(rawUnitPrice, productCurrency, formData.currency, formData.exchangeRate);
         line.description = product.name;
       }
     }
@@ -705,15 +709,27 @@ export default function PurchaseInvoicesPage() {
                               />
                             </td>
                             <td className="px-4 py-4 align-top">
-                              <div className="flex items-center gap-1.5 border border-gray-200 rounded-sm px-2 py-1.5 bg-white">
-                                <span className="text-[10px] font-bold text-gray-400">{getCurrencySymbol(formData.currency)}</span>
-                                <input 
-                                  type="number" step="any"
-                                  value={line.unitPrice} 
-                                  onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                                  className="w-full text-[11px] text-right font-mono focus:outline-none border-none p-0"
-                                  readOnly={!!line.poId}
-                                />
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-1.5 border border-gray-200 rounded-sm px-2 py-1.5 bg-white">
+                                  <span className="text-[10px] font-bold text-gray-400">{getCurrencySymbol(formData.currency)}</span>
+                                  <input 
+                                    type="number" step="any"
+                                    value={line.unitPrice} 
+                                    onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                                    className="w-full text-[11px] text-right font-mono focus:outline-none border-none p-0"
+                                    readOnly={!!line.poId}
+                                  />
+                                </div>
+                                {formData.currency !== 'BDT' && (
+                                  <div className="text-[9px] text-gray-400 mt-1 px-1 font-mono text-right">
+                                    ৳ {formatCurrency(line.unitPrice * formData.exchangeRate)}
+                                  </div>
+                                )}
+                                {formData.currency === 'BDT' && (
+                                   <div className="text-[9px] text-gray-400 mt-1 px-1 font-mono text-right">
+                                    ৳ {formatCurrency(line.unitPrice)}
+                                  </div>
+                                )}
                               </div>
                             </td>
                             <td className="px-4 py-4 align-top">

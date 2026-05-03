@@ -14,7 +14,7 @@ import { formatCurrency, convertCurrency } from '@/lib/decimalUtils';
 import { useCompany } from '@/lib/CompanyContext';
 import React from 'react';
 
-interface SalesOrderLine {
+interface PurchaseOrderLine {
   productId: string;
   itemDescription: string;
   quantity: number;
@@ -22,7 +22,7 @@ interface SalesOrderLine {
   total: number;
 }
 
-export default function CreateSalesOrderPage() {
+export default function CreatePurchaseOrderPage() {
   const router = useRouter();
   const params = useParams();
   const companyId = params.id as string;
@@ -31,14 +31,14 @@ export default function CreateSalesOrderPage() {
   const [mounted, setMounted] = useState(false);
 
   const [formData, setFormData] = useState({
-    customerId: '',
+    supplierId: '',
     lcId: '',
-    soDate: new Date().toISOString().split('T')[0],
+    poDate: new Date().toISOString().split('T')[0],
     expectedDeliveryDate: '',
     currency: 'USD',
     exchangeRate: companyExchangeRate || 1,
     status: 'DRAFT',
-    lines: [{ productId: '', itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }] as SalesOrderLine[]
+    lines: [{ productId: '', itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }] as PurchaseOrderLine[]
   });
 
   useEffect(() => {
@@ -48,10 +48,10 @@ export default function CreateSalesOrderPage() {
     }
   }, [companyExchangeRate]);
 
-  const { data: customers } = useQuery({
-    queryKey: ['customers', companyId],
+  const { data: suppliers } = useQuery({
+    queryKey: ['suppliers', companyId],
     queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/customers`);
+      const response = await api.get(`/company/${companyId}/suppliers`);
       return response.data.data;
     },
     enabled: !!companyId,
@@ -77,26 +77,26 @@ export default function CreateSalesOrderPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      const totalBDT = data.lines.reduce((sum: number, line: SalesOrderLine) => sum + (line.quantity * line.unitPrice), 0);
+      const totalBDT = data.lines.reduce((sum: number, line: PurchaseOrderLine) => sum + (line.quantity * line.unitPrice), 0);
       const payload = {
         ...data,
         totalBDT,
         totalForeign: totalBDT / data.exchangeRate
       };
-      const response = await api.post(`/company/${companyId}/sales-orders`, payload);
+      const response = await api.post(`/company/${companyId}/purchase-orders`, payload);
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sales-orders', companyId] });
-      toast.success('Sales Order created successfully');
-      router.push(`/company/${companyId}/sales/orders`);
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders', companyId] });
+      toast.success('Purchase Order created successfully');
+      router.push(`/company/${companyId}/purchase/orders`);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create sales order');
+      toast.error(error.response?.data?.message || 'Failed to create purchase order');
     }
   });
 
-  const handleLineChange = (index: number, field: keyof SalesOrderLine, value: any) => {
+  const handleLineChange = (index: number, field: keyof PurchaseOrderLine, value: any) => {
     const newLines = [...formData.lines];
     const line = { ...newLines[index], [field]: value };
 
@@ -136,8 +136,8 @@ export default function CreateSalesOrderPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.customerId) {
-      toast.error('Please select a customer');
+    if (!formData.supplierId) {
+      toast.error('Please select a supplier');
       return;
     }
     if (formData.lines.some(l => !l.itemDescription || l.quantity <= 0)) {
@@ -163,9 +163,9 @@ export default function CreateSalesOrderPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <ShoppingCart className="w-6 h-6 text-gray-400" />
-              Create Sales Order
+              Create Purchase Order
             </h1>
-            <p className="text-sm text-gray-500 mt-1">Initialize a new sales contract and allocate resources</p>
+            <p className="text-sm text-gray-500 mt-1">Initialize a new procurement contract and allocate resources</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -195,16 +195,16 @@ export default function CreateSalesOrderPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-gray-500 uppercase flex items-center gap-2 tracking-wider">
-                  <User className="w-3 h-3 text-gray-400" /> Customer
+                  <User className="w-3 h-3 text-gray-400" /> Supplier
                 </label>
                 <select 
                   required
-                  value={formData.customerId}
-                  onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
+                  value={formData.supplierId}
+                  onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })}
                   className="w-full bg-white border border-gray-200 rounded-sm px-4 py-2.5 text-sm focus:outline-none focus:border-gray-900 transition-colors"
                 >
-                  <option value="">Select Customer</option>
-                  {customers?.map((c: any) => (
+                  <option value="">Select Supplier</option>
+                  {suppliers?.map((c: any) => (
                     <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
                   ))}
                 </select>
@@ -233,8 +233,8 @@ export default function CreateSalesOrderPage() {
                 <input 
                   type="date"
                   required
-                  value={formData.soDate}
-                  onChange={(e) => setFormData({ ...formData, soDate: e.target.value })}
+                  value={formData.poDate}
+                  onChange={(e) => setFormData({ ...formData, poDate: e.target.value })}
                   className="w-full bg-white border border-gray-200 rounded-sm px-4 py-2.5 text-sm focus:outline-none focus:border-gray-900 transition-colors font-mono"
                 />
               </div>

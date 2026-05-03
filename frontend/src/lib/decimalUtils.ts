@@ -17,3 +17,14 @@ export function formatNumber(num: number | string, decimals: number = 2): string
   if (isNaN(n)) return '0'.repeat(decimals).replace('0', '.0');
   return n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
+
+export function convertCurrency(amount: number, fromCurrency: string, toCurrency: string, exchangeRate: number): number {
+  if (fromCurrency === toCurrency) return Number(amount.toFixed(2));
+  
+  // Convert to BDT first (Base)
+  const amountInBDT = fromCurrency === 'USD' ? amount * exchangeRate : amount;
+  
+  // Convert from BDT to target
+  const result = toCurrency === 'USD' ? amountInBDT / exchangeRate : amountInBDT;
+  return Number(result.toFixed(2));
+}

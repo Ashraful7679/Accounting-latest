@@ -85,6 +85,11 @@ export default function SalesOrdersPage() {
       toast.success('Delivery Challan created');
       router.push(`/company/${companyId}/sales/challans`);
     },
+    onError: (err: any) => {
+      console.error('Challan generation error:', err);
+      const msg = err?.response?.data?.message || 'Failed to create delivery challan';
+      toast.error(msg);
+    },
   });
 
   const toggleExpand = (id: string) => {

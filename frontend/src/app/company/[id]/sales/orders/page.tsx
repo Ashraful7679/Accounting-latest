@@ -7,7 +7,7 @@ import api from '@/lib/api';
 import { 
   Plus, Search, ChevronDown, ChevronRight, 
   Truck, Tag, Link as LinkIcon, Trash2,
-  X, ShoppingBag
+  X, ShoppingBag, Eye, FileText
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
@@ -28,6 +28,7 @@ interface SalesOrder {
   soNumber: string;
   soDate: string;
   totalBDT: number;
+  totalAmount: number;
   currency: string;
   status: string;
   customer?: { name: string; code: string };
@@ -43,12 +44,9 @@ export default function SalesOrdersPage() {
   const [mounted, setMounted] = useState(false);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
-  
   const [showPOSelector, setShowPOSelector] = useState<{ soId: string } | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   const { data: salesOrders, isLoading } = useQuery({
     queryKey: ['sales-orders', companyId],
@@ -70,229 +68,189 @@ export default function SalesOrdersPage() {
 
   const assignPOMutation = useMutation({
     mutationFn: async ({ soId, poId, action }: { soId: string; poId: string; action: 'connect' | 'disconnect' }) => {
-      const response = await api.post(`/company/${companyId}/sales-orders/${soId}/assign-po`, { poId, action });
-      return response.data;
+      await api.post(`/company/${companyId}/sales-orders/${soId}/assign-po`, { poId, action });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders', companyId] });
-      toast.success('Purchase Order updated');
+      toast.success('Inventory link updated');
     },
   });
 
   const generateChallanMutation = useMutation({
     mutationFn: async (soId: string) => {
-      const response = await api.post(`/company/${companyId}/sales-orders/${soId}/challan`);
-      return response.data;
+      await api.post(`/company/${companyId}/sales-orders/${soId}/challan`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders', companyId] });
-      toast.success('Challan generated');
+      toast.success('Delivery Challan created');
       router.push(`/company/${companyId}/sales/challans`);
     },
   });
 
   const toggleExpand = (id: string) => {
     const newExpanded = new Set(expandedOrders);
-    if (newExpanded.has(id)) {
-      newExpanded.delete(id);
-    } else {
-      newExpanded.add(id);
-    }
+    if (newExpanded.has(id)) newExpanded.delete(id);
+    else newExpanded.add(id);
     setExpandedOrders(newExpanded);
   };
 
-  const calculateUsedValue = (so: SalesOrder) => {
-    return so.purchaseOrders.reduce((sum, po) => sum + (po.totalBDT || 0), 0);
-  };
-
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case 'APPROVED':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-100';
-      case 'SENT':
-        return 'bg-blue-50 text-blue-700 border-blue-100';
-      case 'DRAFT':
-        return 'bg-gray-50 text-gray-600 border-gray-100';
-      case 'CANCELLED':
-        return 'bg-red-50 text-red-700 border-red-100';
-      default:
-        return 'bg-gray-50 text-gray-600 border-gray-100';
-    }
-  };
+  const filteredOrders = salesOrders?.filter(so => 
+    !searchTerm || 
+    so.soNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    so.customer?.name.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
 
   if (!mounted) return null;
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto space-y-6 bg-gray-50 min-h-screen">
-      {/* Header section */}
-      <div className="flex justify-between items-center pb-6 border-b border-gray-200">
+      {/* Header Area */}
+      <div className="flex justify-between items-center border-b border-gray-200 pb-6">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 uppercase tracking-tight flex items-center gap-2">
-            <ShoppingBag className="w-5 h-5 text-gray-400" />
+          <h1 className="text-2xl font-black text-gray-900 flex items-center gap-3 tracking-tighter">
+            <ShoppingBag className="w-6 h-6 text-gray-400" />
             Sales Orders
           </h1>
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Manage customer contracts and allocations</p>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-1">Managed Client Commitments & Fulfillment</p>
         </div>
-        <button 
+        <button
           onClick={() => router.push(`/company/${companyId}/sales/orders/create`)}
-          className="bg-gray-900 text-white px-4 py-2 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2"
+          className="px-6 py-2.5 bg-gray-900 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-sm hover:bg-black transition-all flex items-center gap-2 shadow-lg shadow-gray-200"
         >
-          <Plus className="w-3.5 h-3.5" /> Create SO
+          <Plus className="w-4 h-4" /> Issue Order
         </button>
       </div>
 
-      {/* Filters */}
+      {/* Search Area */}
       <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+        <div className="relative flex-1 max-w-sm text-gray-400">
+          <Search className="absolute left-3 top-3 w-4 h-4" />
           <input
             type="text"
-            placeholder="SEARCH ORDERS..."
+            placeholder="Search Reference or Client..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-[10px] font-bold uppercase tracking-widest focus:outline-none focus:border-gray-900 transition-colors bg-white shadow-sm"
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-sm text-[10px] font-bold uppercase tracking-widest focus:border-gray-900 outline-none transition-colors bg-white shadow-sm"
           />
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-sm overflow-hidden shadow-sm">
-        <table className="w-full text-[11px]">
+      {/* Table Area */}
+      <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
+        <table className="w-full text-left">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="w-10 py-3 px-4"></th>
-              <th className="py-3 px-4 text-left font-bold text-gray-400 uppercase tracking-widest">Order Number</th>
-              <th className="py-3 px-4 text-left font-bold text-gray-400 uppercase tracking-widest">Date</th>
-              <th className="py-3 px-4 text-left font-bold text-gray-400 uppercase tracking-widest">Customer</th>
-              <th className="py-3 px-4 text-right font-bold text-gray-400 uppercase tracking-widest">Total Value</th>
-              <th className="py-3 px-4 text-right font-bold text-gray-400 uppercase tracking-widest">Allocated</th>
-              <th className="py-3 px-4 text-center font-bold text-gray-400 uppercase tracking-widest">Status</th>
-              <th className="py-3 px-4 text-right font-bold text-gray-400 uppercase tracking-widest">Actions</th>
+            <tr className="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-500 font-black uppercase tracking-[0.2em]">
+              <th className="w-12 px-6 py-4"></th>
+              <th className="px-6 py-4">Instrument #</th>
+              <th className="px-6 py-4">Customer Entity</th>
+              <th className="px-6 py-4 text-right">Value (USD/BDT)</th>
+              <th className="px-6 py-4 text-center">Lifecycle</th>
+              <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {isLoading ? (
-              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 font-mono">LOADING DATA...</td></tr>
-            ) : salesOrders?.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 font-mono uppercase tracking-widest">No orders found</td></tr>
+              <tr><td colSpan={6} className="px-6 py-12 text-center text-[10px] font-bold text-gray-400 uppercase tracking-[0.3em] animate-pulse">Syncing orders...</td></tr>
+            ) : filteredOrders.length === 0 ? (
+              <tr><td colSpan={6} className="px-6 py-12 text-center text-[10px] font-bold text-gray-400 uppercase tracking-[0.3em]">No records found</td></tr>
             ) : (
-              salesOrders?.filter(so => 
-                (so.soNumber?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                (so.customer?.name?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-              ).map((so) => (
+              filteredOrders.map((so) => (
                 <React.Fragment key={so.id}>
                   <tr className={cn(
-                    "hover:bg-gray-50/50 transition-colors group",
+                    "hover:bg-gray-50 group transition-colors",
                     expandedOrders.has(so.id) && "bg-gray-50"
                   )}>
-                    <td className="py-4 px-4">
-                      <button onClick={() => toggleExpand(so.id)} className="p-1 hover:bg-gray-200 rounded-sm transition-colors text-gray-400">
-                        {expandedOrders.has(so.id) ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                    <td className="px-6 py-4">
+                      <button onClick={() => toggleExpand(so.id)} className="p-1 text-gray-400 hover:text-gray-900 transition-colors">
+                        {expandedOrders.has(so.id) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       </button>
                     </td>
-                    <td className="py-4 px-4 font-mono font-bold text-gray-900 uppercase">{so.soNumber}</td>
-                    <td className="py-4 px-4 font-mono text-gray-600">{new Date(so.soDate).toLocaleDateString()}</td>
-                    <td className="py-4 px-4">
-                      <div className="font-bold text-gray-700 uppercase tracking-tight">{so.customer?.name}</div>
-                      <div className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">{so.customer?.code}</div>
+                    <td className="px-6 py-4 font-mono font-bold text-gray-900 text-xs">
+                      {so.soNumber}
+                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter mt-0.5">{new Date(so.soDate).toLocaleDateString()}</p>
                     </td>
-                    <td className="py-4 px-4 text-right font-mono font-bold text-gray-900">
-                      {formatCurrency(so.totalBDT)} {so.currency}
+                    <td className="px-6 py-4 text-[11px] font-black text-gray-600 uppercase tracking-tight">{so.customer?.name || '---'}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex flex-col font-mono text-xs">
+                        <span className="font-bold text-gray-900">{so.currency} {formatCurrency(so.totalAmount)}</span>
+                        <span className="text-[10px] text-gray-400 font-bold">৳ {formatCurrency(so.totalBDT)}</span>
+                      </div>
                     </td>
-                    <td className="py-4 px-4 text-right font-mono text-gray-500">
-                      {formatCurrency(calculateUsedValue(so))} {so.currency}
-                    </td>
-                    <td className="py-4 px-4 text-center">
+                    <td className="px-6 py-4 text-center">
                       <span className={cn(
-                        "px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded-sm border",
-                        getStatusStyle(so.status)
+                        "px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-sm border",
+                        so.status === 'SHIPPED' ? "bg-indigo-50 text-indigo-600 border-indigo-100" :
+                        so.status === 'PENDING' ? "bg-amber-50 text-amber-600 border-amber-100" : "bg-gray-50 text-gray-400 border-gray-100"
                       )}>
                         {so.status}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-right opacity-40 group-hover:opacity-100 transition-opacity">
-                      <div className="flex justify-end gap-1">
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
-                          onClick={() => setShowPOSelector({ soId: so.id })}
-                          className="p-1.5 text-gray-400 hover:text-gray-900 rounded-sm transition-colors"
-                          title="Link PO"
+                          onClick={() => generateChallanMutation.mutate(so.id)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-200 text-[9px] font-black uppercase tracking-widest hover:border-gray-900 transition-all shadow-sm"
                         >
-                          <Tag className="w-3.5 h-3.5" />
+                           <Truck className="w-3.5 h-3.5" /> Dispatch
                         </button>
-                        <button 
-                          onClick={() => {
-                            if (confirm('Generate Delivery Challan? This will impact inventory.')) {
-                              generateChallanMutation.mutate(so.id);
-                            }
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-gray-900 rounded-sm transition-colors"
-                          title="Generate Challan"
-                        >
-                          <Truck className="w-3.5 h-3.5" />
-                        </button>
-                        <button 
-                          onClick={() => router.push(`/company/${companyId}/sales/orders/${so.id}`)}
-                          className="p-1.5 text-gray-400 hover:text-gray-900 rounded-sm transition-colors"
-                          title="Edit"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <button className="p-2 text-gray-400 hover:text-gray-900 transition-colors"><Eye className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
                   {expandedOrders.has(so.id) && (
-                    <tr className="bg-gray-50/30">
-                      <td colSpan={8} className="p-0">
-                        <div className="mx-16 my-4 p-6 bg-white border border-gray-200 rounded-sm shadow-sm relative overflow-hidden">
-                          <div className="absolute top-0 left-0 w-1 h-full bg-gray-900" />
-                          <div className="flex justify-between items-center mb-6">
-                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Linked Procurement (PO)</h4>
-                            <button 
-                              onClick={() => router.push(`/company/${companyId}/purchase/orders/create?soId=${so.id}`)}
-                              className="text-[9px] font-bold text-gray-900 hover:underline flex items-center gap-1.5 uppercase tracking-widest"
-                            >
-                              <Plus className="w-3 h-3" /> Create New PO
-                            </button>
-                          </div>
-                          
-                          {so.purchaseOrders.length === 0 ? (
-                            <div className="text-[10px] text-gray-400 font-mono uppercase text-center py-8 border border-dashed border-gray-100 rounded-sm">
-                              NO LINKED PROCUREMENT
-                            </div>
-                          ) : (
-                            <div className="border border-gray-100 rounded-sm overflow-hidden">
-                              <table className="w-full text-[11px]">
-                                <thead className="bg-gray-50/50 border-b border-gray-100">
-                                  <tr className="text-[9px] text-gray-400 uppercase font-bold tracking-[0.15em]">
-                                    <th className="px-4 py-2 text-left">PO #</th>
-                                    <th className="px-4 py-2 text-left">Supplier</th>
-                                    <th className="px-4 py-2 text-right">Value (BDT)</th>
-                                    <th className="px-4 py-2 text-center w-20">Action</th>
+                    <tr className="bg-gray-50/50">
+                      <td colSpan={6} className="px-12 py-8 border-l-4 border-gray-900">
+                        <div className="bg-white rounded-sm border border-gray-200 shadow-sm p-6 space-y-8 animate-in slide-in-from-top-2 duration-200">
+                          {/* Order Items */}
+                          <div className="space-y-4">
+                            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                              <Tag className="w-4 h-4" /> Ordered Inventory
+                            </h4>
+                            <table className="w-full text-left">
+                              <thead className="text-[9px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
+                                <tr>
+                                  <th className="py-2">Item Description</th>
+                                  <th className="py-2 text-center">Qty</th>
+                                  <th className="py-2 text-right">Unit Price</th>
+                                  <th className="py-2 text-right">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-50">
+                                {so.lines.map((line) => (
+                                  <tr key={line.id} className="text-[11px] font-bold text-gray-600">
+                                    <td className="py-3 uppercase tracking-tighter">{line.description}</td>
+                                    <td className="py-3 text-center font-mono">{line.quantity}</td>
+                                    <td className="py-3 text-right font-mono">{formatCurrency(line.unitPrice)}</td>
+                                    <td className="py-3 text-right font-mono text-gray-900">{formatCurrency(line.quantity * line.unitPrice)}</td>
                                   </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50 font-mono">
-                                  {so.purchaseOrders.map((po: any) => (
-                                    <tr key={po.id} className="hover:bg-gray-50/30 transition-colors">
-                                      <td className="px-4 py-3 font-bold text-gray-900 uppercase">{po.poNumber}</td>
-                                      <td className="px-4 py-3 text-gray-600 uppercase">{po.supplier?.name}</td>
-                                      <td className="px-4 py-3 text-right font-bold text-gray-900">
-                                        {formatCurrency(po.totalBDT)}
-                                      </td>
-                                      <td className="px-4 py-3 text-center">
-                                        <button 
-                                          onClick={() => assignPOMutation.mutate({ soId: so.id, poId: po.id, action: 'disconnect' })}
-                                          className="text-gray-300 hover:text-red-600 transition-colors"
-                                          title="Unlink PO"
-                                        >
-                                          <X className="w-3.5 h-3.5" />
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Inventory Links */}
+                          <div className="pt-6 border-t border-gray-100 space-y-4">
+                            <div className="flex justify-between items-center">
+                              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <LinkIcon className="w-4 h-4" /> Inventory Procurement Links
+                              </h4>
+                              <button onClick={() => setShowPOSelector({ soId: so.id })} className="text-[9px] font-black text-indigo-600 uppercase tracking-widest hover:underline">+ Link PO</button>
                             </div>
-                          )}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                              {so.purchaseOrders.map((po: any) => (
+                                <div key={po.id} className="p-3 bg-gray-50 rounded-sm border border-gray-100 flex justify-between items-center group/link">
+                                  <div>
+                                    <p className="text-[10px] font-black text-gray-900 uppercase tracking-tighter">{po.poNumber}</p>
+                                    <p className="text-[9px] font-bold text-gray-400 uppercase">{po.supplier?.name}</p>
+                                  </div>
+                                  <button onClick={() => assignPOMutation.mutate({ soId: so.id, poId: po.id, action: 'disconnect' })} className="opacity-0 group-hover/link:opacity-100 text-gray-400 hover:text-red-500 transition-all p-1">
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ))}
+                              {so.purchaseOrders.length === 0 && <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic py-2">No procurement records linked</p>}
+                            </div>
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -304,66 +262,31 @@ export default function SalesOrdersPage() {
         </table>
       </div>
 
-      {/* PO Selector Modal */}
+      {/* PO Link Modal */}
       {showPOSelector && (
-        <div className="fixed inset-0 bg-gray-900/10 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-sm shadow-2xl w-full max-w-lg overflow-hidden flex flex-col border border-gray-200 animate-in fade-in zoom-in duration-150">
-            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-              <h3 className="text-[10px] font-bold text-gray-900 uppercase tracking-[0.2em] flex items-center gap-2">
-                <LinkIcon className="w-3.5 h-3.5 text-gray-400" />
-                Assign Purchase Order
-              </h3>
-              <button onClick={() => setShowPOSelector(null)} className="p-1 hover:bg-gray-100 rounded-sm transition-colors text-gray-400">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="max-h-[60vh] overflow-y-auto border border-gray-100 rounded-sm">
-                <table className="w-full text-[11px] text-left">
-                  <thead className="bg-gray-50 sticky top-0 border-b border-gray-100">
-                    <tr className="text-[9px] text-gray-400 uppercase font-bold tracking-widest">
-                      <th className="p-4">PO #</th>
-                      <th className="p-4 text-right">Value (BDT)</th>
-                      <th className="p-4 text-center w-24">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50 font-mono">
-                    {purchaseOrders?.filter((po: any) => !salesOrders?.find(s => s.id === showPOSelector.soId)?.purchaseOrders.find(p => p.id === po.id)).map((po: any) => (
-                      <tr key={po.id} className="hover:bg-gray-50/50 transition-colors group">
-                        <td className="p-4 font-bold text-gray-900 uppercase">{po.poNumber}</td>
-                        <td className="p-4 text-right font-bold text-gray-900">{formatCurrency(po.totalBDT)}</td>
-                        <td className="p-4 text-center">
-                          <button 
-                            onClick={() => {
-                              assignPOMutation.mutate({ soId: showPOSelector.soId, poId: po.id, action: 'connect' });
-                              setShowPOSelector(null);
-                            }}
-                            className="bg-gray-900 text-white px-3 py-1.5 rounded-sm text-[9px] font-bold uppercase tracking-widest hover:bg-gray-800 transition-colors"
-                          >
-                            Assign
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {purchaseOrders?.length === 0 && (
-                      <tr><td colSpan={3} className="p-12 text-center text-gray-400 font-mono uppercase tracking-widest">NO AVAILABLE POs</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end">
-              <button 
-                onClick={() => setShowPOSelector(null)} 
-                className="px-4 py-2 border border-gray-200 rounded-sm text-[9px] font-bold uppercase tracking-widest text-gray-500 hover:bg-white hover:text-gray-900 transition-all"
-              >
-                Close
-              </button>
-            </div>
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-sm shadow-2xl w-full max-w-lg border border-gray-200 animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col">
+             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+               <h3 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em]">Link Procurement Record</h3>
+               <button onClick={() => setShowPOSelector(null)} className="p-1 hover:bg-gray-200 rounded-sm transition-colors text-gray-400"><X className="w-4 h-4" /></button>
+             </div>
+             <div className="p-6 overflow-y-auto max-h-[60vh] space-y-2">
+                {purchaseOrders?.filter((po: any) => !salesOrders?.find(s => s.id === showPOSelector.soId)?.purchaseOrders.find((p: any) => p.id === po.id)).map((po: any) => (
+                  <div key={po.id} className="p-4 bg-gray-50 rounded-sm border border-gray-100 flex justify-between items-center hover:border-gray-900 transition-colors cursor-pointer group" onClick={() => { assignPOMutation.mutate({ soId: showPOSelector.soId, poId: po.id, action: 'connect' }); setShowPOSelector(null); }}>
+                    <div>
+                      <p className="text-[11px] font-black text-gray-900 uppercase">{po.poNumber}</p>
+                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{po.supplier?.name}</p>
+                    </div>
+                    <button className="px-4 py-1.5 bg-white border border-gray-200 text-[9px] font-black uppercase tracking-widest group-hover:bg-gray-900 group-hover:text-white transition-all">Link</button>
+                  </div>
+                ))}
+             </div>
+             <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+                <button onClick={() => setShowPOSelector(null)} className="px-6 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-900">Close</button>
+             </div>
           </div>
         </div>
       )}
     </div>
   );
 }
-

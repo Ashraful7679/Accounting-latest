@@ -35,51 +35,30 @@ export class SequenceService {
     const year = new Date().getFullYear();
     const prefixYear = `${prefix}-${year}-`;
 
-    // Step 1: Count existing docs with this year's prefix to get a starting estimate
-    let count = 0;
-    switch (type) {
-      case 'invoice':
-        count = await client.invoice.count({ where: { companyId, invoiceNumber: { startsWith: prefixYear } } });
-        break;
-      case 'journal':
-        count = await client.journalEntry.count({ where: { companyId, entryNumber: { startsWith: prefixYear } } });
-        break;
-      case 'po':
-        count = await client.purchaseOrder.count({ where: { companyId, poNumber: { startsWith: prefixYear } } });
-        break;
-      case 'pi':
-        count = await (client as any).pI.count({ where: { companyId, piNumber: { startsWith: prefixYear } } });
-        break;
-      case 'lc':
-        count = await (client as any).lC.count({ where: { companyId, lcNumber: { startsWith: prefixYear } } });
-        break;
-      case 'customer':
-        count = await client.customer.count({ where: { companyId, code: { startsWith: prefixYear } } });
-        break;
-      case 'vendor':
-        count = await client.vendor.count({ where: { companyId, code: { startsWith: prefixYear } } });
-        break;
-      case 'product':
-        count = await (client as any).product.count({ where: { companyId, code: { startsWith: prefixYear } } });
-        break;
-      case 'employee':
-        count = await client.employee.count({ where: { companyId, employeeCode: { startsWith: prefixYear } } });
-        break;
-      case 'account':
-        count = await client.account.count({ where: { companyId, code: { startsWith: prefixYear } } });
-        break;
-      case 'so':
-        count = await (client as any).salesOrder.count({ where: { companyId, soNumber: { startsWith: prefixYear } } });
-        break;
-      case 'dn':
-        count = await (client as any).dN.count({ where: { companyId, dnNumber: { startsWith: prefixYear } } });
-        break;
-    }
+    // Atomic increment using DocumentSequence table
+    const seq = await client.documentSequence.upsert({
+      where: {
+        companyId_type_year: {
+          companyId,
+          type,
+          year
+        }
+      },
+      update: {
+        lastValue: { increment: 1 }
+      },
+      create: {
+        companyId,
+        type,
+        year,
+        lastValue: 1
+      }
+    });
 
-    // Step 2: Find the first free slot (handles gaps from deletions / data migrations)
-    let counter = count + 1;
+    let counter = seq.lastValue;
     let attempts = 0;
 
+    // Verify if the number is actually free in the main table (to handle legacy data)
     while (true) {
       const candidate = `${prefixYear}${counter.toString().padStart(4, '0')}`;
       let alreadyExists = false;
@@ -123,7 +102,17 @@ export class SequenceService {
           break;
       }
 
-      if (!alreadyExists) return candidate;
+      if (!alreadyExists) {
+        // If we found it was already free, update the sequence table to reflect this if it's far ahead
+        // But usually atomic upsert is enough. The while loop handles legacy collisions.
+        if (counter !== seq.lastValue) {
+           await client.documentSequence.update({
+             where: { id: seq.id },
+             data: { lastValue: counter }
+           });
+        }
+        return candidate;
+      }
 
       counter++;
       attempts++;

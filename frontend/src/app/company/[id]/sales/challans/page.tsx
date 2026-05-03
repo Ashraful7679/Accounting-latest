@@ -130,8 +130,18 @@ export default function DeliveryChallansPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button className="p-2 text-gray-400 hover:text-gray-900 rounded-sm transition-colors"><Eye className="w-4 h-4" /></button>
-                        <button className="p-2 text-gray-400 hover:text-gray-900 rounded-sm transition-colors"><Printer className="w-4 h-4" /></button>
+                        <button
+  className="p-2 text-gray-400 hover:text-gray-900 rounded-sm transition-colors"
+  onClick={() => router.push(`/company/${companyId}/sales/challans/${dc.id}`)}
+>
+  <Eye className="w-4 h-4" />
+</button>
+                        <button
+  className="p-2 text-gray-400 hover:text-gray-900 rounded-sm transition-colors"
+  onClick={() => window.print()}
+>
+  <Printer className="w-4 h-4" />
+</button>
                       </div>
                     </td>
                   </tr>

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
+import { cn } from '@/lib/utils';
 
 
 interface Product {
@@ -38,6 +39,7 @@ export default function ProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [adjustAmount, setAdjustAmount] = useState<number>(0);
   const [adjustNotes, setAdjustNotes] = useState('');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);

@@ -4,10 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { 
-  Plus, Search, ChevronDown, ChevronRight, 
-  Truck, Tag, Link as LinkIcon, Trash2,
-  X, ShoppingBag, Eye, FileText
+  X, ShoppingBag, Eye, FileText, Printer
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
@@ -46,6 +43,7 @@ export default function SalesOrdersPage() {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [showPOSelector, setShowPOSelector] = useState<{ soId: string } | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -123,7 +121,8 @@ export default function SalesOrdersPage() {
     (!searchTerm ||
       so.soNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       so.customer?.name.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    ((activeTab === 'local' && so.currency === 'BDT') || (activeTab === 'foreign' && so.currency !== 'BDT')) || [];
+    ((activeTab === 'local' && so.currency === 'BDT') || (activeTab === 'foreign' && so.currency !== 'BDT'))
+  ) || [];
 
   if (!mounted) return null;
 

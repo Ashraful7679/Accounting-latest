@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 
 import { useEffect, useState } from 'react';
@@ -9,6 +9,7 @@ import {
   Link2, Search, Plus, CheckCircle2, FileText
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { cn } from '@/lib/utils';
 
 
 interface Invoice {
@@ -42,6 +43,7 @@ export default function PaymentAllocationPage() {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [allocations, setAllocations] = useState<{ invoiceId: string; amount: number }[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -49,10 +51,7 @@ export default function PaymentAllocationPage() {
     if (!token) router.push('/login');
   }, [router]);
 
-  const filteredPayments = paymentsData?.filter(p =>
-    (activeTab === 'local' && p.currency === 'BDT') ||
-    (activeTab === 'foreign' && p.currency !== 'BDT')
-  ) || [];
+  const { data: paymentsData, isLoading: loadingPayments } = useQuery({
     queryKey: ['unallocated-payments', companyId],
     queryFn: async () => {
       const response = await api.get(`/company/${companyId}/payments?status=COMPLETED&unallocated=true`);
@@ -60,6 +59,11 @@ export default function PaymentAllocationPage() {
     },
     enabled: !!companyId,
   });
+
+  const filteredPayments = paymentsData?.filter(p =>
+    (activeTab === 'local' && p.currency === 'BDT') ||
+    (activeTab === 'foreign' && p.currency !== 'BDT')
+  ) || [];
 
   const { data: invoicesData, isLoading: loadingInvoices } = useQuery({
     queryKey: ['pending-invoices', companyId],

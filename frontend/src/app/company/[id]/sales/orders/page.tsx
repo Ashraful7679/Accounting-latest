@@ -40,7 +40,7 @@ interface SalesOrder {
   piLCs: any[];
 }
 
-export default function SalesOrdersPage() {
+function SalesOrdersPage() {
   const router = useRouter();
   const params = useParams();
   const companyId = params.id as string;
@@ -145,6 +145,7 @@ export default function SalesOrdersPage() {
   ) || [];
 
   return (
+    <>
     <div className="p-6 max-w-[1600px] mx-auto space-y-6 bg-gray-50 min-h-screen">
       {/* Header Area */}
       <div className="flex justify-between items-center border-b border-gray-200 pb-6">
@@ -486,69 +487,59 @@ export default function SalesOrdersPage() {
         />
       )}
     </div>
-    {showDetailPanel && <SalesOrderDetailPanel />}
-  );
-};
-const SalesOrderDetailPanel = () => {
-  if (!selectedOrder) return null;
-  
-  const getDetailFields = (): DetailField[] => [
-    { label: 'SO Number', value: selectedOrder.soNumber },
-    { label: 'Customer', value: selectedOrder.customer?.name || '-' },
-    { label: 'Date', value: new Date(selectedOrder.soDate).toLocaleDateString(), type: 'date' },
-    { label: 'Total', value: `${getCurrencySymbol(selectedOrder.currency)}${formatCurrency(selectedOrder.totalBDT)}`, type: 'currency' },
-    { label: 'Currency', value: selectedOrder.currency },
-    { label: 'Status', value: getStatusBadge(selectedOrder.status) },
-  ];
-
-  const getDetailActions = (): DetailAction[] => [
-    { label: 'View Details', icon: Eye, onClick: () => toggleExpand(selectedOrder.id), variant: 'secondary' },
-    { label: 'Create Invoice', icon: FileText, onClick: () => generateInvoice(selectedOrder.id, undefined, selectedOrder.customer?.id), variant: 'primary' },
-  ];
-
-  const getLinesTab = (): DetailTab => ({
-    id: 'lines',
-    label: `Lines (${selectedOrder.lines?.length || 0})`,
-    content: (
-      <div className="p-4">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-3 py-2 text-left text-xs font-bold text-slate-500">Item</th>
-              <th className="px-3 py-2 text-right text-xs font-bold text-slate-500">Qty</th>
-              <th className="px-3 py-2 text-right text-xs font-bold text-slate-500">Delivered</th>
-              <th className="px-3 py-2 text-right text-xs font-bold text-slate-500">Invoiced</th>
-              <th className="px-3 py-2 text-right text-xs font-bold text-slate-500">Total</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {selectedOrder.lines?.map((line: any, idx: number) => (
-              <tr key={idx}>
-                <td className="px-3 py-2">{line.description || line.product?.name}</td>
-                <td className="px-3 py-2 text-right">{line.quantity}</td>
-                <td className="px-3 py-2 text-right">{line.deliveredQuantity || 0}</td>
-                <td className="px-3 py-2 text-right">{line.invoicedQuantity || 0}</td>
-                <td className="px-3 py-2 text-right font-medium">{line.total}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    ),
-  });
-
-  return (
-    <DetailPanel
-      isOpen={showDetailPanel}
-      onClose={() => { setShowDetailPanel(false); setSelectedOrder(null); }}
-      title={selectedOrder.soNumber}
-      subtitle={selectedOrder.customer?.name}
-      fields={getDetailFields()}
-      actions={getDetailActions()}
-      tabs={[getLinesTab()]}
-      status={{ value: selectedOrder.status.toLowerCase() as any }}
-      size="lg"
-    />
+    {showDetailPanel && selectedOrder && (
+      <DetailPanel
+        isOpen={showDetailPanel}
+        onClose={() => { setShowDetailPanel(false); setSelectedOrder(null); }}
+        title={selectedOrder!.soNumber}
+        subtitle={selectedOrder!.customer?.name}
+        fields={[
+          { label: 'SO Number', value: selectedOrder!.soNumber },
+          { label: 'Customer', value: selectedOrder!.customer?.name || '-' },
+          { label: 'Date', value: new Date(selectedOrder!.soDate).toLocaleDateString(), type: 'date' },
+          { label: 'Total', value: `${getCurrencySymbol(selectedOrder!.currency)}${formatCurrency(selectedOrder!.totalBDT)}`, type: 'currency' },
+          { label: 'Currency', value: selectedOrder!.currency },
+          { label: 'Status', value: getStatusBadge(selectedOrder!.status) },
+        ]}
+        actions={[
+          { label: 'View Details', icon: Eye, onClick: () => toggleExpand(selectedOrder!.id), variant: 'secondary' },
+          { label: 'Create Invoice', icon: FileText, onClick: () => generateInvoice(selectedOrder!.id, undefined, selectedOrder!.customer?.id), variant: 'primary' },
+        ]}
+        tabs={[{
+          id: 'lines',
+          label: `Lines (${selectedOrder!.lines?.length || 0})`,
+          content: (
+            <div className="p-4">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-bold text-slate-500">Item</th>
+                    <th className="px-3 py-2 text-right text-xs font-bold text-slate-500">Qty</th>
+                    <th className="px-3 py-2 text-right text-xs font-bold text-slate-500">Delivered</th>
+                    <th className="px-3 py-2 text-right text-xs font-bold text-slate-500">Invoiced</th>
+                    <th className="px-3 py-2 text-right text-xs font-bold text-slate-500">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {selectedOrder!.lines?.map((line: any, idx: number) => (
+                    <tr key={idx}>
+                      <td className="px-3 py-2">{line.description || line.product?.name}</td>
+                      <td className="px-3 py-2 text-right">{line.quantity}</td>
+                      <td className="px-3 py-2 text-right">{line.deliveredQuantity || 0}</td>
+                      <td className="px-3 py-2 text-right">{line.invoicedQuantity || 0}</td>
+                      <td className="px-3 py-2 text-right font-medium">{line.total}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ),
+        }]}
+        status={{ value: selectedOrder!.status.toLowerCase() as any, type: selectedOrder!.status.toLowerCase() as any }}
+        size="lg"
+      />
+    )}
+    </>
   );
 }
 

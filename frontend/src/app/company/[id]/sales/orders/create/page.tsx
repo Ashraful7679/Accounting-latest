@@ -56,7 +56,7 @@ export default function CreateSalesOrderPage() {
   });
 
   const filteredCustomers = customers?.filter((c: any) => 
-    orderType === 'local' ? c.type === 'Local' || !c.type : c.type === 'Foreign'
+    orderType === 'local' ? c.preferredCurrency === 'BDT' : c.preferredCurrency !== 'BDT'
   );
 
   const handleLineChange = (index: number, field: string, value: any) => {

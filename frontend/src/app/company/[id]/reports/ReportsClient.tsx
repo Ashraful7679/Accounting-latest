@@ -9,7 +9,7 @@ import {
   Building2, FileText, BarChart3, PieChart, Landmark,
   ChevronRight, Filter, Download, Printer, ArrowLeft,
   Calendar, Layers, Briefcase, Users, Search, AlertCircle,
-  FileBarChart, Receipt, DollarSign, CreditCard, Globe, Bell
+  FileBarChart, Receipt, DollarSign, CreditCard, Globe, Bell, X
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -53,6 +53,8 @@ export default function ReportsClient() {
     status: 'APPROVED'
   });
 
+  const [drilldownAccount, setDrilldownAccount] = useState<any>(null);
+
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -84,6 +86,17 @@ export default function ReportsClient() {
   });
 
   const { data: projects } = useQuery({ queryKey: ['projects', companyId], queryFn: () => api.get(`/company/${companyId}/projects`).then(res => res.data.data) });
+
+  // Drilldown query for account transactions
+  const { data: drilldownData, isFetching: loadingDrilldown } = useQuery({
+    queryKey: ['account-drilldown', drilldownAccount?.accountId, filters],
+    queryFn: () => {
+      if (!drilldownAccount?.accountId) return null;
+      const params = new URLSearchParams(filters).toString();
+      return api.get(`/company/${companyId}/reports/account-transactions?accountId=${drilldownAccount.accountId}&${params}`).then(res => res.data.data);
+    },
+    enabled: !!drilldownAccount?.accountId
+  });
 
   const handlePrint = () => window.print();
 
@@ -345,7 +358,11 @@ export default function ReportsClient() {
                               </thead>
                               <tbody className="divide-y divide-slate-100">
                                 {(reportData?.accounts || []).map((account: any, i: number) => (
-                                  <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                  <tr 
+                                    key={i} 
+                                    onClick={() => setDrilldownAccount(account)}
+                                    className="hover:bg-blue-50 cursor-pointer transition-colors"
+                                  >
                                     <td className="py-3 px-3 font-black text-slate-900 whitespace-nowrap">{account.name || account.accountName}</td>
                                     <td className="py-3 px-3 text-right font-bold text-emerald-600 whitespace-nowrap">
                                       {(account.debit || 0) > 0 ? (account.debit || 0).toLocaleString() : '-'}
@@ -497,6 +514,108 @@ export default function ReportsClient() {
             </div>
           )}
         </div>
+
+        {/* Drilldown Modal */}
+        <AnimatePresence>
+          {drilldownAccount && (
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+              onClick={() => setDrilldownAccount(null)}
+            >
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }} 
+                animate={{ scale: 1, opacity: 1 }} 
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+                onClick={e => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b bg-slate-50">
+                  <div>
+                    <h3 className="font-black text-lg text-slate-900 uppercase">
+                      {drilldownData?.accountName || drilldownAccount.name}
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-1">Account Transactions</p>
+                  </div>
+                  <button 
+                    onClick={() => setDrilldownAccount(null)}
+                    className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5 text-slate-400" />
+                  </button>
+                </div>
+
+                {/* Loading */}
+                {loadingDrilldown ? (
+                  <div className="flex items-center justify-center py-20">
+                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <>
+                    {/* Summary */}
+                    <div className="grid grid-cols-3 gap-4 p-4 bg-slate-50 border-b">
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase">Total Debit</p>
+                        <p className="font-black text-emerald-600">{(drilldownData?.totals?.totalDebit || 0).toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase">Total Credit</p>
+                        <p className="font-black text-rose-600">{(drilldownData?.totals?.totalCredit || 0).toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase">Balance</p>
+                        <p className="font-black text-slate-700">{(drilldownData?.totals?.endingBalance || 0).toLocaleString()}</p>
+                      </div>
+                    </div>
+
+                    {/* Transactions Table */}
+                    <div className="overflow-auto flex-1">
+                      <table className="w-full text-sm">
+                        <thead className="bg-slate-100 sticky top-0">
+                          <tr className="text-[10px] text-slate-500 uppercase">
+                            <th className="px-4 py-3 text-left">Date</th>
+                            <th className="px-4 py-3 text-left">Entry</th>
+                            <th className="px-4 py-3 text-left">Description</th>
+                            <th className="px-4 py-3 text-right">Debit</th>
+                            <th className="px-4 py-3 text-right">Credit</th>
+                            <th className="px-4 py-3 text-right">Balance</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {(drilldownData?.transactions || []).map((tx: any, i: number) => (
+                            <tr key={i} className="hover:bg-slate-50">
+                              <td className="px-4 py-2 text-slate-500 text-xs">
+                                {new Date(tx.date).toLocaleDateString()}
+                              </td>
+                              <td className="px-4 py-2 font-mono text-xs text-blue-600">
+                                {tx.entryNumber}
+                              </td>
+                              <td className="px-4 py-2 text-slate-700">
+                                {tx.description.substring(0, 40)}
+                              </td>
+                              <td className="px-4 py-2 text-right text-emerald-600 font-mono">
+                                {tx.debit > 0 ? tx.debit.toLocaleString() : '-'}
+                              </td>
+                              <td className="px-4 py-2 text-right text-rose-600 font-mono">
+                                {tx.credit > 0 ? tx.credit.toLocaleString() : '-'}
+                              </td>
+                              <td className="px-4 py-2 text-right font-bold text-slate-700 font-mono">
+                                {tx.runningBalance?.toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
     </div>
   );
 }

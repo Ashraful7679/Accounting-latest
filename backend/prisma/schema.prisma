@@ -6,7 +6,6 @@ generator client {
   binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-1.1.x", "rhel-openssl-3.0.x", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "linux-musl", "linux-musl-openssl-3.0.x", "debian-openssl-1.0.x"]
 }
 
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -17,83 +16,83 @@ datasource db {
 // ============================================
 
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  password      String
+  id           String  @id @default(uuid())
+  email        String  @unique
+  password     String
   firstName    String
   lastName     String
-  isActive     Boolean  @default(true)
-  maxCompanies Int      @default(5)
+  isActive     Boolean @default(true)
+  maxCompanies Int     @default(5)
   phone        String?
   address      String?
-  
+
   // Reporting Hierarchy
-  managerId     String?
-  manager       User?    @relation("ManagerSubordinates", fields: [managerId], references: [id])
-  subordinates  User[]   @relation("ManagerSubordinates")
-  
+  managerId    String?
+  manager      User?   @relation("ManagerSubordinates", fields: [managerId], references: [id])
+  subordinates User[]  @relation("ManagerSubordinates")
+
   // Relations
   userRoles     UserRole[]
   userCompanies UserCompany[]
   permissions   UserPermission[]
-  
+
   // Audit Trail - Created
-  createdInvoices    Invoice[]    @relation("CreatedInvoices")
-  createdJournals    JournalEntry[] @relation("CreatedJournals")
-  
+  createdInvoices Invoice[]      @relation("CreatedInvoices")
+  createdJournals JournalEntry[] @relation("CreatedJournals")
+
   // Audit Trail - Verified
-  verifiedInvoices   Invoice[]   @relation("VerifiedInvoices")
-  verifiedJournals  JournalEntry[] @relation("VerifiedJournals")
-  
+  verifiedInvoices Invoice[]      @relation("VerifiedInvoices")
+  verifiedJournals JournalEntry[] @relation("VerifiedJournals")
+
   // Audit Trail - Approved
-  approvedInvoices   Invoice[]   @relation("ApprovedInvoices")
-  approvedJournals  JournalEntry[] @relation("ApprovedJournals")
-  
+  approvedInvoices Invoice[]      @relation("ApprovedInvoices")
+  approvedJournals JournalEntry[] @relation("ApprovedJournals")
+
   // Audit Trail - Rejected
-  rejectedInvoices   Invoice[]   @relation("RejectedInvoices")
-  rejectedJournals  JournalEntry[] @relation("RejectedJournals")
-  
+  rejectedInvoices Invoice[]      @relation("RejectedInvoices")
+  rejectedJournals JournalEntry[] @relation("RejectedJournals")
+
   // Documents uploaded
   uploadedAttachments Attachment[]
-  
+
   performedActivities ActivityLog[] @relation("PerformedActivities")
   targetActivities    ActivityLog[] @relation("TargetActivities")
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Role {
-  id          String   @id @default(uuid())
-  name        String   @unique
+  id          String     @id @default(uuid())
+  name        String     @unique
   description String?
-  isSystem    Boolean  @default(false)
-  isActive    Boolean  @default(true)
+  isSystem    Boolean    @default(false)
+  isActive    Boolean    @default(true)
   userRoles   UserRole[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
 model UserRole {
-  id      String @id @default(uuid())
-  userId  String
-  roleId  String
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role    Role   @relation(fields: [roleId], references: [id])
-  
+  id     String @id @default(uuid())
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id])
+
   @@unique([userId, roleId])
 }
 
 model UserPermission {
-  id          String @id @default(uuid())
-  userId      String
-  module      String
-  canCreate   Boolean @default(false)
-  canView     Boolean @default(true)
-  canVerify   Boolean @default(false)
-  canApprove  Boolean @default(false)
-  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id         String  @id @default(uuid())
+  userId     String
+  module     String
+  canCreate  Boolean @default(false)
+  canView    Boolean @default(true)
+  canVerify  Boolean @default(false)
+  canApprove Boolean @default(false)
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([userId, module])
 }
 
@@ -102,106 +101,109 @@ model UserPermission {
 // ============================================
 
 model Company {
-  id            String   @id @default(uuid())
-  code          String   @unique
-  name          String
-  logoUrl       String?
-  address       String?
-  city          String?
-  country       String?
-  phone         String?
-  email         String?
-  website       String?
-  baseCurrency  String   @default("BDT")
-  isActive      Boolean  @default(true)
-  
+  id           String  @id @default(uuid())
+  code         String  @unique
+  name         String
+  logoUrl      String?
+  address      String?
+  city         String?
+  country      String?
+  phone        String?
+  email        String?
+  website      String?
+  baseCurrency String  @default("BDT")
+  isActive     Boolean @default(true)
+
   // Relations
-  userCompanies UserCompany[]
-  invoices     Invoice[]
-  journals     JournalEntry[]
-  customers    Customer[]
-  vendors      Vendor[]
-  accounts     Account[]
+  userCompanies  UserCompany[]
+  invoices       Invoice[]
+  journals       JournalEntry[]
+  customers      Customer[]
+  vendors        Vendor[]
+  accounts       Account[]
   // branches     Branch[] // REMOVED FOR MULTI-TENANCY PURPOSES
-  projects     Project[]
-  costCenters  CostCenter[]
-  products     Product[]
-  bills        Bill[]
-  lcs          LC[]
-  loans        Loan[]
-  pis          PI[]
+  projects       Project[]
+  costCenters    CostCenter[]
+  products       Product[]
+  bills          Bill[]
+  lcs            LC[]
+  loans          Loan[]
+  pis            PI[]
   purchaseOrders PurchaseOrder[]
   salesOrders    SalesOrder[]
-  activityLogs  ActivityLog[]
-  notifications Notification[]
-  grns          GRN[]
-  dns           DN[]
-  
-  // Employee Relations
-  employees            Employee[]
-  employeeAdvances     EmployeeAdvance[]
-  employeeLoans        EmployeeLoan[]
-  employeeLoanRepayments EmployeeLoanRepayment[]
-  employeeExpenses     EmployeeExpense[]
-  sequences           DocumentSequence[]
+  activityLogs   ActivityLog[]
+  notifications  Notification[]
+  grns           GRN[]
+  dns            DN[]
 
-  settings      CompanySettings?
-  
+  // Employee Relations
+  employees              Employee[]
+  employeeAdvances       EmployeeAdvance[]
+  employeeLoans          EmployeeLoan[]
+  employeeLoanRepayments EmployeeLoanRepayment[]
+  employeeExpenses       EmployeeExpense[]
+  sequences              DocumentSequence[]
+
+  settings CompanySettings?
+
   // Soft Delete
-  deletedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  deletedAt  DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  DebitNote  DebitNote[]
+  PayrollRun PayrollRun[]
+  CreditNote CreditNote[]
 }
 
 model DocumentSequence {
-  id        String   @id @default(uuid())
+  id        String @id @default(uuid())
   companyId String
   type      String
   year      Int
-  lastValue Int      @default(0)
-  
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  lastValue Int    @default(0)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, type, year])
 }
 
 model UserCompany {
-  id                  String   @id @default(uuid())
-  userId              String
-  companyId           String
-  isDefault           Boolean  @default(false)
-  
+  id        String  @id @default(uuid())
+  userId    String
+  companyId String
+  isDefault Boolean @default(false)
+
   // Co-ownership & Permissions
-  ownershipPercentage Float    @default(0)
-  isMainOwner         Boolean  @default(false)
-  canEditCompany      Boolean  @default(false)
-  canDeleteCompany    Boolean  @default(false)
-  canManageOwners     Boolean  @default(false)
+  ownershipPercentage Float   @default(0)
+  isMainOwner         Boolean @default(false)
+  canEditCompany      Boolean @default(false)
+  canDeleteCompany    Boolean @default(false)
+  canManageOwners     Boolean @default(false)
 
   // --- NEW: Owner Profile & Identity (South Asian Compliance) ---
-  fatherMotherName    String?
-  nidPassport        String?
-  mobile             String?
-  permanentAddress   String?
-  
+  fatherMotherName String?
+  nidPassport      String?
+  mobile           String?
+  permanentAddress String?
+
   // Ownership Structure
-  ownershipType      String?  // Proprietor, Partner, Director, Shareholder
-  joiningDate        DateTime?
-  
+  ownershipType String? // Proprietor, Partner, Director, Shareholder
+  joiningDate   DateTime?
+
   // Capital & Equity Tracking
-  openingCapital     Float    @default(0)
-  capitalAccountCode String?
-  drawingAccountCode String?
-  currentCapitalBalance Float @default(0) // Auto-calculated
-  
+  openingCapital        Float   @default(0)
+  capitalAccountCode    String?
+  drawingAccountCode    String?
+  currentCapitalBalance Float   @default(0) // Auto-calculated
+
   // Tax & Compliance
-  tin                String?
-  tinCertificateUrl  String?
-  din                String?  // Director Identification Number
-  
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
+  tin               String?
+  tinCertificateUrl String?
+  din               String? // Director Identification Number
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
   @@unique([userId, companyId])
 }
 
@@ -210,76 +212,76 @@ model UserCompany {
 // ============================================
 
 model LC {
-  id              String    @id @default(uuid())
-  companyId       String
-  lcNumber        String
-  bankName        String
-  amount          Float
-  currency        String    @default("USD")
-  conversionRate  Float     @default(1)
-  issueDate       DateTime
-  expiryDate      DateTime
-  status          String    @default("OPEN") // OPEN, PARTIALLY_PAID, CLOSED, CANCELLED
-  type            String    @default("IMPORT") // IMPORT, EXPORT
-  description     String?
-  
+  id             String   @id @default(uuid())
+  companyId      String
+  lcNumber       String
+  bankName       String
+  amount         Float
+  currency       String   @default("USD")
+  conversionRate Float    @default(1)
+  issueDate      DateTime
+  expiryDate     DateTime
+  status         String   @default("OPEN") // OPEN, PARTIALLY_PAID, CLOSED, CANCELLED
+  type           String   @default("IMPORT") // IMPORT, EXPORT
+  description    String?
+
   // New Fields for Loan Control
-  loanType        String    @default("NONE") // NONE, PERCENTAGE, FIXED
-  loanValue       Float     @default(0)
+  loanType  String @default("NONE") // NONE, PERCENTAGE, FIXED
+  loanValue Float  @default(0)
 
   // Margin & Commission (GL automation)
-  marginPercentage  Float   @default(0) // Bank margin deposit % (e.g., 10-20%)
-  commissionRate    Float   @default(0) // Bank LC commission % (e.g., 0.25-0.5%)
+  marginPercentage Float @default(0) // Bank margin deposit % (e.g., 10-20%)
+  commissionRate   Float @default(0) // Bank LC commission % (e.g., 0.25-0.5%)
 
   // Shipment Info
-  shipmentDate    DateTime?
-  portOfLoading   String?
+  shipmentDate      DateTime?
+  portOfLoading     String?
   portOfDestination String?
-  vesselName      String?
-  bankBranch      String?
+  vesselName        String?
+  bankBranch        String?
 
   // Relations
-  company         Company   @relation(fields: [companyId], references: [id])
-  customerId      String?
-  customer        Customer? @relation("CustomerLCs", fields: [customerId], references: [id])
-  vendorId        String?
-  vendor          Vendor?   @relation("VendorLCs", fields: [vendorId], references: [id])
-  
-  receivedDate    DateTime?
-  pis             PI[]
-  purchaseOrders  PurchaseOrder[]
-  salesOrders     SalesOrder[]
-  payments        Payment[]
+  company    Company   @relation(fields: [companyId], references: [id])
+  customerId String?
+  customer   Customer? @relation("CustomerLCs", fields: [customerId], references: [id])
+  vendorId   String?
+  vendor     Vendor?   @relation("VendorLCs", fields: [vendorId], references: [id])
+
+  receivedDate   DateTime?
+  pis            PI[]
+  purchaseOrders PurchaseOrder[]
+  salesOrders    SalesOrder[]
+  payments       Payment[]
 
   // Soft Delete
-  deletedAt       DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
+  @@unique([companyId, lcNumber])
   @@index([companyId])
   @@index([companyId, deletedAt])
   @@index([lcNumber])
   @@index([customerId])
-  @@unique([companyId, lcNumber])
 }
 
 model PI {
-  id              String    @id @default(uuid())
+  id         String    @id @default(uuid())
   // Trade Logic
-  customerId      String?
-  customer        Customer? @relation("CustomerPIs", fields: [customerId], references: [id])
-  vendorId        String?
-  vendor          Vendor?   @relation("VendorPIs", fields: [vendorId], references: [id])
-  
-  piNumber        String
-  lcId            String?
-  piDate          DateTime  @default(now())
-  amount          Float
-  currency        String    @default("USD")
-  exchangeRate    Float     @default(1)
-  totalBDT        Float?
-  status          String    @default("OPEN") // OPEN, PARTIALLY_PAID, PAID
-  
+  customerId String?
+  customer   Customer? @relation("CustomerPIs", fields: [customerId], references: [id])
+  vendorId   String?
+  vendor     Vendor?   @relation("VendorPIs", fields: [vendorId], references: [id])
+
+  piNumber     String
+  lcId         String?
+  piDate       DateTime @default(now())
+  amount       Float
+  currency     String   @default("USD")
+  exchangeRate Float    @default(1)
+  totalBDT     Float?
+  status       String   @default("OPEN") // OPEN, PARTIALLY_PAID, PAID
+
   // Advanced Export Fields
   invoiceNumber           String?
   submissionToBuyerDate   DateTime?
@@ -290,74 +292,72 @@ model PI {
   purchaseAmount          Float?
   idbpNumber              String?
 
-  companyId       String
-  company         Company   @relation(fields: [companyId], references: [id])
-  lc              LC?       @relation(fields: [lcId], references: [id])
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+  lc        LC?     @relation(fields: [lcId], references: [id])
 
-  lines           PILine[]
+  lines              PILine[]
   paymentAllocations PaymentPI[]
-  
+
   // Soft Delete
-  deletedAt       DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-
+  @@unique([companyId, piNumber])
   @@index([companyId])
   @@index([companyId, deletedAt])
   @@index([lcId])
-  @@unique([companyId, piNumber])
 }
 
 model PILine {
-  id          String   @id @default(uuid())
-  piId        String
-  productId   String?
-  description String?
-  quantity    Float    @default(1)
-  unitPrice   Float
-  total       Float
-  landedCostAmount Float @default(0) // Accumulated per-unit landed costs (freight, tax, etc.)
-  totalLandedCost Float @default(0)  // total * landedCostAmount
-  
-  customerId  String?
-  customer    Customer? @relation("CustomerPILines", fields: [customerId], references: [id])
-  vendorId    String?
-  vendor      Vendor?   @relation("VendorPILines", fields: [vendorId], references: [id])
-  
+  id               String  @id @default(uuid())
+  piId             String
+  productId        String?
+  description      String?
+  quantity         Float   @default(1)
+  unitPrice        Float
+  total            Float
+  landedCostAmount Float   @default(0) // Accumulated per-unit landed costs (freight, tax, etc.)
+  totalLandedCost  Float   @default(0) // total * landedCostAmount
+
+  customerId String?
+  customer   Customer? @relation("CustomerPILines", fields: [customerId], references: [id])
+  vendorId   String?
+  vendor     Vendor?   @relation("VendorPILines", fields: [vendorId], references: [id])
+
   // Soft Delete
-  deletedAt   DateTime?
-  
-  pi          PI       @relation(fields: [piId], references: [id], onDelete: Cascade)
-  product     Product? @relation(fields: [productId], references: [id])
+  deletedAt DateTime?
+
+  pi      PI       @relation(fields: [piId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
 }
 
-
 model Loan {
-  id                  String    @id @default(uuid())
-  companyId           String
-  loanNumber          String
-  bankName            String
-  principalAmount     Float
-  interestRate        Float
-  repaymentTerm       Int       // In months
-  monthlyInstallment  Float
-  outstandingBalance  Float
-  startDate           DateTime
-  endDate             DateTime?
-  status              String    @default("ACTIVE") // ACTIVE, REPAID, DEFAULTED
-  
-  // Soft Delete
-  deletedAt           DateTime?
-  
-  company             Company   @relation(fields: [companyId], references: [id])
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id                 String    @id @default(uuid())
+  companyId          String
+  loanNumber         String
+  bankName           String
+  principalAmount    Float
+  interestRate       Float
+  repaymentTerm      Int // In months
+  monthlyInstallment Float
+  outstandingBalance Float
+  startDate          DateTime
+  endDate            DateTime?
+  status             String    @default("ACTIVE") // ACTIVE, REPAID, DEFAULTED
 
+  // Soft Delete
+  deletedAt DateTime?
+
+  company   Company  @relation(fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, loanNumber])
   @@index([companyId])
   @@index([companyId, deletedAt])
   @@index([loanNumber])
-  @@unique([companyId, loanNumber])
 }
 
 // ============================================
@@ -365,50 +365,50 @@ model Loan {
 // ============================================
 
 model AccountType {
-  id        String    @id @default(uuid())
-  name      String    @unique // ASSET, LIABILITY, EQUITY, INCOME, EXPENSE
-  type      String    // DEBIT, CREDIT
-  isActive  Boolean   @default(true)
-  accounts  Account[]
+  id       String    @id @default(uuid())
+  name     String    @unique // ASSET, LIABILITY, EQUITY, INCOME, EXPENSE
+  type     String // DEBIT, CREDIT
+  isActive Boolean   @default(true)
+  accounts Account[]
 }
 
 model Account {
-  id            String   @id @default(uuid())
-  code          String
-  name          String
-  companyId     String
-  accountTypeId String
-  parentId      String?
-  isActive      Boolean  @default(true)
+  id             String  @id @default(uuid())
+  code           String
+  name           String
+  companyId      String
+  accountTypeId  String
+  parentId       String?
+  isActive       Boolean @default(true)
   openingBalance Float   @default(0)
   currentBalance Float   @default(0)
   cashFlowType   String? // OPERATING, INVESTING, FINANCING, NONE
-  
+
   // Controls
-  allowNegative  Boolean  @default(false)
-  category       String?  // CASH, BANK, AR, AP, etc.
-  referenceId    String?  // Links to Vendor/Customer ID
-  
-  currencyId    String?
-  currency      Currency? @relation(fields: [currencyId], references: [id])
-  
-  company       Company        @relation(fields: [companyId], references: [id])
-  accountType   AccountType    @relation(fields: [accountTypeId], references: [id])
-  parent        Account?       @relation("AccountHierarchy", fields: [parentId], references: [id])
-  children      Account[]      @relation("AccountHierarchy")
-  journalLines  JournalEntryLine[]
-  payments      Payment[]
+  allowNegative Boolean @default(false)
+  category      String? // CASH, BANK, AR, AP, etc.
+  referenceId   String? // Links to Vendor/Customer ID
+
+  currencyId String?
+  currency   Currency? @relation(fields: [currencyId], references: [id])
+
+  company          Company            @relation(fields: [companyId], references: [id])
+  accountType      AccountType        @relation(fields: [accountTypeId], references: [id])
+  parent           Account?           @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children         Account[]          @relation("AccountHierarchy")
+  journalLines     JournalEntryLine[]
+  payments         Payment[]
   employeeAdvances EmployeeAdvance[]
   employeeExpenses EmployeeExpense[]
-  
-  deletedAt     DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([companyId, code])
   @@index([companyId])
   @@index([companyId, deletedAt])
   @@index([accountTypeId])
-  @@unique([companyId, code])
 }
 
 model Project {
@@ -420,13 +420,13 @@ model Project {
   company      Company            @relation(fields: [companyId], references: [id])
   journalLines JournalEntryLine[]
   // Soft Delete
-  deletedAt     DateTime?
+  deletedAt    DateTime?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
+  @@unique([companyId, code])
   @@index([companyId])
   @@index([companyId, deletedAt])
-  @@unique([companyId, code])
 }
 
 model CostCenter {
@@ -438,13 +438,13 @@ model CostCenter {
   company      Company            @relation(fields: [companyId], references: [id])
   journalLines JournalEntryLine[]
   // Soft Delete
-  deletedAt     DateTime?
+  deletedAt    DateTime?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
+  @@unique([companyId, code])
   @@index([companyId])
   @@index([companyId, deletedAt])
-  @@unique([companyId, code])
 }
 
 // ============================================
@@ -452,91 +452,97 @@ model CostCenter {
 // ============================================
 
 model Customer {
-  id          String   @id @default(uuid())
-  code        String
-  name        String
-  companyId   String
-  email       String?
-  phone       String?
-  address     String?
-  city        String?
-  country     String?
-  isActive    Boolean  @default(true)
-  
-  // Financial Info
-  contactPerson String?
-  tinVat        String?
-  openingBalance Float   @default(0)
-  balanceType   String?  // DR, CR
-  creditLimit   Float?
-  preferredCurrency String @default("BDT")
-  exchangeRate  Float   @default(1)
-  paymentTerms  String @default("COD") // COD, CREDIT, ADVANCE, DO_DUE
+  id        String  @id @default(uuid())
+  code      String
+  name      String
+  companyId String
+  email     String?
+  phone     String?
+  address   String?
+  city      String?
+  country   String?
+  isActive  Boolean @default(true)
 
-  company     Company  @relation(fields: [companyId], references: [id])
-  invoices    Invoice[]
-  payments    Payment[]
+  // Financial Info
+  contactPerson     String?
+  tinVat            String?
+  openingBalance    Float   @default(0)
+  balanceType       String? // DR, CR
+  creditLimit       Float?
+  preferredCurrency String  @default("BDT")
+  exchangeRate      Float   @default(1)
+  paymentTerms      String  @default("COD") // COD, CREDIT, ADVANCE, DO_DUE
+
+  company      Company             @relation(fields: [companyId], references: [id])
+  invoices     Invoice[]
+  payments     Payment[]
   journalLines JournalEntryLine[]
-  lcs         LC[]     @relation("CustomerLCs")
-  pis         PI[]     @relation("CustomerPIs")
-  poLines     PurchaseOrderLine[] @relation("CustomerPOLines")
-  piLines     PILine[] @relation("CustomerPILines")
-  salesOrders SalesOrder[]
+  lcs          LC[]                @relation("CustomerLCs")
+  pis          PI[]                @relation("CustomerPIs")
+  poLines      PurchaseOrderLine[] @relation("CustomerPOLines")
+  piLines      PILine[]            @relation("CustomerPILines")
+  salesOrders  SalesOrder[]
+  creditNotes  CreditNote[]        @relation("CustomerCreditNotes")
+
+  // Portal Access
+  portalEnabled Boolean @default(false)
 
   // Soft Delete
-  deletedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-
-  
+  @@unique([companyId, code])
   @@index([companyId])
   @@index([companyId, deletedAt])
-  @@unique([companyId, code])
 }
 
 model Vendor {
-  id          String   @id @default(uuid())
-  code        String
-  name        String
-  companyId   String
-  country     String?
-  email       String?
-  phone       String?
-  address     String?
-  city        String?
-  isActive    Boolean  @default(true)
+  id        String  @id @default(uuid())
+  code      String
+  name      String
+  companyId String
+  country   String?
+  email     String?
+  phone     String?
+  address   String?
+  city      String?
+  isActive  Boolean @default(true)
 
   // Financial Info
-  contactPerson String?
-  tinVat        String?
-  openingBalance Float   @default(0)
-  balanceType   String?  // DR, CR
-  creditLimit   Float?
-  preferredCurrency String @default("BDT")
-  exchangeRate  Float   @default(1)
-  paymentTerms  String @default("COD") // COD, CREDIT, ADVANCE, DO_DUE
+  contactPerson     String?
+  tinVat            String?
+  openingBalance    Float   @default(0)
+  balanceType       String? // DR, CR
+  creditLimit       Float?
+  preferredCurrency String  @default("BDT")
+  exchangeRate      Float   @default(1)
+  paymentTerms      String  @default("COD") // COD, CREDIT, ADVANCE, DO_DUE
 
-  company     Company  @relation(fields: [companyId], references: [id])
-  invoices    Invoice[]
-  payments    Payment[]
+  company        Company             @relation(fields: [companyId], references: [id])
+  invoices       Invoice[]
+  payments       Payment[]
   purchaseOrders PurchaseOrder[]
-  bills         Bill[]
-  journalLines  JournalEntryLine[]
-  lcs           LC[]     @relation("VendorLCs")
-  pis           PI[]     @relation("VendorPIs")
-  poLines       PurchaseOrderLine[] @relation("VendorPOLines")
-  piLines       PILine[] @relation("VendorPILines")
-  
+  bills          Bill[]
+  journalLines   JournalEntryLine[]
+  lcs            LC[]                @relation("VendorLCs")
+  pis            PI[]                @relation("VendorPIs")
+  poLines        PurchaseOrderLine[] @relation("VendorPOLines")
+  piLines        PILine[]            @relation("VendorPILines")
+
+  // Portal Access
+  portalEnabled Boolean @default(false)
+
   // Soft Delete
-  deletedAt   DateTime?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  deletedAt DateTime?
+
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  DebitNote DebitNote[]
+
+  @@unique([companyId, code])
   @@index([companyId])
   @@index([companyId, deletedAt])
-  @@unique([companyId, code])
 }
 
 // ============================================
@@ -544,122 +550,124 @@ model Vendor {
 // ============================================
 
 model PurchaseOrder {
-  id              String    @id @default(uuid())
-  poNumber        String
-  companyId       String
-  supplierId      String
-  lcId            String?
-  
-  poDate          DateTime  @default(now())
+  id         String  @id @default(uuid())
+  poNumber   String
+  companyId  String
+  supplierId String
+  lcId       String?
+
+  poDate               DateTime  @default(now())
   expectedDeliveryDate DateTime?
-  
+
   // Currency
-  currency        String    @default("BDT")
-  exchangeRate    Float     @default(1)
-  totalForeign    Float     @default(0)
-  totalBDT        Float     @default(0)
-  
+  currency     String @default("BDT")
+  exchangeRate Float  @default(1)
+  totalForeign Float  @default(0)
+  totalBDT     Float  @default(0)
+
   // Status: DRAFT, APPROVED, SENT, RECEIVED, CLOSED
-  status          String    @default("DRAFT")
-  
+  status String @default("DRAFT")
+
   // Audit
-  createdById     String
-  approvedById    String?
+  createdById  String
+  approvedById String?
 
-  company        Company   @relation(fields: [companyId], references: [id])
-  supplier       Vendor    @relation(fields: [supplierId], references: [id])
-  lc             LC?       @relation(fields: [lcId], references: [id])
-  lines          PurchaseOrderLine[]
-  grns           GRN[]
-  invoices       Invoice[]
-  
+  company    Company             @relation(fields: [companyId], references: [id])
+  supplier   Vendor              @relation(fields: [supplierId], references: [id])
+  lc         LC?                 @relation(fields: [lcId], references: [id])
+  lines      PurchaseOrderLine[]
+  grns       GRN[]
+  invoices   Invoice[]
+  debitNotes DebitNote[]         @relation("DebitNotePurchaseOrder")
+
   // Many-to-many with SalesOrder
-  salesOrders    SalesOrder[] @relation("SalesOrderPurchaseOrders")
-  
-  // Soft Delete
-  deletedAt      DateTime?
-  
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  salesOrders SalesOrder[] @relation("SalesOrderPurchaseOrders")
 
+  // Soft Delete
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, poNumber])
   @@index([companyId])
   @@index([supplierId])
   @@index([lcId])
-  @@unique([companyId, poNumber])
 }
 
 model SalesOrder {
-  id              String    @id @default(uuid())
-  soNumber        String
-  companyId       String
-  customerId      String
-  lcId            String?
-  
-  soDate          DateTime  @default(now())
+  id         String  @id @default(uuid())
+  soNumber   String
+  companyId  String
+  customerId String
+  lcId       String?
+
+  soDate               DateTime  @default(now())
   expectedDeliveryDate DateTime?
-  
+
   // Currency
-  currency        String    @default("BDT")
-  exchangeRate    Float     @default(1)
-  totalForeign    Float     @default(0)
-  totalBDT        Float     @default(0)
-  
+  currency     String @default("BDT")
+  exchangeRate Float  @default(1)
+  totalForeign Float  @default(0)
+  totalBDT     Float  @default(0)
+
   // Status: DRAFT, APPROVED, SENT, DELIVERED, CLOSED
-  status          String    @default("DRAFT")
-  
-  company        Company   @relation(fields: [companyId], references: [id])
-  customer       Customer  @relation(fields: [customerId], references: [id])
-  lc             LC?       @relation(fields: [lcId], references: [id])
-  lines          SalesOrderLine[]
-  dns            DN[]
-  invoices       Invoice[]
-  
+  status String @default("DRAFT")
+
+  company     Company          @relation(fields: [companyId], references: [id])
+  customer    Customer         @relation(fields: [customerId], references: [id])
+  lc          LC?              @relation(fields: [lcId], references: [id])
+  lines       SalesOrderLine[]
+  dns         DN[]
+  invoices    Invoice[]
+  creditNotes CreditNote[]
+
   // Many-to-many with PurchaseOrder
   purchaseOrders PurchaseOrder[] @relation("SalesOrderPurchaseOrders")
 
-  deletedAt      DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
+  @@unique([companyId, soNumber])
   @@index([companyId])
   @@index([customerId])
   @@index([lcId])
-  @@unique([companyId, soNumber])
 }
 
 model SalesOrderLine {
-  id              String    @id @default(uuid())
-  salesOrderId    String
-  productId       String?
-  itemDescription String
-  quantity        Float     @default(1)
-  unitPrice       Float
-  total           Float
+  id                String  @id @default(uuid())
+  salesOrderId      String
+  productId         String?
+  itemDescription   String
+  quantity          Float   @default(1)
+  unitPrice         Float
+  total             Float
   deliveredQuantity Float   @default(0)
   invoicedQuantity  Float   @default(0)
-  
-  salesOrder      SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
-  product         Product?    @relation(fields: [productId], references: [id])
+
+  salesOrder SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  product    Product?   @relation(fields: [productId], references: [id])
 }
 
 model PurchaseOrderLine {
-  id              String    @id @default(uuid())
-  purchaseOrderId String
-  productId       String?
-  itemDescription String
-  quantity        Float     @default(1)
-  unitPrice       Float
-  total           Float
-  receivedQuantity Float    @default(0)
-  billedQuantity   Float    @default(0)
-  
-  customerId  String?
-  customer    Customer? @relation("CustomerPOLines", fields: [customerId], references: [id])
-  vendorId    String?
-  vendor      Vendor?   @relation("VendorPOLines", fields: [vendorId], references: [id])
-  
+  id               String  @id @default(uuid())
+  purchaseOrderId  String
+  productId        String?
+  itemDescription  String
+  quantity         Float   @default(1)
+  unitPrice        Float
+  total            Float
+  receivedQuantity Float   @default(0)
+  billedQuantity   Float   @default(0)
+
+  customerId String?
+  customer   Customer? @relation("CustomerPOLines", fields: [customerId], references: [id])
+  vendorId   String?
+  vendor     Vendor?   @relation("VendorPOLines", fields: [vendorId], references: [id])
+
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  product       Product?       @relation(fields: [productId], references: [id])
+  product       Product?      @relation(fields: [productId], references: [id])
 }
 
 // ============================================
@@ -667,74 +675,74 @@ model PurchaseOrderLine {
 // ============================================
 
 model GRN {
-  id              String    @id @default(uuid())
+  id              String   @id @default(uuid())
   grnNumber       String
   companyId       String
   purchaseOrderId String?
-  invoiceId       String?   // Linked to Purchase Invoice
-  receivedDate    DateTime  @default(now())
-  status          String    @default("RECEIVED") // RECEIVED, CANCELLED
-  
-  company         Company   @relation(fields: [companyId], references: [id])
-  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
-  invoice         Invoice?  @relation("InvoiceGRNs", fields: [invoiceId], references: [id])
-  lines           GRNLine[]
-  
-  // Internal Accounting Logic
-  isJournaled     Boolean   @default(false)
-  journalId       String?
+  invoiceId       String? // Linked to Purchase Invoice
+  receivedDate    DateTime @default(now())
+  status          String   @default("RECEIVED") // RECEIVED, CANCELLED
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  @@index([companyId])
+  company       Company        @relation(fields: [companyId], references: [id])
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  invoice       Invoice?       @relation("InvoiceGRNs", fields: [invoiceId], references: [id])
+  lines         GRNLine[]
+
+  // Internal Accounting Logic
+  isJournaled Boolean @default(false)
+  journalId   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([companyId, grnNumber])
+  @@index([companyId])
 }
 
 model GRNLine {
-  id          String   @id @default(uuid())
-  grnId       String
-  productId   String?
-  quantity    Float
-  unitPrice   Float?   // Optional: captured at time of receipt
-  
-  grn         GRN      @relation(fields: [grnId], references: [id], onDelete: Cascade)
-  product     Product? @relation(fields: [productId], references: [id])
+  id        String  @id @default(uuid())
+  grnId     String
+  productId String?
+  quantity  Float
+  unitPrice Float? // Optional: captured at time of receipt
+
+  grn     GRN      @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
 }
 
 model DN {
-  id              String    @id @default(uuid())
-  dnNumber        String
-  companyId       String
-  salesOrderId    String?   // Currently using Invoice, but added for future SO scaling
-  invoiceId       String?   // Linked to Sales Invoice
-  shipmentDate    DateTime  @default(now())
-  status          String    @default("SHIPPED") // SHIPPED, DELIVERED, CANCELLED
-  
-  company         Company   @relation(fields: [companyId], references: [id])
-  salesOrder      SalesOrder? @relation(fields: [salesOrderId], references: [id])
-  invoice         Invoice?  @relation("InvoiceDNs", fields: [invoiceId], references: [id])
-  lines           DNLine[]
-  
-  // Internal Accounting Logic
-  isJournaled     Boolean   @default(false)
-  journalId       String?
+  id           String   @id @default(uuid())
+  dnNumber     String
+  companyId    String
+  salesOrderId String? // Currently using Invoice, but added for future SO scaling
+  invoiceId    String? // Linked to Sales Invoice
+  shipmentDate DateTime @default(now())
+  status       String   @default("SHIPPED") // SHIPPED, DELIVERED, CANCELLED
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  @@index([companyId])
+  company    Company     @relation(fields: [companyId], references: [id])
+  salesOrder SalesOrder? @relation(fields: [salesOrderId], references: [id])
+  invoice    Invoice?    @relation("InvoiceDNs", fields: [invoiceId], references: [id])
+  lines      DNLine[]
+
+  // Internal Accounting Logic
+  isJournaled Boolean @default(false)
+  journalId   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([companyId, dnNumber])
+  @@index([companyId])
 }
 
 model DNLine {
-  id          String   @id @default(uuid())
-  dnId        String
-  productId   String?
-  quantity    Float
-  
-  dn          DN       @relation(fields: [dnId], references: [id], onDelete: Cascade)
-  product     Product? @relation(fields: [productId], references: [id])
+  id        String  @id @default(uuid())
+  dnId      String
+  productId String?
+  quantity  Float
+
+  dn      DN       @relation(fields: [dnId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
 }
 
 // ============================================
@@ -742,34 +750,36 @@ model DNLine {
 // ============================================
 
 model Product {
-  id           String    @id @default(uuid())
-  code         String
-  name         String
-  companyId    String
-  sku          String?
-  description  String?
-  unitType     String    @default("PCS")         // e.g. PCS, KG, MTR, BOX, SET, PAIR
-  unitPrice    Float     @default(0)
-  isActive     Boolean   @default(true)
-  currency     String    @default("BDT")         // Actual product price in this currency
-  stockAmount  Float     @default(0)             // Current stock quantity
-  type         String    @default("Sales")       // Purchase | Sales
+  id              String              @id @default(uuid())
+  code            String
+  name            String
+  companyId       String
+  sku             String?
+  description     String?
+  unitType        String              @default("PCS") // e.g. PCS, KG, MTR, BOX, SET, PAIR
+  unitPrice       Float               @default(0)
+  isActive        Boolean             @default(true)
+  currency        String              @default("BDT") // Actual product price in this currency
+  stockAmount     Float               @default(0) // Current stock quantity
+  type            String              @default("Sales") // Purchase | Sales
   // Soft Delete
-  deletedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  company      Company   @relation(fields: [companyId], references: [id])
-  journalLines JournalEntryLine[]
-  invoiceLines InvoiceLine[]
-  poLines      PurchaseOrderLine[]
-  piLines      PILine[]
-  grnLines     GRNLine[]
-  dnLines      DNLine[]
+  deletedAt       DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  company         Company             @relation(fields: [companyId], references: [id])
+  journalLines    JournalEntryLine[]
+  invoiceLines    InvoiceLine[]
+  poLines         PurchaseOrderLine[]
+  piLines         PILine[]
+  grnLines        GRNLine[]
+  dnLines         DNLine[]
   salesOrderLines SalesOrderLine[]
+  DebitNoteLine   DebitNoteLine[]
+  CreditNoteLine  CreditNoteLine[]
 
+  @@unique([companyId, code], name: "companyId_code")
   @@index([companyId])
   @@index([companyId, deletedAt])
-  @@unique([companyId, code], name: "companyId_code")
 }
 
 // ============================================
@@ -777,79 +787,85 @@ model Product {
 // ============================================
 
 model Invoice {
-  id              String    @id @default(uuid())
-  invoiceNumber   String
-  companyId       String
-  customerId      String?
-  vendorId        String?
-  type            String    @default("SALES") // SALES, PURCHASE
-  invoiceDate     DateTime  @default(now())
-  dueDate         DateTime?
-  
+  id            String    @id @default(uuid())
+  invoiceNumber String
+  companyId     String
+  customerId    String?
+  vendorId      String?
+  type          String    @default("SALES") // SALES, PURCHASE
+  invoiceDate   DateTime  @default(now())
+  dueDate       DateTime?
+
   salesOrderId    String?
-  salesOrder      SalesOrder? @relation(fields: [salesOrderId], references: [id])
+  salesOrder      SalesOrder?    @relation(fields: [salesOrderId], references: [id])
   purchaseOrderId String?
   purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
 
   // Currency
-  currency        String    @default("BDT")
-  exchangeRate   Float     @default(1)
+  currency       String @default("BDT")
+  exchangeRate   Float  @default(1)
   subtotal       Float
-  taxAmount      Float     @default(0)
-  discountAmount Float     @default(0)
-  otherExpenses  Float     @default(0)
+  taxAmount      Float  @default(0)
+  discountAmount Float  @default(0)
+  otherExpenses  Float  @default(0)
   total          Float
-  
+
   // Status Flow: DRAFT → PENDING_VERIFICATION → VERIFIED → PENDING_APPROVAL → APPROVED
   //              or REJECTED at any verification stage
-  status          String    @default("DRAFT")
-  isProforma      Boolean   @default(false)
-  
+  status     String  @default("DRAFT")
+  isProforma Boolean @default(false)
+
   // COD & Split Payment Support
-  paymentSplits   Json?    // { cash: 0, bank: 0, ar: 0, bankAccountId: "..." }
-  
+  paymentSplits Json? // { cash: 0, bank: 0, ar: 0, bankAccountId: "..." }
+
   // Soft Delete
-  deletedAt       DateTime?
-  
+  deletedAt DateTime?
+
   // Audit Trail
   createdById     String
   verifiedById    String?
   verifiedAt      DateTime?
-  approvedById   String?
-  approvedAt     DateTime?
+  approvedById    String?
+  approvedAt      DateTime?
   rejectedById    String?
   rejectionReason String?
-  
-  createdBy       User      @relation("CreatedInvoices", fields: [createdById], references: [id])
-  verifiedBy      User?     @relation("VerifiedInvoices", fields: [verifiedById], references: [id])
-  approvedBy      User?     @relation("ApprovedInvoices", fields: [approvedById], references: [id])
-  rejectedBy      User?     @relation("RejectedInvoices", fields: [rejectedById], references: [id])
-  
-  company         Company   @relation(fields: [companyId], references: [id])
-  customer        Customer? @relation(fields: [customerId], references: [id])
-  vendor          Vendor?   @relation(fields: [vendorId], references: [id])
-  
-  lines           InvoiceLine[]
-  payments        Payment[] @relation("InvoicePayments")
+
+  createdBy  User  @relation("CreatedInvoices", fields: [createdById], references: [id])
+  verifiedBy User? @relation("VerifiedInvoices", fields: [verifiedById], references: [id])
+  approvedBy User? @relation("ApprovedInvoices", fields: [approvedById], references: [id])
+  rejectedBy User? @relation("RejectedInvoices", fields: [rejectedById], references: [id])
+
+  company  Company   @relation(fields: [companyId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+  vendor   Vendor?   @relation(fields: [vendorId], references: [id])
+
+  lines              InvoiceLine[]
+  payments           Payment[]        @relation("InvoicePayments")
   paymentAllocations PaymentInvoice[]
-  
+
   // Industrial Workflow Links
-  grns            GRN[]     @relation("InvoiceGRNs")
-  dns             DN[]      @relation("InvoiceDNs")
-  
+  grns GRN[] @relation("InvoiceGRNs")
+  dns  DN[]  @relation("InvoiceDNs")
+
+  // Credit Notes
+  creditNotes CreditNote[]
+
+  // Reversals
+  originalInvoiceId String? // Links to original invoice (for reversals)
+
   // Internal Accounting Logic
-  isJournaled     Boolean   @default(false)
-  journalId       String?
+  isJournaled Boolean @default(false)
+  journalId   String?
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  @@unique([companyId, invoiceNumber])
   @@index([companyId])
   @@index([companyId, deletedAt])
-  @@unique([companyId, invoiceNumber])
   @@index([customerId])
 }
-  
+
 model InvoiceLine {
   id          String  @id @default(uuid())
   invoiceId   String
@@ -860,12 +876,12 @@ model InvoiceLine {
   taxRate     Float   @default(0)
   taxAmount   Float   @default(0)
   amount      Float
-  
-  returnQuantity    Float @default(0)
-  damagedQuantity   Float @default(0)
 
-  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  product     Product? @relation(fields: [productId], references: [id])
+  returnQuantity  Float @default(0)
+  damagedQuantity Float @default(0)
+
+  invoice Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
 }
 
 // ============================================
@@ -873,95 +889,98 @@ model InvoiceLine {
 // ============================================
 
 model JournalEntry {
-  id              String    @id @default(uuid())
-  entryNumber     String
-  companyId       String
-  date            DateTime  @default(now())
-  description     String?
-  reference       String?
-  totalDebit      Float     @default(0)
-  totalCredit     Float     @default(0)
-  
+  id          String   @id @default(uuid())
+  entryNumber String
+  companyId   String
+  date        DateTime @default(now())
+  description String?
+  reference   String?
+  totalDebit  Float    @default(0)
+  totalCredit Float    @default(0)
+
   // Multi-Currency Info
-  currencyId      String?
-  currency        Currency? @relation(fields: [currencyId], references: [id])
-  exchangeRate    Float     @default(1)
-  
+  currencyId   String?
+  currency     Currency? @relation(fields: [currencyId], references: [id])
+  exchangeRate Float     @default(1)
+
   // Status
-  status          String    @default("DRAFT")
-  
+  status String @default("DRAFT")
+
   // Soft Delete
-  deletedAt       DateTime?
-  
+  deletedAt DateTime?
+
   // Audit Trail
   createdById     String
   verifiedById    String?
-  approvedById   String?
+  approvedById    String?
   rejectedById    String?
   rejectionReason String?
-  
+
   // Dates
-  verifiedAt      DateTime?
-  approvedAt       DateTime?
-  
+  verifiedAt DateTime?
+  approvedAt DateTime?
+
   // Relations
-  company        Company   @relation(fields: [companyId], references: [id])
-  createdBy      User      @relation("CreatedJournals", fields: [createdById], references: [id])
-  verifiedBy     User?     @relation("VerifiedJournals", fields: [verifiedById], references: [id])
-  approvedBy     User?     @relation("ApprovedJournals", fields: [approvedById], references: [id])
-  rejectedBy     User?     @relation("RejectedJournals", fields: [rejectedById], references: [id])
-  lines          JournalEntryLine[]
-  employeeAdvances EmployeeAdvance[]
+  company                Company                 @relation(fields: [companyId], references: [id])
+  createdBy              User                    @relation("CreatedJournals", fields: [createdById], references: [id])
+  verifiedBy             User?                   @relation("VerifiedJournals", fields: [verifiedById], references: [id])
+  approvedBy             User?                   @relation("ApprovedJournals", fields: [approvedById], references: [id])
+  rejectedBy             User?                   @relation("RejectedJournals", fields: [rejectedById], references: [id])
+  lines                  JournalEntryLine[]
+  employeeAdvances       EmployeeAdvance[]
   employeeLoanRepayments EmployeeLoanRepayment[]
-  employeeExpenses EmployeeExpense[]
-  
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  
+  employeeExpenses       EmployeeExpense[]
+
+  // Reversal tracking
+  originalJournalId String? // Links to original journal (for reversals)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, entryNumber])
   @@index([companyId])
   @@index([status])
-  @@unique([companyId, entryNumber])
 }
 
 model JournalEntryLine {
-  id             String       @id @default(uuid())
+  id             String @id @default(uuid())
   journalEntryId String
   accountId      String
-  
+
   // Dimensions
 
-  projectId      String?
-  costCenterId   String?
-  customerId     String?
-  vendorId       String?
-  productId      String?
-  debit          Float        @default(0)
-  credit         Float        @default(0)
-  
+  projectId    String?
+  costCenterId String?
+  customerId   String?
+  vendorId     String?
+  productId    String?
+  debit        Float   @default(0)
+  credit       Float   @default(0)
+
   // Multi-Currency Storage
-  debitBase      Float        @default(0)
-  creditBase     Float        @default(0)
-  debitForeign   Float        @default(0)
-  creditForeign  Float        @default(0)
-  exchangeRate   Float        @default(1)
-  
-  description    String?
-  
+  debitBase     Float @default(0)
+  creditBase    Float @default(0)
+  debitForeign  Float @default(0)
+  creditForeign Float @default(0)
+  exchangeRate  Float @default(1)
+
+  description String?
+
   // Reconciliation
-  reconciled     Boolean      @default(false)
-  reconciledAt   DateTime?
-  
+  reconciled   Boolean   @default(false)
+  reconciledAt DateTime?
+
   // Soft Delete
-  deletedAt      DateTime?
-  
-  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
-  account        Account      @relation(fields: [accountId], references: [id])
+  deletedAt DateTime?
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account      Account      @relation(fields: [accountId], references: [id])
   // branch         Branch?      @relation(fields: [branchId], references: [id])
-  project        Project?     @relation(fields: [projectId], references: [id])
-  costCenter     CostCenter?  @relation(fields: [costCenterId], references: [id])
-  customer       Customer?    @relation(fields: [customerId], references: [id])
-  vendor         Vendor?      @relation(fields: [vendorId], references: [id])
-  product        Product?     @relation(fields: [productId], references: [id])
+  project      Project?     @relation(fields: [projectId], references: [id])
+  costCenter   CostCenter?  @relation(fields: [costCenterId], references: [id])
+  customer     Customer?    @relation(fields: [customerId], references: [id])
+  vendor       Vendor?      @relation(fields: [vendorId], references: [id])
+  product      Product?     @relation(fields: [productId], references: [id])
 }
 
 // ============================================
@@ -969,33 +988,34 @@ model JournalEntryLine {
 // ============================================
 
 model Bill {
-  id          String    @id @default(uuid())
-  billNumber  String
-  companyId   String
-  vendorId    String
-  status      String    @default("DRAFT")
-  subtotal    Float
-  taxAmount   Float     @default(0)
-  total       Float
-  dueDate     DateTime?
-  
-  // Soft Delete
-  deletedAt   DateTime?
-  
-  // Internal Accounting Logic
-  isJournaled     Boolean   @default(false)
-  journalId       String?
+  id         String    @id @default(uuid())
+  billNumber String
+  companyId  String
+  vendorId   String
+  status     String    @default("DRAFT")
+  subtotal   Float
+  taxAmount  Float     @default(0)
+  total      Float
+  dueDate    DateTime?
 
-  company     Company   @relation(fields: [companyId], references: [id])
-  vendor      Vendor    @relation(fields: [vendorId], references: [id])
-  payments    Payment[] @relation("BillPayments")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
+  // Soft Delete
+  deletedAt DateTime?
+
+  // Internal Accounting Logic
+  isJournaled Boolean @default(false)
+  journalId   String?
+
+  company    Company     @relation(fields: [companyId], references: [id])
+  vendor     Vendor      @relation(fields: [vendorId], references: [id])
+  payments   Payment[]   @relation("BillPayments")
+  debitNotes DebitNote[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@unique([companyId, billNumber])
   @@index([companyId])
   @@index([companyId, deletedAt])
   @@index([vendorId])
-  @@unique([companyId, billNumber])
 }
 
 // ============================================
@@ -1007,28 +1027,28 @@ model Bill {
 // ============================================
 
 model Attachment {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   name         String
   fileName     String
   fileType     String
   filePath     String
   fileSize     Int
-  entityType   String   // VOUCHER, LC, BILL, PAYMENT
+  entityType   String // VOUCHER, LC, BILL, PAYMENT
   entityId     String
-  documentType String?  // LC Copy, Invoice, Bill of Lading, etc.
-  
+  documentType String? // LC Copy, Invoice, Bill of Lading, etc.
+
   // Audit & Security
-  hashValue    String?  // SHA-256 for tamper check
-  version      Int      @default(1)
-  isActive     Boolean  @default(true) // Soft delete
-  isVerified   Boolean  @default(false)
+  hashValue    String? // SHA-256 for tamper check
+  version      Int     @default(1)
+  isActive     Boolean @default(true) // Soft delete
+  isVerified   Boolean @default(false)
   verifiedById String?
-  
+
   uploadedById String
   uploadedBy   User     @relation(fields: [uploadedById], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  
+
   @@index([entityType, entityId])
 }
 
@@ -1037,21 +1057,21 @@ model Attachment {
 // ============================================
 
 model Currency {
-  id             String         @id @default(uuid())
-  code           String         @unique // USD, BDT, EUR
-  name           String
-  symbol         String?
-  isBase         Boolean        @default(false)
-  isActive       Boolean        @default(true)
-  
+  id       String  @id @default(uuid())
+  code     String  @unique // USD, BDT, EUR
+  name     String
+  symbol   String?
+  isBase   Boolean @default(false)
+  isActive Boolean @default(true)
+
   // Relations
   ratesFrom      ExchangeRate[] @relation("FromCurrency")
   ratesTo        ExchangeRate[] @relation("ToCurrency")
   journalEntries JournalEntry[]
   accounts       Account[]
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ExchangeRate {
@@ -1061,25 +1081,25 @@ model ExchangeRate {
   rate           Float
   rateDate       DateTime @default(now())
   source         String   @default("MANUAL") // MANUAL, API
-  
-  fromCurrency   Currency @relation("FromCurrency", fields: [fromCurrencyId], references: [id])
-  toCurrency     Currency @relation("ToCurrency", fields: [toCurrencyId], references: [id])
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+
+  fromCurrency Currency @relation("FromCurrency", fields: [fromCurrencyId], references: [id])
+  toCurrency   Currency @relation("ToCurrency", fields: [toCurrencyId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([rateDate])
 }
 
 model BackupLog {
-  id           String   @id @default(uuid())
-  fileName     String
-  filePath     String?
-  fileSize     Int?
-  status       String   @default("SUCCESS") // SUCCESS, FAILED
-  error        String?
-  triggeredBy  String?  // User ID or "SYSTEM"
-  createdAt    DateTime @default(now())
+  id          String   @id @default(uuid())
+  fileName    String
+  filePath    String?
+  fileSize    Int?
+  status      String   @default("SUCCESS") // SUCCESS, FAILED
+  error       String?
+  triggeredBy String? // User ID or "SYSTEM"
+  createdAt   DateTime @default(now())
 }
 
 // ============================================
@@ -1087,23 +1107,23 @@ model BackupLog {
 // ============================================
 
 model ActivityLog {
-  id            String   @id @default(uuid())
+  id            String  @id @default(uuid())
   companyId     String
-  entityType    String   // journal, invoice, payment, purchase_order, lc
-  entityId      String   
-  action        String   // CREATED, VERIFIED, APPROVED, REJECTED_MANAGER, REJECTED_OWNER
+  entityType    String // journal, invoice, payment, purchase_order, lc
+  entityId      String
+  action        String // CREATED, VERIFIED, APPROVED, REJECTED_MANAGER, REJECTED_OWNER
   performedById String
   targetUserId  String?
   // branchId      String?
-  metadata      Json?    // { reason: "...", docNumber: "..." }
-  
-  // Soft Delete
-  deletedAt     DateTime?
-  createdAt     DateTime @default(now())
+  metadata      Json? // { reason: "...", docNumber: "..." }
 
-  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  performedBy   User     @relation("PerformedActivities", fields: [performedById], references: [id])
-  targetUser    User?    @relation("TargetActivities", fields: [targetUserId], references: [id])
+  // Soft Delete
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  performedBy User    @relation("PerformedActivities", fields: [performedById], references: [id])
+  targetUser  User?   @relation("TargetActivities", fields: [targetUserId], references: [id])
   // branch        Branch?  @relation(fields: [branchId], references: [id])
 
   @@index([companyId])
@@ -1118,18 +1138,18 @@ model ActivityLog {
 // ============================================
 
 model Notification {
-  id          String   @id @default(uuid())
-  companyId   String
-  type        String   // OVERDUE_INVOICE, LC_EXPIRY, PENDING_JOURNAL, LOAN_DUE, LOW_CASH, INFO
-  severity    String   @default("INFO") // INFO, WARNING, DANGER
-  title       String
-  message     String
-  entityType  String?  // Invoice, JournalEntry, LC, Loan
-  entityId    String?
-  isRead      Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  companyId  String
+  type       String // OVERDUE_INVOICE, LC_EXPIRY, PENDING_JOURNAL, LOAN_DUE, LOW_CASH, INFO
+  severity   String   @default("INFO") // INFO, WARNING, DANGER
+  title      String
+  message    String
+  entityType String? // Invoice, JournalEntry, LC, Loan
+  entityId   String?
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
-  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@index([companyId, isRead])
@@ -1140,136 +1160,139 @@ model Notification {
 // ============================================
 
 model Payment {
-  id              String    @id @default(uuid())
-  paymentNumber   String
-  companyId       String
-  date            DateTime  @default(now())
-  amount          Float
-  currency        String    @default("BDT")
-  method          String    // CASH, BANK, CHEQUE, MOBILE_BANKING
-  reference       String?   // Cheque number, Transaction ID
-  description     String?
-  status          String    @default("APPROVED") // DRAFT, APPROVED, CANCELLED
-  
-  // Linkages
-  invoiceId       String?
-  invoice         Invoice?  @relation("InvoicePayments", fields: [invoiceId], references: [id])
-  
-  billId          String?
-  bill            Bill?     @relation("BillPayments", fields: [billId], references: [id])
-  
-  lcId            String?
-  lc              LC?       @relation(fields: [lcId], references: [id])
-  
-  piAllocations   PaymentPI[]
-  invoiceAllocations PaymentInvoice[]
-  
-  accountId       String?   // The Cash/Bank account used
-  account         Account?  @relation(fields: [accountId], references: [id])
-  
-  customerId      String?
-  customer        Customer? @relation(fields: [customerId], references: [id])
-  
-  vendorId        String?
-  vendor          Vendor?   @relation(fields: [vendorId], references: [id])
-  
-  // Soft Delete
-  deletedAt       DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id            String   @id @default(uuid())
+  paymentNumber String
+  companyId     String
+  date          DateTime @default(now())
+  amount        Float
+  currency      String   @default("BDT")
+  method        String // CASH, BANK, CHEQUE, MOBILE_BANKING
+  reference     String? // Cheque number, Transaction ID
+  description   String?
+  status        String   @default("APPROVED") // DRAFT, APPROVED, CANCELLED
 
+  // Linkages
+  invoiceId String?
+  invoice   Invoice? @relation("InvoicePayments", fields: [invoiceId], references: [id])
+
+  billId String?
+  bill   Bill?   @relation("BillPayments", fields: [billId], references: [id])
+
+  lcId String?
+  lc   LC?     @relation(fields: [lcId], references: [id])
+
+  debitNotes  DebitNote[]  @relation("DebitNotePayments")
+  creditNotes CreditNote[] @relation("CreditNotePayments")
+
+  piAllocations      PaymentPI[]
+  invoiceAllocations PaymentInvoice[]
+
+  accountId String? // The Cash/Bank account used
+  account   Account? @relation(fields: [accountId], references: [id])
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  vendorId String?
+  vendor   Vendor? @relation(fields: [vendorId], references: [id])
+
+  // Soft Delete
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([companyId, paymentNumber])
   @@index([companyId])
   @@index([companyId, deletedAt])
   @@index([invoiceId])
   @@index([billId])
   @@index([lcId])
-  @@unique([companyId, paymentNumber])
 }
 
 model PaymentPI {
-  id              String    @id @default(uuid())
+  id              String @id @default(uuid())
   paymentId       String
   piId            String
   allocatedAmount Float
-  
+
   // Soft Delete
-  deletedAt       DateTime?
-  
-  payment         Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  pi              PI        @relation(fields: [piId], references: [id], onDelete: Cascade)
+  deletedAt DateTime?
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  pi      PI      @relation(fields: [piId], references: [id], onDelete: Cascade)
 
   @@index([paymentId])
   @@index([piId])
 }
 
 model PaymentInvoice {
-  id              String    @id @default(uuid())
+  id              String @id @default(uuid())
   paymentId       String
   invoiceId       String
   allocatedAmount Float
-  
+
   // Soft Delete
-  deletedAt       DateTime?
-  
-  payment         Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  
+  deletedAt DateTime?
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
   @@index([paymentId])
   @@index([invoiceId])
 }
-
 
 // ============================================
 // EMPLOYEE MANAGEMENT
 // ============================================
 
 model Employee {
-  id            String   @id @default(uuid())
-  employeeCode  String
-  firstName     String
-  lastName      String
-  email         String?
-  phone         String?
-  designation   String?
-  department    String?
-  joinDate      DateTime?
-  salary        Float    @default(0)
-  companyId     String
-  isActive      Boolean  @default(true)
-  paymentTerms  String @default("BANK") // CASH, BANK, CHEQUE
-  
-  company        Company          @relation(fields: [companyId], references: [id])
-  advances       EmployeeAdvance[]
-  loans          EmployeeLoan[]
-  expenses       EmployeeExpense[]
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  @@index([companyId])
+  id           String    @id @default(uuid())
+  employeeCode String
+  firstName    String
+  lastName     String
+  email        String?
+  phone        String?
+  designation  String?
+  department   String?
+  joinDate     DateTime?
+  salary       Float     @default(0)
+  companyId    String
+  isActive     Boolean   @default(true)
+  paymentTerms String    @default("BANK") // CASH, BANK, CHEQUE
+
+  company  Company           @relation(fields: [companyId], references: [id])
+  advances EmployeeAdvance[]
+  loans    EmployeeLoan[]
+  expenses EmployeeExpense[]
+  payslips PayrollPayslip[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([companyId, employeeCode])
+  @@index([companyId])
 }
 
 model EmployeeAdvance {
-  id            String   @id @default(uuid())
-  employeeId    String
-  amount        Float
-  purpose       String?
-  date          DateTime
-  status        String   @default("DRAFT") // DRAFT, PENDING_VERIFICATION, VERIFIED, APPROVED
-  paymentMethod String?  // CASH, BANK
-  accountId     String?  // Cash/Bank account used for payment
+  id             String   @id @default(uuid())
+  employeeId     String
+  amount         Float
+  purpose        String?
+  date           DateTime
+  status         String   @default("DRAFT") // DRAFT, PENDING_VERIFICATION, VERIFIED, APPROVED
+  paymentMethod  String? // CASH, BANK
+  accountId      String? // Cash/Bank account used for payment
   journalEntryId String? // Linked journal entry after approval
-  companyId     String
-  
-  employee      Employee @relation(fields: [employeeId], references: [id])
-  company       Company  @relation(fields: [companyId], references: [id])
-  account       Account? @relation(fields: [accountId], references: [id])
-  journalEntry  JournalEntry? @relation(fields: [journalEntryId], references: [id])
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  companyId      String
+
+  employee     Employee      @relation(fields: [employeeId], references: [id])
+  company      Company       @relation(fields: [companyId], references: [id])
+  account      Account?      @relation(fields: [accountId], references: [id])
+  journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([companyId])
   @@index([employeeId])
 }
@@ -1286,82 +1309,283 @@ model EmployeeLoan {
   purpose         String?
   status          String   @default("DRAFT") // DRAFT, PENDING_VERIFICATION, VERIFIED, APPROVED
   companyId       String
-  
-  employee        Employee @relation(fields: [employeeId], references: [id])
-  company         Company  @relation(fields: [companyId], references: [id])
-  repayments      EmployeeLoanRepayment[]
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+
+  employee   Employee                @relation(fields: [employeeId], references: [id])
+  company    Company                 @relation(fields: [companyId], references: [id])
+  repayments EmployeeLoanRepayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([companyId])
   @@index([employeeId])
 }
 
 model EmployeeLoanRepayment {
-  id            String   @id @default(uuid())
-  loanId        String
-  amount        Float
-  principalPaid Float
-  interestPaid  Float
-  paymentDate   DateTime
-  status        String   @default("DRAFT") // DRAFT, PENDING_VERIFICATION, VERIFIED, APPROVED
+  id             String   @id @default(uuid())
+  loanId         String
+  amount         Float
+  principalPaid  Float
+  interestPaid   Float
+  paymentDate    DateTime
+  status         String   @default("DRAFT") // DRAFT, PENDING_VERIFICATION, VERIFIED, APPROVED
   journalEntryId String? // Linked journal entry
-  companyId     String
-  
-  loan          EmployeeLoan     @relation(fields: [loanId], references: [id])
-  company       Company          @relation(fields: [companyId], references: [id])
-  journalEntry  JournalEntry?    @relation(fields: [journalEntryId], references: [id])
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  companyId      String
+
+  loan         EmployeeLoan  @relation(fields: [loanId], references: [id])
+  company      Company       @relation(fields: [companyId], references: [id])
+  journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([companyId])
   @@index([loanId])
 }
 
 model EmployeeExpense {
-  id            String   @id @default(uuid())
-  employeeId    String
-  amount        Float
-  description   String?
-  category      String   // SALARY, BONUS, OVERTIME, CONVEYANCE, FOOD, MEDICAL, OTHER
-  date          DateTime
-  status        String   @default("DRAFT") // DRAFT, PENDING_VERIFICATION, VERIFIED, APPROVED
-  paymentMethod String?
-  accountId     String?
+  id           String   @id @default(uuid())
+  employeeId   String
+  amount       Float
+  description  String?
+  date         DateTime
+  status       String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedById String?
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  Company        Company?      @relation(fields: [companyId], references: [id])
+  companyId      String?
+  Account        Account?      @relation(fields: [accountId], references: [id])
+  accountId      String?
+  JournalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
   journalEntryId String?
-  companyId     String
-  
-  employee      Employee @relation(fields: [employeeId], references: [id])
-  company       Company  @relation(fields: [companyId], references: [id])
-  account       Account? @relation(fields: [accountId], references: [id])
-  journalEntry  JournalEntry? @relation(fields: [journalEntryId], references: [id])
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  @@index([companyId])
+
   @@index([employeeId])
 }
-
-
-
 
 // ============================================
 // COMPANY SETTINGS (Phase 13)
 // ============================================
 
-
-
 model CompanySettings {
-  id                    String   @id @default(uuid())
-  companyId             String   @unique
-  company               Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  lastUsedRate          Float    @default(1)
+  lastUsedRate Float @default(1)
 
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
+model DebitNote {
+  id              String  @id @default(uuid())
+  debitNoteNumber String
+  companyId       String
+  vendorId        String
+  billId          String? // Original bill this is for
+  purchaseOrderId String? // Original PO
+
+  // Date details
+  debitNoteDate DateTime  @default(now())
+  dueDate       DateTime?
+
+  // Currency
+  currency     String @default("BDT")
+  exchangeRate Float  @default(1)
+  subtotal     Float  @default(0)
+  taxAmount    Float  @default(0)
+  totalForeign Float  @default(0)
+  totalBDT     Float  @default(0)
+
+  // Status: DRAFT, APPROVED, PAID, CANCELLED
+  status String @default("DRAFT")
+
+  // Reason for return
+  reason String? // Damaged, Wrong Item, Price Dispute, etc.
+  notes  String?
+
+  // Inventory return flag
+  returnToStock Boolean @default(false) // If true, goods are returned to inventory
+
+  // Audit
+  createdById  String?
+  approvedById String?
+
+  // Internal Accounting
+  isJournaled Boolean @default(false)
+  journalId   String?
+
+  company       Company         @relation(fields: [companyId], references: [id])
+  vendor        Vendor          @relation(fields: [vendorId], references: [id])
+  bill          Bill?           @relation(fields: [billId], references: [id])
+  purchaseOrder PurchaseOrder?  @relation("DebitNotePurchaseOrder", fields: [purchaseOrderId], references: [id])
+  lines         DebitNoteLine[]
+  payments      Payment[]       @relation("DebitNotePayments")
+
+  // Soft Delete
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, debitNoteNumber])
+  @@index([companyId])
+  @@index([vendorId])
+  @@index([billId])
+  @@index([status])
+}
+
+model DebitNoteLine {
+  id          String  @id @default(uuid())
+  debitNoteId String
+  productId   String?
+  description String
+  quantity    Float
+  unitPrice   Float   @default(0)
+  taxRate     Float   @default(0)
+  taxAmount   Float   @default(0)
+  amount      Float
+
+  debitNote DebitNote @relation(fields: [debitNoteId], references: [id], onDelete: Cascade)
+  product   Product?  @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([debitNoteId])
+  @@index([productId])
+}
+
+// ============================================
+// PAYROLL MODELS
+// ============================================
+
+model PayrollRun {
+  id              String   @id @default(uuid())
+  runNumber       String
+  companyId       String
+  period          String // YYYY-MM
+  runDate         DateTime
+  status          String   @default("DRAFT") // DRAFT, PROCESSED, APPROVED, CANCELLED
+  totalGross      Float    @default(0)
+  totalDeductions Float    @default(0)
+  totalNet        Float    @default(0)
+  notes           String?
+
+  company  Company          @relation(fields: [companyId], references: [id])
+  payslips PayrollPayslip[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, period])
+  @@index([companyId])
+}
+
+model PayrollPayslip {
+  id               String @id @default(uuid())
+  payrollRunId     String
+  employeeId       String
+  basicSalary      Float
+  allowances       Float  @default(0)
+  overtime         Float  @default(0)
+  grossSalary      Float
+  taxDeduction     Float  @default(0)
+  advanceDeduction Float  @default(0)
+  loanDeduction    Float  @default(0)
+  otherDeductions  Float  @default(0)
+  totalDeductions  Float  @default(0)
+  netSalary        Float
+  paymentMethod    String @default("BANK") // CASH, BANK
+  status           String @default("PENDING") // PENDING, PROCESSED, PAID
+
+  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id])
+  employee   Employee   @relation(fields: [employeeId], references: [id])
+
+  @@unique([payrollRunId, employeeId])
+  @@index([payrollRunId])
+  @@index([employeeId])
+}
+
+model CreditNote {
+  id               String  @id @default(uuid())
+  creditNoteNumber String
+  companyId        String
+  customerId       String
+  invoiceId        String? // Original invoice this is for
+  salesOrderId     String? // Original SO
+
+  // Date details
+  creditNoteDate DateTime  @default(now())
+  dueDate        DateTime?
+
+  // Currency
+  currency     String @default("BDT")
+  exchangeRate Float  @default(1)
+  subtotal     Float  @default(0)
+  taxAmount    Float  @default(0)
+  totalForeign Float  @default(0)
+  totalBDT     Float  @default(0)
+
+  // Status: DRAFT, APPROVED, PAID, CANCELLED
+  status String @default("DRAFT")
+
+  // Reason for return
+  reason String? // Damaged, Wrong Item, Price Dispute, etc.
+  notes  String?
+
+  // Return to stock flag (goods returned)
+  returnToStock Boolean @default(false)
+
+  // Audit
+  createdById  String?
+  approvedById String?
+
+  // Internal Accounting
+  isJournaled Boolean @default(false)
+  journalId   String?
+
+  company    Company          @relation(fields: [companyId], references: [id])
+  customer   Customer         @relation("CustomerCreditNotes", fields: [customerId], references: [id])
+  invoice    Invoice?         @relation(fields: [invoiceId], references: [id])
+  salesOrder SalesOrder?      @relation(fields: [salesOrderId], references: [id])
+  lines      CreditNoteLine[]
+  payments   Payment[]        @relation("CreditNotePayments")
+
+  // Soft Delete
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, creditNoteNumber])
+  @@index([companyId])
+  @@index([customerId])
+  @@index([invoiceId])
+  @@index([status])
+}
+
+model CreditNoteLine {
+  id           String  @id @default(uuid())
+  creditNoteId String
+  productId    String?
+  description  String
+  quantity     Float
+  unitPrice    Float   @default(0)
+  taxRate      Float   @default(0)
+  taxAmount    Float   @default(0)
+  amount       Float
+
+  creditNote CreditNote @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
+  product    Product?   @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([creditNoteId])
+  @@index([productId])
+}

@@ -94,6 +94,91 @@ async function generateNotifications(companyId: string) {
     }
   }
 
+  // 4. Purchase Orders Pending Approval
+  const existingPONotifs = await prisma.notification.findMany({
+    where: { companyId, type: 'PENDING_PO', isRead: false },
+    select: { entityId: true }
+  });
+  const notifiedPOIds = existingPONotifs.map((n: any) => n.entityId);
+
+  const pendingPOs = await prisma.purchaseOrder.findMany({
+    where: {
+      companyId,
+      status: 'PENDING_APPROVAL',
+      id: { notIn: notifiedPOIds }
+    },
+    select: { id: true, poNumber: true, totalBDT: true },
+    take: 10,
+  });
+
+  if (pendingPOs.length > 0) {
+    await prisma.notification.createMany({
+      data: pendingPOs.map(po => ({
+        companyId, type: 'PENDING_PO', severity: 'WARNING',
+        title: `PO Pending Approval: ${po.poNumber}`,
+        message: `Purchase Order ${po.poNumber} (৳${Number(po.totalBDT).toLocaleString()}) is awaiting approval.`,
+        entityType: 'PurchaseOrder', entityId: po.id,
+      }))
+    });
+  }
+
+  // 5. Low Stock Alerts
+  const existingStockNotifs = await prisma.notification.findMany({
+    where: { companyId, type: 'LOW_STOCK', isRead: false },
+    select: { entityId: true }
+  });
+  const notifiedStockIds = existingStockNotifs.map((n: any) => n.entityId);
+
+  const lowStockProducts = await prisma.product.findMany({
+    where: {
+      companyId,
+      isActive: true,
+      stockAmount: { lte: 10 },
+      id: { notIn: notifiedStockIds }
+    },
+    select: { id: true, code: true, name: true, stockAmount: true },
+    take: 10,
+  });
+
+  if (lowStockProducts.length > 0) {
+    await prisma.notification.createMany({
+      data: lowStockProducts.map(p => ({
+        companyId, type: 'LOW_STOCK', severity: 'DANGER',
+        title: `Low Stock: ${p.code}`,
+        message: `Product ${p.name} (${p.code}) has only ${p.stockAmount} units left.`,
+        entityType: 'Product', entityId: p.id,
+      }))
+    });
+  }
+
+  // 6. Sales Orders Pending
+  const existingSONotifs = await prisma.notification.findMany({
+    where: { companyId, type: 'PENDING_SO', isRead: false },
+    select: { entityId: true }
+  });
+  const notifiedSOIds = existingSONotifs.map((n: any) => n.entityId);
+
+  const pendingSOs = await prisma.salesOrder.findMany({
+    where: {
+      companyId,
+      status: 'PENDING',
+      id: { notIn: notifiedSOIds }
+    },
+    select: { id: true, soNumber: true, totalBDT: true },
+    take: 10,
+  });
+
+  if (pendingSOs.length > 0) {
+    await prisma.notification.createMany({
+      data: pendingSOs.map(so => ({
+        companyId, type: 'PENDING_SO', severity: 'INFO',
+        title: `SO Pending: ${so.soNumber}`,
+        message: `Sales Order ${so.soNumber} (৳${Number(so.totalBDT).toLocaleString()}) is awaiting processing.`,
+        entityType: 'SalesOrder', entityId: so.id,
+      }))
+    });
+  }
+
   // 4. Loans Due
   const existingLoanNotifs = await prisma.notification.findMany({
     where: { companyId, type: 'LOAN_DUE', isRead: false },
@@ -435,6 +520,34 @@ export class DashboardController {
         cashFlowTrend.push({ name: monthName, value: cf });
       }
 
+      // --- Cash Flow Forecast (Next 3 Months) ---
+      const forecast: any[] = [];
+      const avgCashFlow = cashFlowTrend.reduce((sum, c) => sum + c.value, 0) / 6 || 0;
+      const avgRevenue = revExpTrend.reduce((sum, r) => sum + r.revenue, 0) / 6 || 0;
+      const avgExpense = revExpTrend.reduce((sum, r) => sum + r.expense, 0) / 6 || 0;
+
+      let runningBalance = cashBalance;
+      for (let i = 1; i <= 3; i++) {
+        const d = new Date();
+        d.setMonth(d.getMonth() + i);
+        const monthName = d.toLocaleString('default', { month: 'short' });
+        
+        // Simple forecast: apply average cash flow + seasonal variation
+        const seasonalFactor = 1 + (Math.sin(i * Math.PI / 6) * 0.1);
+        const projectedInflow = avgRevenue * seasonalFactor;
+        const projectedOutflow = avgExpense * seasonalFactor;
+        const netFlow = projectedInflow - projectedOutflow;
+        runningBalance += netFlow;
+
+        forecast.push({
+          name: monthName,
+          inflow: projectedInflow,
+          outflow: projectedOutflow,
+          netFlow,
+          projectedBalance: runningBalance
+        });
+      }
+
       // Liquidity Trend (Cumulative Cash)
       let currentC = cashBalance;
       for (let i = 5; i >= 0; i--) {
@@ -503,13 +616,21 @@ export class DashboardController {
           { name: 'Revenue vs Expenses', data: revExpTrend, type: 'BAR' },
           { name: 'Revenue by Buyer', data: buyerDistribution, type: 'PIE' },
           { name: 'Monthly Net Cash Flow', data: cashFlowTrend, type: 'LINE' },
-          { name: 'Cash Position', data: cashBreakdown.map(c => ({ name: c.name, value: c.currentBalance })), type: 'BAR' }
+          { name: 'Cash Position', data: cashBreakdown.map(c => ({ name: c.name, value: c.currentBalance })), type: 'BAR' },
+          { name: 'Cash Flow Forecast', data: forecast, type: 'LINE' }
         ],
         accountingEquation,
         alerts: enrichedActivities,
         unreadCount,
         lastBackup: lastBackup ? { timestamp: lastBackup.createdAt, fileName: lastBackup.fileName, status: lastBackup.status } : null,
-        actions: []
+        actions: [],
+        actionNeeded: {
+          overdueInvoices: await prisma.invoice.count({ where: { companyId, status: 'APPROVED', dueDate: { lt: new Date() } } }),
+          pendingPOs: await prisma.purchaseOrder.count({ where: { companyId, status: 'PENDING_APPROVAL' } }),
+          lowStockItems: await prisma.product.count({ where: { companyId, isActive: true, stockAmount: { lte: 10 } } }),
+          pendingSOs: await prisma.salesOrder.count({ where: { companyId, status: 'PENDING' } }),
+          pendingJournals: await prisma.journalEntry.count({ where: { companyId, status: 'PENDING_VERIFICATION' } })
+        }
       };
 
       // Role-based actions

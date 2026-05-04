@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
   Plus, Trash2, ArrowLeft, Save, 
-  User, Calendar, ShoppingCart, Loader2
+  User, Calendar, ShoppingCart, Loader2, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
@@ -53,6 +53,35 @@ export default function CreateSalesOrderPage() {
       return response.data.data;
     },
     enabled: !!companyId,
+  });
+
+  // Fetch product pricing data for margin analysis
+  const { data: productPricing } = useQuery({
+    queryKey: ['product-pricing', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/products/pricing`);
+      return response.data.data;
+    },
+    enabled: !!companyId,
+  });
+
+  // Calculate margin for a line
+  const getLineMargin = (line: any) => {
+    const product = products?.find((p: any) => p.name === line.itemDescription);
+    const pricing = productPricing?.find((p: any) => p.productId === product?.id);
+    if (!pricing?.averageCost || !line.unitPrice) return null;
+    const margin = ((line.unitPrice - pricing.averageCost) / line.unitPrice) * 100;
+    return {
+      margin: Math.round(margin * 100) / 100,
+      isBelowMargin: margin < (product?.minimumMargin || 10),
+      averageCost: pricing.averageCost
+    };
+  };
+
+  // Check if any line is below margin
+  const hasLowMargin = formData.lines.some(line => {
+    const marginData = getLineMargin(line);
+    return marginData?.isBelowMargin;
   });
 
   const filteredCustomers = customers?.filter((c: any) => 
@@ -333,6 +362,7 @@ export default function CreateSalesOrderPage() {
                     <th className="px-4 py-3 text-right w-32">Total (BDT)</th>
                   </>
                 )}
+                <th className="px-4 py-3 text-center w-24 text-[10px] text-gray-400 uppercase tracking-wider">Margin</th>
                 <th className="px-4 py-3 text-center w-12"></th>
               </tr>
             </thead>
@@ -371,27 +401,25 @@ export default function CreateSalesOrderPage() {
                           <span className="text-[10px] text-gray-400 font-mono pr-2">BDT {formatCurrency(line.unitPrice * companyExchangeRate)}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-2 text-right">
+<td className="px-4 py-2 text-right">
                         <div className="flex flex-col items-end pr-2 justify-center h-full pt-1.5">
                           <span className="font-mono font-bold text-gray-900">{formatCurrency(line.total)}</span>
                           <span className="text-[10px] text-gray-400 font-mono mt-0.5">BDT {formatCurrency(line.total * companyExchangeRate)}</span>
                         </div>
                       </td>
-                    </>
-                  ) : (
-                    <>
                       <td className="px-4 py-2">
-                        <input 
-                          type="number" step="any"
-                          value={line.unitPrice}
-                          onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                          className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-blue-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none transition-colors"
-                        />
+                        {((): any => {
+                          const marginData = getLineMargin(line);
+                          if (!marginData) return null;
+                          return (
+                            <div className={`text-xs ${marginData.isBelowMargin ? 'text-red-500 font-bold' : 'text-emerald-500'}`}>
+                              {marginData.isBelowMargin && <AlertTriangle className="w-3 h-3 inline mr-1" />}
+                              {marginData.margin}%
+                            </div>
+                          );
+                        })()}
                       </td>
-                      <td className="px-4 py-2 text-right font-mono font-bold text-gray-900">
-                        {formatCurrency(line.total)}
-                      </td>
-                    </>
+                    </>))}
                   )}
                   <td className="px-4 py-2 text-center">
                     <button 
@@ -422,11 +450,21 @@ export default function CreateSalesOrderPage() {
           </div>
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end items-center gap-4">
+          {hasLowMargin && (
+            <div className="flex items-center gap-2 text-red-500 bg-red-50 px-4 py-2 rounded-sm">
+              <AlertTriangle className="w-4 h-4" />
+              <span className="text-xs font-bold">Some items below minimum margin</span>
+            </div>
+          )}
           <button 
             type="submit"
             disabled={isSaving}
-            className="px-8 py-3 bg-gray-900 text-white rounded-sm text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
+            className={`px-8 py-3 rounded-sm text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 shadow-sm ${
+              hasLowMargin 
+                ? 'bg-red-600 text-white hover:bg-red-700' 
+                : 'bg-gray-900 text-white hover:bg-gray-800'
+            } disabled:opacity-50`}
           >
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Confirm Sales Order

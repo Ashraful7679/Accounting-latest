@@ -217,6 +217,7 @@ export class InvoiceController extends BaseCompanyController {
     const { invoiceId } = request.params as { invoiceId: string };
     const { id: companyId } = request.params as { id: string };
     const userId = (request.user as any).id;
+    const { reverse = false } = request.body as { reverse?: boolean };
 
     const role = await this.getUserRole(userId, companyId);
     const invoice = await prisma.invoice.findUnique({ 
@@ -230,6 +231,12 @@ export class InvoiceController extends BaseCompanyController {
       throw new ForbiddenError('Cannot delete this invoice');
     }
 
+    // If reverse=true, create reversal journal instead of hard delete
+    if (reverse) {
+      return this.reverseInvoice(invoice, companyId, userId, reply);
+    }
+
+    // Original hard delete behavior (for draft invoices only)
     await prisma.$transaction(async (tx) => {
       // 1. Revert Order Quantities
       if (invoice.salesOrderId) {
@@ -261,7 +268,7 @@ export class InvoiceController extends BaseCompanyController {
         }
       }
 
-      // 2. Delete Journal if exists (only if status is APPROVED or something that generated a journal)
+      // 2. Delete Journal if exists
       if (invoice.journalId) {
         await tx.journalEntry.delete({ where: { id: invoice.journalId } });
       }
@@ -271,6 +278,117 @@ export class InvoiceController extends BaseCompanyController {
     });
 
     return reply.send({ success: true, message: 'Invoice deleted and quantities reverted' });
+  }
+
+  private async reverseInvoice(invoice: any, companyId: string, userId: string, reply: FastifyReply) {
+    const reversalNumber = await this.generateDocumentNumber(companyId, 'invoice');
+    const revPrefix = invoice.type === 'SALES' ? 'RVS' : 'RVP';
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Create reversal invoice
+      const reversal = await (tx.invoice as any).create({
+        data: {
+          invoiceNumber: `${revPrefix}-${reversalNumber}`,
+          companyId,
+          customerId: invoice.customerId,
+          vendorId: invoice.vendorId,
+          salesOrderId: invoice.salesOrderId,
+          purchaseOrderId: invoice.purchaseOrderId,
+          type: invoice.type,
+          invoiceDate: new Date(),
+          dueDate: new Date(),
+          currency: invoice.currency,
+          exchangeRate: invoice.exchangeRate,
+          subtotal: -invoice.subtotal,
+          totalBDT: -(invoice.totalBDT || 0),
+          totalForeign: -(invoice.totalForeign || 0),
+          taxAmount: -(invoice.taxAmount || 0),
+          discountAmount: -(invoice.discountAmount || 0),
+          status: 'APPROVED',
+          reference: `Reversal of ${invoice.invoiceNumber}`,
+          originalInvoiceId: invoice.id
+        }
+      });
+
+      // 2. Create reversal lines
+      for (const line of invoice.lines || []) {
+        await tx.invoiceLine.create({
+          data: {
+            invoiceId: reversal.id,
+            productId: line.productId,
+            description: line.description,
+            quantity: -line.quantity,
+            unitPrice: line.unitPrice,
+            taxRate: line.taxRate,
+            amount: -(line.amount || line.total || 0),
+          }
+        });
+      }
+
+      // 3. Create reversal journal entry
+      if (invoice.journalId) {
+        const originalJournal = await tx.journalEntry.findUnique({
+          where: { id: invoice.journalId }
+        });
+
+        if (originalJournal) {
+          const reversalEntry = await (tx.journalEntry as any).create({
+            data: {
+              entryNumber: `REV-${originalJournal.entryNumber}`,
+              companyId,
+              date: new Date(),
+              description: `Reversal of Journal ${originalJournal.entryNumber} (Invoice ${invoice.invoiceNumber})`,
+              totalDebit: originalJournal.totalCredit,
+              totalCredit: originalJournal.totalDebit,
+              status: 'APPROVED',
+              reference: `Reversal of ${originalJournal.entryNumber}`
+            }
+          });
+
+          // Reverse all journal lines
+          const originalLines = await tx.journalEntryLine.findMany({
+            where: { journalEntryId: invoice.journalId }
+          });
+
+          for (const line of originalLines) {
+            await tx.journalEntryLine.create({
+              data: {
+                journalEntryId: reversalEntry.id,
+                accountId: line.accountId,
+                debitBase: line.creditBase,
+                creditBase: line.debitBase,
+                debit: line.credit,
+                credit: line.debit
+              }
+            });
+          }
+
+          // Update original invoice to reference reversal
+          await tx.invoice.update({
+            where: { id: invoice.id },
+            data: { journalId: reversalEntry.id }
+          });
+        }
+      }
+
+      // 4. Revert inventory if applicable
+      if (invoice.type === 'SALES') {
+        for (const line of invoice.lines) {
+          if (line.productId && !invoice.isService) {
+            await tx.product.update({
+              where: { id: line.productId },
+              data: { stockAmount: { increment: line.quantity } }
+            });
+          }
+        }
+      }
+    });
+
+    return reply.send({ 
+      success: true, 
+      message: `Reversal invoice created for ${invoice.invoiceNumber}`,
+      data: { reversalNumber: `${revPrefix}-${reversalNumber}` }
+    });
   }
 
   async delinkDN(request: FastifyRequest, reply: FastifyReply) {

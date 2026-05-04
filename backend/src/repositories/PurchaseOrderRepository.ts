@@ -56,17 +56,22 @@ export class PurchaseOrderRepository {
   }
 
   static async create(data: any) {
-    const { lines, ...poData } = data;
+    const { lines, requisitionId, ...poData } = data;
     
     // Ensure empty relation IDs are treated as null
     if (poData.lcId === "") {
       poData.lcId = null;
+    }
+    // Handle requisitionId conversion
+    if (poData.requisitionId === "") {
+      poData.requisitionId = null;
     }
 
     if (SYSTEM_MODE === "LIVE") {
       return await prisma.purchaseOrder.create({
         data: {
           ...poData,
+          requisitionId: requisitionId || null,
           lines: {
             create: lines.map((l: any) => ({
               productId: l.productId,

@@ -11,6 +11,10 @@ import { ReconcileController } from './reconcile.controller';
 import { PaymentController } from './payment.controller';
 import { PIController } from './pi.controller';
 import { ProductController } from './product.controller';
+import { ProductPricingController } from './product-pricing.controller';
+import { DocumentFlowController } from './document-flow.controller';
+import { ReportDrilldownController } from './report-drilldown.controller';
+import { PortalController } from './portal.controller';
 import { BackupController } from '../backup/backup.controller';
 import { BillsController } from './bills.controller';
 
@@ -22,6 +26,13 @@ import { JournalController } from './journal.controller';
 import { OrderController } from './order.controller';
 import { EmployeeController } from './employee.controller';
 import { PeriodController } from './period.controller';
+import { DebitNoteController } from './debit-note.controller';
+import { CreditNoteController } from './credit-note.controller';
+import { BankReconciliationController } from './bank-reconciliation.controller';
+import { FixedAssetController } from './fixed-asset.controller';
+import { ExchangeRateController } from './exchange-rate.controller';
+import { PayrollController } from './payroll.controller';
+import { RBACController } from './rbac.controller';
 
 import { authenticate } from '../../middleware/auth';
 
@@ -38,10 +49,11 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   const paymentController = new PaymentController();
   const piController = new PIController();
   const productController = new ProductController();
+  const documentFlowController = new DocumentFlowController();
+  const reportDrilldownController = new ReportDrilldownController();
+  const portalController = new PortalController();
   const backupController = new BackupController();
   const billsController = new BillsController();
-
-  // Instances of new modular controllers
   const coaController = new CoaController();
   const entityController = new EntityController();
   const invoiceController = new InvoiceController();
@@ -49,108 +61,13 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   const orderController = new OrderController();
   const employeeController = new EmployeeController();
   const periodController = new PeriodController();
-
-  // All routes require authentication
-  fastify.addHook('preHandler', authenticate);
-
-  // Settings
-  fastify.put('/:id/settings', controller.updateSettings.bind(controller));
-
-  // Dashboards
-  fastify.get('/:id/dashboard-stats', dashboardController.getStats.bind(dashboardController));
-  fastify.get('/:id/dashboard/stats', dashboardController.getStats.bind(dashboardController));
-  fastify.get('/:id/activities', dashboardController.getActivities.bind(dashboardController));
-
-  // Notifications & Audit Trail
-  fastify.post('/:id/notifications/generate', notificationController.generate.bind(notificationController));
-  fastify.get('/:id/notifications', notificationController.list.bind(notificationController));
-  fastify.patch('/:id/notifications/read-all', notificationController.markAllRead.bind(notificationController));
-  fastify.patch('/notifications/:notifId/read', notificationController.markRead.bind(notificationController));
-  fastify.delete('/notifications/:notifId', notificationController.delete.bind(notificationController));
-  fastify.get('/:id/audit', notificationController.listActivities.bind(notificationController));
-
-  // LC Management
-  fastify.get('/:id/lcs', lcController.getLCs.bind(lcController));
-  fastify.post('/:id/lcs', lcController.createLC.bind(lcController));
-  fastify.put('/lcs/:lcId', lcController.updateLC.bind(lcController));
-  fastify.delete('/lcs/:lcId', lcController.deleteLC.bind(lcController));
-  fastify.post('/lcs/:lcId/approve', lcController.approveLC.bind(lcController));
-  fastify.post('/lcs/:lcId/settle', lcController.settleLC.bind(lcController));
-  fastify.get('/lcs/:lcId/detail', lcController.getLCDetail.bind(lcController));
-  fastify.post('/:id/lcs/:lcId/assign-so', lcController.assignSO.bind(lcController));
-  fastify.post('/:id/lcs/:lcId/assign-po', lcController.assignPO.bind(lcController));
-
-  // PI Management
-  fastify.get('/lcs/:id/pis', piController.getPIs.bind(piController));
-  fastify.post('/lcs/:id/pis', piController.createPI.bind(piController));
-  fastify.post('/:id/pis', piController.createPI.bind(piController));
-  fastify.put('/:id/pis/:piId', piController.updatePI.bind(piController));
-  fastify.get('/:id/pis/:piId', piController.getPIDetail.bind(piController));
-  fastify.get('/:id/pis', piController.getAllPIs.bind(piController));
-  fastify.get('/:id/all-pis', piController.getAllPIs.bind(piController));
-  fastify.delete('/:id/pis/:piId', piController.deletePI.bind(piController));
-
-  // PI Status Workflow
-  fastify.post('/:id/pis/:piId/verify', piController.verifyPI.bind(piController));
-  fastify.post('/:id/pis/:piId/approve', piController.approvePI.bind(piController));
-  fastify.post('/:id/pis/:piId/reject', piController.rejectPI.bind(piController));
-
-  // Loan Management
-  fastify.get('/:id/loans', loanController.getLoans.bind(loanController));
-  fastify.post('/:id/loans', loanController.createLoan.bind(loanController));
-  fastify.put('/loans/:loanId', loanController.updateLoan.bind(loanController));
-  fastify.delete('/loans/:loanId', loanController.deleteLoan.bind(loanController));
-
-  // Bank Reconciliation
-  fastify.get('/:id/bank/reconcile-lines', reconcileController.getReconcileLines.bind(reconcileController));
-  fastify.post('/:id/bank/mark-reconciled', reconcileController.markAsReconciled.bind(reconcileController));
-  fastify.post('/:id/bank/unmark-reconciled', reconcileController.unmarkReconciled.bind(reconcileController));
-  fastify.post('/:id/bank/reconcile-entry', reconcileController.createReconcileEntry.bind(reconcileController));
-  fastify.post('/:id/bank/import-statement', reconcileController.importStatement.bind(reconcileController));
-
-  // Get company info
-  fastify.get('/:id', controller.getCompany.bind(controller));
-
-  // Customers
-  fastify.get('/:id/customers', entityController.getCustomers.bind(entityController));
-  fastify.post('/:id/customers', entityController.createCustomer.bind(entityController));
-  fastify.put('/:id/customers/:customerId', entityController.updateCustomer.bind(entityController));
-  fastify.delete('/:id/customers/:customerId', entityController.deleteCustomer.bind(entityController));
-
-  // Vendors
-  fastify.get('/:id/vendors', entityController.getVendors.bind(entityController));
-  fastify.post('/:id/vendors', entityController.createVendor.bind(entityController));
-  fastify.put('/:id/vendors/:vendorId', entityController.updateVendor.bind(entityController));
-  fastify.delete('/:id/vendors/:vendorId', entityController.deleteVendor.bind(entityController));
-
-  // Sales Orders
-  fastify.get('/:id/sales-orders', orderController.getSalesOrders.bind(orderController));
-  fastify.post('/:id/sales-orders', orderController.createSalesOrder.bind(orderController));
-  fastify.put('/:id/sales-orders/:soId', orderController.updateSalesOrder.bind(orderController));
-  fastify.post('/:id/sales-orders/:soId/assign-po', orderController.assignPurchaseOrder.bind(orderController));
-
-  // Purchase Orders
-  fastify.get('/:id/purchase-orders', orderController.getPurchaseOrders.bind(orderController));
-  fastify.post('/:id/purchase-orders', orderController.createPurchaseOrder.bind(orderController));
-  fastify.put('/:id/purchase-orders/:poId', orderController.updatePurchaseOrder.bind(orderController));
-  fastify.patch('/:id/purchase-orders/:poId/status', orderController.updatePurchaseOrderStatus.bind(orderController));
-  fastify.delete('/:id/purchase-orders/:poId', orderController.deletePurchaseOrder.bind(orderController));
-  fastify.post('/:id/purchase-orders/:poId/assign-so', orderController.assignSalesOrder.bind(orderController));
-
-  // Delivery Challans (DN)
-  fastify.get('/:id/challans', orderController.getDeliveryChallans.bind(orderController));
-  fastify.post('/:id/sales-orders/:soId/challan', orderController.generateDeliveryChallan.bind(orderController));
-
-  // GRN (Goods Receipt Note)
-  fastify.get('/:id/grns', orderController.getGRNs.bind(orderController));
-  fastify.post('/:id/purchase-orders/:poId/grn', orderController.generateGRN.bind(orderController));
-
-  // Accounts (COA)
-  fastify.get('/:id/accounts', coaController.getAccounts.bind(coaController));
-  fastify.post('/:id/accounts', coaController.createAccount.bind(coaController));
-  fastify.put('/:id/accounts/:accountId', coaController.updateAccount.bind(coaController));
-  fastify.get('/:id/account-types', coaController.getAccountTypes.bind(coaController));
-  fastify.post('/:id/heal-balances', coaController.healBalances.bind(coaController));
+  const debitNoteController = new DebitNoteController();
+  const creditNoteController = new CreditNoteController();
+  const bankReconciliationController = new BankReconciliationController();
+  const fixedAssetController = new FixedAssetController();
+  const exchangeRateController = new ExchangeRateController();
+  const payrollController = new PayrollController();
+  const rbacController = new RBACController();
 
   // Products
   fastify.get('/:id/products', productController.getProducts.bind(productController));
@@ -159,6 +76,28 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.put('/:id/products/:productId', productController.updateProduct.bind(productController));
   fastify.post('/:id/products/:productId/adjust-stock', productController.adjustStock.bind(productController));
   fastify.delete('/:id/products/:productId', productController.deleteProduct.bind(productController));
+
+  // Product Pricing
+  fastify.get('/:id/products/pricing', ProductPricingController.calculateAverageCost.bind(ProductPricingController));
+  fastify.get('/:id/products/:productId/cost', ProductPricingController.getProductCost.bind(ProductPricingController));
+  fastify.put('/:id/products/:productId/minimum-margin', ProductPricingController.updateMinimumMargin.bind(ProductPricingController));
+
+  // Document Flow
+  fastify.get('/:id/document-flow/sales/:entityType/:entityId', DocumentFlowController.getSalesFlow.bind(DocumentFlowController));
+  fastify.get('/:id/document-flow/purchase/:entityType/:entityId', DocumentFlowController.getPurchaseFlow.bind(DocumentFlowController));
+
+  // Report Drilldown
+  fastify.get('/:id/reports/account-transactions', ReportDrilldownController.getAccountTransactions.bind(ReportDrilldownController));
+  fastify.get('/:id/reports/trial-balance-detail', ReportDrilldownController.getTrialBalanceDrilldown.bind(ReportDrilldownController));
+
+  // Customer/Vendor Portal Management
+  fastify.post('/:id/customers/:customerId/enable-portal', PortalController.enableCustomerPortal.bind(PortalController));
+  fastify.post('/:id/vendors/:vendorId/enable-portal', PortalController.enableVendorPortal.bind(PortalController));
+  fastify.post('/:id/portal/:type/:id/disable', PortalController.disablePortal.bind(PortalController));
+
+  // Public Portal Routes (no auth required)
+  fastify.get('/portal/:companyId/customer/:token', PortalController.getCustomerPortalData.bind(PortalController));
+  fastify.get('/portal/:companyId/vendor/:token', PortalController.getVendorPortalData.bind(PortalController));
 
   // Employees
   fastify.get('/:id/employees', employeeController.getEmployees.bind(employeeController));
@@ -205,6 +144,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/invoices/:invoiceId/delink-dn', invoiceController.delinkDN.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/delink-grn', invoiceController.delinkGRN.bind(invoiceController));
   fastify.delete('/:id/invoices/:invoiceId', invoiceController.deleteInvoice.bind(invoiceController));
+  fastify.post('/:id/invoices/:invoiceId/reverse', invoiceController.deleteInvoice.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/verify', invoiceController.verifyInvoice.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/approve', invoiceController.approveInvoice.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/submit', invoiceController.submitInvoice.bind(invoiceController));
@@ -212,7 +152,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/invoices/:invoiceId/retrieve', invoiceController.retrieveInvoice.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/revert-approval', (req, rep) => invoiceController.revertInvoice(req, rep));
 
-  // Delivery Challans (DN) deletion
+  // Delivery Challans (DN) & GRN deletion
   fastify.delete('/:id/challans/:dnId', orderController.deleteDeliveryChallan.bind(orderController));
   fastify.delete('/:id/grns/:grnId', orderController.deleteGRN.bind(orderController));
 
@@ -222,6 +162,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/journals', journalController.createJournal.bind(journalController));
   fastify.put('/:id/journals/:journalId', journalController.updateJournal.bind(journalController));
   fastify.delete('/:id/journals/:journalId', journalController.deleteJournal.bind(journalController));
+  fastify.post('/:id/journals/:journalId/reverse', journalController.deleteJournal.bind(journalController));
   fastify.post('/:id/journals/:journalId/verify', journalController.verifyJournal.bind(journalController));
   fastify.post('/:id/journals/:journalId/submit', journalController.submitJournal.bind(journalController));
   fastify.post('/:id/journals/:journalId/reject', journalController.rejectJournal.bind(journalController));
@@ -247,6 +188,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/:id/reports/receivables-search', reportController.searchReceivables.bind(reportController));
   fastify.get('/:id/reports/lc-liability', reportController.getLCLiability.bind(reportController));
   fastify.get('/:id/reports/cash-flow', reportController.getCashFlowStatement.bind(reportController));
+  fastify.get('/:id/reports/customer-statement/:customerId', reportController.getCustomerStatement.bind(reportController));
 
   // Dimensions
   fastify.get('/:id/projects', dimensionController.getProjects.bind(dimensionController));
@@ -254,13 +196,13 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/:id/cost-centers', dimensionController.getCostCenters.bind(dimensionController));
   fastify.post('/:id/cost-centers', dimensionController.createCostCenter.bind(dimensionController));
 
-  // Attachments (New Secure System)
+  // Attachments
   fastify.post('/:id/attachments/upload', attachmentController.upload.bind(attachmentController));
   fastify.get('/:id/attachments/related/:type/:entityId', attachmentController.listByEntity.bind(attachmentController));
   fastify.get('/:id/attachments/secure/:attachmentId', attachmentController.getSecureFile.bind(attachmentController));
   fastify.delete('/:id/attachments/:attachmentId', attachmentController.deleteAttachment.bind(attachmentController));
 
-  // Backup & Restore (System Wide / Multi-Company Context)
+  // Backup & Restore
   fastify.post('/:id/backup/generate', backupController.generateBackup.bind(backupController));
   fastify.get('/:id/backups', backupController.getBackups.bind(backupController));
   fastify.get('/:id/backups/download/:fileName', backupController.downloadBackup.bind(backupController));
@@ -268,12 +210,8 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/backup/restore/upload', backupController.uploadAndRestore.bind(backupController));
 
   // Company Settings & Period Closing
-  fastify.get('/:id/settings', controller.getCompany.bind(controller)); // Use getCompany for general settings
-  // Note: updateSettings should probably be in CompanyController if it's general company profile
-  // For now I'll map them to the facade.
+  fastify.get('/:id/settings', controller.getCompany.bind(controller));
   fastify.post('/:id/close-period', periodController.closePeriod.bind(periodController));
-
-
 
   // Bills (Accounts Payable Documents)
   fastify.get('/:id/bills', billsController.getBills.bind(billsController));
@@ -282,4 +220,14 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.put('/:id/bills/:billId', billsController.updateBill.bind(billsController));
   fastify.delete('/:id/bills/:billId', billsController.deleteBill.bind(billsController));
   fastify.post('/:id/bills/:billId/approve', billsController.approveBill.bind(billsController));
+
+  // Role-Based Access Control (RBAC)
+  fastify.get('/:id/roles', rbacController.getRoles.bind(rbacController));
+  fastify.get('/:id/roles/:roleId', rbacController.getRole.bind(rbacController));
+  fastify.post('/:id/roles', rbacController.createRole.bind(rbacController));
+  fastify.put('/:id/roles/:roleId', rbacController.updateRole.bind(rbacController));
+  fastify.delete('/:id/roles/:roleId', rbacController.deleteRole.bind(rbacController));
+  fastify.put('/:id/roles/:roleId/permissions', rbacController.updatePermission.bind(rbacController));
+  fastify.post('/:id/roles/:roleId/assign', rbacController.assignRoleToUser.bind(rbacController));
+  fastify.delete('/:id/roles/:roleId/assign/:userId', rbacController.removeRoleFromUser.bind(rbacController));
 };

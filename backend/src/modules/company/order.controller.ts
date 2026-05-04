@@ -18,11 +18,15 @@ export class OrderController extends BaseCompanyController {
 
   async createSalesOrder(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
     const { 
       customerId, lcId, orderDate, soDate, expectedDeliveryDate, 
       currency, exchangeRate, totalBDT, totalForeign, status, lines, 
       purchaseOrderIds 
     } = request.body as any;
+
+    // Check permission to create sales orders
+    await this.requirePermission(userId, companyId, 'sales.orders', 'create');
 
     const soNumber = await this.generateDocumentNumber(companyId, 'so');
     

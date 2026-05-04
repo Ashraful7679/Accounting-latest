@@ -1,18 +1,19 @@
 'use client';
 
-
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
-  Package, Plus, Search, Edit2, Trash2, 
+  Package, Plus, Search, Edit2, Trash2, Eye,
   CheckCircle2, AlertCircle, ShoppingBag, 
-  Tag, Info, MoreVertical, X, RefreshCw
+  Tag, Info, MoreVertical, X, RefreshCw,
+  Save, Printer, Link2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
 import { cn } from '@/lib/utils';
+import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
 
 
 interface Product {
@@ -26,6 +27,9 @@ interface Product {
   currency: string;
   stockAmount: number;
   isActive: boolean;
+  type?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export default function ProductsPage() {
@@ -35,11 +39,30 @@ export default function ProductsPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'local' | 'foreign'>('local');
   const [searchTerm, setSearchTerm] = useState('');
-  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Detail panel state
+  const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [viewMode, setViewMode] = useState<'view' | 'edit'>('view');
+
+  // Edit form state
+  const [editForm, setEditForm] = useState({
+    code: '',
+    name: '',
+    sku: '',
+    description: '',
+    unitType: '',
+    unitPrice: '',
+    type: 'SALES_PURCHASE',
+    currency: 'BDT',
+    isActive: true,
+  });
+
+  // Stock adjustment state
   const [adjustAmount, setAdjustAmount] = useState<number>(0);
   const [adjustNotes, setAdjustNotes] = useState('');
-  const [mounted, setMounted] = useState(false);
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -64,12 +87,29 @@ export default function ProductsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products', companyId] });
       toast.success('Product deleted successfully');
+      setShowDetailPanel(false);
+      setSelectedProduct(null);
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error?.message || 'Failed to delete product');
     },
   });
- 
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: Partial<Product>) => {
+      const response = await api.put(`/company/${companyId}/products/${selectedProduct?.id}`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products', companyId] });
+      toast.success('Product updated successfully');
+      setViewMode('view');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Failed to update product');
+    },
+  });
+
   const adjustMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await api.post(`/company/${companyId}/products/${data.id}/adjust-stock`, {
@@ -82,9 +122,6 @@ export default function ProductsPage() {
       queryClient.invalidateQueries({ queryKey: ['products', companyId] });
       toast.success('Stock adjusted successfully');
       setShowAdjustModal(false);
-      setSelectedProduct(null);
-      setAdjustAmount(0);
-      setAdjustNotes('');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error?.message || 'Failed to adjust stock');
@@ -97,6 +134,298 @@ export default function ProductsPage() {
      p.sku?.toLowerCase().includes(searchTerm.toLowerCase())) &&
     ((activeTab === 'local' && p.currency === 'BDT') || (activeTab === 'foreign' && p.currency !== 'BDT'))
   ) || [];
+
+  const handleRowClick = (product: Product) => {
+    setSelectedProduct(product);
+    setEditForm({
+      code: product.code,
+      name: product.name,
+      sku: product.sku || '',
+      description: product.description || '',
+      unitType: product.unitType,
+      unitPrice: product.unitPrice.toString(),
+      type: product.type || 'SALES_PURCHASE',
+      currency: product.currency,
+      isActive: product.isActive,
+    });
+    setShowDetailPanel(true);
+    setViewMode('view');
+  };
+
+  const handleEdit = () => {
+    setViewMode('edit');
+  };
+
+  const handleSave = () => {
+    updateMutation.mutate({
+      code: editForm.code,
+      name: editForm.name,
+      sku: editForm.sku || null,
+      description: editForm.description || null,
+      unitType: editForm.unitType,
+      unitPrice: parseFloat(editForm.unitPrice),
+      type: editForm.type,
+      currency: editForm.currency,
+      isActive: editForm.isActive,
+    });
+  };
+
+  const handleCancel = () => {
+    if (selectedProduct) {
+      setEditForm({
+        code: selectedProduct.code,
+        name: selectedProduct.name,
+        sku: selectedProduct.sku || '',
+        description: selectedProduct.description || '',
+        unitType: selectedProduct.unitType,
+        unitPrice: selectedProduct.unitPrice.toString(),
+        type: selectedProduct.type || 'SALES_PURCHASE',
+        currency: selectedProduct.currency,
+        isActive: selectedProduct.isActive,
+      });
+    }
+    setViewMode('view');
+  };
+
+  const handleAdjustStock = () => {
+    if (!selectedProduct) return;
+    adjustMutation.mutate({
+      id: selectedProduct.id,
+      adjustmentAmount: adjustAmount,
+      notes: adjustNotes
+    });
+  };
+
+  // Build detail panel fields
+  const getDetailFields = (): DetailField[] => {
+    if (!selectedProduct) return [];
+    
+    const currencySymbol = getCurrencySymbol(selectedProduct.currency);
+    
+    if (viewMode === 'edit') {
+      return [
+        { label: 'Product Code', value: '', type: 'text' },
+        { label: 'Product Name', value: '', type: 'text' },
+        { label: 'SKU', value: '', type: 'text' },
+        { label: 'Unit Type', value: '', type: 'text' },
+        { label: 'Unit Price', value: '', type: 'number' },
+        { label: 'Currency', value: '', type: 'text' },
+        { label: 'Type', value: '', type: 'text' },
+        { label: 'Active', value: '', type: 'text' },
+      ];
+    }
+
+    return [
+      { label: 'Product Code', value: selectedProduct.code },
+      { label: 'Product Name', value: selectedProduct.name },
+      { label: 'SKU', value: selectedProduct.sku || '-' },
+      { label: 'Description', value: selectedProduct.description || '-' },
+      { label: 'Unit Type', value: selectedProduct.unitType },
+      { label: 'Unit Price', value: `${currencySymbol}${formatCurrency(selectedProduct.unitPrice)}`, type: 'currency' },
+      { label: 'Current Stock', value: selectedProduct.stockAmount.toString(), type: 'quantity' },
+      { label: 'Status', value: selectedProduct.isActive ? 'Active' : 'Inactive', type: 'status' },
+    ];
+  };
+
+  // Build detail panel actions
+  const getDetailActions = (): DetailAction[] => {
+    if (!selectedProduct) return [];
+
+    if (viewMode === 'edit') {
+      return [
+        { label: 'Save Changes', icon: Save, onClick: handleSave, variant: 'primary', loading: updateMutation.isPending },
+        { label: 'Cancel', icon: X, onClick: handleCancel, variant: 'secondary' },
+      ];
+    }
+
+    return [
+      { label: 'Adjust Stock', icon: RefreshCw, onClick: () => setShowAdjustModal(true), variant: 'secondary' },
+      { label: 'Edit Product', icon: Edit2, onClick: handleEdit, variant: 'secondary' },
+      { label: 'Print Label', icon: Printer, onClick: () => toast.success('Print feature coming soon'), variant: 'secondary' },
+      { label: 'Delete', icon: Trash2, onClick: () => {
+        if (confirm('Are you sure you want to delete this product?')) {
+          deleteMutation.mutate(selectedProduct.id);
+        }
+      }, variant: 'danger' },
+    ];
+  };
+
+  // Build detail panel tabs
+  const getDetailTabs = (): DetailTab[] => {
+    if (!selectedProduct) return [];
+
+    return [
+      {
+        id: 'details',
+        label: 'Details',
+        content: (
+          <div className="p-6">
+            <div className="grid grid-cols-2 gap-4">
+              {getDetailFields().map((field, idx) => {
+                if (viewMode === 'edit') {
+                  const isSelect = field.label.toLowerCase().includes('currency') || field.label.toLowerCase().includes('type') || field.label.toLowerCase().includes('status');
+                  
+                  if (field.label === 'Product Code') {
+                    return (
+                      <div key={idx} className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{field.label}</label>
+                        <input
+                          type="text"
+                          value={editForm.code}
+                          onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.label === 'Product Name') {
+                    return (
+                      <div key={idx} className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{field.label}</label>
+                        <input
+                          type="text"
+                          value={editForm.name}
+                          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.label === 'SKU') {
+                    return (
+                      <div key={idx} className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{field.label}</label>
+                        <input
+                          type="text"
+                          value={editForm.sku}
+                          onChange={(e) => setEditForm({ ...editForm, sku: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.label === 'Unit Type') {
+                    return (
+                      <div key={idx} className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{field.label}</label>
+                        <input
+                          type="text"
+                          value={editForm.unitType}
+                          onChange={(e) => setEditForm({ ...editForm, unitType: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.label === 'Unit Price') {
+                    return (
+                      <div key={idx} className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{field.label}</label>
+                        <input
+                          type="number"
+                          value={editForm.unitPrice}
+                          onChange={(e) => setEditForm({ ...editForm, unitPrice: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.label === 'Currency') {
+                    return (
+                      <div key={idx} className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{field.label}</label>
+                        <select
+                          value={editForm.currency}
+                          onChange={(e) => setEditForm({ ...editForm, currency: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+                        >
+                          <option value="BDT">BDT</option>
+                          <option value="USD">USD</option>
+                          <option value="EUR">EUR</option>
+                          <option value="GBP">GBP</option>
+                        </select>
+                      </div>
+                    );
+                  }
+                  if (field.label === 'Type') {
+                    return (
+                      <div key={idx} className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{field.label}</label>
+                        <select
+                          value={editForm.type}
+                          onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+                        >
+                          <option value="SALES_PURCHASE">Sales & Purchase</option>
+                          <option value="SALES_ONLY">Sales Only</option>
+                          <option value="PURCHASE_ONLY">Purchase Only</option>
+                        </select>
+                      </div>
+                    );
+                  }
+                  if (field.label === 'Status' || field.label === 'Active') {
+                    return (
+                      <div key={idx} className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{field.label}</label>
+                        <label className="flex items-center gap-2 mt-2">
+                          <input
+                            type="checkbox"
+                            checked={editForm.isActive}
+                            onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
+                            className="w-4 h-4 rounded border-slate-300"
+                          />
+                          <span className="text-sm font-medium">Active Product</span>
+                        </label>
+                      </div>
+                    );
+                  }
+                  return null;
+                }
+
+                return (
+                  <div key={idx} className={cn(
+                    'space-y-1',
+                    field.label.toLowerCase().includes('description') ? 'col-span-2' : ''
+                  )}>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      {field.label}
+                    </label>
+                    <div className="text-slate-900 font-medium">
+                      {field.value}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: 'stock',
+        label: 'Stock History',
+        content: (
+          <div className="p-6">
+            <div className="text-center py-8 text-slate-400">
+              <RefreshCw className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>Stock history will appear here</p>
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: 'transactions',
+        label: 'Transactions',
+        content: (
+          <div className="p-6">
+            <div className="text-center py-8 text-slate-400">
+              <ShoppingBag className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No transactions yet</p>
+            </div>
+          </div>
+        ),
+      },
+    ];
+  };
 
   if (!mounted) return null;
 
@@ -113,7 +442,22 @@ export default function ProductsPage() {
           </div>
           
           <button
-            onClick={() => router.push(`/company/${companyId}/products/create`)}
+            onClick={() => {
+              setSelectedProduct(null);
+              setShowDetailPanel(true);
+              setViewMode('view');
+              setEditForm({
+                code: '',
+                name: '',
+                sku: '',
+                description: '',
+                unitType: '',
+                unitPrice: '',
+                type: 'SALES_PURCHASE',
+                currency: 'BDT',
+                isActive: true,
+              });
+            }}
             className="group relative px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all duration-300 hover:shadow-lg hover:shadow-blue-200 active:scale-95 flex items-center gap-2"
           >
             <Plus className="w-5 h-5 transition-transform group-hover:rotate-90" />
@@ -121,7 +465,7 @@ export default function ProductsPage() {
           </button>
         </div>
 
-{/* Tabs */}
+        {/* Tabs */}
         <div className="flex space-x-4 mb-4">
           <button
             onClick={() => setActiveTab('local')}
@@ -138,6 +482,7 @@ export default function ProductsPage() {
             )}
           >Foreign</button>
         </div>
+
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-4 border-b border-slate-100 bg-slate-50/30 flex flex-col md:flex-row gap-4 items-center">
             <div className="relative flex-1 w-full">
@@ -177,7 +522,7 @@ export default function ProductsPage() {
                   </tr>
                 ) : filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-20 text-center">
+                    <td colSpan={7} className="px-6 py-20 text-center">
                       <div className="flex flex-col items-center gap-4">
                         <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center">
                           <ShoppingBag className="w-8 h-8 text-slate-300" />
@@ -186,7 +531,10 @@ export default function ProductsPage() {
                           <p className="text-slate-900 font-bold text-lg">No products found</p>
                           <p className="text-slate-500 text-sm mt-1">Get started by adding your first product to the catalog.</p>
                         </div>
-                        <button onClick={() => router.push(`/company/${companyId}/products/create`)} className="text-blue-600 font-bold text-sm hover:underline flex items-center gap-1">
+                        <button onClick={() => {
+                          setSelectedProduct(null);
+                          setShowDetailPanel(true);
+                        }} className="text-blue-600 font-bold text-sm hover:underline flex items-center gap-1">
                           <Plus className="w-4 h-4" /> Add your first product
                         </button>
                       </div>
@@ -196,79 +544,68 @@ export default function ProductsPage() {
                   filteredProducts.map((product) => {
                     const currencySymbol = getCurrencySymbol(product.currency);
                     return (
-                    <tr key={product.id} className="hover:bg-slate-50/80 transition-colors group">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
-                            <Tag className="w-5 h-5" />
+                      <tr 
+                        key={product.id} 
+                        onClick={() => handleRowClick(product)}
+                        className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600">
+                              <Tag className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-900">{product.name}</div>
+                              <div className="text-xs text-slate-500 font-mono uppercase tracking-tight">{product.code}</div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{product.name}</div>
-                            <div className="text-xs text-slate-500 font-mono uppercase tracking-tight">{product.code}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-slate-600 font-medium">{product.sku || '---'}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-slate-600 font-bold text-xs uppercase tracking-wider">{product.unitType}</span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-slate-900 font-black">
+                            {currencySymbol}{formatCurrency(product.unitPrice)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className={`font-black ${product.stockAmount <= 5 ? 'text-red-600' : 'text-slate-900'}`}>
+                            {product.stockAmount}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {product.isActive ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                              <AlertCircle className="w-3.5 h-3.5" /> Inactive
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={(e) => handleRowClick(product)}
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100"
+                              title="View Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => router.push(`/company/${companyId}/products/${product.id}/edit`)}
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100"
+                              title="Edit"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-slate-600 font-medium">{product.sku || '---'}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-slate-600 font-bold text-xs uppercase tracking-wider">{product.unitType}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-slate-900 font-black">
-                          {currencySymbol}{formatCurrency(product.unitPrice)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className={`font-black ${product.stockAmount <= 5 ? 'text-red-600' : 'text-slate-900'}`}>
-                          {product.stockAmount}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        {product.isActive ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200">
-                            <AlertCircle className="w-3.5 h-3.5" /> Inactive
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => {
-                                setSelectedProduct(product);
-                                setAdjustAmount(0);
-                                setShowAdjustModal(true);
-                            }}
-                            className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-transparent hover:border-emerald-100"
-                            title="Adjust Stock"
-                          >
-                            <RefreshCw className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => router.push(`/company/${companyId}/products/${product.id}/edit`)}
-                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100"
-                            title="Edit Product"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm('Are you sure you want to delete this product?')) {
-                                deleteMutation.mutate(product.id);
-                              }
-                            }}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
-                            title="Delete Product"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
                     );
                   })
                 )}
@@ -278,8 +615,33 @@ export default function ProductsPage() {
         </div>
       </div>
 
+      {/* Detail Panel */}
+      <DetailPanel
+        isOpen={showDetailPanel}
+        onClose={() => {
+          setShowDetailPanel(false);
+          setSelectedProduct(null);
+          setViewMode('view');
+        }}
+        title={viewMode === 'edit' ? 'Edit Product' : (selectedProduct?.name || 'New Product')}
+        subtitle={selectedProduct ? selectedProduct.code : undefined}
+        fields={getDetailFields()}
+        actions={getDetailActions()}
+        tabs={getDetailTabs()}
+        status={selectedProduct ? {
+          value: selectedProduct.isActive ? 'active' : 'inactive',
+          type: selectedProduct.isActive ? 'active' : 'inactive',
+        } : undefined}
+        metadata={selectedProduct?.createdAt ? {
+          createdAt: selectedProduct.createdAt,
+          updatedAt: selectedProduct.updatedAt,
+        } : undefined}
+        size="lg"
+      />
+
+      {/* Stock Adjustment Modal */}
       {showAdjustModal && selectedProduct && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <div>
@@ -356,7 +718,7 @@ export default function ProductsPage() {
                 Cancel
               </button>
               <button
-                onClick={() => adjustMutation.mutate({ id: selectedProduct.id, adjustmentAmount: adjustAmount, notes: adjustNotes })}
+                onClick={handleAdjustStock}
                 disabled={adjustMutation.isPending}
                 className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 flex items-center justify-center gap-2"
               >
@@ -369,5 +731,3 @@ export default function ProductsPage() {
     </div>
   );
 }
-
-

@@ -5,7 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
-  Package, ArrowLeft, Save, Tag, FileText, DollarSign, CheckCircle2 
+  Package, ArrowLeft, Save, Tag, FileText, DollarSign, CheckCircle2, 
+  RotateCw, Briefcase
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -24,7 +25,9 @@ export default function CreateProductClient() {
     unitPrice: 0,
     currency: 'BDT',
     stockAmount: 0,
-    isActive: true
+    isActive: true,
+    isService: false,
+    type: 'SALES_PURCHASE',
   });
 
   useEffect(() => {
@@ -107,7 +110,7 @@ export default function CreateProductClient() {
               </div>
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
                       Product Name <span className="text-red-500">*</span>
                     </label>
@@ -120,12 +123,47 @@ export default function CreateProductClient() {
                       required
                     />
                   </div>
-                   <div>
-                    <label className="text-sm font-bold text-slate-700 mb-1.5 text-blue-600">Unit Type</label>
+                  <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5">Product/Service Type</label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({...formData, isService: false})}
+                        className={`flex-1 py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
+                          !formData.isService 
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        <Package className="w-4 h-4" />
+                        Product
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({...formData, isService: true})}
+                        className={`flex-1 py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
+                          formData.isService 
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        <Briefcase className="w-4 h-4" />
+                        Service
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {formData.isService ? 'Services do not affect stock quantities' : 'Products track inventory levels'}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5">Unit Type</label>
                     <select
                       value={formData.unitType}
                       onChange={(e) => setFormData({...formData, unitType: e.target.value})}
                       className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700"
+                      disabled={formData.isService}
                     >
                       <option value="PCS">PCS (Pieces)</option>
                       <option value="KG">KG (Kilograms)</option>
@@ -134,6 +172,20 @@ export default function CreateProductClient() {
                       <option value="SET">SET (Sets)</option>
                       <option value="PAIR">PAIR (Pairs)</option>
                       <option value="LITS">LITS (Liters)</option>
+                      <option value="HR">HR (Hours)</option>
+                      <option value="DA">DA (Days)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5">Sales/Purchase Type</label>
+                    <select
+                      value={formData.type}
+                      onChange={(e) => setFormData({...formData, type: e.target.value})}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700"
+                    >
+                      <option value="SALES_PURCHASE">Sales & Purchase</option>
+                      <option value="SALES_ONLY">Sales Only</option>
+                      <option value="PURCHASE_ONLY">Purchase Only</option>
                     </select>
                   </div>
                 </div>
@@ -153,9 +205,9 @@ export default function CreateProductClient() {
             <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
               <div className="p-6 border-b border-slate-50 bg-slate-50/30 flex items-center gap-3">
                 <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600">
-                  <DollarSign className="w-4 h-4" />
+                  {formData.isService ? <Briefcase className="w-4 h-4" /> : <DollarSign className="w-4 h-4" />}
                 </div>
-                <h3 className="font-bold text-slate-900">Pricing & Inventory</h3>
+                <h3 className="font-bold text-slate-900">{formData.isService ? 'Pricing' : 'Pricing & Inventory'}</h3>
               </div>
               <div className="p-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -185,8 +237,8 @@ export default function CreateProductClient() {
                       <option value="GBP">GBP (Pounds)</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="text-sm font-bold text-slate-700 mb-1.5">Unit Price</label>
+<div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5 text-orange-600">Unit Price</label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-lg">
                         {formData.currency === 'USD' ? '$' : formData.currency === 'EUR' ? '€' : formData.currency === 'GBP' ? '£' : '৳'}
@@ -200,6 +252,24 @@ export default function CreateProductClient() {
                         className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-black text-slate-900 text-lg"
                       />
                     </div>
+                  </div>
+                  {!formData.isService && (
+                  <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5 text-orange-600">Stock Amount</label>
+                    <div className="relative">
+                      <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.stockAmount || ''}
+                        onChange={(e) => setFormData({...formData, stockAmount: parseFloat(e.target.value) || 0})}
+                        placeholder="0.00"
+                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-black text-slate-900 text-lg"
+                      />
+                    </div>
+                  </div>
+                  )}
+                </div>
                   </div>
                   <div>
                     <label className="text-sm font-bold text-slate-700 mb-1.5 text-orange-600">Stock Amount</label>

@@ -61,6 +61,27 @@ export class EmployeeController extends BaseCompanyController {
     }
   }
 
+  async getEmployeeDetail(request: FastifyRequest, reply: FastifyReply) {
+    const { employeeId } = request.params as { employeeId: string };
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      include: {
+        advances: true,
+        expenses: true,
+        loans: {
+          include: {
+            repayments: true
+          }
+        }
+      }
+    });
+
+    if (!employee) {
+      throw new NotFoundError('Employee not found');
+    }
+
+    return reply.send({ success: true, data: employee });
+  }
   async updateEmployee(request: FastifyRequest, reply: FastifyReply) {
     const { employeeId } = request.params as { employeeId: string };
     const data = request.body as any;

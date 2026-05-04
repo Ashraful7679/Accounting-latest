@@ -69,6 +69,8 @@ export class InventoryService {
         await this.decreaseStock(tx, line.productId, line.quantity);
       }
     }
+  }
+
   /**
    * Reverts all lines in a GRN and decreases stock.
    */

@@ -21,7 +21,7 @@ export class ProductController {
   async createProduct(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
     const userId = (request.user as any).id;
-    const { name, sku, description, unitType, unitPrice, currency, stockAmount, isActive } = request.body as any;
+    const { name, sku, description, unitType, unitPrice, currency, stockAmount, isActive, type } = request.body as any;
 
     if (!name) throw new ValidationError('Product name is required');
 
@@ -38,6 +38,7 @@ export class ProductController {
       currency: currency || 'BDT',
       stockAmount: Number(stockAmount || 0),
       isActive: isActive !== undefined ? isActive : true,
+      type: type || 'SALES_PURCHASE',
     });
 
     await NotificationController.logActivity({

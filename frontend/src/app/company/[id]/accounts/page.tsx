@@ -1,16 +1,14 @@
 ﻿'use client';
 
-
 import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Plus, ArrowLeft, LogOut, Building2, Bell, RefreshCw, Edit2, ChevronRight, ChevronDown } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Building2, Eye, Save, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-
+import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -34,6 +32,8 @@ interface Account {
   cashFlowType?: string;
   parentId?: string | null;
   children?: Account[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export default function CompanyAccountsPage() {
@@ -42,10 +42,14 @@ export default function CompanyAccountsPage() {
   const companyId = params.id as string;
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
-  const [showModal, setShowModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Detail panel state
+  const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-  const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'view' | 'edit'>('view');
+
+  // Edit form state
   const [formData, setFormData] = useState({
     code: '',
     name: '',
@@ -53,28 +57,27 @@ export default function CompanyAccountsPage() {
     parentId: '',
     openingBalance: '0',
     cashFlowType: 'NONE',
-    category: 'NONE'
+    category: 'NONE',
+    isActive: true,
   });
 
   useEffect(() => {
     setMounted(true);
     const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/login');
-    }
+    if (!token) router.push('/login');
   }, [router]);
 
   const { data: accountsData, isLoading } = useQuery({
     queryKey: ['company-accounts', companyId],
     queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/accounts?limit=100`);
+      const response = await api.get(`/company/${companyId}/accounts?limit=500`);
       return response.data.data as Account[];
     },
     enabled: !!companyId,
   });
 
   const { data: accountTypesData } = useQuery({
-    queryKey: ['account-types'],
+    queryKey: ['account-types', companyId],
     queryFn: async () => {
       const response = await api.get(`/company/${companyId}/account-types`);
       return response.data.data as AccountType[];
@@ -85,17 +88,23 @@ export default function CompanyAccountsPage() {
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
       const payload: any = {
-        ...data,
+        code: data.code || undefined,
+        name: data.name,
+        accountTypeId: data.accountTypeId,
         openingBalance: parseFloat(data.openingBalance),
+        cashFlowType: data.cashFlowType,
+        category: data.category,
+        isActive: data.isActive,
       };
-      if (!payload.parentId) delete payload.parentId;
+      if (data.parentId) payload.parentId = data.parentId;
       const response = await api.post(`/company/${companyId}/accounts`, payload);
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['company-accounts', companyId] });
       toast.success('Account created successfully');
-      setShowModal(false);
+      setShowDetailPanel(false);
+      setSelectedAccount(null);
       resetForm();
     },
     onError: (error: any) => {
@@ -105,29 +114,45 @@ export default function CompanyAccountsPage() {
 
   const updateMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
+      if (!selectedAccount) return;
       const payload: any = {
-        ...data,
+        code: data.code || undefined,
+        name: data.name,
+        accountTypeId: data.accountTypeId,
         openingBalance: parseFloat(data.openingBalance),
+        cashFlowType: data.cashFlowType,
+        category: data.category,
+        isActive: data.isActive,
       };
-      if (!payload.parentId) delete payload.parentId;
-      const response = await api.put(`/company/${companyId}/accounts/${selectedAccount?.id}`, payload);
+      if (data.parentId) payload.parentId = data.parentId;
+      const response = await api.put(`/company/${companyId}/accounts/${selectedAccount.id}`, payload);
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['company-accounts', companyId] });
       toast.success('Account updated successfully');
-      setShowModal(false);
-      resetForm();
+      setViewMode('view');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error?.message || 'Failed to update account');
     },
   });
 
-  const resetForm = () => {
-    setFormData({ code: '', name: '', accountTypeId: '', parentId: '', openingBalance: '0', cashFlowType: 'NONE', category: 'NONE' });
-    setSelectedAccount(null);
-  };
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.delete(`/company/${companyId}/accounts/${id}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company-accounts', companyId] });
+      toast.success('Account deleted successfully');
+      setShowDetailPanel(false);
+      setSelectedAccount(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Failed to delete account');
+    },
+  });
 
   const syncMutation = useMutation({
     mutationFn: async () => {
@@ -143,46 +168,21 @@ export default function CompanyAccountsPage() {
     },
   });
 
-  if (!mounted) return null;
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('roles');
-    router.push('/login');
+  const resetForm = () => {
+    setFormData({ 
+      code: '', 
+      name: '', 
+      accountTypeId: '', 
+      parentId: '', 
+      openingBalance: '0', 
+      cashFlowType: 'NONE', 
+      category: 'NONE',
+      isActive: true 
+    });
+    setSelectedAccount(null);
   };
 
-  const generateCode = (typeName: string) => {
-    const prefix = typeName.slice(0, 1);
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    return `${prefix}-${random}`;
-  };
-
-  const handleTypeChange = (typeId: string) => {
-    setFormData({ ...formData, accountTypeId: typeId, code: '' });
-  };
-
-  const handleParentChange = (parentId: string) => {
-    if (parentId) {
-      const parent = accountsData?.find(a => a.id === parentId);
-      if (parent) {
-        setFormData({ ...formData, parentId, code: '' });
-      }
-    } else {
-      setFormData({ ...formData, parentId: '', code: '' });
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedAccount) {
-      updateMutation.mutate(formData);
-    } else {
-      createMutation.mutate(formData);
-    }
-  };
-
-  const handleEdit = (account: Account) => {
+  const handleRowClick = (account: Account) => {
     setSelectedAccount(account);
     setFormData({
       code: account.code,
@@ -191,302 +191,443 @@ export default function CompanyAccountsPage() {
       parentId: account.parentId || '',
       openingBalance: account.openingBalance.toString(),
       cashFlowType: account.cashFlowType || 'NONE',
-      category: account.category || 'NONE'
+      category: account.category || 'NONE',
+      isActive: account.isActive,
     });
-    setShowModal(true);
+    setShowDetailPanel(true);
+    setViewMode('view');
   };
 
-  const groupedAccounts = accountsData?.reduce((acc, account) => {
-    const type = account.accountType.name;
+  const handleEdit = () => setViewMode('edit');
+  const handleCancel = () => {
+    if (selectedAccount) {
+      setFormData({
+        code: selectedAccount.code,
+        name: selectedAccount.name,
+        accountTypeId: selectedAccount.accountType.id,
+        parentId: selectedAccount.parentId || '',
+        openingBalance: selectedAccount.openingBalance.toString(),
+        cashFlowType: selectedAccount.cashFlowType || 'NONE',
+        category: selectedAccount.category || 'NONE',
+        isActive: selectedAccount.isActive,
+      });
+    }
+    setViewMode('view');
+  };
+
+  const handleSave = () => {
+    if (viewMode === 'edit') {
+      updateMutation.mutate(formData);
+    }
+  };
+
+  const handleClose = () => {
+    setShowDetailPanel(false);
+    setSelectedAccount(null);
+    setViewMode('view');
+    resetForm();
+  };
+
+  const filteredAccounts = accountsData?.filter(a =>
+    !searchTerm || 
+    a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    a.code.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
+  // Group accounts by type
+  const groupedAccounts = filteredAccounts.reduce((acc, account) => {
+    const type = account.accountType?.name || 'Uncategorized';
     if (!acc[type]) acc[type] = [];
     acc[type].push(account);
     return acc;
   }, {} as { [key: string]: Account[] });
 
-  const buildAccountTree = (accounts: Account[]): Account[] => {
-    const accountMap = new Map<string, Account>();
-    const roots: Account[] = [];
-    
-    accounts.forEach(account => {
-      accountMap.set(account.id, { ...account, children: [] });
-    });
-    
-    accounts.forEach(account => {
-      const node = accountMap.get(account.id)!;
-      if (account.parentId && accountMap.has(account.parentId)) {
-        accountMap.get(account.parentId)!.children!.push(node);
-      } else {
-        roots.push(node);
-      }
-    });
-    
-    return roots;
+  const getDetailFields = (): DetailField[] => {
+    if (!selectedAccount) return [];
+    if (viewMode === 'edit') return [];
+
+    return [
+      { label: 'Account Code', value: selectedAccount.code },
+      { label: 'Account Name', value: selectedAccount.name },
+      { label: 'Account Type', value: selectedAccount.accountType?.name || '-' },
+      { label: 'Cash Flow', value: selectedAccount.cashFlowType || 'NONE', type: 'select' as const },
+      { label: 'Category', value: selectedAccount.category || 'NONE', type: 'select' as const },
+      { label: 'Opening Balance', value: selectedAccount.openingBalance, type: 'currency' as const },
+      { label: 'Current Balance', value: selectedAccount.currentBalance, type: 'currency' as const },
+      { label: 'Status', value: selectedAccount.isActive ? 'Active' : 'Inactive', type: 'status' as const },
+    ];
   };
 
-  const toggleNode = (id: string) => {
-    setExpandedNodes(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+  const getDetailActions = (): DetailAction[] => {
+    if (!selectedAccount) return [];
+
+    if (viewMode === 'edit') {
+      return [
+        { label: 'Save Changes', icon: Save, onClick: handleSave, variant: 'primary', loading: updateMutation.isPending },
+        { label: 'Cancel', icon: X, onClick: handleCancel, variant: 'secondary' },
+      ];
+    }
+
+    return [
+      { label: 'Edit Account', icon: Edit2, onClick: handleEdit, variant: 'secondary' },
+      { label: 'Delete', icon: Trash2, onClick: () => {
+        if (confirm('Are you sure you want to delete this account?')) {
+          deleteMutation.mutate(selectedAccount.id);
+        }
+      }, variant: 'danger' },
+    ];
   };
 
-  const renderAccountTree = (accounts: Account[], level: number = 0): React.ReactNode => {
-    return accounts.map(account => {
-      const hasChildren = account.children && account.children.length > 0;
-      const isExpanded = expandedNodes.has(account.id);
-      
-      return (
-        <React.Fragment key={account.id}>
-          <tr className="hover:bg-gray-50">
-            <td className="px-6 py-3 text-sm font-medium text-gray-900" style={{ paddingLeft: `${level * 24 + 24}px` }}>
-              <div className="flex items-center gap-2">
-                {hasChildren ? (
-                  <button 
-                    onClick={() => toggleNode(account.id)}
-                    className="p-0.5 hover:bg-gray-200 rounded"
-                  >
-                    {isExpanded ? <ChevronDown className="w-4 h-4 text-gray-500" /> : <ChevronRight className="w-4 h-4 text-gray-500" />}
-                  </button>
-                ) : (
-                  <span className="w-5" />
-                )}
-                {account.code}
-              </div>
-            </td>
-            <td className="px-6 py-3 text-sm text-gray-900">{account.name}</td>
-            <td className="px-6 py-3 text-sm text-gray-500">
-              {account.cashFlowType && account.cashFlowType !== 'NONE' ? (
-                <span className={cn(
-                  "px-2 py-1 rounded-md text-[10px] font-bold uppercase",
-                  account.cashFlowType === 'OPERATING' ? "bg-blue-100 text-blue-800" :
-                  account.cashFlowType === 'INVESTING' ? "bg-indigo-100 text-indigo-800" :
-                  "bg-purple-100 text-purple-800"
-                )}>
-                  {account.cashFlowType}
-                </span>
-              ) : (
-                <span className="text-slate-300 text-[10px] font-bold uppercase tracking-widest">N/A</span>
-              )}
-            </td>
-            <td className="px-6 py-3 text-sm text-gray-500">
-              {account.category && account.category !== 'NONE' ? (
-                <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200">
-                  {account.category}
-                </span>
-              ) : (
-                <span className="text-slate-300 text-[10px] font-bold uppercase tracking-widest">NONE</span>
-              )}
-            </td>
-            <td className="px-6 py-3 text-sm text-gray-500 text-right">
-              {account.openingBalance.toLocaleString()}
-            </td>
-            <td className="px-6 py-3 text-sm text-gray-900 text-right font-medium">
-              {account.currentBalance.toLocaleString()}
-            </td>
-            <td className="px-6 py-3 text-center">
-              <button 
-                onClick={() => handleEdit(account)}
-                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                title="Edit Account"
+  const getEditTab = (): DetailTab | null => {
+    if (!selectedAccount || viewMode !== 'edit') return null;
+
+    return {
+      id: 'edit',
+      label: 'Edit Account',
+      content: (
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Account Code</label>
+              <input
+                type="text"
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Account Type *</label>
+              <select
+                value={formData.accountTypeId}
+                onChange={(e) => setFormData({ ...formData, accountTypeId: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+                required
               >
-                <Edit2 className="w-4 h-4" />
-              </button>
-            </td>
-          </tr>
-          {hasChildren && isExpanded && renderAccountTree(account.children!, level + 1)}
-        </React.Fragment>
-      );
-    });
+                <option value="">Select Type</option>
+                {accountTypesData?.map((type) => (
+                  <option key={type.id} value={type.id}>{type.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2 space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Account Name *</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+                required
+              />
+            </div>
+            <div className="col-span-2 space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Parent Account</label>
+              <select
+                value={formData.parentId}
+                onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+              >
+                <option value="">No Parent (Root)</option>
+                {accountsData?.filter(a => a.id !== selectedAccount?.id).map((account) => (
+                  <option key={account.id} value={account.id}>{account.code} - {account.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cash Flow Category</label>
+              <select
+                value={formData.cashFlowType}
+                onChange={(e) => setFormData({ ...formData, cashFlowType: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+              >
+                <option value="NONE">None (Default)</option>
+                <option value="OPERATING">Operating Activity</option>
+                <option value="INVESTING">Investing Activity</option>
+                <option value="FINANCING">Financing Activity</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">System Category</label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+              >
+                <option value="NONE">None (Default)</option>
+                <option value="CASH">CASH (Physical Cash)</option>
+                <option value="BANK">BANK (Bank Accounts)</option>
+                <option value="AR">AR (Accounts Receivable)</option>
+                <option value="AP">AP (Accounts Payable)</option>
+                <option value="REVENUE">REVENUE (Income/Sales)</option>
+                <option value="EXPENSE">EXPENSE (Cost/Overhead)</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Opening Balance</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.openingBalance}
+                onChange={(e) => setFormData({ ...formData, openingBalance: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</label>
+              <label className="flex items-center gap-2 mt-2">
+                <input
+                  type="checkbox"
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  className="w-4 h-4 rounded border-slate-300"
+                />
+                <span className="text-sm font-medium">Active Account</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      ),
+    };
   };
+
+  const getCreateTab = (): DetailTab | null => {
+    if (!showDetailPanel || selectedAccount) return null;
+
+    return {
+      id: 'create',
+      label: 'Create Account',
+      content: (
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Account Type *</label>
+              <select
+                value={formData.accountTypeId}
+                onChange={(e) => setFormData({ ...formData, accountTypeId: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+                required
+              >
+                <option value="">Select Type</option>
+                {accountTypesData?.map((type) => (
+                  <option key={type.id} value={type.id}>{type.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Account Code</label>
+              <input
+                type="text"
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+                placeholder="Auto-generated if empty"
+              />
+            </div>
+            <div className="col-span-2 space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Account Name *</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+                placeholder="Enter account name"
+                required
+              />
+            </div>
+            <div className="col-span-2 space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Parent Account</label>
+              <select
+                value={formData.parentId}
+                onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+              >
+                <option value="">No Parent (Root)</option>
+                {accountsData?.map((account) => (
+                  <option key={account.id} value={account.id}>{account.code} - {account.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cash Flow Category</label>
+              <select
+                value={formData.cashFlowType}
+                onChange={(e) => setFormData({ ...formData, cashFlowType: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+              >
+                <option value="NONE">None (Default)</option>
+                <option value="OPERATING">Operating Activity</option>
+                <option value="INVESTING">Investing Activity</option>
+                <option value="FINANCING">Financing Activity</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">System Category</label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+              >
+                <option value="NONE">None (Default)</option>
+                <option value="CASH">CASH</option>
+                <option value="BANK">BANK</option>
+                <option value="AR">AR</option>
+                <option value="AP">AP</option>
+                <option value="REVENUE">REVENUE</option>
+                <option value="EXPENSE">EXPENSE</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Opening Balance</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.openingBalance}
+                onChange={(e) => setFormData({ ...formData, openingBalance: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</label>
+              <label className="flex items-center gap-2 mt-2">
+                <input
+                  type="checkbox"
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  className="w-4 h-4 rounded border-slate-300"
+                />
+                <span className="text-sm font-medium">Active Account</span>
+              </label>
+            </div>
+          </div>
+          <button
+            onClick={() => createMutation.mutate(formData)}
+            disabled={createMutation.isPending || !formData.name || !formData.accountTypeId}
+            className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
+          >
+            {createMutation.isPending ? 'Creating...' : 'Create Account'}
+          </button>
+        </div>
+      ),
+    };
+  };
+
+  if (!mounted) return null;
 
   return (
-    <div className="min-h-screen">
-
-
-
-        <div className="p-6 max-w-[1600px] mx-auto space-y-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Financial Foundation</h2>
-            <button onClick={() => { resetForm(); setShowModal(true); }} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20">
+    <div className="min-h-screen bg-slate-50/50">
+      <div className="p-8 max-w-[1600px] mx-auto">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <Building2 className="w-8 h-8 text-blue-600" />
+              Financial Foundation
+            </h1>
+            <p className="text-slate-500 mt-1">Chart of Accounts & Ledger Structure</p>
+          </div>
+          
+          <div className="flex gap-2">
+            <button
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg font-medium hover:bg-slate-50 transition-all"
+            >
+              {syncMutation.isPending ? 'Syncing...' : 'Sync Balances'}
+            </button>
+            <button
+              onClick={() => {
+                resetForm();
+                setShowDetailPanel(true);
+              }}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all duration-300 hover:shadow-lg hover:shadow-blue-200 active:scale-95 flex items-center gap-2"
+            >
               <Plus className="w-5 h-5" />
               Add Account
             </button>
           </div>
+        </div>
 
-        {isLoading ? (
-          <div className="text-center py-8">Loading...</div>
-        ) : (
-          <div className="space-y-6">
-            {accountTypesData?.map((type) => {
-              const typeAccounts = accountsData?.filter(a => a.accountType.id === type.id) || [];
-              if (typeAccounts.length === 0) return null;
-              const tree = buildAccountTree(typeAccounts);
-              const isExpanded = expandedTypes.has(type.id);
-              
-              return (
-                <div key={type.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
-                  <div className="bg-gray-50 px-6 py-3 border-b flex items-center justify-between">
-                    <button 
-                      onClick={() => setExpandedTypes(prev => {
-                        const next = new Set(prev);
-                        if (next.has(type.id)) {
-                          next.delete(type.id);
-                        } else {
-                          next.add(type.id);
-                        }
-                        return next;
-                      })}
-                      className="flex items-center gap-2 font-semibold text-gray-900 hover:text-blue-600 transition-colors"
-                    >
-                      {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                      {type.name}
-                    </button>
-                    <span className="text-xs text-gray-500">{typeAccounts.length} accounts</span>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/30">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search accounts by name or code..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="p-20 text-center">
+              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="text-slate-400 mt-3">Loading accounts...</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {Object.entries(groupedAccounts).map(([type, accounts]) => (
+                <div key={type} className="p-4">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">{type}</h3>
+                  <div className="space-y-1">
+                    {accounts.map((account) => (
+                      <div
+                        key={account.id}
+                        onClick={() => handleRowClick(account)}
+                        className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          <span className="font-mono text-sm text-slate-500">{account.code}</span>
+                          <span className="font-medium text-slate-900">{account.name}</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className={cn(
+                            "text-xs px-2 py-1 rounded",
+                            account.cashFlowType === 'OPERATING' ? 'bg-blue-100 text-blue-700' :
+                            account.cashFlowType === 'INVESTING' ? 'bg-indigo-100 text-indigo-700' :
+                            account.cashFlowType === 'FINANCING' ? 'bg-purple-100 text-purple-700' :
+                            'bg-slate-100 text-slate-500'
+                          )}>
+                            {account.cashFlowType || 'None'}
+                          </span>
+                          <span className="text-sm font-medium text-slate-900 text-right min-w-[100px]">
+                            {account.currentBalance.toLocaleString()}
+                          </span>
+                          <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  {isExpanded && (
-                    <table className="w-full">
-                      <thead className="bg-gray-50/50">
-                        <tr>
-                          <th className="px-6 py-2 text-left text-xs font-medium text-gray-400 uppercase">Account</th>
-                          <th className="px-6 py-2 text-left text-xs font-medium text-gray-400 uppercase">Name</th>
-                          <th className="px-6 py-2 text-left text-xs font-medium text-gray-400 uppercase">CF Category</th>
-                          <th className="px-6 py-2 text-left text-xs font-medium text-gray-400 uppercase">System Category</th>
-                          <th className="px-6 py-2 text-right text-xs font-medium text-gray-400 uppercase">Opening Balance</th>
-                          <th className="px-6 py-2 text-right text-xs font-medium text-gray-400 uppercase">Current Balance</th>
-                          <th className="px-6 py-2 text-center text-xs font-medium text-gray-400 uppercase">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {renderAccountTree(tree)}
-                      </tbody>
-                    </table>
-                  )}
                 </div>
-              );
-            })}
-            {accountsData?.length === 0 && (
-              <div className="text-center py-8 text-gray-500">No accounts found</div>
-            )}
-          </div>
-        )}
+              ))}
+              {filteredAccounts.length === 0 && (
+                <div className="p-20 text-center">
+                  <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-900 font-bold">No accounts found</p>
+                  <p className="text-slate-500 text-sm mt-1">Get started by adding your first account.</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+      </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-semibold mb-4">{selectedAccount ? 'Edit Account' : 'Create Account'}</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Account Type *</label>
-                <select
-                  value={formData.accountTypeId}
-                  onChange={(e) => handleTypeChange(e.target.value)}
-                  className="input"
-                  required
-                >
-                  <option value="">Select Type</option>
-                  {accountTypesData?.map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {type.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Account Code</label>
-                <input
-                  type="text"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  className="input"
-                  placeholder="Auto-generated if empty"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Account Name *</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="input"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Parent Account</label>
-                <select
-                  value={formData.parentId}
-                  onChange={(e) => handleParentChange(e.target.value)}
-                  className="input"
-                >
-                  <option value="">No Parent (Root)</option>
-                  {accountsData?.filter(a => a.id !== selectedAccount?.id).map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.code} - {account.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Cash Flow Category (RMG Standard)</label>
-                <select
-                  value={formData.cashFlowType}
-                  onChange={(e) => setFormData({ ...formData, cashFlowType: e.target.value })}
-                  className="input"
-                >
-                  <option value="NONE">None (Default)</option>
-                  <option value="OPERATING">Operating Activity</option>
-                  <option value="INVESTING">Investing Activity</option>
-                  <option value="FINANCING">Financing Activity</option>
-                </select>
-                <p className="text-[10px] text-slate-400 mt-1 italic">Used for Monthly Cash Flow Reporting on Dashboard.</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">System Category (Critical for Payments)</label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="input font-bold text-blue-700"
-                >
-                  <option value="NONE">None (Default)</option>
-                  <option value="CASH">CASH (Physical Cash)</option>
-                  <option value="BANK">BANK (Bank Accounts)</option>
-                  <option value="AR">AR (Accounts Receivable)</option>
-                  <option value="AP">AP (Accounts Payable)</option>
-                  <option value="REVENUE">REVENUE (Income/Sales)</option>
-                  <option value="EXPENSE">EXPENSE (Cost/Overhead)</option>
-                </select>
-                <p className="text-[10px] text-red-500 mt-1 italic font-medium">Warning: Payment system uses these categories to find settlement accounts.</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Opening Balance</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.openingBalance}
-                  onChange={(e) => setFormData({ ...formData, openingBalance: e.target.value })}
-                  className="input"
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary flex-1">
-                  Cancel
-                </button>
-                <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="btn btn-primary flex-1">
-                  {createMutation.isPending || updateMutation.isPending ? (selectedAccount ? 'Updating...' : 'Creating...') : (selectedAccount ? 'Save Changes' : 'Create')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Detail Panel */}
+      <DetailPanel
+        isOpen={showDetailPanel}
+        onClose={handleClose}
+        title={viewMode === 'edit' ? 'Edit Account' : (selectedAccount?.name || 'New Account')}
+        subtitle={selectedAccount?.code || undefined}
+        fields={getDetailFields()}
+        actions={getDetailActions()}
+        tabs={selectedAccount ? [getEditTab()].filter(Boolean) as DetailTab[] : (showDetailPanel && !selectedAccount) ? [getCreateTab()].filter(Boolean) as DetailTab[] : []}
+        status={selectedAccount ? { value: selectedAccount.isActive ? 'active' : 'inactive' } : undefined}
+        metadata={selectedAccount?.createdAt ? { createdAt: selectedAccount.createdAt } : undefined}
+        size="lg"
+      />
     </div>
   );
 }
-
-

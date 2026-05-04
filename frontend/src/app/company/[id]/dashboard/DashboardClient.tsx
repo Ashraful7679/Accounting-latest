@@ -83,6 +83,16 @@ export default function DashboardClient() {
   const activities = data?.alerts || [];
   const unreadCount = data?.unreadCount || 0;
   const accountingEquation = data?.accountingEquation;
+  const actionNeeded = data?.actionNeeded || {};
+  const forecast = charts.find((c: any) => c.name === 'Cash Flow Forecast')?.data || [];
+
+  const actionItems = [
+    { label: 'Overdue Invoices', count: actionNeeded.overdueInvoices, path: 'sales/invoices?status=OVERDUE', color: 'bg-red-50 text-red-600' },
+    { label: 'POs Pending', count: actionNeeded.pendingPOs, path: 'purchase/orders?status=PENDING_APPROVAL', color: 'bg-amber-50 text-amber-600' },
+    { label: 'Low Stock', count: actionNeeded.lowStockItems, path: 'products?lowStock=true', color: 'bg-orange-50 text-orange-600' },
+    { label: 'SOs Pending', count: actionNeeded.pendingSOs, path: 'sales/orders?status=PENDING', color: 'bg-blue-50 text-blue-600' },
+    { label: 'Journals Pending', count: actionNeeded.pendingJournals, path: 'journals?status=PENDING_VERIFICATION', color: 'bg-purple-50 text-purple-600' },
+  ].filter(item => item.count > 0);
 
   const kpiCards = [
     {
@@ -361,6 +371,56 @@ export default function DashboardClient() {
               </div>
             )}
           </>
+        )}
+
+        {/* Action Needed Widget */}
+        {actionItems.length > 0 && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-6">
+            <h3 className="text-sm font-semibold text-slate-600 mb-4">Action Needed</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {actionItems.map((item, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => router.push(`/company/${companyId}/${item.path}`)}
+                  className={`${item.color} rounded-xl p-3 text-left hover:shadow-md transition-all`}
+                >
+                  <p className="text-2xl font-bold">{item.count}</p>
+                  <p className="text-xs font-medium mt-1">{item.label}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Cash Flow Forecast */}
+        {forecast.length > 0 && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-6">
+            <h3 className="text-sm font-semibold text-slate-600 mb-4">Cash Flow Forecast (Next 3 Months)</h3>
+            <div className="grid grid-cols-3 gap-4">
+              {forecast.map((month: any, idx: number) => (
+                <div key={idx} className="border border-slate-100 rounded-xl p-4">
+                  <p className="text-sm font-medium text-slate-500">{month.name}</p>
+                  <p className="text-lg font-bold text-slate-800 mt-1">{formatCurrency(month.projectedBalance)}</p>
+                  <div className="mt-3 space-y-1 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-emerald-600">Inflow</span>
+                      <span className="text-slate-600">+{formatCurrency(month.inflow)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-red-600">Outflow</span>
+                      <span className="text-slate-600">-{formatCurrency(month.outflow)}</span>
+                    </div>
+                    <div className="flex justify-between pt-1 border-t border-slate-100">
+                      <span className="text-slate-500">Net</span>
+                      <span className={`font-medium ${month.netFlow >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {month.netFlow >= 0 ? '+' : ''}{formatCurrency(month.netFlow)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>

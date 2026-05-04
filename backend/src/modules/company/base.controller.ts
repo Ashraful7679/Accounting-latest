@@ -2,40 +2,42 @@ import { FastifyRequest } from 'fastify';
 import prisma from '../../config/database';
 import { ForbiddenError, NotFoundError } from '../../middleware/errorHandler';
 import { SequenceService } from './sequence.service';
+import { RBACService } from './rbac.service';
 
 export class BaseCompanyController {
   protected async getUserRole(userId: string, companyId: string): Promise<string> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { userRoles: { include: { role: true } } },
-    });
+    return RBACService.getUserRoleLevel(userId, companyId);
+  }
 
-    if (!user) return 'User';
+  protected async checkPermission(
+    userId: string, 
+    companyId: string, 
+    module: string, 
+    action: 'create' | 'view' | 'edit' | 'delete' | 'verify' | 'approve' | 'export' | 'print'
+  ): Promise<boolean> {
+    return RBACService.checkPermission(userId, companyId, module, action);
+  }
 
-    const userCompany = await prisma.userCompany.findUnique({
-      where: { userId_companyId: { userId, companyId } },
-    });
-
-    if (!userCompany) {
-      const isAdmin = user.userRoles.some(ur => ur.role.name === 'Admin');
-      if (isAdmin) return 'Admin';
-      throw new ForbiddenError('Access denied: You are not a member of this company');
+  protected async requirePermission(
+    userId: string,
+    companyId: string,
+    module: string,
+    action: 'create' | 'view' | 'edit' | 'delete' | 'verify' | 'approve' | 'export' | 'print'
+  ): Promise<void> {
+    const hasPermission = await this.checkPermission(userId, companyId, module, action);
+    if (!hasPermission) {
+      throw new ForbiddenError(`You don't have permission to ${action} ${module}`);
     }
-
-    return user.userRoles[0]?.role?.name || 'User';
   }
 
   protected canEdit(status: string, role: string, userId?: string, createdById?: string): boolean {
-    // Strict requirement: Only DRAFT and REJECTED documents can be edited
     const editableStatuses = ['DRAFT', 'REJECTED'];
     if (!editableStatuses.includes(status)) return false;
     
     if (role === 'Owner' || role === 'Admin' || role === 'Manager') return true;
-    if (userId && createdById && userId === createdById) {
-      return true; // Already checked editableStatuses above
-    }
+    if (userId && createdById && userId === createdById) return true;
+    if (role === 'Accountant') return true;
     
-    if (role === 'Accountant') return true; // Already checked editableStatuses above
     return false;
   }
 
@@ -46,7 +48,8 @@ export class BaseCompanyController {
   }
 
   protected canVerify(status: string, role: string): boolean {
-    const allowedRoles = ['Owner', 'Manager', 'Admin'];
+    // Role must have verify permission AND status must be pending verification
+    const allowedRoles = ['Owner', 'Admin', 'Manager', 'Controller'];
     if (allowedRoles.includes(role)) {
       return status === 'PENDING_VERIFICATION' || status === 'DRAFT' || status === 'OPEN';
     }
@@ -54,11 +57,21 @@ export class BaseCompanyController {
   }
 
   protected canApprove(status: string, role: string): boolean {
-    const allowedRoles = ['Owner', 'Admin', 'Manager'];
+    // Only Controller/Admin can approve verified documents
+    const allowedRoles = ['Owner', 'Admin', 'Manager', 'Controller'];
     if (allowedRoles.includes(role)) {
       return status === 'VERIFIED';
     }
     return false;
+  }
+
+  // Workflow: Draft → Pending Verification → Verified → Approved → Posted
+  protected canSubmitForVerification(status: string, role: string): boolean {
+    return status === 'DRAFT' && ['Accountant', 'Sales Rep', 'Purchase Rep', 'Admin', 'Owner'].includes(role);
+  }
+
+  protected canSubmitForApproval(status: string, role: string): boolean {
+    return status === 'VERIFIED' && ['Controller', 'Admin', 'Owner'].includes(role);
   }
 
   protected async generateDocumentNumber(

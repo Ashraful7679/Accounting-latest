@@ -584,7 +584,7 @@ export class EmployeeController extends BaseCompanyController {
     const { id: companyId } = request.params as { id: string };
     const expenses = await prisma.employeeExpense.findMany({
       where: { companyId },
-      include: { employee: true, account: true },
+      include: { employee: true, Account: true },
       orderBy: { date: 'desc' },
     });
     return reply.send({ success: true, data: expenses });
@@ -601,9 +601,8 @@ export class EmployeeController extends BaseCompanyController {
         amount: parseFloat(amount),
         date: new Date(date),
         description,
-        category: category || 'OTHER',
-        accountId, // Account to debit (The expense account)
-        status: 'DRAFT'
+        accountId,
+        status: 'PENDING'
       }
     });
     return reply.send({ success: true, data: expense });

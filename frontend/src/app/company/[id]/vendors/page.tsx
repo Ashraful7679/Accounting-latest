@@ -1,16 +1,14 @@
 'use client';
 
-
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
-import { Plus, Trash2, Edit, ArrowLeft, LogOut, Building2, Bell, X, Package, DollarSign } from 'lucide-react';
-import UserDropdown from '@/components/UserDropdown';
-
+import { getCurrencySymbol } from '@/lib/decimalUtils';
+import { cn } from '@/lib/utils';
+import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
+import { Plus, Trash2, Edit, Search, Building2, Eye, Save, X } from 'lucide-react';
 
 interface Vendor {
   id: string;
@@ -28,17 +26,21 @@ interface Vendor {
   balanceType?: string | null;
   preferredCurrency?: string;
   exchangeRate?: number;
+  createdAt?: string;
 }
-
 
 export default function CompanyVendorsPage() {
   const router = useRouter();
   const params = useParams();
   const companyId = params.id as string;
   const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState('');
   const [mounted, setMounted] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+
+  const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [viewMode, setViewMode] = useState<'view' | 'create' | 'edit'>('view');
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -52,21 +54,16 @@ export default function CompanyVendorsPage() {
     balanceType: 'CR',
     preferredCurrency: 'BDT',
     exchangeRate: 1,
+    isActive: true,
   });
-
-  // Auto-calculate Opening Balance in BDT
-  const openingBalanceBDT = formData.openingBalance * (formData.exchangeRate || 1);
-
 
   useEffect(() => {
     setMounted(true);
     const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/login');
-    }
+    if (!token) router.push('/login');
   }, [router]);
 
-  const { data: vendorsData, isLoading } = useQuery({
+  const { data: vendors, isLoading } = useQuery({
     queryKey: ['company-vendors', companyId],
     queryFn: async () => {
       const response = await api.get(`/company/${companyId}/vendors`);
@@ -82,26 +79,31 @@ export default function CompanyVendorsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['company-vendors', companyId] });
-      toast.success('Vendor created successfully');
-      closeModal();
+      toast.success('Vendor created');
+      setShowDetailPanel(false);
+      setFormData({
+        name: '', email: '', phone: '', address: '', city: '', country: '',
+        contactPerson: '', tinVat: '', openingBalance: 0, balanceType: 'CR',
+        preferredCurrency: 'BDT', exchangeRate: 1, isActive: true
+      });
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to create vendor');
+      toast.error(error.response?.data?.error?.message || 'Failed to create');
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
-      const response = await api.put(`/company/${companyId}/vendors/${id}`, data);
+    mutationFn: async (data: typeof formData) => {
+      const response = await api.put(`/company/${companyId}/vendors/${selectedVendor?.id}`, data);
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['company-vendors', companyId] });
-      toast.success('Vendor updated successfully');
-      closeModal();
+      toast.success('Vendor updated');
+      setViewMode('view');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to update vendor');
+      toast.error(error.response?.data?.error?.message || 'Failed to update');
     },
   });
 
@@ -112,291 +114,465 @@ export default function CompanyVendorsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['company-vendors', companyId] });
-      toast.success('Vendor deleted successfully');
+      toast.success('Vendor deleted');
+      setShowDetailPanel(false);
+      setSelectedVendor(null);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to delete vendor');
+      toast.error(error.response?.data?.error?.message || 'Failed to delete');
     },
   });
 
+  const filteredVendors = vendors?.filter(v =>
+    !searchTerm || 
+    v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    v.code.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
+  const handleRowClick = (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+    setFormData({
+      name: vendor.name,
+      email: vendor.email || '',
+      phone: vendor.phone || '',
+      address: vendor.address || '',
+      city: vendor.city || '',
+      country: vendor.country || '',
+      contactPerson: vendor.contactPerson || '',
+      tinVat: vendor.tinVat || '',
+      openingBalance: vendor.openingBalance || 0,
+      balanceType: vendor.balanceType || 'CR',
+      preferredCurrency: vendor.preferredCurrency || 'BDT',
+      exchangeRate: vendor.exchangeRate || 1,
+      isActive: vendor.isActive,
+    });
+    setShowDetailPanel(true);
+    setViewMode('view');
+  };
+
+  const handleEdit = () => setViewMode('edit');
+  const handleCancel = () => {
+    if (selectedVendor) {
+      setFormData({
+        name: selectedVendor.name,
+        email: selectedVendor.email || '',
+        phone: selectedVendor.phone || '',
+        address: selectedVendor.address || '',
+        city: selectedVendor.city || '',
+        country: selectedVendor.country || '',
+        contactPerson: selectedVendor.contactPerson || '',
+        tinVat: selectedVendor.tinVat || '',
+        openingBalance: selectedVendor.openingBalance || 0,
+        balanceType: selectedVendor.balanceType || 'CR',
+        preferredCurrency: selectedVendor.preferredCurrency || 'BDT',
+        exchangeRate: selectedVendor.exchangeRate || 1,
+        isActive: selectedVendor.isActive,
+      });
+    }
+    setViewMode('view');
+  };
+
+  const handleSave = () => updateMutation.mutate(formData);
+
+  const getDetailFields = (): DetailField[] => {
+    if (!selectedVendor) return [];
+    return [
+      { label: 'Vendor Code', value: selectedVendor.code },
+      { label: 'Vendor Name', value: selectedVendor.name },
+      { label: 'Contact Person', value: selectedVendor.contactPerson || '-' },
+      { label: 'Email', value: selectedVendor.email || '-' },
+      { label: 'Phone', value: selectedVendor.phone || '-' },
+      { label: 'Address', value: selectedVendor.address || '-' },
+      { label: 'City', value: selectedVendor.city || '-' },
+      { label: 'Country', value: selectedVendor.country || '-' },
+      { label: 'TIN/VAT', value: selectedVendor.tinVat || '-' },
+      { label: 'Opening Balance', value: `${selectedVendor.openingBalance || 0} ${selectedVendor.balanceType || 'CR'}`, type: 'text' },
+      { label: 'Currency', value: selectedVendor.preferredCurrency || 'BDT' },
+      { label: 'Status', value: selectedVendor.isActive ? 'Active' : 'Inactive', type: 'status' },
+    ];
+  };
+
+  const getDetailActions = (): DetailAction[] => {
+    if (!selectedVendor || viewMode === 'create') return [];
+    if (viewMode === 'edit') {
+      return [
+        { label: 'Save Changes', icon: Save, onClick: handleSave, variant: 'primary', loading: updateMutation.isPending },
+        { label: 'Cancel', icon: X, onClick: handleCancel, variant: 'secondary' },
+      ];
+    }
+    return [
+      { label: 'Edit Vendor', icon: Edit, onClick: handleEdit, variant: 'secondary' },
+      { label: 'Delete', icon: Trash2, onClick: () => {
+        if (confirm('Delete this vendor?')) deleteMutation.mutate(selectedVendor.id);
+      }, variant: 'danger' },
+    ];
+  };
+
+  const getEditTab = (): DetailTab | null => {
+    if (!selectedVendor || viewMode !== 'edit') return null;
+    return {
+      id: 'edit',
+      label: 'Edit Vendor',
+      content: (
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Vendor Name *</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Contact Person</label>
+              <input
+                type="text"
+                value={formData.contactPerson}
+                onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">TIN/VAT</label>
+              <input
+                type="text"
+                value={formData.tinVat}
+                onChange={(e) => setFormData({ ...formData, tinVat: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Email</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Phone</label>
+              <input
+                type="text"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Address</label>
+              <textarea
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg min-h-[80px]"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">City</label>
+              <input
+                type="text"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Country</label>
+              <input
+                type="text"
+                value={formData.country}
+                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Currency</label>
+              <select
+                value={formData.preferredCurrency}
+                onChange={(e) => setFormData({ ...formData, preferredCurrency: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              >
+                <option value="BDT">BDT</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Balance Type</label>
+              <select
+                value={formData.balanceType}
+                onChange={(e) => setFormData({ ...formData, balanceType: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              >
+                <option value="CR">Credit (Receivable)</option>
+                <option value="DR">Debit (Payable)</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Opening Balance</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.openingBalance}
+                onChange={(e) => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="flex items-center gap-2 mt-6">
+                <input
+                  type="checkbox"
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm font-medium">Active Vendor</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      ),
+    };
+  };
+
+  const getCreateTab = (): DetailTab => {
+    return {
+      id: 'create',
+      label: 'New Vendor',
+      content: (
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Vendor Name *</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                placeholder="Enter vendor name"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Contact Person</label>
+              <input
+                type="text"
+                value={formData.contactPerson}
+                onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">TIN/VAT</label>
+              <input
+                type="text"
+                value={formData.tinVat}
+                onChange={(e) => setFormData({ ...formData, tinVat: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Email</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Phone</label>
+              <input
+                type="text"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Address</label>
+              <textarea
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg min-h-[80px]"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">City</label>
+              <input
+                type="text"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Country</label>
+              <input
+                type="text"
+                value={formData.country}
+                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Currency</label>
+              <select
+                value={formData.preferredCurrency}
+                onChange={(e) => setFormData({ ...formData, preferredCurrency: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              >
+                <option value="BDT">BDT</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Balance Type</label>
+              <select
+                value={formData.balanceType}
+                onChange={(e) => setFormData({ ...formData, balanceType: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              >
+                <option value="CR">Credit (Receivable)</option>
+                <option value="DR">Debit (Payable)</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Opening Balance</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.openingBalance}
+                onChange={(e) => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="flex items-center gap-2 mt-6">
+                <input
+                  type="checkbox"
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm font-medium">Active Vendor</span>
+              </label>
+            </div>
+          </div>
+          <button
+            onClick={() => createMutation.mutate(formData)}
+            disabled={createMutation.isPending || !formData.name}
+            className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50"
+          >
+            {createMutation.isPending ? 'Creating...' : 'Create Vendor'}
+          </button>
+        </div>
+      ),
+    };
+  };
 
   if (!mounted) return null;
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('roles');
-    router.push('/login');
-  };
-
-  const openModal = (vendor?: Vendor) => {
-    if (vendor) {
-      setEditingVendor(vendor);
-      setFormData({
-        name: vendor.name,
-        email: vendor.email || '',
-        phone: vendor.phone || '',
-        address: vendor.address || '',
-        city: vendor.city || '',
-        country: vendor.country || '',
-        contactPerson: vendor.contactPerson || '',
-        tinVat: vendor.tinVat || '',
-        openingBalance: vendor.openingBalance || 0,
-        balanceType: vendor.balanceType || 'CR',
-        preferredCurrency: vendor.preferredCurrency || 'BDT',
-        exchangeRate: vendor.exchangeRate || 1,
-      });
-    } else {
-      setEditingVendor(null);
-      setFormData({ 
-        name: '', email: '', phone: '', address: '', city: '', country: '',
-        contactPerson: '', tinVat: '', openingBalance: 0, balanceType: 'CR', 
-        preferredCurrency: 'BDT', exchangeRate: 1
-      });
-    }
-    setShowModal(true);
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setEditingVendor(null);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingVendor) {
-      updateMutation.mutate({ id: editingVendor.id, data: formData });
-    } else {
-      createMutation.mutate(formData);
-    }
-  };
-
-
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this vendor?')) {
-      deleteMutation.mutate(id);
-    }
-  };
-
   return (
-    <div className="min-h-screen">
-
-
-        <div className="p-6 max-w-[1600px] mx-auto space-y-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Vendor Master</h2>
-            <button onClick={() => openModal()} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20">
-              <Plus className="w-5 h-5" />
-              Add Vendor
-            </button>
-          </div>
-
-        {isLoading ? (
-          <div className="text-center py-8">Loading...</div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Vendor</th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Email/Phone</th>
-                  <th className="px-6 py-3 text-right text-sm font-medium text-gray-500 uppercase tracking-wider">Balance</th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Currency</th>
-                  <th className="px-6 py-3 text-center text-sm font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {vendorsData?.map((vendor) => (
-                    <tr 
-                      key={vendor.id} 
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-900">{vendor.name}</span>
-                          <span className="text-xs text-slate-500 font-mono">{vendor.code}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col text-sm">
-                          <span>{vendor.contactPerson || '-'}</span>
-                          <span className="text-xs text-slate-500">{vendor.tinVat ? `TIN: ${vendor.tinVat}` : ''}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col text-sm">
-                          <span>{vendor.email || '-'}</span>
-                          <span className="text-xs text-slate-500">{vendor.phone || '-'}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right font-mono">
-                        <span className={vendor.balanceType === 'DR' ? 'text-blue-600' : 'text-red-600'}>
-                          {vendor.openingBalance?.toLocaleString()} {vendor.balanceType}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm uppercase font-bold text-slate-600">{vendor.preferredCurrency}</td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <button onClick={() => openModal(vendor)} className="p-1 text-blue-600 hover:text-blue-800 transition-colors">
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => handleDelete(vendor.id)} className="p-1 text-red-600 hover:text-red-800 transition-colors">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                ))}
-              </tbody>
-            </table>
-            {vendorsData?.length === 0 && (
-              <div className="text-center py-8 text-gray-500">No vendors found</div>
-            )}
-          </div>
-        )}
+    <div className="min-h-screen bg-slate-50/50">
+      <div className="p-8 max-w-[1600px] mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+            <Building2 className="w-8 h-8 text-blue-600" />
+            Vendor Master
+          </h1>
+          <button
+            onClick={() => {
+              setFormData({
+                name: '', email: '', phone: '', address: '', city: '', country: '',
+                contactPerson: '', tinVat: '', openingBalance: 0, balanceType: 'CR',
+                preferredCurrency: 'BDT', exchangeRate: 1, isActive: true
+              });
+              setSelectedVendor(null);
+              setShowDetailPanel(true);
+              setViewMode('create');
+            }}
+            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700"
+          >
+            <Plus className="w-5 h-5" /> Add Vendor
+          </button>
         </div>
-      
 
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="px-8 py-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">
-                  {editingVendor ? 'Edit Supplier' : 'Register New Supplier'}
-                </h3>
-                <p className="text-sm text-slate-500">Configure basic and financial details</p>
-              </div>
-              <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <X className="w-6 h-6" />
-              </button>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
+          <div className="p-4 border-b border-slate-100">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search vendors..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl"
+              />
             </div>
-
-            <form onSubmit={handleSubmit} className="p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Basic Section */}
-                <div className="lg:col-span-3">
-                  <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Building2 className="w-4 h-4" />
-                    Company Information
-                  </h4>
-                </div>
-                
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Supplier Name *</label>
-                  <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="input w-full" placeholder="e.g. Acme Corp" required />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Contact Person</label>
-                  <input type="text" value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} className="input w-full" placeholder="Full Name" />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email Address</label>
-                  <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="input w-full" placeholder="supplier@example.com" />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Phone Number</label>
-                  <input type="text" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="input w-full" placeholder="+1..." />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">TIN / VAT No</label>
-                  <input type="text" value={formData.tinVat} onChange={(e) => setFormData({ ...formData, tinVat: e.target.value })} className="input w-full" placeholder="Tax ID" />
-                </div>
-
-                {/* Address Section */}
-                <div className="lg:col-span-3 mt-4">
-                  <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Package className="w-4 h-4" />
-                    Location Details
-                  </h4>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Street Address</label>
-                  <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="input w-full" />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">City</label>
-                    <input type="text" value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} className="input w-full" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Country</label>
-                    <input type="text" value={formData.country} onChange={(e) => setFormData({ ...formData, country: e.target.value })} className="input w-full" />
-                  </div>
-                </div>
-
-                {/* Financial Section */}
-                <div className="lg:col-span-3 mt-4">
-                  <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <DollarSign className="w-4 h-4" />
-                    Financial Configuration
-                  </h4>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Preferred Currency</label>
-                  <select value={formData.preferredCurrency} onChange={(e) => setFormData({ ...formData, preferredCurrency: e.target.value, exchangeRate: e.target.value === 'BDT' ? 1 : formData.exchangeRate })} className="input w-full">
-                    <option value="BDT">BDT (Local)</option>
-                    <option value="USD">USD (Dollar)</option>
-                    <option value="EUR">EUR (Euro)</option>
-                    <option value="GBP">GBP (Pound)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Exchange Rate (to BDT)</label>
-                  <input 
-                    type="number" 
-                    step="0.0001"
-                    value={formData.exchangeRate} 
-                    onChange={(e) => setFormData({ ...formData, exchangeRate: parseFloat(e.target.value) })} 
-                    className="input w-full" 
-                    placeholder="1.00"
-                    disabled={formData.preferredCurrency === 'BDT'}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex-1">
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Opening Balance</label>
-                    <input type="number" value={formData.openingBalance} onChange={(e) => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) })} className="input w-full" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Type</label>
-                    <select value={formData.balanceType} onChange={(e) => setFormData({ ...formData, balanceType: e.target.value })} className="input w-full">
-                      <option value="CR">Credit (Payable)</option>
-                      <option value="DR">Debit (Advance)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Opening Balance (BDT)</label>
-                  <input type="text" value={`${getCurrencySymbol('BDT')}${formatCurrency(openingBalanceBDT)}`} className="input w-full bg-slate-100" readOnly />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-8 mt-8 border-t border-slate-100">
-                <button type="button" onClick={closeModal} className="px-6 py-2.5 rounded-xl text-slate-600 font-semibold hover:bg-slate-50 transition-colors">
-                  Cancel
-                </button>
-                <button type="submit" className="px-8 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 active:scale-95">
-                  {editingVendor ? 'Update Supplier' : 'Create Supplier'}
-                </button>
-              </div>
-            </form>
           </div>
+
+          {isLoading ? (
+            <div className="p-20 text-center">
+              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+            </div>
+          ) : filteredVendors.length === 0 ? (
+            <div className="p-20 text-center">
+              <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-900 font-bold">No vendors found</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {filteredVendors.map((vendor) => (
+                <div
+                  key={vendor.id}
+                  onClick={() => handleRowClick(vendor)}
+                  className="p-4 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <div className="font-bold text-slate-900">{vendor.name}</div>
+                      <div className="text-sm text-slate-500">{vendor.code}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-slate-500">{vendor.email || '-'}</span>
+                    <span className="font-bold text-slate-900">
+                      {getCurrencySymbol(vendor.preferredCurrency)}{vendor.openingBalance?.toLocaleString()}
+                    </span>
+                    <span className={cn(
+                      "text-xs px-2 py-1 rounded",
+                      vendor.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-50 text-slate-500'
+                    )}>
+                      {vendor.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    <Eye className="w-4 h-4 text-slate-400" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
+
+      <DetailPanel
+        isOpen={showDetailPanel}
+        onClose={() => { setShowDetailPanel(false); setSelectedVendor(null); setViewMode('view'); }}
+        title={viewMode === 'edit' ? 'Edit Vendor' : (selectedVendor?.name || 'New Vendor')}
+        subtitle={selectedVendor?.code}
+        fields={getDetailFields()}
+        actions={getDetailActions()}
+        tabs={selectedVendor ? [getEditTab()].filter(Boolean) as DetailTab[] : (showDetailPanel && !selectedVendor) ? [getCreateTab()] : []}
+        status={selectedVendor ? { value: selectedVendor.isActive ? 'active' : 'inactive' } : undefined}
+        metadata={selectedVendor?.createdAt ? { createdAt: selectedVendor.createdAt } : undefined}
+        size="lg"
+      />
     </div>
   );
 }
-
-

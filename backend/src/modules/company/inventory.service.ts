@@ -5,9 +5,14 @@ const prisma = new PrismaClient();
 export class InventoryService {
   /**
    * Increases the stock amount for a product (e.g., when a GRN is approved).
+   * Skips stock adjustment for service items.
    */
   static async increaseStock(tx: any, productId: string, quantity: number) {
     if (!productId || quantity <= 0) return;
+
+    // Skip for services
+    const product = await tx.product.findUnique({ where: { id: productId }, select: { isService: true } });
+    if (product?.isService) return;
 
     await tx.product.update({
       where: { id: productId },
@@ -21,9 +26,14 @@ export class InventoryService {
 
   /**
    * Decreases the stock amount for a product (e.g., when a DN is approved).
+   * Skips stock adjustment for service items.
    */
   static async decreaseStock(tx: any, productId: string, quantity: number) {
     if (!productId || quantity <= 0) return;
+
+    // Skip for services
+    const product = await tx.product.findUnique({ where: { id: productId }, select: { isService: true } });
+    if (product?.isService) return;
 
     await tx.product.update({
       where: { id: productId },

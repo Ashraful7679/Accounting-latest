@@ -53,11 +53,14 @@ export class JournalController extends BaseCompanyController {
         throw new ValidationError('Transaction date is required');
       }
 
+      // Check permission to create journals
+      await this.requirePermission(userId, companyId, 'finance.journals', 'create');
+
       const journalDate = new Date(data.date);
       const role = await this.getUserRole(userId, companyId);
       const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
 
-      const status = (role === 'Accountant' || isOwnerOrAdmin) ? 'PENDING_VERIFICATION' : 'DRAFT';
+      const status = (role === 'Accountant' || role === 'Controller' || isOwnerOrAdmin) ? 'PENDING_VERIFICATION' : 'DRAFT';
 
       const journal = await TransactionRepository.createJournal({
         description: data.description || null,
@@ -183,9 +186,13 @@ export class JournalController extends BaseCompanyController {
     const { journalId } = request.params as { journalId: string };
     const { id: companyId } = request.params as { id: string };
     const userId = (request.user as any).id;
+    const { reverse = false, reason } = request.body as { reverse?: boolean; reason?: string };
 
     const role = await this.getUserRole(userId, companyId);
-    const journal = await prisma.journalEntry.findUnique({ where: { id: journalId } });
+    const journal = await prisma.journalEntry.findUnique({ 
+      where: { id: journalId },
+      include: { lines: true }
+    });
 
     if (!journal) throw new NotFoundError('Journal not found');
 
@@ -193,14 +200,73 @@ export class JournalController extends BaseCompanyController {
       throw new ForbiddenError('Cannot delete this journal');
     }
 
+    // If reverse=true, create reversal journal instead of hard delete
+    if (reverse) {
+      return this.reverseJournal(journal, companyId, userId, reply, reason);
+    }
+
+    // Original hard delete behavior (for draft/pending only)
     await prisma.journalEntry.delete({ where: { id: journalId } });
     return reply.send({ success: true, message: 'Journal deleted' });
+  }
+
+  private async reverseJournal(journal: any, companyId: string, userId: string, reply: FastifyReply, reason?: string) {
+    const reversalNumber = await this.generateDocumentNumber(companyId, 'journal');
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Create reversal journal entry
+      const reversal = await (tx.journalEntry as any).create({
+        data: {
+          entryNumber: `REV-${reversalNumber}`,
+          companyId,
+          date: new Date(),
+          description: reason || `Reversal of Journal ${journal.entryNumber}`,
+          totalDebit: journal.totalCredit,
+          totalCredit: journal.totalDebit,
+          status: 'APPROVED',
+          reference: journal.referenceNote || null,
+          originalJournalId: journal.id
+        }
+      });
+
+      // 2. Reverse all lines (swap debit/credit)
+      for (const line of journal.lines || []) {
+        await tx.journalEntryLine.create({
+          data: {
+            journalEntryId: reversal.id,
+            accountId: line.accountId,
+            debitBase: line.creditBase,
+            creditBase: line.debitBase,
+            debit: line.credit,
+            credit: line.debit
+          }
+        });
+      }
+
+      // 3. Update original journal to show it's reversed
+      await tx.journalEntry.update({
+        where: { id: journal.id },
+        data: { 
+          status: 'REVERSED',
+          reference: `Reversed by ${reversal.entryNumber}`
+        }
+      });
+    });
+
+    return reply.send({ 
+      success: true, 
+      message: `Reversal journal created for ${journal.entryNumber}`,
+      data: { reversalNumber: `REV-${reversalNumber}` }
+    });
   }
 
   async verifyJournal(request: FastifyRequest, reply: FastifyReply) {
     const { journalId } = request.params as { journalId: string };
     const { id: companyId } = request.params as { id: string };
     const userId = (request.user as any).id;
+
+    // Check permission to verify journals
+    await this.requirePermission(userId, companyId, 'finance.journals', 'verify');
 
     const role = await this.getUserRole(userId, companyId);
     const journal = await prisma.journalEntry.findUnique({ where: { id: journalId } });

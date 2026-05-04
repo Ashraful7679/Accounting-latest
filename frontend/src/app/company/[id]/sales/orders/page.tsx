@@ -7,10 +7,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Plus, Search, ChevronDown, ChevronRight, Truck, Tag, Link as LinkIcon, Trash2, X, ShoppingBag, Eye, FileText, Printer } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { formatCurrency } from '@/lib/decimalUtils';
+import { formatCurrency, getCurrencySymbol } from '@/lib/decimalUtils';
 import { cn } from '@/lib/utils';
 import React from 'react';
 import { PartialFulfillmentModal } from '@/components/PartialFulfillmentModal';
+import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
 
 interface SalesOrderLine {
   id: string;
@@ -53,6 +54,8 @@ export default function SalesOrdersPage() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
+
+  if (!mounted) return null;
 
   const { data: salesOrders, isLoading } = useQuery({
     queryKey: ['sales-orders', companyId],
@@ -113,14 +116,33 @@ export default function SalesOrdersPage() {
     setExpandedOrders(newExpanded);
   };
 
+  // DetailPanel state
+  const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null);
+
+  const handleOrderClick = (order: SalesOrder) => {
+    setSelectedOrder(order);
+    setShowDetailPanel(true);
+  };
+
+  const getStatusBadge = (status: string) => {
+    const styles: any = {
+      DRAFT: { bg: 'bg-gray-100', text: 'text-gray-600' },
+      SENT: { bg: 'bg-blue-50', text: 'text-blue-600' },
+      PARTIAL: { bg: 'bg-yellow-50', text: 'text-yellow-600' },
+      COMPLETED: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
+      CANCELLED: { bg: 'bg-red-50', text: 'text-red-600' },
+    };
+    const s = styles[status] || styles.DRAFT;
+    return <span className={cn("text-[10px] font-bold px-2 py-1 rounded uppercase", s.bg, s.text)}>{status}</span>;
+  };
+
   const filteredOrders = salesOrders?.filter(so =>
     (!searchTerm ||
       so.soNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       so.customer?.name.toLowerCase().includes(searchTerm.toLowerCase())) &&
     ((activeTab === 'local' && so.currency === 'BDT') || (activeTab === 'foreign' && so.currency !== 'BDT'))
   ) || [];
-
-  if (!mounted) return null;
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto space-y-6 bg-gray-50 min-h-screen">
@@ -194,11 +216,11 @@ export default function SalesOrdersPage() {
               filteredOrders.map((so) => (
                 <React.Fragment key={so.id}>
                   <tr className={cn(
-                    "hover:bg-gray-50 group transition-colors",
+                    "hover:bg-gray-50 group transition-colors cursor-pointer",
                     expandedOrders.has(so.id) && "bg-gray-50"
-                  )}>
+                  )} onClick={() => handleOrderClick(so)}>
                     <td className="px-6 py-4">
-                      <button onClick={() => toggleExpand(so.id)} className="p-1 text-gray-400 hover:text-gray-900 transition-colors">
+                      <button onClick={(e) => { e.stopPropagation(); toggleExpand(so.id); }} className="p-1 text-gray-400 hover:text-gray-900 transition-colors">
                         {expandedOrders.has(so.id) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       </button>
                     </td>
@@ -225,7 +247,14 @@ export default function SalesOrdersPage() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={() => setShowFulfillmentModal({ order: so, type: 'DN' })}
+                          onClick={(e) => { e.stopPropagation(); handleOrderClick(so); }}
+                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="View Details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setShowFulfillmentModal({ order: so, type: 'DN' }) }}
                           className="p-2 text-gray-400 hover:text-indigo-600 transition-colors"
                           title="Generate Delivery Note"
                         >
@@ -457,5 +486,70 @@ export default function SalesOrdersPage() {
         />
       )}
     </div>
+    {showDetailPanel && <SalesOrderDetailPanel />}
+  );
+};
+const SalesOrderDetailPanel = () => {
+  if (!selectedOrder) return null;
+  
+  const getDetailFields = (): DetailField[] => [
+    { label: 'SO Number', value: selectedOrder.soNumber },
+    { label: 'Customer', value: selectedOrder.customer?.name || '-' },
+    { label: 'Date', value: new Date(selectedOrder.soDate).toLocaleDateString(), type: 'date' },
+    { label: 'Total', value: `${getCurrencySymbol(selectedOrder.currency)}${formatCurrency(selectedOrder.totalBDT)}`, type: 'currency' },
+    { label: 'Currency', value: selectedOrder.currency },
+    { label: 'Status', value: getStatusBadge(selectedOrder.status) },
+  ];
+
+  const getDetailActions = (): DetailAction[] => [
+    { label: 'View Details', icon: Eye, onClick: () => toggleExpand(selectedOrder.id), variant: 'secondary' },
+    { label: 'Create Invoice', icon: FileText, onClick: () => generateInvoice(selectedOrder.id, undefined, selectedOrder.customer?.id), variant: 'primary' },
+  ];
+
+  const getLinesTab = (): DetailTab => ({
+    id: 'lines',
+    label: `Lines (${selectedOrder.lines?.length || 0})`,
+    content: (
+      <div className="p-4">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="px-3 py-2 text-left text-xs font-bold text-slate-500">Item</th>
+              <th className="px-3 py-2 text-right text-xs font-bold text-slate-500">Qty</th>
+              <th className="px-3 py-2 text-right text-xs font-bold text-slate-500">Delivered</th>
+              <th className="px-3 py-2 text-right text-xs font-bold text-slate-500">Invoiced</th>
+              <th className="px-3 py-2 text-right text-xs font-bold text-slate-500">Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {selectedOrder.lines?.map((line: any, idx: number) => (
+              <tr key={idx}>
+                <td className="px-3 py-2">{line.description || line.product?.name}</td>
+                <td className="px-3 py-2 text-right">{line.quantity}</td>
+                <td className="px-3 py-2 text-right">{line.deliveredQuantity || 0}</td>
+                <td className="px-3 py-2 text-right">{line.invoicedQuantity || 0}</td>
+                <td className="px-3 py-2 text-right font-medium">{line.total}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ),
+  });
+
+  return (
+    <DetailPanel
+      isOpen={showDetailPanel}
+      onClose={() => { setShowDetailPanel(false); setSelectedOrder(null); }}
+      title={selectedOrder.soNumber}
+      subtitle={selectedOrder.customer?.name}
+      fields={getDetailFields()}
+      actions={getDetailActions()}
+      tabs={[getLinesTab()]}
+      status={{ value: selectedOrder.status.toLowerCase() as any }}
+      size="lg"
+    />
   );
 }
+
+export default SalesOrdersPage;

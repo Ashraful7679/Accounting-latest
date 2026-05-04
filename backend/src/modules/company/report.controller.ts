@@ -462,4 +462,99 @@ export class ReportController extends BaseCompanyController {
       endingCash: accounts.reduce((s, a) => s + a.currentBalance, 0)
     };
   }
+
+  async getCustomerStatement(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const { customerId } = request.params as { customerId: string };
+    const { startDate, endDate } = request.query as { startDate?: string; endDate?: string };
+
+    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    if (!customer) return reply.send({ success: true, data: null });
+
+    const dateFilter: any = {};
+    if (startDate && startDate !== '') dateFilter.gte = new Date(startDate);
+    if (endDate && endDate !== '') dateFilter.lte = new Date(endDate);
+
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        customerId,
+        type: 'SALES',
+        status: 'APPROVED',
+        ...(Object.keys(dateFilter).length > 0 ? { invoiceDate: dateFilter } : {})
+      },
+      include: { lines: true },
+      orderBy: { invoiceDate: 'asc' }
+    });
+
+    const payments = await prisma.payment.findMany({
+      where: {
+        customerId,
+        status: 'APPROVED',
+        ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {})
+      },
+      orderBy: { date: 'asc' }
+    });
+
+    const creditNotes = await prisma.creditNote.findMany({
+      where: {
+        customerId,
+        status: 'APPROVED',
+        ...(Object.keys(dateFilter).length > 0 ? { creditNoteDate: dateFilter } : {})
+      },
+      include: { lines: true },
+      orderBy: { creditNoteDate: 'asc' }
+    });
+
+    let runningBalance = customer.openingBalance || 0;
+    const transactions: any[] = [];
+
+    for (const inv of invoices) {
+      runningBalance += inv.total;
+      transactions.push({
+        date: inv.invoiceDate,
+        type: 'INVOICE',
+        reference: inv.invoiceNumber,
+        debit: inv.total,
+        credit: 0,
+        balance: runningBalance
+      });
+    }
+
+    for (const pay of payments) {
+      runningBalance -= pay.amount;
+      transactions.push({
+        date: pay.date,
+        type: 'PAYMENT',
+        reference: pay.paymentNumber,
+        debit: 0,
+        credit: pay.amount,
+        balance: runningBalance
+      });
+    }
+
+    for (const cn of creditNotes) {
+      runningBalance -= cn.totalBDT;
+      transactions.push({
+        date: cn.creditNoteDate,
+        type: 'CREDIT_NOTE',
+        reference: cn.creditNoteNumber,
+        debit: 0,
+        credit: cn.totalBDT,
+        balance: runningBalance
+      });
+    }
+
+    transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    return reply.send({
+      success: true,
+      data: {
+        customer: { id: customer.id, code: customer.code, name: customer.name },
+        openingBalance: customer.openingBalance || 0,
+        balanceType: customer.balanceType || 'DR',
+        transactions,
+        closingBalance: runningBalance
+      }
+    });
+  }
 }

@@ -26,6 +26,7 @@ export class ProductRepository {
     isActive?: boolean;
     currency?: string;
     stockAmount?: number;
+    type?: string;
   }) {
     return prisma.product.create({ data });
   }

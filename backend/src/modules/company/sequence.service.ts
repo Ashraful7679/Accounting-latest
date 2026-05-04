@@ -12,7 +12,7 @@ export class SequenceService {
    */
   static async generateDocumentNumber(
     companyId: string,
-    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product' | 'employee' | 'account' | 'so' | 'dn' | 'grn' | 'bill',
+    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product' | 'employee' | 'account' | 'so' | 'dn' | 'grn' | 'bill' | 'purchase-requisition' | 'debit-note' | 'fixed-asset' | 'payroll-run' | 'credit-note',
     prismaOverride?: any
   ): Promise<string> {
     const client = prismaOverride || prisma;
@@ -31,6 +31,15 @@ export class SequenceService {
       dn: 'DN',
       grn: 'GRN',
       bill: 'BILL',
+      'purchase-requisition': 'PR',
+      'debit-note': 'DEBN',
+      'credit-note': 'CRN',
+      'warehouse': 'WH',
+      'stock-transfer': 'ST',
+      'stock-reconciliation': 'SR',
+      'bank-reconciliation': 'BR',
+      'fixed-asset': 'FA',
+      'payroll-run': 'PRUN',
     };
 
     const prefix = prefixes[type];

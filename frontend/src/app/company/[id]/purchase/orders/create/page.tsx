@@ -56,7 +56,7 @@ export default function CreatePurchaseOrderPage() {
   });
 
   const filteredVendors = vendors?.filter((v: any) => 
-    orderType === 'local' ? v.type === 'Local' || !v.type : v.type === 'Foreign'
+    orderType === 'local' ? v.preferredCurrency === 'BDT' : v.preferredCurrency !== 'BDT'
   );
 
   const handleLineChange = (index: number, field: string, value: any) => {

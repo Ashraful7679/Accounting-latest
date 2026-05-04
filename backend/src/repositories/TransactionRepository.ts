@@ -292,8 +292,9 @@ export class TransactionRepository {
 
   // --- Automated Account Creation ---
 
-  static async getAccountTypeId(typeName: string) {
-    const type = await prisma.accountType.findUnique({ where: { name: typeName.toUpperCase() } });
+  static async getAccountTypeId(typeName: string, tx?: any) {
+    const client = tx || prisma;
+    const type = await client.accountType.findUnique({ where: { name: typeName.toUpperCase() } });
     if (!type) throw new Error(`Account type ${typeName} not found`);
     return type.id;
   }
@@ -303,30 +304,41 @@ export class TransactionRepository {
    * Scoped to the company.
    */
   static async ensureEntityAccount(tx: any, companyId: string, entityId: string, entityName: string, entityCode: string, category: 'AR' | 'AP' | 'PAYABLE', openingBalance: number = 0) {
-    // Check if an account already exists for this entity (by entityCode in name)
-    const existing = await tx.account.findFirst({
-      where: { companyId, name: { contains: entityCode, mode: 'insensitive' } }
+    // 1. Check if an account already exists for this entity (direct reference)
+    const existingEntityAccount = await tx.account.findFirst({
+      where: { companyId, referenceId: entityId, category }
     });
-    if (existing) return existing;
+    if (existingEntityAccount) return existingEntityAccount;
 
+    // 2. Resolve account type ID
     const typeName = category === 'AR' ? 'ASSET' : 'LIABILITY';
-    const accountTypeId = await this.getAccountTypeId(typeName);
+    const accountTypeId = await this.getAccountTypeId(typeName, tx);
 
-    // Automation: Find or Create Parent Account for better organization (like the bank)
-    let parentId: string | null = null;
+    // 3. Find/Create Parent or "Unified" Account
+    // We check for accounts with the EXACT category (AR, AP, PAYABLE) which are intended to be the unified ledger.
+    // If they exist, we use them directly instead of creating children.
+    const unifiedAccount = await tx.account.findFirst({
+      where: { companyId, category, parentId: null },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    if (unifiedAccount) {
+      // If we found a unified account, return it.
+      // Note: We don't update referenceId here because multiple entities share this account.
+      return unifiedAccount;
+    }
+
+    // 4. Fallback: Create a dedicated account under a parent if no unified account is found
     const parentName = category === 'AR' ? 'Accounts Receivable' : category === 'AP' ? 'Accounts Payable' : 'Employee Payables & Salaries';
-    
-    // Check for existing logical parent OR a default account of that category
-    const parentCategories = category === 'AR' ? ['AR', 'AR_PARENT'] : category === 'AP' ? ['AP', 'AP_PARENT'] : ['PAYABLE', 'PAYABLE_PARENT'];
-    const fallbackCategory = category === 'AR' ? 'AR_PARENT' : category === 'AP' ? 'AP_PARENT' : 'PAYABLE_PARENT';
+    const parentCategory = category === 'AR' ? 'AR_PARENT' : category === 'AP' ? 'AP_PARENT' : 'PAYABLE_PARENT';
 
     let parentAcc = await tx.account.findFirst({
-      where: { companyId, category: { in: parentCategories } },
-      orderBy: { createdAt: 'asc' } // Prefer older/default accounts
+      where: { companyId, category: parentCategory },
+      orderBy: { createdAt: 'asc' }
     });
 
     if (!parentAcc) {
-      // Create a logical parent if it doesn't exist
+      // Create a logical parent
       const parentCode = category === 'AR' ? '1200' : category === 'AP' ? '2100' : '2200';
       parentAcc = await tx.account.create({
         data: {
@@ -334,14 +346,13 @@ export class TransactionRepository {
           name: parentName,
           companyId,
           accountTypeId,
-          category: fallbackCategory,
+          category: parentCategory,
           isActive: true
         }
       });
     }
-    parentId = parentAcc.id;
 
-    // Generate a unique account code
+    // Generate a unique account code for the dedicated ledger
     const prefix = category === 'AR' ? 'ACC-AR' : category === 'AP' ? 'ACC-AP' : 'ACC-PAY';
     const year = new Date().getFullYear();
     const prefixYear = `${prefix}-${year}-`;
@@ -367,7 +378,7 @@ export class TransactionRepository {
         name: `${entityCode} - ${entityName}`,
         companyId,
         accountTypeId,
-        parentId,
+        parentId: parentAcc.id,
         category,
         openingBalance: Number(openingBalance),
         currentBalance: Number(openingBalance),

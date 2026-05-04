@@ -38,9 +38,36 @@ export class InvoiceController extends BaseCompanyController {
       if (!data.lines || !Array.isArray(data.lines)) {
         throw new ValidationError('Invoice lines are required');
       }
-      const subtotal = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice), 0);
-      const taxAmount = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice * (line.taxRate || 0) / 100), 0);
-      const total = subtotal + taxAmount + (Number(data.otherExpenses) || 0);
+
+      // Calculate Subtotal and Tax considering Net Quantity (Quantity - Returns - Damaged)
+      let subtotal = 0;
+      let taxAmount = 0;
+      const linesData = data.lines.map((l: any) => {
+        const qty = Number(l.quantity || 0);
+        const retQty = Number(l.returnQuantity || 0);
+        const dmgQty = Number(l.damagedQuantity || 0);
+        const netQty = Math.max(0, qty - retQty - dmgQty);
+        
+        const lineSubtotal = netQty * Number(l.unitPrice || 0);
+        const lineTax = lineSubtotal * (Number(l.taxRate || 0) / 100);
+        
+        subtotal += lineSubtotal;
+        taxAmount += lineTax;
+
+        return {
+          productId: l.productId || null,
+          description: l.description,
+          quantity: qty,
+          unitPrice: Number(l.unitPrice || 0),
+          taxRate: Number(l.taxRate || 0),
+          taxAmount: lineTax,
+          amount: lineSubtotal + lineTax,
+          returnQuantity: retQty,
+          damagedQuantity: dmgQty,
+        };
+      });
+
+      const total = subtotal + taxAmount + (Number(data.otherExpenses) || 0) - (Number(data.discountAmount) || 0);
       const bdtAmount = total * (data.exchangeRate || 1);
 
       if (!data.invoiceDate) {
@@ -77,17 +104,7 @@ export class InvoiceController extends BaseCompanyController {
         total: bdtAmount,
         createdById: userId,
         lines: {
-          create: data.lines.map((l: any) => ({
-            productId: l.productId || null,
-            description: l.description,
-            quantity: Number(l.quantity || 1),
-            unitPrice: Number(l.unitPrice || 0),
-            taxRate: Number(l.taxRate || 0),
-            taxAmount: Number(l.quantity || 0) * Number(l.unitPrice || 0) * (Number(l.taxRate || 0) / 100),
-            amount: Number(l.quantity || 0) * Number(l.unitPrice || 0) * (1 + (Number(l.taxRate || 0) / 100)),
-            returnQuantity: Number(l.returnQuantity) || 0,
-            damagedQuantity: Number(l.damagedQuantity) || 0,
-          })),
+          create: linesData
         },
         dns: data.dnIds ? { connect: data.dnIds.map((id: string) => ({ id })) } : undefined,
         grns: data.grnIds ? { connect: data.grnIds.map((id: string) => ({ id })) } : undefined,
@@ -125,7 +142,10 @@ export class InvoiceController extends BaseCompanyController {
     const data = request.body as any;
 
     const role = await this.getUserRole(userId, companyId);
-    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+    const invoice = await prisma.invoice.findUnique({ 
+      where: { id: invoiceId },
+      include: { lines: true }
+    });
 
     if (!invoice) throw new NotFoundError('Invoice not found');
 
@@ -134,14 +154,44 @@ export class InvoiceController extends BaseCompanyController {
     }
 
     if (data.lines) {
-      const subtotal = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice), 0);
-      const taxAmount = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice * (line.taxRate || 0) / 100), 0);
-      const total = subtotal + taxAmount + (Number(data.otherExpenses) || Number(invoice.otherExpenses) || 0) - (Number(data.discountAmount) || Number(invoice.discountAmount) || 0);
+      let subtotal = 0;
+      let taxAmount = 0;
+      
+      const linesToCreate = data.lines.map((l: any) => {
+        const qty = Number(l.quantity || 0);
+        const retQty = Number(l.returnQuantity || 0);
+        const dmgQty = Number(l.damagedQuantity || 0);
+        const netQty = Math.max(0, qty - retQty - dmgQty);
+        
+        const lineSubtotal = netQty * Number(l.unitPrice || 0);
+        const lineTax = lineSubtotal * (Number(l.taxRate || 0) / 100);
+        
+        subtotal += lineSubtotal;
+        taxAmount += lineTax;
+
+        return {
+          productId: l.productId || null,
+          description: l.description,
+          quantity: qty,
+          unitPrice: Number(l.unitPrice || 0),
+          taxRate: Number(l.taxRate || 0),
+          taxAmount: lineTax,
+          amount: lineSubtotal + lineTax,
+          returnQuantity: retQty,
+          damagedQuantity: dmgQty,
+        };
+      });
+
+      const total = subtotal + taxAmount + (Number(data.otherExpenses) ?? Number(invoice.otherExpenses)) - (Number(data.discountAmount) ?? Number(invoice.discountAmount));
       const bdtAmount = total * (data.exchangeRate || invoice.exchangeRate || 1);
 
       data.subtotal = subtotal;
       data.taxAmount = taxAmount;
       data.total = bdtAmount;
+      data.lines = {
+        deleteMany: {},
+        create: linesToCreate
+      };
     }
 
     const { description, ...sanitizedData } = data;
@@ -154,22 +204,10 @@ export class InvoiceController extends BaseCompanyController {
         vendorId: data.vendorId || undefined,
         salesOrderId: data.salesOrderId || undefined,
         purchaseOrderId: data.purchaseOrderId || undefined,
-        lines: data.lines ? {
-          deleteMany: {},
-          create: data.lines.map((l: any) => ({
-            productId: l.productId || null,
-            description: l.description,
-            quantity: Number(l.quantity || 1),
-            unitPrice: Number(l.unitPrice || 0),
-            taxRate: Number(l.taxRate || 0),
-            taxAmount: Number(l.quantity || 0) * Number(l.unitPrice || 0) * (Number(l.taxRate || 0) / 100),
-            amount: l.quantity * l.unitPrice * (1 + (l.taxRate || 0) / 100),
-            returnQuantity: Number(l.returnQuantity) || 0,
-            damagedQuantity: Number(l.damagedQuantity) || 0,
-          })),
-        } : undefined,
+        dns: data.dnIds ? { set: [], connect: data.dnIds.map((id: string) => ({ id })) } : undefined,
+        grns: data.grnIds ? { set: [], connect: data.grnIds.map((id: string) => ({ id })) } : undefined,
       },
-      include: { lines: true },
+      include: { lines: true, dns: true, grns: true },
     });
 
     return reply.send({ success: true, data: updated });
@@ -181,7 +219,10 @@ export class InvoiceController extends BaseCompanyController {
     const userId = (request.user as any).id;
 
     const role = await this.getUserRole(userId, companyId);
-    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+    const invoice = await prisma.invoice.findUnique({ 
+      where: { id: invoiceId },
+      include: { lines: true }
+    });
 
     if (!invoice) throw new NotFoundError('Invoice not found');
 
@@ -189,8 +230,77 @@ export class InvoiceController extends BaseCompanyController {
       throw new ForbiddenError('Cannot delete this invoice');
     }
 
-    await prisma.invoice.delete({ where: { id: invoiceId } });
-    return reply.send({ success: true, message: 'Invoice deleted' });
+    await prisma.$transaction(async (tx) => {
+      // 1. Revert Order Quantities
+      if (invoice.salesOrderId) {
+        for (const line of invoice.lines) {
+          if (line.productId) {
+            await tx.salesOrderLine.updateMany({
+              where: { salesOrderId: invoice.salesOrderId, productId: line.productId },
+              data: {
+                invoicedQuantity: {
+                  decrement: line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0)
+                }
+              }
+            });
+          }
+        }
+      }
+      if (invoice.purchaseOrderId) {
+        for (const line of invoice.lines) {
+          if (line.productId) {
+            await tx.purchaseOrderLine.updateMany({
+              where: { purchaseOrderId: invoice.purchaseOrderId, productId: line.productId },
+              data: {
+                billedQuantity: {
+                  decrement: line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0)
+                }
+              }
+            });
+          }
+        }
+      }
+
+      // 2. Delete Journal if exists (only if status is APPROVED or something that generated a journal)
+      if (invoice.journalId) {
+        await tx.journalEntry.delete({ where: { id: invoice.journalId } });
+      }
+
+      // 3. Delete Invoice
+      await tx.invoice.delete({ where: { id: invoiceId } });
+    });
+
+    return reply.send({ success: true, message: 'Invoice deleted and quantities reverted' });
+  }
+
+  async delinkDN(request: FastifyRequest, reply: FastifyReply) {
+    const { invoiceId } = request.params as { invoiceId: string };
+    const { dnId } = request.body as { dnId: string };
+
+    const updated = await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        dns: { disconnect: { id: dnId } }
+      },
+      include: { dns: true }
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
+  async delinkGRN(request: FastifyRequest, reply: FastifyReply) {
+    const { invoiceId } = request.params as { invoiceId: string };
+    const { grnId } = request.body as { grnId: string };
+
+    const updated = await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        grns: { disconnect: { id: grnId } }
+      },
+      include: { grns: true }
+    });
+
+    return reply.send({ success: true, data: updated });
   }
 
   async submitInvoice(request: FastifyRequest, reply: FastifyReply) {

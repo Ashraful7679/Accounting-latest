@@ -480,4 +480,95 @@ export class OrderController extends BaseCompanyController {
 
     return reply.status(201).send({ success: true, data: grn });
   }
+  async deleteDeliveryChallan(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, dnId } = request.params as { id: string, dnId: string };
+    const userId = (request.user as any).id;
+
+    const dn = await (prisma as any).dN.findUnique({
+      where: { id: dnId },
+      include: { lines: true }
+    });
+
+    if (!dn) throw new NotFoundError('Delivery Note not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canDelete(dn.status, role)) {
+      throw new ForbiddenError('Cannot delete this delivery note');
+    }
+
+    await prisma.$transaction(async (tx: any) => {
+      // 1. Revert Sales Order Lines
+      if (dn.salesOrderId) {
+        for (const line of dn.lines) {
+          await tx.salesOrderLine.updateMany({
+            where: { salesOrderId: dn.salesOrderId, productId: line.productId },
+            data: {
+              deliveredQuantity: {
+                decrement: line.quantity
+              }
+            }
+          });
+        }
+      }
+
+      // 2. Revert Inventory (Need InventoryService.revertDN)
+      await InventoryService.revertDN(tx, dnId);
+
+      // 3. Delete Journal if exists
+      if (dn.journalId) {
+        await tx.journalEntry.delete({ where: { id: dn.journalId } });
+      }
+
+      // 4. Delete DN
+      await tx.dN.delete({ where: { id: dnId } });
+    });
+
+    return reply.send({ success: true, message: 'Delivery Note deleted and quantities reverted' });
+  }
+
+  async deleteGRN(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, grnId } = request.params as { id: string, grnId: string };
+    const userId = (request.user as any).id;
+
+    const grn = await (prisma as any).gRN.findUnique({
+      where: { id: grnId },
+      include: { lines: true }
+    });
+
+    if (!grn) throw new NotFoundError('GRN not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canDelete(grn.status, role)) {
+      throw new ForbiddenError('Cannot delete this GRN');
+    }
+
+    await prisma.$transaction(async (tx: any) => {
+      // 1. Revert Purchase Order Lines
+      if (grn.purchaseOrderId) {
+        for (const line of grn.lines) {
+          await tx.purchaseOrderLine.updateMany({
+            where: { purchaseOrderId: grn.purchaseOrderId, productId: line.productId },
+            data: {
+              receivedQuantity: {
+                decrement: line.quantity
+              }
+            }
+          });
+        }
+      }
+
+      // 2. Revert Inventory
+      await InventoryService.revertGRN(tx, grnId);
+
+      // 3. Delete Journal if exists
+      if (grn.journalId) {
+        await tx.journalEntry.delete({ where: { id: grn.journalId } });
+      }
+
+      // 4. Delete GRN
+      await tx.gRN.delete({ where: { id: grnId } });
+    });
+
+    return reply.send({ success: true, message: 'GRN deleted and quantities reverted' });
+  }
 }

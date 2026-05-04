@@ -11,6 +11,12 @@ export class SalesOrderRepository {
             customer: true,
             lc: true,
             lines: true,
+            dns: {
+              include: { lines: true }
+            },
+            invoices: {
+              include: { lines: true }
+            },
             purchaseOrders: {
               include: {
                 supplier: true
@@ -36,6 +42,12 @@ export class SalesOrderRepository {
             customer: true,
             lc: true,
             lines: true,
+            dns: {
+              include: { lines: true }
+            },
+            invoices: {
+              include: { lines: true }
+            },
             purchaseOrders: {
               include: {
                 supplier: true

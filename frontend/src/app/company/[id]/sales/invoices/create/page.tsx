@@ -7,7 +7,7 @@ import api from '@/lib/api';
 import { 
   Plus, Trash2, ArrowLeft, Save, 
   User, Calendar, Receipt, Loader2, Link as LinkIcon,
-  TrendingUp
+  TrendingUp, Truck, ShieldAlert, RotateCcw
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
@@ -34,7 +34,11 @@ export default function CreateSalesInvoicePage() {
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
     piIds: [] as string[],
-    lines: [{ itemDescription: '', quantity: 1, unitPrice: 0, total: 0, piId: '' }] as any[]
+    dnIds: [] as string[],
+    otherExpenses: 0,
+    taxAmount: 0,
+    discountAmount: 0,
+    lines: [{ itemDescription: '', quantity: 1, unitPrice: 0, total: 0, piId: '', dnId: '', returnQuantity: 0, damagedQuantity: 0 }] as any[]
   });
 
   useEffect(() => { setMounted(true); }, []);
@@ -65,6 +69,35 @@ export default function CreateSalesInvoicePage() {
     },
     enabled: !!companyId,
   });
+
+  const { data: challans } = useQuery({
+    queryKey: ['delivery-notes', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/delivery-notes`);
+      return response.data.data;
+    },
+    enabled: !!companyId,
+  });
+
+  useEffect(() => {
+    if (mounted && challans && searchParams.get('dnIds')) {
+      const dnIds = searchParams.get('dnIds')?.split(',') || [];
+      const customerId = searchParams.get('customerId');
+      
+      if (customerId) {
+        const customer = customers?.find((c: any) => c.id === customerId);
+        if (customer) {
+          setFormData(prev => ({ ...prev, customerName: customer.name }));
+        }
+      }
+
+      dnIds.forEach(id => {
+        if (!formData.dnIds.includes(id)) {
+          handleDNToggle(id);
+        }
+      });
+    }
+  }, [mounted, challans, searchParams, customers]);
 
   const filteredCustomers = customers?.filter((c: any) => 
     orderType === 'local' ? c.type === 'Local' || !c.type : c.type === 'Foreign'
@@ -132,7 +165,9 @@ export default function CreateSalesInvoicePage() {
           quantity: l.quantity,
           unitPrice: l.unitPrice,
           total: l.quantity * l.unitPrice,
-          piId: pi.id
+          piId: pi.id,
+          returnQuantity: 0,
+          damagedQuantity: 0
         }));
         
         setFormData({
@@ -144,8 +179,47 @@ export default function CreateSalesInvoicePage() {
     }
   };
 
+  const handleDNToggle = (dnId: string) => {
+    const currentDNs = [...formData.dnIds];
+    const dnIndex = currentDNs.indexOf(dnId);
+    
+    if (dnIndex > -1) {
+      currentDNs.splice(dnIndex, 1);
+      setFormData({
+        ...formData,
+        dnIds: currentDNs,
+        lines: formData.lines.filter(l => l.dnId !== dnId)
+      });
+    } else {
+      currentDNs.push(dnId);
+      const dn = challans?.find((d: any) => d.id === dnId);
+      if (dn && dn.lines) {
+        const newLinesFromDN = dn.lines.map((l: any) => ({
+          productId: l.productId,
+          itemDescription: l.itemDescription || l.description,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice || 0,
+          total: l.quantity * (l.unitPrice || 0),
+          dnId: dn.id,
+          returnQuantity: 0,
+          damagedQuantity: 0
+        }));
+        
+        setFormData({
+          ...formData,
+          dnIds: currentDNs,
+          lines: [...formData.lines.filter(l => l.itemDescription !== ''), ...newLinesFromDN]
+        });
+      }
+    }
+  };
+
   const calculateTotal = () => {
-    return formData.lines.reduce((sum, line) => sum + line.total, 0);
+    const subtotal = formData.lines.reduce((sum, line) => {
+      const netQty = line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0);
+      return sum + (netQty * line.unitPrice);
+    }, 0);
+    return subtotal + (Number(formData.taxAmount) || 0) + (Number(formData.otherExpenses) || 0) - (Number(formData.discountAmount) || 0);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -209,7 +283,10 @@ export default function CreateSalesInvoicePage() {
           quantity: line.quantity, 
           unitPrice: line.unitPrice,
           total: line.total,
-          piId: line.piId || undefined
+          piId: line.piId || undefined,
+          dnId: line.dnId || undefined,
+          returnQuantity: line.returnQuantity || 0,
+          damagedQuantity: line.damagedQuantity || 0
         };
       }));
 
@@ -224,6 +301,10 @@ export default function CreateSalesInvoicePage() {
         status: 'DRAFT',
         lines: finalLines,
         piIds: formData.piIds,
+        dnIds: formData.dnIds,
+        taxAmount: Number(formData.taxAmount) || 0,
+        otherExpenses: Number(formData.otherExpenses) || 0,
+        discountAmount: Number(formData.discountAmount) || 0,
         totalAmount: total,
         totalBDT: orderType === 'local' ? total : total * companyExchangeRate
       };
@@ -330,30 +411,56 @@ export default function CreateSalesInvoicePage() {
           </div>
         </div>
 
-        {/* Linked PIs */}
-        {selectedCustomer && customerPIs.length > 0 && (
-          <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
-            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-              <LinkIcon className="w-3 h-3" /> Link Export Proforma Invoices
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {customerPIs.map((pi: any) => (
-                <button
-                  key={pi.id}
-                  type="button"
-                  onClick={() => handlePIToggle(pi.id)}
-                  className={`px-3 py-1.5 rounded-sm text-[10px] font-bold transition-all border ${
-                    formData.piIds.includes(pi.id) 
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm' 
-                    : 'bg-gray-50 border-gray-100 text-gray-500 hover:border-gray-300'
-                  }`}
-                >
-                  {pi.piNumber}
-                </button>
-              ))}
+        {/* Linked Documents */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {selectedCustomer && customerPIs.length > 0 && (
+            <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
+              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <LinkIcon className="w-3 h-3" /> Link Export Proforma Invoices
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {customerPIs.map((pi: any) => (
+                  <button
+                    key={pi.id}
+                    type="button"
+                    onClick={() => handlePIToggle(pi.id)}
+                    className={`px-3 py-1.5 rounded-sm text-[10px] font-bold transition-all border ${
+                      formData.piIds.includes(pi.id) 
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm' 
+                      : 'bg-gray-50 border-gray-100 text-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    {pi.piNumber}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {selectedCustomer && challans?.filter((d: any) => d.customerId === selectedCustomer.id).length > 0 && (
+            <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
+              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Truck className="w-3 h-3" /> Link Delivery Notes
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {challans?.filter((d: any) => d.customerId === selectedCustomer.id).map((dn: any) => (
+                  <button
+                    key={dn.id}
+                    type="button"
+                    onClick={() => handleDNToggle(dn.id)}
+                    className={`px-3 py-1.5 rounded-sm text-[10px] font-bold transition-all border ${
+                      formData.dnIds.includes(dn.id) 
+                      ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm' 
+                      : 'bg-gray-50 border-gray-100 text-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    {dn.dnNumber}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Lines */}
         <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
@@ -372,11 +479,14 @@ export default function CreateSalesInvoicePage() {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-500 uppercase font-bold tracking-wider">
                 <th className="px-4 py-3 text-left">Item Description</th>
-                <th className="px-4 py-3 text-right w-24">Qty</th>
+                <th className="px-4 py-3 text-right w-20">Ordered</th>
+                <th className="px-4 py-3 text-right w-20">Return</th>
+                <th className="px-4 py-3 text-right w-20">Damage</th>
+                <th className="px-4 py-3 text-right w-24">Net Qty</th>
                 {orderType === 'foreign' ? (
                   <>
-                    <th className="px-4 py-3 text-right w-40">Price (USD/BDT)</th>
-                    <th className="px-4 py-3 text-right w-40">Total (USD/BDT)</th>
+                    <th className="px-4 py-3 text-right w-40">Price (USD)</th>
+                    <th className="px-4 py-3 text-right w-40">Total (USD)</th>
                   </>
                 ) : (
                   <>
@@ -412,6 +522,27 @@ export default function CreateSalesInvoicePage() {
                       className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-emerald-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none transition-colors"
                     />
                   </td>
+                  <td className="px-4 py-2">
+                    <input 
+                      type="number"
+                      min="0" step="any"
+                      value={line.returnQuantity}
+                      onChange={(e) => handleLineChange(index, 'returnQuantity', parseFloat(e.target.value) || 0)}
+                      className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-emerald-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none text-orange-600 transition-colors"
+                    />
+                  </td>
+                  <td className="px-4 py-2">
+                    <input 
+                      type="number"
+                      min="0" step="any"
+                      value={line.damagedQuantity}
+                      onChange={(e) => handleLineChange(index, 'damagedQuantity', parseFloat(e.target.value) || 0)}
+                      className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-emerald-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none text-red-600 transition-colors"
+                    />
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono font-bold text-gray-900">
+                    {formatCurrency(line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0))}
+                  </td>
                   {orderType === 'foreign' ? (
                     <>
                       <td className="px-4 py-2">
@@ -427,8 +558,8 @@ export default function CreateSalesInvoicePage() {
                       </td>
                       <td className="px-4 py-2 text-right">
                         <div className="flex flex-col items-end pr-2 justify-center h-full pt-1.5">
-                          <span className="font-mono font-bold text-gray-900">{formatCurrency(line.total)}</span>
-                          <span className="text-[10px] text-gray-400 font-mono mt-0.5">BDT {formatCurrency(line.total * companyExchangeRate)}</span>
+                          <span className="font-mono font-bold text-gray-900">{formatCurrency((line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0)) * line.unitPrice)}</span>
+                          <span className="text-[10px] text-gray-400 font-mono mt-0.5">BDT {formatCurrency((line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0)) * line.unitPrice * companyExchangeRate)}</span>
                         </div>
                       </td>
                     </>
@@ -443,7 +574,7 @@ export default function CreateSalesInvoicePage() {
                         />
                       </td>
                       <td className="px-4 py-2 text-right font-mono font-bold text-gray-900">
-                        {formatCurrency(line.total)}
+                        {formatCurrency((line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0)) * line.unitPrice)}
                       </td>
                     </>
                   )}
@@ -461,8 +592,39 @@ export default function CreateSalesInvoicePage() {
             </tbody>
           </table>
 
-          <div className="flex justify-end p-6 bg-gray-50 border-t border-gray-200">
-            <div className="text-right">
+          <div className="grid grid-cols-1 md:grid-cols-2 p-6 bg-gray-50 border-t border-gray-200">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Tax Amount</label>
+                  <input 
+                    type="number"
+                    value={formData.taxAmount}
+                    onChange={(e) => setFormData({ ...formData, taxAmount: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-sm text-xs font-mono outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Other Expenses</label>
+                  <input 
+                    type="number"
+                    value={formData.otherExpenses}
+                    onChange={(e) => setFormData({ ...formData, otherExpenses: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-sm text-xs font-mono outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Discount</label>
+                <input 
+                  type="number"
+                  value={formData.discountAmount}
+                  onChange={(e) => setFormData({ ...formData, discountAmount: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-sm text-xs font-mono outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+            <div className="text-right flex flex-col justify-end">
               <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Total Receivable</p>
               {orderType === 'foreign' ? (
                 <>

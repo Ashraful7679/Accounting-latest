@@ -4,8 +4,9 @@ import { PurchaseOrderRepository } from '../../repositories/PurchaseOrderReposit
 import { SalesOrderRepository } from '../../repositories/SalesOrderRepository';
 import { NotificationController } from './notification.controller';
 import { InventoryService } from './inventory.service';
-import { NotFoundError, ForbiddenError } from '../../middleware/errorHandler';
+import { NotFoundError, ForbiddenError, ValidationError } from '../../middleware/errorHandler';
 import { BaseCompanyController } from './base.controller';
+import { JournalService } from '../accounting/journal.service';
 
 export class OrderController extends BaseCompanyController {
   // ============ SALES ORDERS ============
@@ -325,6 +326,7 @@ export class OrderController extends BaseCompanyController {
 
   async generateDeliveryChallan(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, soId } = request.params as { id: string, soId: string };
+    const { items, shipmentDate } = request.body as { items: { productId: string, quantity: number }[], shipmentDate?: string };
     const userId = (request.user as any).id;
 
     const so = await (prisma as any).salesOrder.findUnique({
@@ -336,25 +338,54 @@ export class OrderController extends BaseCompanyController {
 
     const dnNumber = await this.generateDocumentNumber(companyId, 'dn');
 
-    const dn = await (prisma as any).dN.create({
-      data: {
-        dnNumber,
-        companyId,
-        salesOrderId: soId,
-        shipmentDate: new Date(),
-        status: 'SHIPPED',
-        lines: {
-          create: so.lines.map((line: any) => ({
-            productId: line.productId,
-            quantity: line.quantity
-          }))
-        }
-      },
-      include: { lines: true }
-    });
+    const dn = await prisma.$transaction(async (tx: any) => {
+      // 1. Create DN
+      const newDn = await tx.dN.create({
+        data: {
+          dnNumber,
+          companyId,
+          salesOrderId: soId,
+          shipmentDate: shipmentDate ? new Date(shipmentDate) : new Date(),
+          status: 'SHIPPED',
+          lines: {
+            create: items.map((item: any) => {
+              const soLine = so.lines.find((l: any) => l.productId === item.productId);
+              if (!soLine) throw new ValidationError(`Product ${item.productId} not found in Sales Order`);
+              
+              const remaining = soLine.quantity - (soLine.deliveredQuantity || 0);
+              if (item.quantity > remaining) {
+                throw new ValidationError(`Quantity ${item.quantity} exceeds remaining quantity ${remaining} for product ${item.productId}`);
+              }
 
-    await prisma.$transaction(async (tx: any) => {
-      await InventoryService.processDN(tx, dn.id);
+              return {
+                productId: item.productId,
+                quantity: item.quantity
+              };
+            })
+          }
+        },
+        include: { lines: true }
+      });
+
+      // 2. Update Sales Order Lines
+      for (const item of items) {
+        await tx.salesOrderLine.updateMany({
+          where: { salesOrderId: soId, productId: item.productId },
+          data: {
+            deliveredQuantity: {
+              increment: item.quantity
+            }
+          }
+        });
+      }
+
+      // 3. Process Inventory
+      await InventoryService.processDN(tx, newDn.id);
+
+      // 4. Generate Journal Entry for DN
+      await JournalService.handleDocumentApproval('DN', newDn.id, userId, tx);
+
+      return newDn;
     });
 
     await NotificationController.logActivity({
@@ -367,5 +398,86 @@ export class OrderController extends BaseCompanyController {
     });
 
     return reply.status(201).send({ success: true, data: dn });
+  }
+
+  async getGRNs(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const grns = await (prisma as any).gRN.findMany({
+      where: { companyId },
+      include: { purchaseOrder: true, lines: { include: { product: true } } },
+      orderBy: { createdAt: 'desc' }
+    });
+    return reply.send({ success: true, data: grns });
+  }
+
+  async generateGRN(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, poId } = request.params as { id: string, poId: string };
+    const { items, receiptDate } = request.body as { items: { productId: string, quantity: number }[], receiptDate?: string };
+    const userId = (request.user as any).id;
+
+    const po = await (prisma as any).purchaseOrder.findUnique({
+      where: { id: poId },
+      include: { lines: true }
+    });
+
+    if (!po) throw new NotFoundError('Purchase Order not found');
+
+    const grnNumber = await this.generateDocumentNumber(companyId, 'grn');
+
+    const grn = await prisma.$transaction(async (tx: any) => {
+      const newGrn = await tx.gRN.create({
+        data: {
+          grnNumber,
+          companyId,
+          purchaseOrderId: poId,
+          receiptDate: receiptDate ? new Date(receiptDate) : new Date(),
+          status: 'RECEIVED',
+          lines: {
+            create: items.map((item: any) => {
+              const poLine = po.lines.find((l: any) => l.productId === item.productId);
+              if (!poLine) throw new ValidationError(`Product ${item.productId} not found in Purchase Order`);
+              
+              const remaining = poLine.quantity - (poLine.receivedQuantity || 0);
+              if (item.quantity > remaining) {
+                throw new ValidationError(`Quantity ${item.quantity} exceeds remaining quantity ${remaining} for product ${item.productId}`);
+              }
+
+              return {
+                productId: item.productId,
+                quantity: item.quantity
+              };
+            })
+          }
+        },
+        include: { lines: true }
+      });
+
+      for (const item of items) {
+        await tx.purchaseOrderLine.updateMany({
+          where: { purchaseOrderId: poId, productId: item.productId },
+          data: {
+            receivedQuantity: {
+              increment: item.quantity
+            }
+          }
+        });
+      }
+
+      await InventoryService.processGRN(tx, newGrn.id);
+      await JournalService.handleDocumentApproval('GRN', newGrn.id, userId, tx);
+
+      return newGrn;
+    });
+
+    await NotificationController.logActivity({
+      companyId,
+      entityType: 'grn',
+      entityId: grn.id,
+      action: 'CREATED',
+      performedById: userId,
+      metadata: { docNumber: grnNumber, poNumber: po.poNumber }
+    });
+
+    return reply.status(201).send({ success: true, data: grn });
   }
 }

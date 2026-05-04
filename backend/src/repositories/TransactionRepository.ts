@@ -315,10 +315,14 @@ export class TransactionRepository {
     // Automation: Find or Create Parent Account for better organization (like the bank)
     let parentId: string | null = null;
     const parentName = category === 'AR' ? 'Accounts Receivable' : category === 'AP' ? 'Accounts Payable' : 'Employee Payables & Salaries';
-    const parentCategory = category === 'AR' ? 'AR_PARENT' : category === 'AP' ? 'AP_PARENT' : 'PAYABLE_PARENT';
+    
+    // Check for existing logical parent OR a default account of that category
+    const parentCategories = category === 'AR' ? ['AR', 'AR_PARENT'] : category === 'AP' ? ['AP', 'AP_PARENT'] : ['PAYABLE', 'PAYABLE_PARENT'];
+    const fallbackCategory = category === 'AR' ? 'AR_PARENT' : category === 'AP' ? 'AP_PARENT' : 'PAYABLE_PARENT';
 
     let parentAcc = await tx.account.findFirst({
-      where: { companyId, category: parentCategory }
+      where: { companyId, category: { in: parentCategories } },
+      orderBy: { createdAt: 'asc' } // Prefer older/default accounts
     });
 
     if (!parentAcc) {
@@ -330,7 +334,7 @@ export class TransactionRepository {
           name: parentName,
           companyId,
           accountTypeId,
-          category: parentCategory,
+          category: fallbackCategory,
           isActive: true
         }
       });

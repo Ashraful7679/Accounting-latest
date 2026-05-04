@@ -6,7 +6,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
   Plus, Trash2, ArrowLeft, Save, 
-  User, Calendar, Receipt, Loader2, Link as LinkIcon
+  User, Calendar, Receipt, Loader2, Link as LinkIcon,
+  Truck, ShieldAlert, RotateCcw
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
@@ -33,7 +34,11 @@ export default function CreatePurchaseInvoicePage() {
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
     poIds: [] as string[],
-    lines: [{ itemDescription: '', quantity: 1, unitPrice: 0, total: 0, poId: '' }] as any[]
+    grnIds: [] as string[],
+    otherExpenses: 0,
+    taxAmount: 0,
+    discountAmount: 0,
+    lines: [{ itemDescription: '', quantity: 1, unitPrice: 0, total: 0, poId: '', grnId: '', returnQuantity: 0, damagedQuantity: 0 }] as any[]
   });
 
   useEffect(() => { setMounted(true); }, []);
@@ -64,6 +69,35 @@ export default function CreatePurchaseInvoicePage() {
     },
     enabled: !!companyId,
   });
+  
+  const { data: grns } = useQuery({
+    queryKey: ['grns', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/grns`);
+      return response.data.data;
+    },
+    enabled: !!companyId,
+  });
+
+  useEffect(() => {
+    if (mounted && grns && searchParams.get('grnIds')) {
+      const grnIds = searchParams.get('grnIds')?.split(',') || [];
+      const vendorId = searchParams.get('vendorId');
+      
+      if (vendorId) {
+        const vendor = vendors?.find((v: any) => v.id === vendorId);
+        if (vendor) {
+          setFormData(prev => ({ ...prev, vendorName: vendor.name }));
+        }
+      }
+
+      grnIds.forEach(id => {
+        if (!formData.grnIds.includes(id)) {
+          handleGRNToggle(id);
+        }
+      });
+    }
+  }, [mounted, grns, searchParams, vendors]);
 
   const filteredVendors = vendors?.filter((v: any) => 
     orderType === 'local' ? v.type === 'Local' || !v.type : v.type === 'Foreign'
@@ -116,7 +150,6 @@ export default function CreatePurchaseInvoicePage() {
     
     if (poIndex > -1) {
       currentPOs.splice(poIndex, 1);
-      // Remove lines linked to this PO
       setFormData({
         ...formData,
         poIds: currentPOs,
@@ -132,7 +165,9 @@ export default function CreatePurchaseInvoicePage() {
           quantity: l.quantity,
           unitPrice: l.unitPrice,
           total: l.quantity * l.unitPrice,
-          poId: po.id
+          poId: po.id,
+          returnQuantity: 0,
+          damagedQuantity: 0
         }));
         
         setFormData({
@@ -144,8 +179,47 @@ export default function CreatePurchaseInvoicePage() {
     }
   };
 
+  const handleGRNToggle = (grnId: string) => {
+    const currentGRNs = [...formData.grnIds];
+    const grnIndex = currentGRNs.indexOf(grnId);
+    
+    if (grnIndex > -1) {
+      currentGRNs.splice(grnIndex, 1);
+      setFormData({
+        ...formData,
+        grnIds: currentGRNs,
+        lines: formData.lines.filter(l => l.grnId !== grnId)
+      });
+    } else {
+      currentGRNs.push(grnId);
+      const grn = grns?.find((g: any) => g.id === grnId);
+      if (grn && grn.lines) {
+        const newLinesFromGRN = grn.lines.map((l: any) => ({
+          productId: l.productId,
+          itemDescription: l.itemDescription || l.description,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice || 0,
+          total: l.quantity * (l.unitPrice || 0),
+          grnId: grn.id,
+          returnQuantity: 0,
+          damagedQuantity: 0
+        }));
+        
+        setFormData({
+          ...formData,
+          grnIds: currentGRNs,
+          lines: [...formData.lines.filter(l => l.itemDescription !== ''), ...newLinesFromGRN]
+        });
+      }
+    }
+  };
+
   const calculateTotal = () => {
-    return formData.lines.reduce((sum, line) => sum + line.total, 0);
+    const subtotal = formData.lines.reduce((sum, line) => {
+      const netQty = line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0);
+      return sum + (netQty * line.unitPrice);
+    }, 0);
+    return subtotal + (Number(formData.taxAmount) || 0) + (Number(formData.otherExpenses) || 0) - (Number(formData.discountAmount) || 0);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -207,7 +281,10 @@ export default function CreatePurchaseInvoicePage() {
           quantity: line.quantity, 
           unitPrice: line.unitPrice,
           total: line.total,
-          poId: line.poId || undefined
+          poId: line.poId || undefined,
+          grnId: line.grnId || undefined,
+          returnQuantity: line.returnQuantity || 0,
+          damagedQuantity: line.damagedQuantity || 0
         };
       }));
 
@@ -222,6 +299,10 @@ export default function CreatePurchaseInvoicePage() {
         status: 'DRAFT',
         lines: finalLines,
         poIds: formData.poIds,
+        grnIds: formData.grnIds,
+        taxAmount: Number(formData.taxAmount) || 0,
+        otherExpenses: Number(formData.otherExpenses) || 0,
+        discountAmount: Number(formData.discountAmount) || 0,
         totalAmount: total,
         totalBDT: orderType === 'local' ? total : total * companyExchangeRate
       };
@@ -328,30 +409,56 @@ export default function CreatePurchaseInvoicePage() {
           </div>
         </div>
 
-        {/* Linked POs */}
-        {selectedVendor && vendorPOs.length > 0 && (
-          <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
-            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-              <LinkIcon className="w-3 h-3" /> Link Purchase Orders
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {vendorPOs.map((po: any) => (
-                <button
-                  key={po.id}
-                  type="button"
-                  onClick={() => handlePOToggle(po.id)}
-                  className={`px-3 py-1.5 rounded-sm text-[10px] font-bold transition-all border ${
-                    formData.poIds.includes(po.id) 
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm' 
-                    : 'bg-gray-50 border-gray-100 text-gray-500 hover:border-gray-300'
-                  }`}
-                >
-                  {po.poNumber}
-                </button>
-              ))}
+        {/* Linked Documents */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {selectedVendor && vendorPOs.length > 0 && (
+            <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
+              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <LinkIcon className="w-3 h-3" /> Link Purchase Orders
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {vendorPOs.map((po: any) => (
+                  <button
+                    key={po.id}
+                    type="button"
+                    onClick={() => handlePOToggle(po.id)}
+                    className={`px-3 py-1.5 rounded-sm text-[10px] font-bold transition-all border ${
+                      formData.poIds.includes(po.id) 
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm' 
+                      : 'bg-gray-50 border-gray-100 text-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    {po.poNumber}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {selectedVendor && grns?.filter((g: any) => g.supplierId === selectedVendor.id).length > 0 && (
+            <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
+              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Truck className="w-3 h-3" /> Link GRNs
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {grns?.filter((g: any) => g.supplierId === selectedVendor.id).map((grn: any) => (
+                  <button
+                    key={grn.id}
+                    type="button"
+                    onClick={() => handleGRNToggle(grn.id)}
+                    className={`px-3 py-1.5 rounded-sm text-[10px] font-bold transition-all border ${
+                      formData.grnIds.includes(grn.id) 
+                      ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm' 
+                      : 'bg-gray-50 border-gray-100 text-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    {grn.grnNumber}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Lines */}
         <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
@@ -370,11 +477,14 @@ export default function CreatePurchaseInvoicePage() {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-500 uppercase font-bold tracking-wider">
                 <th className="px-4 py-3 text-left">Description</th>
-                <th className="px-4 py-3 text-right w-24">Qty</th>
+                <th className="px-4 py-3 text-right w-20">Ordered</th>
+                <th className="px-4 py-3 text-right w-20">Return</th>
+                <th className="px-4 py-3 text-right w-20">Damage</th>
+                <th className="px-4 py-3 text-right w-24">Net Qty</th>
                 {orderType === 'foreign' ? (
                   <>
-                    <th className="px-4 py-3 text-right w-40">Unit Price (USD/BDT)</th>
-                    <th className="px-4 py-3 text-right w-40">Total (USD/BDT)</th>
+                    <th className="px-4 py-3 text-right w-40">Unit Price (USD)</th>
+                    <th className="px-4 py-3 text-right w-40">Total (USD)</th>
                   </>
                 ) : (
                   <>
@@ -410,6 +520,27 @@ export default function CreatePurchaseInvoicePage() {
                       className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-emerald-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none transition-colors"
                     />
                   </td>
+                  <td className="px-4 py-2">
+                    <input 
+                      type="number"
+                      min="0" step="any"
+                      value={line.returnQuantity}
+                      onChange={(e) => handleLineChange(index, 'returnQuantity', parseFloat(e.target.value) || 0)}
+                      className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-emerald-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none text-orange-600 transition-colors"
+                    />
+                  </td>
+                  <td className="px-4 py-2">
+                    <input 
+                      type="number"
+                      min="0" step="any"
+                      value={line.damagedQuantity}
+                      onChange={(e) => handleLineChange(index, 'damagedQuantity', parseFloat(e.target.value) || 0)}
+                      className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-emerald-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none text-red-600 transition-colors"
+                    />
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono font-bold text-gray-900">
+                    {formatCurrency(line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0))}
+                  </td>
                   {orderType === 'foreign' ? (
                     <>
                       <td className="px-4 py-2">
@@ -425,8 +556,8 @@ export default function CreatePurchaseInvoicePage() {
                       </td>
                       <td className="px-4 py-2 text-right">
                         <div className="flex flex-col items-end pr-2 justify-center h-full pt-1.5">
-                          <span className="font-mono font-bold text-gray-900">{formatCurrency(line.total)}</span>
-                          <span className="text-[10px] text-gray-400 font-mono mt-0.5">BDT {formatCurrency(line.total * companyExchangeRate)}</span>
+                          <span className="font-mono font-bold text-gray-900">{formatCurrency((line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0)) * line.unitPrice)}</span>
+                          <span className="text-[10px] text-gray-400 font-mono mt-0.5">BDT {formatCurrency((line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0)) * line.unitPrice * companyExchangeRate)}</span>
                         </div>
                       </td>
                     </>
@@ -441,7 +572,7 @@ export default function CreatePurchaseInvoicePage() {
                         />
                       </td>
                       <td className="px-4 py-2 text-right font-mono font-bold text-gray-900">
-                        {formatCurrency(line.total)}
+                        {formatCurrency((line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0)) * line.unitPrice)}
                       </td>
                     </>
                   )}
@@ -459,8 +590,39 @@ export default function CreatePurchaseInvoicePage() {
             </tbody>
           </table>
 
-          <div className="flex justify-end p-6 bg-gray-50 border-t border-gray-200">
-            <div className="text-right">
+          <div className="grid grid-cols-1 md:grid-cols-2 p-6 bg-gray-50 border-t border-gray-200">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Tax Amount</label>
+                  <input 
+                    type="number"
+                    value={formData.taxAmount}
+                    onChange={(e) => setFormData({ ...formData, taxAmount: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-sm text-xs font-mono outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Other Expenses</label>
+                  <input 
+                    type="number"
+                    value={formData.otherExpenses}
+                    onChange={(e) => setFormData({ ...formData, otherExpenses: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-sm text-xs font-mono outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Discount</label>
+                <input 
+                  type="number"
+                  value={formData.discountAmount}
+                  onChange={(e) => setFormData({ ...formData, discountAmount: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-sm text-xs font-mono outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+            <div className="text-right flex flex-col justify-end">
               <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Invoice Total</p>
               {orderType === 'foreign' ? (
                 <>

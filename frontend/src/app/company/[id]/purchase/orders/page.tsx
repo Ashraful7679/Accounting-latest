@@ -5,10 +5,10 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
-  Plus, Search, ChevronDown, ChevronRight, 
-  Tag, Link as LinkIcon, Trash2, Edit2, 
-  X, ShoppingBag
+  Plus, Search, X, ShoppingBag, Truck, FileText, Printer, Eye,
+  ChevronDown, ChevronRight, Link as LinkIcon, Trash2, Tag, Edit2
 } from 'lucide-react';
+import { PartialFulfillmentModal } from '@/components/PartialFulfillmentModal';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
 import { cn } from '@/lib/utils';
@@ -22,8 +22,11 @@ interface PurchaseOrder {
   currency: string;
   exchangeRate: number;
   status: string;
-  supplier?: { name: string; code: string };
+  supplier?: { id: string; name: string; code: string };
+  lines: any[];
   salesOrders: any[];
+  grns: any[];
+  invoices: any[];
 }
 
 export default function PurchaseOrdersPage() {
@@ -35,6 +38,7 @@ export default function PurchaseOrdersPage() {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [showSOSelector, setShowSOSelector] = useState<{ poId: string } | null>(null);
+  const [showFulfillmentModal, setShowFulfillmentModal] = useState<{ order: any, type: 'DN' | 'GRN' } | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -68,6 +72,30 @@ export default function PurchaseOrdersPage() {
       toast.success('Sales Order updated');
     },
   });
+
+  const generateGRNMutation = useMutation({
+    mutationFn: async ({ poId, items }: { poId: string, items: any[] }) => {
+      const response = await api.post(`/company/${companyId}/purchase-orders/${poId}/grn`, { items });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders', companyId] });
+      toast.success('Goods Receipt Note created');
+      setShowFulfillmentModal(null);
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || 'Failed to create GRN';
+      toast.error(msg);
+    },
+  });
+
+  const generateInvoice = (poId?: string, grnId?: string, vendorId?: string) => {
+    let url = `/company/${companyId}/purchase/invoices/create?`;
+    if (poId) url += `poId=${poId}&`;
+    if (grnId) url += `grnIds=${grnId}&`;
+    if (vendorId) url += `vendorId=${vendorId}&`;
+    router.push(url);
+  };
 
   const toggleExpand = (id: string) => {
     const newExpanded = new Set(expandedOrders);
@@ -177,6 +205,20 @@ export default function PurchaseOrdersPage() {
                     <td className="py-4 px-4 text-right opacity-40 group-hover:opacity-100 transition-opacity">
                       <div className="flex justify-end gap-1">
                         <button 
+                          onClick={() => setShowFulfillmentModal({ order: po, type: 'GRN' })}
+                          className="p-1.5 text-gray-400 hover:text-indigo-600 rounded-sm transition-colors"
+                          title="Receive Items (GRN)"
+                        >
+                          <Truck className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
+                          onClick={() => generateInvoice(po.id, undefined, po.supplier?.id)}
+                          className="p-1.5 text-gray-400 hover:text-green-600 rounded-sm transition-colors"
+                          title="Generate Invoice"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
                           onClick={() => setShowSOSelector({ poId: po.id })}
                           className="p-1.5 text-gray-400 hover:text-gray-900 rounded-sm transition-colors"
                           title="Link SO"
@@ -198,7 +240,100 @@ export default function PurchaseOrdersPage() {
                       <td colSpan={8} className="p-0">
                         <div className="mx-16 my-4 p-6 bg-white border border-gray-200 rounded-sm shadow-sm relative overflow-hidden">
                           <div className="absolute top-0 left-0 w-1 h-full bg-gray-900" />
-                          <div className="flex justify-between items-center mb-6">
+                          {/* Order Items */}
+                          <div className="space-y-4 mb-8">
+                            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                              <Tag className="w-4 h-4" /> Ordered Inventory
+                            </h4>
+                            <table className="w-full text-left text-[11px]">
+                              <thead className="text-[9px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
+                                <tr>
+                                  <th className="py-2">Item Description</th>
+                                  <th className="py-2 text-center">Ordered</th>
+                                  <th className="py-2 text-center">Received</th>
+                                  <th className="py-2 text-center">Billed</th>
+                                  <th className="py-2 text-right">Unit Price</th>
+                                  <th className="py-2 text-right">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-50">
+                                {po.lines?.map((line: any) => (
+                                  <tr key={line.id} className="text-[11px] font-bold text-gray-600">
+                                    <td className="py-3 uppercase tracking-tighter">{line.itemDescription || line.description}</td>
+                                    <td className="py-3 text-center font-mono">{line.quantity}</td>
+                                    <td className="py-3 text-center font-mono text-indigo-600">{line.receivedQuantity || 0}</td>
+                                    <td className="py-3 text-center font-mono text-green-600">{line.billedQuantity || 0}</td>
+                                    <td className="py-3 text-right font-mono">{formatCurrency(line.unitPrice)}</td>
+                                    <td className="py-3 text-right font-mono text-gray-900">{formatCurrency(line.quantity * line.unitPrice)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Related Documents */}
+                          <div className="pt-6 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                            {/* GRNs */}
+                            <div className="space-y-4">
+                              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <Truck className="w-4 h-4" /> Goods Receipt Notes (GRN)
+                              </h4>
+                              <div className="space-y-2">
+                                {po.grns?.map((grn: any) => (
+                                  <div key={grn.id} className="p-3 bg-gray-50 rounded-sm border border-gray-100 flex justify-between items-center group/doc">
+                                    <div>
+                                      <p className="text-[10px] font-black text-gray-900 uppercase tracking-tighter">{grn.grnNumber}</p>
+                                      <p className="text-[9px] font-bold text-gray-400 uppercase">{new Date(grn.receiptDate).toLocaleDateString()}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button onClick={() => router.push(`/company/${companyId}/purchase/grns/${grn.id}`)} className="p-1 text-gray-400 hover:text-gray-900 transition-all">
+                                        <Eye className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button 
+                                        onClick={() => generateInvoice(po.id, grn.id, po.supplier?.id)}
+                                        className="px-2 py-1 bg-white border border-gray-200 text-[8px] font-black uppercase tracking-widest hover:bg-gray-900 hover:text-white transition-all rounded-xs"
+                                        title="Bill this GRN"
+                                      >
+                                        Invoice
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                                {(!po.grns || po.grns.length === 0) && <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic py-2">No receipts yet</p>}
+                              </div>
+                            </div>
+
+                            {/* Invoices */}
+                            <div className="space-y-4">
+                              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <FileText className="w-4 h-4" /> Purchase Invoices (PI)
+                              </h4>
+                              <div className="space-y-2">
+                                {po.invoices?.map((inv: any) => (
+                                  <div key={inv.id} className="p-3 bg-gray-50 rounded-sm border border-gray-100 flex justify-between items-center">
+                                    <div>
+                                      <p className="text-[10px] font-black text-gray-900 uppercase tracking-tighter">{inv.invoiceNumber}</p>
+                                      <p className="text-[9px] font-bold text-gray-400 uppercase">{new Date(inv.invoiceDate).toLocaleDateString()}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className={cn(
+                                        "px-2 py-0.5 text-[8px] font-black uppercase rounded-xs border",
+                                        inv.status === 'APPROVED' ? "bg-green-50 text-green-600 border-green-100" : "bg-gray-50 text-gray-400 border-gray-100"
+                                      )}>
+                                        {inv.status}
+                                      </span>
+                                      <button onClick={() => router.push(`/company/${companyId}/purchase/invoices/${inv.id}`)} className="p-1 text-gray-400 hover:text-gray-900 transition-all">
+                                        <Eye className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                                {(!po.invoices || po.invoices.length === 0) && <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic py-2">No invoices generated</p>}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="pt-6 border-t border-gray-100 flex justify-between items-center mb-6">
                             <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Linked Sales Orders</h4>
                             <button 
                               onClick={() => router.push(`/company/${companyId}/sales/orders/create?poId=${po.id}`)}
@@ -314,6 +449,20 @@ export default function PurchaseOrdersPage() {
             </div>
           </div>
         </div>
+      )}
+      {/* Partial Fulfillment Modal */}
+      {showFulfillmentModal && (
+        <PartialFulfillmentModal
+          isOpen={!!showFulfillmentModal}
+          onClose={() => setShowFulfillmentModal(null)}
+          order={showFulfillmentModal.order}
+          type={showFulfillmentModal.type}
+          onSubmit={(items) => {
+            if (showFulfillmentModal.type === 'GRN') {
+              generateGRNMutation.mutate({ poId: showFulfillmentModal.order.id, items });
+            }
+          }}
+        />
       )}
     </div>
   );

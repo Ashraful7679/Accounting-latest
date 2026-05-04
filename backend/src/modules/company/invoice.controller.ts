@@ -40,7 +40,7 @@ export class InvoiceController extends BaseCompanyController {
       }
       const subtotal = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice), 0);
       const taxAmount = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice * (line.taxRate || 0) / 100), 0);
-      const total = subtotal + taxAmount;
+      const total = subtotal + taxAmount + (Number(data.otherExpenses) || 0);
       const bdtAmount = total * (data.exchangeRate || 1);
 
       if (!data.invoiceDate) {
@@ -63,6 +63,8 @@ export class InvoiceController extends BaseCompanyController {
         companyId,
         customerId: data.customerId || null,
         vendorId: data.vendorId || null,
+        salesOrderId: data.salesOrderId || null,
+        purchaseOrderId: data.purchaseOrderId || null,
         type: data.type || 'SALES',
         currency: data.currency || 'BDT',
         exchangeRate: data.exchangeRate || 1,
@@ -70,7 +72,8 @@ export class InvoiceController extends BaseCompanyController {
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
         subtotal,
         taxAmount,
-        discountAmount: 0,
+        discountAmount: Number(data.discountAmount) || 0,
+        otherExpenses: Number(data.otherExpenses) || 0,
         total: bdtAmount,
         createdById: userId,
         lines: {
@@ -80,9 +83,14 @@ export class InvoiceController extends BaseCompanyController {
             quantity: Number(l.quantity || 1),
             unitPrice: Number(l.unitPrice || 0),
             taxRate: Number(l.taxRate || 0),
+            taxAmount: Number(l.quantity || 0) * Number(l.unitPrice || 0) * (Number(l.taxRate || 0) / 100),
             amount: Number(l.quantity || 0) * Number(l.unitPrice || 0) * (1 + (Number(l.taxRate || 0) / 100)),
+            returnQuantity: Number(l.returnQuantity) || 0,
+            damagedQuantity: Number(l.damagedQuantity) || 0,
           })),
         },
+        dns: data.dnIds ? { connect: data.dnIds.map((id: string) => ({ id })) } : undefined,
+        grns: data.grnIds ? { connect: data.grnIds.map((id: string) => ({ id })) } : undefined,
       });
 
       await NotificationController.logActivity({
@@ -128,7 +136,7 @@ export class InvoiceController extends BaseCompanyController {
     if (data.lines) {
       const subtotal = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice), 0);
       const taxAmount = data.lines.reduce((sum: number, line: any) => sum + (line.quantity * line.unitPrice * (line.taxRate || 0) / 100), 0);
-      const total = subtotal + taxAmount;
+      const total = subtotal + taxAmount + (Number(data.otherExpenses) || Number(invoice.otherExpenses) || 0) - (Number(data.discountAmount) || Number(invoice.discountAmount) || 0);
       const bdtAmount = total * (data.exchangeRate || invoice.exchangeRate || 1);
 
       data.subtotal = subtotal;
@@ -144,6 +152,8 @@ export class InvoiceController extends BaseCompanyController {
         ...sanitizedData,
         customerId: data.customerId || undefined,
         vendorId: data.vendorId || undefined,
+        salesOrderId: data.salesOrderId || undefined,
+        purchaseOrderId: data.purchaseOrderId || undefined,
         lines: data.lines ? {
           deleteMany: {},
           create: data.lines.map((l: any) => ({
@@ -152,7 +162,10 @@ export class InvoiceController extends BaseCompanyController {
             quantity: Number(l.quantity || 1),
             unitPrice: Number(l.unitPrice || 0),
             taxRate: Number(l.taxRate || 0),
+            taxAmount: Number(l.quantity || 0) * Number(l.unitPrice || 0) * (Number(l.taxRate || 0) / 100),
             amount: l.quantity * l.unitPrice * (1 + (l.taxRate || 0) / 100),
+            returnQuantity: Number(l.returnQuantity) || 0,
+            damagedQuantity: Number(l.damagedQuantity) || 0,
           })),
         } : undefined,
       },
@@ -353,10 +366,44 @@ export class InvoiceController extends BaseCompanyController {
             approvedById: userId,
             approvedAt: new Date(),
           },
+          include: { lines: true, dns: true, grns: true }
         });
 
-        // 1. Generate GRN/DN and Update Inventory
-        if (invoice.type === 'PURCHASE') {
+        // 1. Handle Order Quantity Updates (Invoiced/Billed Qty)
+        if (inv.salesOrderId) {
+          for (const line of inv.lines) {
+            if (line.productId) {
+              await tx.salesOrderLine.updateMany({
+                where: { salesOrderId: inv.salesOrderId, productId: line.productId },
+                data: {
+                  invoicedQuantity: {
+                    increment: line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0)
+                  }
+                }
+              });
+            }
+          }
+        }
+        if (inv.purchaseOrderId) {
+          for (const line of inv.lines) {
+            if (line.productId) {
+              await tx.purchaseOrderLine.updateMany({
+                where: { purchaseOrderId: inv.purchaseOrderId, productId: line.productId },
+                data: {
+                  billedQuantity: {
+                    increment: line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0)
+                  }
+                }
+              });
+            }
+          }
+        }
+
+        // 2. Generate GRN/DN if not already present
+        const hasDN = inv.dns && inv.dns.length > 0;
+        const hasGRN = inv.grns && inv.grns.length > 0;
+
+        if (invoice.type === 'PURCHASE' && !hasGRN) {
           const grn = await tx.gRN.create({
             data: {
               grnNumber: `GRN-${Date.now()}`,
@@ -373,7 +420,7 @@ export class InvoiceController extends BaseCompanyController {
             }
           });
           await InventoryService.processGRN(tx, grn.id);
-        } else {
+        } else if (invoice.type === 'SALES' && !hasDN) {
           const dn = await tx.dN.create({
             data: {
               dnNumber: `DN-${Date.now()}`,
@@ -391,7 +438,7 @@ export class InvoiceController extends BaseCompanyController {
           await InventoryService.processDN(tx, dn.id);
         }
 
-        // 2. Automated Financial Journaling
+        // 3. Automated Financial Journaling
         await JournalService.handleDocumentApproval('INVOICE', invoiceId, userId, tx);
 
         return inv;
@@ -407,6 +454,81 @@ export class InvoiceController extends BaseCompanyController {
           detail: error.stack
         } 
       });
+    }
+  }
+
+  async revertInvoice(request: FastifyRequest, reply: FastifyReply) {
+    const { invoiceId } = request.params as { invoiceId: string };
+    const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+
+    try {
+      const role = await this.getUserRole(userId, companyId);
+      if (role !== 'Owner' && role !== 'Admin') {
+        throw new ForbiddenError('Only Owners or Admins can revert approved invoices');
+      }
+
+      const invoice = await prisma.invoice.findUnique({
+        where: { id: invoiceId },
+        include: { lines: true }
+      });
+
+      if (!invoice) throw new NotFoundError('Invoice not found');
+      if (invoice.status !== 'APPROVED') {
+        throw new ValidationError('Only approved invoices can be reverted');
+      }
+
+      const updated = await prisma.$transaction(async (tx: any) => {
+        // 1. Revert status
+        const inv = await tx.invoice.update({
+          where: { id: invoiceId },
+          data: { status: 'DRAFT', approvedById: null, approvedAt: null },
+          include: { lines: true }
+        });
+
+        // 2. Revert Order Quantity Updates
+        if (inv.salesOrderId) {
+          for (const line of inv.lines) {
+            if (line.productId) {
+              await tx.salesOrderLine.updateMany({
+                where: { salesOrderId: inv.salesOrderId, productId: line.productId },
+                data: {
+                  invoicedQuantity: {
+                    decrement: line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0)
+                  }
+                }
+              });
+            }
+          }
+        }
+        if (inv.purchaseOrderId) {
+          for (const line of inv.lines) {
+            if (line.productId) {
+              await tx.purchaseOrderLine.updateMany({
+                where: { purchaseOrderId: inv.purchaseOrderId, productId: line.productId },
+                data: {
+                  billedQuantity: {
+                    decrement: line.quantity - (line.returnQuantity || 0) - (line.damagedQuantity || 0)
+                  }
+                }
+              });
+            }
+          }
+        }
+
+        // 3. Delete Journal Entries
+        if (inv.journalId) {
+          await tx.journalEntry.delete({
+            where: { id: inv.journalId }
+          });
+        }
+
+        return inv;
+      });
+
+      return reply.send({ success: true, data: updated });
+    } catch (error: any) {
+      return reply.status(error.statusCode || 500).send({ success: false, error: error.message });
     }
   }
 }

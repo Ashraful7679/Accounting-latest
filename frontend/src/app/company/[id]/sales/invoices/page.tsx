@@ -8,7 +8,7 @@ import api from '@/lib/api';
 import { 
   FileText, Plus, Search, Eye, Trash2, 
   CreditCard, Loader2, ArrowUpRight,
-  Filter, TrendingUp
+  Filter, TrendingUp, Undo2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
@@ -62,6 +62,19 @@ export default function SalesInvoicesPage() {
       queryClient.invalidateQueries({ queryKey: ['sales-invoices', companyId] });
       toast.success('Invoice deleted');
     },
+  });
+
+  const revertMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.post(`/company/${companyId}/invoices/${id}/revert-approval`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales-invoices', companyId] });
+      toast.success('Invoice reverted to Draft');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to revert invoice');
+    }
   });
 
   const filteredInvoices = invoices?.filter((inv: Invoice) => {
@@ -212,6 +225,19 @@ export default function SalesInvoicesPage() {
                       )}
 
                       <button className="p-2 text-gray-400 hover:text-gray-900 rounded-sm transition-colors"><Eye className="w-4 h-4" /></button>
+                      {(inv.status === 'VERIFIED' || inv.status === 'APPROVED') && (
+                        <button 
+                          onClick={() => {
+                            if (confirm('Reverting will delete associated journal entries and reset stock movements. Continue?')) {
+                              revertMutation.mutate(inv.id);
+                            }
+                          }}
+                          className="p-2 text-amber-600 hover:bg-amber-50 rounded-sm transition-colors flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest"
+                          title="Revert to Draft"
+                        >
+                          <Undo2 className="w-3.5 h-3.5" /> Revert
+                        </button>
+                      )}
                       {inv.status === 'DRAFT' && (
                         <button 
                           onClick={() => deleteMutation.mutate(inv.id)}

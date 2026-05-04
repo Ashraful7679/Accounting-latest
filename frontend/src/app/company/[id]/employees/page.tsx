@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 
 import { useEffect, useState } from 'react';
@@ -233,7 +233,7 @@ export default function EmployeesPage() {
   const openModal = (type: 'employee' | 'advance' | 'loan' | 'expense', item?: any) => {
     setModalType(type);
     setSelectedItem(item);
-    const initialData = type === 'employee' ? { firstName: '', lastName: '', email: '', phone: '', designation: '', department: '', salary: 0, joiningDate: new Date().toISOString() } :
+    const initialData = type === 'employee' ? { firstName: '', lastName: '', email: '', phone: '', designation: '', department: '', salary: 0, joinDate: new Date().toISOString() } :
                  type === 'advance' ? { employeeId: '', amount: 0, purpose: '', date: new Date().toISOString().split('T')[0], paymentMethod: 'CASH' } :
                  type === 'loan' ? { employeeId: '', principalAmount: 0, interestRate: 0, termMonths: 12, startDate: new Date().toISOString().split('T')[0], monthlyInstallment: 0 } :
                  { employeeId: '', amount: 0, purpose: '', date: new Date().toISOString().split('T')[0], category: 'TRAVEL' };

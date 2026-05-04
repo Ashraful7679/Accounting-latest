@@ -163,6 +163,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   // Employees
   fastify.get('/:id/employees', employeeController.getEmployees.bind(employeeController));
   fastify.post('/:id/employees', employeeController.createEmployee.bind(employeeController));
+  fastify.get('/:id/employees/:employeeId', employeeController.getEmployeeDetail.bind(employeeController));
   fastify.put('/:id/employees/:employeeId', employeeController.updateEmployee.bind(employeeController));
   fastify.delete('/:id/employees/:employeeId', employeeController.deleteEmployee.bind(employeeController));
   fastify.post('/:id/employees/:employeeId/pay-salary', employeeController.paySalary.bind(employeeController));
@@ -272,12 +273,6 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   // For now I'll map them to the facade.
   fastify.post('/:id/close-period', periodController.closePeriod.bind(periodController));
 
-  // Employee Management
-  fastify.get('/:id/employees', employeeController.getEmployees.bind(employeeController));
-  fastify.post('/:id/employees', employeeController.createEmployee.bind(employeeController));
-  fastify.get('/:id/employees/:employeeId', employeeController.getEmployeeDetail.bind(employeeController));
-  fastify.put('/:id/employees/:employeeId', employeeController.updateEmployee.bind(employeeController));
-  fastify.delete('/:id/employees/:employeeId', employeeController.deleteEmployee.bind(employeeController));
 
 
   // Bills (Accounts Payable Documents)

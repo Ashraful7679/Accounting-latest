@@ -141,6 +141,10 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/:id/challans', orderController.getDeliveryChallans.bind(orderController));
   fastify.post('/:id/sales-orders/:soId/challan', orderController.generateDeliveryChallan.bind(orderController));
 
+  // GRN (Goods Receipt Note)
+  fastify.get('/:id/grns', orderController.getGRNs.bind(orderController));
+  fastify.post('/:id/purchase-orders/:poId/grn', orderController.generateGRN.bind(orderController));
+
   // Accounts (COA)
   fastify.get('/:id/accounts', coaController.getAccounts.bind(coaController));
   fastify.post('/:id/accounts', coaController.createAccount.bind(coaController));
@@ -203,6 +207,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/invoices/:invoiceId/submit', invoiceController.submitInvoice.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/reject', invoiceController.rejectInvoice.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/retrieve', invoiceController.retrieveInvoice.bind(invoiceController));
+  fastify.post('/:id/invoices/:invoiceId/revert-approval', (req, rep) => invoiceController.revertInvoice(req, rep));
 
   // Journals
   fastify.get('/:id/journals', journalController.getJournals.bind(journalController));

@@ -10,6 +10,7 @@ import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
 import { cn } from '@/lib/utils';
 import React from 'react';
+import { PartialFulfillmentModal } from '@/components/PartialFulfillmentModal';
 
 interface SalesOrderLine {
   id: string;
@@ -28,9 +29,14 @@ interface SalesOrder {
   totalAmount: number;
   currency: string;
   status: string;
-  customer?: { name: string; code: string };
+  customer?: { id: string; name: string; code: string };
   lines: SalesOrderLine[];
   purchaseOrders: any[];
+  dns: any[];
+  invoices: any[];
+  piSalesOrders: any[];
+  exportPIs: any[];
+  piLCs: any[];
 }
 
 export default function SalesOrdersPage() {
@@ -43,6 +49,7 @@ export default function SalesOrdersPage() {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [showPOSelector, setShowPOSelector] = useState<{ soId: string } | null>(null);
+  const [showFulfillmentModal, setShowFulfillmentModal] = useState<{ order: any, type: 'DN' | 'GRN' } | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -76,39 +83,28 @@ export default function SalesOrdersPage() {
   });
 
   const generateChallanMutation = useMutation({
-    mutationFn: async (soId: string) => {
-      const response = await api.post(`/company/${companyId}/sales-orders/${soId}/challan`);
+    mutationFn: async ({ soId, items }: { soId: string, items: any[] }) => {
+      const response = await api.post(`/company/${companyId}/sales-orders/${soId}/challan`, { items });
       return response.data;
     },
     onSuccess: (result, variables) => {
-      const dn = result?.data;
-      if (dn?.id) {
-        setChallanMap(prev => ({ ...prev, [variables]: dn.id }));
-      }
       queryClient.invalidateQueries({ queryKey: ['sales-orders', companyId] });
       toast.success('Delivery Challan created');
+      setShowFulfillmentModal(null);
     },
     onError: (err: any) => {
-      console.error('Challan generation error:', err);
       const msg = err?.response?.data?.message || 'Failed to create delivery challan';
       toast.error(msg);
     },
   });
 
-  const generateInvoiceMutation = useMutation({
-    mutationFn: async (soId: string) => {
-      const response = await api.post(`/company/${companyId}/sales-orders/${soId}/invoice`);
-      return response.data;
-    },
-    onSuccess: () => {
-      toast.success('Invoice created');
-      queryClient.invalidateQueries({ queryKey: ['sales-orders', companyId] });
-    },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.message || 'Failed to create invoice';
-      toast.error(msg);
-    },
-  });
+  const generateInvoice = (soId?: string, dnId?: string, customerId?: string) => {
+    let url = `/company/${companyId}/sales/invoices/create?`;
+    if (soId) url += `soId=${soId}&`;
+    if (dnId) url += `dnIds=${dnId}&`;
+    if (customerId) url += `customerId=${customerId}&`;
+    router.push(url);
+  };
 
   const toggleExpand = (id: string) => {
     const newExpanded = new Set(expandedOrders);
@@ -228,32 +224,25 @@ export default function SalesOrdersPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {challanMap[so.id] ? (
-                          <button
-                            onClick={() => router.push(`/company/${companyId}/sales/challans/${challanMap[so.id]}`)}
-                            className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => generateChallanMutation.mutate(so.id)}
-                            className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
-                          >
-                            <Truck className="w-4 h-4" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => setShowFulfillmentModal({ order: so, type: 'DN' })}
+                          className="p-2 text-gray-400 hover:text-indigo-600 transition-colors"
+                          title="Generate Delivery Note"
+                        >
+                          <Truck className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => generateInvoice(so.id, undefined, so.customer?.id)}
+                          className="p-2 text-gray-400 hover:text-green-600 transition-colors"
+                          title="Generate Invoice"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => window.print()}
                           className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
                         >
                           <Printer className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => generateInvoiceMutation.mutate(so.id)}
-                          className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
-                        >
-                          <FileText className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -271,16 +260,20 @@ export default function SalesOrdersPage() {
                               <thead className="text-[9px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
                                 <tr>
                                   <th className="py-2">Item Description</th>
-                                  <th className="py-2 text-center">Qty</th>
+                                  <th className="py-2 text-center">Ordered</th>
+                                  <th className="py-2 text-center">Delivered</th>
+                                  <th className="py-2 text-center">Invoiced</th>
                                   <th className="py-2 text-right">Unit Price</th>
                                   <th className="py-2 text-right">Total</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-50">
-                                {so.lines.map((line) => (
+                                {so.lines.map((line: any) => (
                                   <tr key={line.id} className="text-[11px] font-bold text-gray-600">
                                     <td className="py-3 uppercase tracking-tighter">{line.description}</td>
                                     <td className="py-3 text-center font-mono">{line.quantity}</td>
+                                    <td className="py-3 text-center font-mono text-indigo-600">{(line as any).deliveredQuantity || 0}</td>
+                                    <td className="py-3 text-center font-mono text-green-600">{(line as any).invoicedQuantity || 0}</td>
                                     <td className="py-3 text-right font-mono">{formatCurrency(line.unitPrice)}</td>
                                     <td className="py-3 text-right font-mono text-gray-900">{formatCurrency(line.quantity * line.unitPrice)}</td>
                                   </tr>
@@ -289,27 +282,128 @@ export default function SalesOrdersPage() {
                             </table>
                           </div>
 
-                          {/* Inventory Links */}
-                          <div className="pt-6 border-t border-gray-100 space-y-4">
-                            <div className="flex justify-between items-center">
+                          {/* Related Documents */}
+                          <div className="pt-6 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {/* Delivery Notes */}
+                            <div className="space-y-4">
                               <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                                <LinkIcon className="w-4 h-4" /> Inventory Procurement Links
+                                <Truck className="w-4 h-4" /> Delivery Challans (DN)
                               </h4>
-                              <button onClick={() => setShowPOSelector({ soId: so.id })} className="text-[9px] font-black text-indigo-600 uppercase tracking-widest hover:underline">+ Link PO</button>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                              {so.purchaseOrders.map((po: any) => (
-                                <div key={po.id} className="p-3 bg-gray-50 rounded-sm border border-gray-100 flex justify-between items-center group/link">
-                                  <div>
-                                    <p className="text-[10px] font-black text-gray-900 uppercase tracking-tighter">{po.poNumber}</p>
-                                    <p className="text-[9px] font-bold text-gray-400 uppercase">{po.supplier?.name}</p>
+                              <div className="space-y-2">
+                                {so.dns?.map((dn: any) => (
+                                  <div key={dn.id} className="p-3 bg-gray-50 rounded-sm border border-gray-100 flex justify-between items-center group/doc">
+                                    <div>
+                                      <p className="text-[10px] font-black text-gray-900 uppercase tracking-tighter">{dn.dnNumber}</p>
+                                      <p className="text-[9px] font-bold text-gray-400 uppercase">{new Date(dn.shipmentDate).toLocaleDateString()}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button onClick={() => router.push(`/company/${companyId}/sales/challans/${dn.id}`)} className="p-1 text-gray-400 hover:text-gray-900 transition-all">
+                                        <Eye className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button 
+                                        onClick={() => generateInvoice(so.id, dn.id, so.customer?.id)}
+                                        className="px-2 py-1 bg-white border border-gray-200 text-[8px] font-black uppercase tracking-widest hover:bg-gray-900 hover:text-white transition-all rounded-xs"
+                                        title="Bill this DN"
+                                      >
+                                        Invoice
+                                      </button>
+                                    </div>
                                   </div>
-                                  <button onClick={() => assignPOMutation.mutate({ soId: so.id, poId: po.id, action: 'disconnect' })} className="opacity-0 group-hover/link:opacity-100 text-gray-400 hover:text-red-500 transition-all p-1">
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              ))}
-                              {so.purchaseOrders.length === 0 && <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic py-2">No procurement records linked</p>}
+                                ))}
+                                {(!so.dns || so.dns.length === 0) && <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic py-2">No deliveries yet</p>}
+                              </div>
+                            </div>
+
+                            {/* Invoices */}
+                            <div className="space-y-4">
+                              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <FileText className="w-4 h-4" /> Sales Invoices (SI)
+                              </h4>
+                              <div className="space-y-2">
+                                {so.invoices?.map((inv: any) => (
+                                  <div key={inv.id} className="p-3 bg-gray-50 rounded-sm border border-gray-100 flex justify-between items-center">
+                                    <div>
+                                      <p className="text-[10px] font-black text-gray-900 uppercase tracking-tighter">{inv.invoiceNumber}</p>
+                                      <p className="text-[9px] font-bold text-gray-400 uppercase">{new Date(inv.invoiceDate).toLocaleDateString()}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className={cn(
+                                        "px-2 py-0.5 text-[8px] font-black uppercase rounded-xs border",
+                                        inv.status === 'APPROVED' ? "bg-green-50 text-green-600 border-green-100" : "bg-gray-50 text-gray-400 border-gray-100"
+                                      )}>
+                                        {inv.status}
+                                      </span>
+                                      <button onClick={() => router.push(`/company/${companyId}/sales/invoices/${inv.id}`)} className="p-1 text-gray-400 hover:text-gray-900 transition-all">
+                                        <Eye className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                                {(!so.invoices || so.invoices.length === 0) && <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic py-2">No invoices generated</p>}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Inventory & Trade Links */}
+                          <div className="pt-6 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-4">
+                              <div className="flex justify-between items-center">
+                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                  <LinkIcon className="w-4 h-4" /> Procurement Links (PO)
+                                </h4>
+                                <button onClick={() => setShowPOSelector({ soId: so.id })} className="text-[9px] font-black text-indigo-600 uppercase tracking-widest hover:underline">+ Link PO</button>
+                              </div>
+                              <div className="grid grid-cols-1 gap-2">
+                                {so.purchaseOrders?.map((po: any) => (
+                                  <div key={po.id} className="p-3 bg-gray-50 rounded-sm border border-gray-100 flex justify-between items-center group/link">
+                                    <div>
+                                      <p className="text-[10px] font-black text-gray-900 uppercase tracking-tighter">{po.poNumber}</p>
+                                      <p className="text-[9px] font-bold text-gray-400 uppercase">{po.supplier?.name}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button onClick={() => router.push(`/company/${companyId}/purchase/orders?search=${po.poNumber}`)} className="p-1 text-gray-400 hover:text-gray-900 transition-all">
+                                        <Eye className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button onClick={() => assignPOMutation.mutate({ soId: so.id, poId: po.id, action: 'disconnect' })} className="opacity-0 group-hover/link:opacity-100 text-gray-400 hover:text-red-500 transition-all p-1">
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                                {(!so.purchaseOrders || so.purchaseOrders.length === 0) && <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic py-2">No procurement records linked</p>}
+                              </div>
+                            </div>
+
+                            {/* Proforma & LC */}
+                            <div className="space-y-4">
+                              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <Tag className="w-4 h-4" /> Proforma & LC Documents
+                              </h4>
+                              <div className="grid grid-cols-1 gap-2">
+                                {so.piSalesOrders?.map((rel: any) => (
+                                  <div key={rel.piId} className="p-3 bg-gray-50 rounded-sm border border-gray-100 flex justify-between items-center">
+                                    <div>
+                                      <p className="text-[10px] font-black text-indigo-900 uppercase tracking-tighter">PI: {rel.pi?.piNumber}</p>
+                                      <p className="text-[9px] font-bold text-gray-400 uppercase">Proforma Invoice</p>
+                                    </div>
+                                    <button onClick={() => router.push(`/company/${companyId}/sales/proforma?search=${rel.pi?.piNumber}`)} className="p-1 text-gray-400 hover:text-gray-900 transition-all">
+                                      <Eye className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
+                                {so.piLCs?.map((lc: any) => (
+                                  <div key={lc.id} className="p-3 bg-gray-50 rounded-sm border border-gray-100 flex justify-between items-center">
+                                    <div>
+                                      <p className="text-[10px] font-black text-amber-900 uppercase tracking-tighter">LC: {lc.lcNumber}</p>
+                                      <p className="text-[9px] font-bold text-gray-400 uppercase">Letter of Credit</p>
+                                    </div>
+                                    <button onClick={() => router.push(`/company/${companyId}/lcs?search=${lc.lcNumber}`)} className="p-1 text-gray-400 hover:text-gray-900 transition-all">
+                                      <Eye className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
+                                {(!so.piSalesOrders?.length && !so.piLCs?.length) && <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic py-2">No trade instruments linked</p>}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -347,6 +441,20 @@ export default function SalesOrdersPage() {
             </div>
           </div>
         </div>
+      )}
+      {/* Partial Fulfillment Modal */}
+      {showFulfillmentModal && (
+        <PartialFulfillmentModal
+          isOpen={!!showFulfillmentModal}
+          onClose={() => setShowFulfillmentModal(null)}
+          order={showFulfillmentModal.order}
+          type={showFulfillmentModal.type}
+          onSubmit={(items) => {
+            if (showFulfillmentModal.type === 'DN') {
+              generateChallanMutation.mutate({ soId: showFulfillmentModal.order.id, items });
+            }
+          }}
+        />
       )}
     </div>
   );

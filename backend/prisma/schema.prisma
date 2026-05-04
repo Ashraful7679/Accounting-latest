@@ -571,6 +571,7 @@ model PurchaseOrder {
   lc             LC?       @relation(fields: [lcId], references: [id])
   lines          PurchaseOrderLine[]
   grns           GRN[]
+  invoices       Invoice[]
   
   // Many-to-many with SalesOrder
   salesOrders    SalesOrder[] @relation("SalesOrderPurchaseOrders")
@@ -611,6 +612,7 @@ model SalesOrder {
   lc             LC?       @relation(fields: [lcId], references: [id])
   lines          SalesOrderLine[]
   dns            DN[]
+  invoices       Invoice[]
   
   // Many-to-many with PurchaseOrder
   purchaseOrders PurchaseOrder[] @relation("SalesOrderPurchaseOrders")
@@ -633,6 +635,8 @@ model SalesOrderLine {
   quantity        Float     @default(1)
   unitPrice       Float
   total           Float
+  deliveredQuantity Float   @default(0)
+  invoicedQuantity  Float   @default(0)
   
   salesOrder      SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
   product         Product?    @relation(fields: [productId], references: [id])
@@ -646,6 +650,8 @@ model PurchaseOrderLine {
   quantity        Float     @default(1)
   unitPrice       Float
   total           Float
+  receivedQuantity Float    @default(0)
+  billedQuantity   Float    @default(0)
   
   customerId  String?
   customer    Customer? @relation("CustomerPOLines", fields: [customerId], references: [id])
@@ -674,6 +680,10 @@ model GRN {
   invoice         Invoice?  @relation("InvoiceGRNs", fields: [invoiceId], references: [id])
   lines           GRNLine[]
   
+  // Internal Accounting Logic
+  isJournaled     Boolean   @default(false)
+  journalId       String?
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   
@@ -706,6 +716,10 @@ model DN {
   invoice         Invoice?  @relation("InvoiceDNs", fields: [invoiceId], references: [id])
   lines           DNLine[]
   
+  // Internal Accounting Logic
+  isJournaled     Boolean   @default(false)
+  journalId       String?
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   
@@ -772,12 +786,18 @@ model Invoice {
   invoiceDate     DateTime  @default(now())
   dueDate         DateTime?
   
+  salesOrderId    String?
+  salesOrder      SalesOrder? @relation(fields: [salesOrderId], references: [id])
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+
   // Currency
   currency        String    @default("BDT")
   exchangeRate   Float     @default(1)
   subtotal       Float
   taxAmount      Float     @default(0)
   discountAmount Float     @default(0)
+  otherExpenses  Float     @default(0)
   total          Float
   
   // Status Flow: DRAFT → PENDING_VERIFICATION → VERIFIED → PENDING_APPROVAL → APPROVED
@@ -840,6 +860,10 @@ model InvoiceLine {
   taxRate     Float   @default(0)
   taxAmount   Float   @default(0)
   amount      Float
+  
+  returnQuantity    Float @default(0)
+  damagedQuantity   Float @default(0)
+
   invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   product     Product? @relation(fields: [productId], references: [id])
 }

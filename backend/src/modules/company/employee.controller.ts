@@ -23,10 +23,11 @@ export class EmployeeController extends BaseCompanyController {
   async createEmployee(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id: companyId } = request.params as { id: string };
-      const { firstName, lastName, email, phone, designation, department, joinDate, salary } = request.body as any;
+      const { firstName, lastName, email, phone, designation, department, joinDate, joiningDate, salary } = request.body as any;
+      const finalJoinDate = joinDate || joiningDate;
 
-      if (!firstName || !lastName) {
-        throw new ValidationError('First name and last name are required');
+      if (!firstName) {
+        throw new ValidationError('First name is required');
       }
 
       const employeeCode = await this.generateDocumentNumber(companyId, 'employee');
@@ -36,12 +37,12 @@ export class EmployeeController extends BaseCompanyController {
           data: {
             employeeCode,
             firstName: String(firstName),
-            lastName: String(lastName),
+            lastName: lastName ? String(lastName) : '',
             email: email || null,
             phone: phone || null,
             designation: designation || null,
             department: department || null,
-            joinDate: joinDate ? new Date(joinDate) : null,
+            joinDate: finalJoinDate ? new Date(finalJoinDate) : null,
             salary: salary ? parseFloat(salary) : 0,
             companyId,
           },

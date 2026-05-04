@@ -12,7 +12,7 @@ export class SequenceService {
    */
   static async generateDocumentNumber(
     companyId: string,
-    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product' | 'employee' | 'account' | 'so' | 'dn',
+    type: 'invoice' | 'journal' | 'po' | 'pi' | 'lc' | 'customer' | 'vendor' | 'product' | 'employee' | 'account' | 'so' | 'dn' | 'grn' | 'bill',
     prismaOverride?: any
   ): Promise<string> {
     const client = prismaOverride || prisma;
@@ -29,6 +29,8 @@ export class SequenceService {
       account: 'ACC',
       so: 'SO',
       dn: 'DN',
+      grn: 'GRN',
+      bill: 'BILL',
     };
 
     const prefix = prefixes[type];
@@ -99,6 +101,12 @@ export class SequenceService {
           break;
         case 'dn':
           alreadyExists = !!(await (client as any).dN.findUnique({ where: { companyId_dnNumber: { companyId, dnNumber: candidate } } }));
+          break;
+        case 'grn':
+          alreadyExists = !!(await (client as any).gRN.findUnique({ where: { companyId_grnNumber: { companyId, grnNumber: candidate } } }));
+          break;
+        case 'bill':
+          alreadyExists = !!(await (client as any).bill.findUnique({ where: { companyId_billNumber: { companyId, billNumber: candidate } } }));
           break;
       }
 

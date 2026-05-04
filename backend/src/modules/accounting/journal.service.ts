@@ -9,7 +9,7 @@ export class JournalService {
    * ledger postings during retries or concurrent requests.
    */
   static async handleDocumentApproval(
-    type: 'INVOICE' | 'BILL' | 'PAYMENT',
+    type: 'INVOICE' | 'BILL' | 'PAYMENT' | 'DN' | 'GRN',
     documentId: string,
     userId: string,
     tx?: any
@@ -32,6 +32,14 @@ export class JournalService {
           console.warn(`[JournalService] Bill ${documentId} is already journaled. Skipping.`);
           return { alreadyJournaled: true };
         }
+      } else if (type === 'DN') {
+        const doc = await currentTx.dN.findUnique({ where: { id: documentId }, select: { isJournaled: true, status: true } });
+        if (!doc) throw new Error('Delivery Note not found');
+        if (doc.isJournaled) return { alreadyJournaled: true };
+      } else if (type === 'GRN') {
+        const doc = await currentTx.gRN.findUnique({ where: { id: documentId }, select: { isJournaled: true, status: true } });
+        if (!doc) throw new Error('GRN not found');
+        if (doc.isJournaled) return { alreadyJournaled: true };
       }
 
       // --- PROCESS JOURNAL ---
@@ -40,6 +48,10 @@ export class JournalService {
           return await this.generateInvoiceJournal(currentTx, documentId, userId);
         case 'BILL':
           return await this.generateBillJournal(currentTx, documentId, userId);
+        case 'DN':
+          return await this.generateDNJournal(currentTx, documentId, userId);
+        case 'GRN':
+          return await this.generateGRNJournal(currentTx, documentId, userId);
         default:
           throw new Error(`Unsupported document type for auto-journaling: ${type}`);
       }
@@ -88,6 +100,15 @@ export class JournalService {
       where: { companyId, category: 'TAX', deletedAt: null }
     }) || await this.ensureGenericAccount(tx, companyId, 'TAX', 'VAT Control');
 
+    // Unbilled Control Accounts
+    const unbilledARAccount = await tx.account.findFirst({
+      where: { companyId, category: 'AR_UNBILLED', deletedAt: null }
+    }) || await this.ensureGenericAccount(tx, companyId, 'AR_UNBILLED', 'Accounts Receivable (Unbilled)');
+
+    const unbilledAPAccount = await tx.account.findFirst({
+      where: { companyId, category: 'AP_UNBILLED', deletedAt: null }
+    }) || await this.ensureGenericAccount(tx, companyId, 'AP_UNBILLED', 'Accounts Payable (Unbilled)');
+
     const entryNumber = await SequenceService.generateDocumentNumber(companyId, 'journal', tx);
 
     const subtotalBase = Number(invoice.subtotal || 0) * exchangeRate;
@@ -95,16 +116,33 @@ export class JournalService {
 
     const lines = [];
 
+    // Check if linked to DN or GRN (to adjust unbilled accounts)
+    const hasDN = (invoice as any).dns && (invoice as any).dns.length > 0;
+    const hasGRN = (invoice as any).grns && (invoice as any).grns.length > 0;
+
     if (invoice.type === 'PURCHASE') {
-      // Dr Inventory (Subtotal)
-      lines.push({
-        accountId: inventoryAccount.id,
-        debit: subtotalBase, credit: 0,
-        debitBase: subtotalBase, creditBase: 0,
-        debitForeign: Number(invoice.subtotal || 0), creditForeign: 0,
-        exchangeRate,
-        description: `Inventory - Inv ${invoice.invoiceNumber}`
-      });
+      if (hasGRN) {
+        // Dr Unbilled AP (instead of Inventory, since GRN already hit Inventory/AP_Unbilled)
+        lines.push({
+          accountId: unbilledAPAccount.id,
+          debit: subtotalBase, credit: 0,
+          debitBase: subtotalBase, creditBase: 0,
+          debitForeign: Number(invoice.subtotal || 0), creditForeign: 0,
+          exchangeRate,
+          description: `GRN Adjustment - Inv ${invoice.invoiceNumber}`
+        });
+      } else {
+        // Dr Inventory (Subtotal)
+        lines.push({
+          accountId: inventoryAccount.id,
+          debit: subtotalBase, credit: 0,
+          debitBase: subtotalBase, creditBase: 0,
+          debitForeign: Number(invoice.subtotal || 0), creditForeign: 0,
+          exchangeRate,
+          description: `Inventory - Inv ${invoice.invoiceNumber}`
+        });
+      }
+      
       // Dr VAT (Tax)
       if (taxBase > 0) {
         lines.push({
@@ -138,15 +176,29 @@ export class JournalService {
         customerId: invoice.customerId,
         description: `AR - Inv ${invoice.invoiceNumber}`
       });
-      // Cr Revenue (Subtotal)
-      lines.push({
-        accountId: revenueAccount.id,
-        debit: 0, credit: subtotalBase,
-        debitBase: 0, creditBase: subtotalBase,
-        debitForeign: 0, creditForeign: Number(invoice.subtotal || 0),
-        exchangeRate,
-        description: `Revenue - Inv ${invoice.invoiceNumber}`
-      });
+
+      if (hasDN) {
+        // Cr Unbilled AR (instead of Revenue, since DN already hit AR_Unbilled/Revenue)
+        lines.push({
+          accountId: unbilledARAccount.id,
+          debit: 0, credit: subtotalBase,
+          debitBase: 0, creditBase: subtotalBase,
+          debitForeign: 0, creditForeign: Number(invoice.subtotal || 0),
+          exchangeRate,
+          description: `DN Adjustment - Inv ${invoice.invoiceNumber}`
+        });
+      } else {
+        // Cr Revenue (Subtotal)
+        lines.push({
+          accountId: revenueAccount.id,
+          debit: 0, credit: subtotalBase,
+          debitBase: 0, creditBase: subtotalBase,
+          debitForeign: 0, creditForeign: Number(invoice.subtotal || 0),
+          exchangeRate,
+          description: `Revenue - Inv ${invoice.invoiceNumber}`
+        });
+      }
+
       // Cr VAT (Tax)
       if (taxBase > 0) {
         lines.push({
@@ -271,8 +323,148 @@ export class JournalService {
     return journal;
   }
 
+  private static async generateDNJournal(tx: any, dnId: string, userId: string) {
+    const dn = await tx.dN.findUnique({
+      where: { id: dnId },
+      include: { salesOrder: { include: { customer: true } }, lines: { include: { product: true } } }
+    });
+
+    if (!dn) throw new Error('DN not found');
+
+    const companyId = dn.companyId;
+    const exchangeRate = Number(dn.salesOrder?.exchangeRate || 1);
+    const entryNumber = await SequenceService.generateDocumentNumber(companyId, 'journal', tx);
+
+    // Calculate Subtotal from lines
+    const subtotalForeign = dn.lines.reduce((sum: number, l: any) => {
+      const soLine = dn.salesOrder?.lines?.find((sol: any) => sol.productId === l.productId);
+      return sum + (Number(l.quantity) * Number(soLine?.unitPrice || l.product?.unitPrice || 0));
+    }, 0);
+    const subtotalBase = subtotalForeign * exchangeRate;
+
+    // Resolve Accounts
+    const unbilledARAccount = await tx.account.findFirst({
+      where: { companyId, category: 'AR_UNBILLED', deletedAt: null }
+    }) || await this.ensureGenericAccount(tx, companyId, 'AR_UNBILLED', 'Accounts Receivable (Unbilled)');
+
+    const revenueAccount = await tx.account.findFirst({
+      where: { companyId, category: 'REVENUE', deletedAt: null }
+    }) || await this.ensureGenericAccount(tx, companyId, 'REVENUE', 'Sales Revenue');
+
+    const journal = await tx.journalEntry.create({
+      data: {
+        entryNumber,
+        companyId,
+        date: dn.shipmentDate || new Date(),
+        description: `Delivery Note Journal: ${dn.dnNumber}`,
+        reference: dn.dnNumber,
+        status: 'POSTED',
+        totalDebit: subtotalBase,
+        totalCredit: subtotalBase,
+        createdById: userId,
+        lines: {
+          create: [
+            {
+              accountId: unbilledARAccount.id,
+              debit: subtotalBase, credit: 0,
+              debitBase: subtotalBase, creditBase: 0,
+              debitForeign: subtotalForeign, creditForeign: 0,
+              exchangeRate,
+              customerId: dn.salesOrder?.customerId,
+              description: `Unbilled AR - DN ${dn.dnNumber}`
+            },
+            {
+              accountId: revenueAccount.id,
+              debit: 0, credit: subtotalBase,
+              debitBase: 0, creditBase: subtotalBase,
+              debitForeign: 0, creditForeign: subtotalForeign,
+              exchangeRate,
+              description: `Revenue - DN ${dn.dnNumber}`
+            }
+          ]
+        }
+      }
+    });
+
+    await tx.dN.update({
+      where: { id: dnId },
+      data: { isJournaled: true, journalId: journal.id }
+    });
+
+    return journal;
+  }
+
+  private static async generateGRNJournal(tx: any, grnId: string, userId: string) {
+    const grn = await tx.gRN.findUnique({
+      where: { id: grnId },
+      include: { purchaseOrder: { include: { supplier: true } }, lines: { include: { product: true } } }
+    });
+
+    if (!grn) throw new Error('GRN not found');
+
+    const companyId = grn.companyId;
+    const exchangeRate = Number(grn.purchaseOrder?.exchangeRate || 1);
+    const entryNumber = await SequenceService.generateDocumentNumber(companyId, 'journal', tx);
+
+    const subtotalForeign = grn.lines.reduce((sum: number, l: any) => {
+      const poLine = grn.purchaseOrder?.lines?.find((pol: any) => pol.productId === l.productId);
+      return sum + (Number(l.quantity) * Number(poLine?.unitPrice || l.product?.unitPrice || 0));
+    }, 0);
+    const subtotalBase = subtotalForeign * exchangeRate;
+
+    const unbilledAPAccount = await tx.account.findFirst({
+      where: { companyId, category: 'AP_UNBILLED', deletedAt: null }
+    }) || await this.ensureGenericAccount(tx, companyId, 'AP_UNBILLED', 'Accounts Payable (Unbilled)');
+
+    const inventoryAccount = await tx.account.findFirst({
+      where: { companyId, category: 'INVENTORY', deletedAt: null }
+    }) || await this.ensureGenericAccount(tx, companyId, 'INVENTORY', 'Inventory Stock');
+
+    const journal = await tx.journalEntry.create({
+      data: {
+        entryNumber,
+        companyId,
+        date: grn.receivedDate || new Date(),
+        description: `GRN Journal: ${grn.grnNumber}`,
+        reference: grn.grnNumber,
+        status: 'POSTED',
+        totalDebit: subtotalBase,
+        totalCredit: subtotalBase,
+        createdById: userId,
+        lines: {
+          create: [
+            {
+              accountId: inventoryAccount.id,
+              debit: subtotalBase, credit: 0,
+              debitBase: subtotalBase, creditBase: 0,
+              debitForeign: subtotalForeign, creditForeign: 0,
+              exchangeRate,
+              description: `Inventory - GRN ${grn.grnNumber}`
+            },
+            {
+              accountId: unbilledAPAccount.id,
+              debit: 0, credit: subtotalBase,
+              debitBase: 0, creditBase: subtotalBase,
+              debitForeign: 0, creditForeign: subtotalForeign,
+              exchangeRate,
+              vendorId: grn.purchaseOrder?.supplierId,
+              description: `Unbilled AP - GRN ${grn.grnNumber}`
+            }
+          ]
+        }
+      }
+    });
+
+    await tx.gRN.update({
+      where: { id: grnId },
+      data: { isJournaled: true, journalId: journal.id }
+    });
+
+    return journal;
+  }
+
   private static async ensureGenericAccount(tx: any, companyId: string, category: string, name: string) {
-    const typeName = category === 'REVENUE' ? 'REVENUE' : 'EXPENSE';
+    const typeName = category === 'REVENUE' ? 'INCOME' : 'EXPENSE';
     const accountType = await tx.accountType.findFirst({ where: { name: typeName } });
     if (!accountType) throw new Error(`Account type '${typeName}' not found in Chart of Accounts`);
 

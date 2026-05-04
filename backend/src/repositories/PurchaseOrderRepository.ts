@@ -11,6 +11,12 @@ export class PurchaseOrderRepository {
             supplier: true,
             lc: true,
             lines: true,
+            grns: {
+              include: { lines: true }
+            },
+            invoices: {
+              include: { lines: true }
+            },
             salesOrders: true
           },
           orderBy: { createdAt: 'desc' }
@@ -32,6 +38,12 @@ export class PurchaseOrderRepository {
             supplier: true,
             lc: true,
             lines: true,
+            grns: {
+              include: { lines: true }
+            },
+            invoices: {
+              include: { lines: true }
+            },
             salesOrders: true
           }
         });

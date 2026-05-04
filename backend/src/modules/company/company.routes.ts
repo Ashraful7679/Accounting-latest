@@ -201,6 +201,8 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/invoices', invoiceController.createInvoice.bind(invoiceController));
   fastify.put('/:id/invoices/:invoiceId', invoiceController.updateInvoice.bind(invoiceController));
   fastify.patch('/:id/invoices/:invoiceId', invoiceController.updateInvoice.bind(invoiceController));
+  fastify.post('/:id/invoices/:invoiceId/delink-dn', invoiceController.delinkDN.bind(invoiceController));
+  fastify.post('/:id/invoices/:invoiceId/delink-grn', invoiceController.delinkGRN.bind(invoiceController));
   fastify.delete('/:id/invoices/:invoiceId', invoiceController.deleteInvoice.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/verify', invoiceController.verifyInvoice.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/approve', invoiceController.approveInvoice.bind(invoiceController));
@@ -208,6 +210,10 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/invoices/:invoiceId/reject', invoiceController.rejectInvoice.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/retrieve', invoiceController.retrieveInvoice.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/revert-approval', (req, rep) => invoiceController.revertInvoice(req, rep));
+
+  // Delivery Challans (DN) deletion
+  fastify.delete('/:id/challans/:dnId', orderController.deleteDeliveryChallan.bind(orderController));
+  fastify.delete('/:id/grns/:grnId', orderController.deleteGRN.bind(orderController));
 
   // Journals
   fastify.get('/:id/journals', journalController.getJournals.bind(journalController));
@@ -265,6 +271,14 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   // Note: updateSettings should probably be in CompanyController if it's general company profile
   // For now I'll map them to the facade.
   fastify.post('/:id/close-period', periodController.closePeriod.bind(periodController));
+
+  // Employee Management
+  fastify.get('/:id/employees', employeeController.getEmployees.bind(employeeController));
+  fastify.post('/:id/employees', employeeController.createEmployee.bind(employeeController));
+  fastify.get('/:id/employees/:employeeId', employeeController.getEmployeeDetail.bind(employeeController));
+  fastify.put('/:id/employees/:employeeId', employeeController.updateEmployee.bind(employeeController));
+  fastify.delete('/:id/employees/:employeeId', employeeController.deleteEmployee.bind(employeeController));
+
 
   // Bills (Accounts Payable Documents)
   fastify.get('/:id/bills', billsController.getBills.bind(billsController));

@@ -69,6 +69,7 @@ export default function CreatePurchaseOrderPage() {
         let price = existingProduct.unitPrice || 0;
         const targetCurrency = orderType === 'local' ? 'BDT' : 'USD';
         
+        // Always calculate from original product price to avoid recursive conversion errors
         if (existingProduct.currency === 'USD' && targetCurrency === 'BDT') {
           price = price * companyExchangeRate;
         } else if (existingProduct.currency === 'BDT' && targetCurrency === 'USD') {
@@ -83,6 +84,35 @@ export default function CreatePurchaseOrderPage() {
     newLines[index] = line;
     setFormData({ ...formData, lines: newLines });
   };
+
+  // Recalculate all line prices when order type or exchange rate changes
+  useEffect(() => {
+    if (!mounted || !products) return;
+    
+    setFormData(prev => ({
+      ...prev,
+      lines: prev.lines.map(line => {
+        const existingProduct = products?.find((p: any) => p.name === line.itemDescription);
+        if (!existingProduct) return line;
+
+        const targetCurrency = orderType === 'local' ? 'BDT' : 'USD';
+        let newPrice = existingProduct.unitPrice || 0;
+
+        if (existingProduct.currency === 'USD' && targetCurrency === 'BDT') {
+          newPrice = newPrice * companyExchangeRate;
+        } else if (existingProduct.currency === 'BDT' && targetCurrency === 'USD') {
+          newPrice = newPrice / companyExchangeRate;
+        }
+
+        const price = Number(newPrice.toFixed(2));
+        return {
+          ...line,
+          unitPrice: price,
+          total: Number((line.quantity * price).toFixed(2))
+        };
+      })
+    }));
+  }, [orderType, companyExchangeRate, products, mounted]);
 
   const addLine = () => {
     setFormData({

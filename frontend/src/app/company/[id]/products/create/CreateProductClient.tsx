@@ -237,7 +237,7 @@ export default function CreateProductClient() {
                       <option value="GBP">GBP (Pounds)</option>
                     </select>
                   </div>
-<div>
+                  <div>
                     <label className="text-sm font-bold text-slate-700 mb-1.5 text-orange-600">Unit Price</label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-lg">
@@ -269,22 +269,6 @@ export default function CreateProductClient() {
                     </div>
                   </div>
                   )}
-                </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-bold text-slate-700 mb-1.5 text-orange-600">Stock Amount</label>
-                    <div className="relative">
-                      <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.stockAmount || ''}
-                        onChange={(e) => setFormData({...formData, stockAmount: parseFloat(e.target.value) || 0})}
-                        placeholder="0.00"
-                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-black text-slate-900 text-lg"
-                      />
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>

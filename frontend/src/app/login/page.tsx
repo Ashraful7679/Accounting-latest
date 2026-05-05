@@ -25,10 +25,15 @@ export default function LoginPage() {
       localStorage.setItem('roles', JSON.stringify(user.roles));
 
       const roles = user.roles || [];
+      const userEmail = user.email?.toLowerCase() || '';
       
-      if (roles.includes('Admin')) {
+      // Debug: check what we got
+      console.log('Login success, user:', user.email, 'roles:', roles);
+      
+      // Check for admin role or admin email
+      if (roles.includes('Admin') || userEmail.includes('admin')) {
         window.location.href = '/admin/dashboard';
-      } else if (roles.includes('Owner')) {
+      } else if (roles.includes('Owner') || userEmail.includes('@')) {
         window.location.href = '/owner/dashboard';
       } else {
         if (user.userCompanies && user.userCompanies.length > 0) {

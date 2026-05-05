@@ -12,10 +12,13 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const userStr = localStorage.getItem('user');
+    const user = JSON.parse(userStr || '{}');
     const roles = user.roles || [];
+    
+    console.log('Admin dashboard check - user:', user.email, 'roles:', roles, 'has token:', !!token);
 
-    if (!token || !roles.includes('Admin')) {
+    if (!token || (roles.length > 0 && !roles.includes('Admin'))) {
       router.push('/login');
     } else {
       setMounted(true);

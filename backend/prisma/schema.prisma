@@ -26,6 +26,10 @@ model User {
   phone        String?
   address      String?
 
+  // Security lifecycle controls
+  forcePasswordReset Boolean @default(false)
+  tokenVersion       Int     @default(0)
+
   // Reporting Hierarchy
   managerId    String?
   manager      User?   @relation("ManagerSubordinates", fields: [managerId], references: [id])
@@ -60,6 +64,19 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model SystemAuditLog {
+  id             String   @id @default(uuid())
+  adminId        String
+  action         String
+  targetResource String
+  targetId       String
+  ipAddress      String
+  details        Json?
+  timestamp      DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
 }
 
 model Role {
@@ -243,7 +260,7 @@ model LC {
   bankBranch        String?
 
   // Relations
-  company    Company   @relation(fields: [companyId], references: [id])
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   customerId String?
   customer   Customer? @relation("CustomerLCs", fields: [customerId], references: [id])
   vendorId   String?
@@ -295,7 +312,7 @@ model PI {
   idbpNumber              String?
 
   companyId String
-  company   Company @relation(fields: [companyId], references: [id])
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   lc        LC?     @relation(fields: [lcId], references: [id])
 
   lines              PILine[]
@@ -352,7 +369,7 @@ model Loan {
   // Soft Delete
   deletedAt DateTime?
 
-  company   Company  @relation(fields: [companyId], references: [id])
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -394,7 +411,7 @@ model Account {
   currencyId String?
   currency   Currency? @relation(fields: [currencyId], references: [id])
 
-  company          Company            @relation(fields: [companyId], references: [id])
+  company          Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   accountType      AccountType        @relation(fields: [accountTypeId], references: [id])
   parent           Account?           @relation("AccountHierarchy", fields: [parentId], references: [id])
   children         Account[]          @relation("AccountHierarchy")
@@ -421,7 +438,7 @@ model Project {
   name         String
   companyId    String
   isActive     Boolean            @default(true)
-  company      Company            @relation(fields: [companyId], references: [id])
+  company      Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   journalLines JournalEntryLine[]
   // Soft Delete
   deletedAt    DateTime?
@@ -439,7 +456,7 @@ model CostCenter {
   name         String
   companyId    String
   isActive     Boolean            @default(true)
-  company      Company            @relation(fields: [companyId], references: [id])
+  company      Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   journalLines JournalEntryLine[]
   // Soft Delete
   deletedAt    DateTime?
@@ -477,7 +494,7 @@ model Customer {
   exchangeRate      Float   @default(1)
   paymentTerms      String  @default("COD") // COD, CREDIT, ADVANCE, DO_DUE
 
-  company      Company             @relation(fields: [companyId], references: [id])
+  company      Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   invoices     Invoice[]
   payments     Payment[]
   journalLines JournalEntryLine[]
@@ -523,7 +540,7 @@ model Vendor {
   exchangeRate      Float   @default(1)
   paymentTerms      String  @default("COD") // COD, CREDIT, ADVANCE, DO_DUE
 
-  company        Company             @relation(fields: [companyId], references: [id])
+  company        Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   invoices       Invoice[]
   payments       Payment[]
   purchaseOrders PurchaseOrder[]
@@ -576,7 +593,7 @@ model PurchaseOrder {
   createdById  String
   approvedById String?
 
-  company    Company             @relation(fields: [companyId], references: [id])
+  company    Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   supplier   Vendor              @relation(fields: [supplierId], references: [id])
   lc         LC?                 @relation(fields: [lcId], references: [id])
   lines      PurchaseOrderLine[]
@@ -618,7 +635,7 @@ model SalesOrder {
   // Status: DRAFT, APPROVED, SENT, DELIVERED, CLOSED
   status String @default("DRAFT")
 
-  company     Company          @relation(fields: [companyId], references: [id])
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   customer    Customer         @relation(fields: [customerId], references: [id])
   lc          LC?              @relation(fields: [lcId], references: [id])
   lines       SalesOrderLine[]
@@ -687,7 +704,7 @@ model GRN {
   receivedDate    DateTime @default(now())
   status          String   @default("RECEIVED") // RECEIVED, CANCELLED
 
-  company       Company        @relation(fields: [companyId], references: [id])
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
   invoice       Invoice?       @relation("InvoiceGRNs", fields: [invoiceId], references: [id])
   lines         GRNLine[]
@@ -723,7 +740,7 @@ model DN {
   shipmentDate DateTime @default(now())
   status       String   @default("SHIPPED") // SHIPPED, DELIVERED, CANCELLED
 
-  company    Company     @relation(fields: [companyId], references: [id])
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   salesOrder SalesOrder? @relation(fields: [salesOrderId], references: [id])
   invoice    Invoice?    @relation("InvoiceDNs", fields: [invoiceId], references: [id])
   lines      DNLine[]
@@ -770,7 +787,7 @@ model Product {
   deletedAt       DateTime?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
-  company         Company             @relation(fields: [companyId], references: [id])
+  company         Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   journalLines    JournalEntryLine[]
   invoiceLines    InvoiceLine[]
   poLines         PurchaseOrderLine[]
@@ -839,7 +856,7 @@ model Invoice {
   approvedBy User? @relation("ApprovedInvoices", fields: [approvedById], references: [id])
   rejectedBy User? @relation("RejectedInvoices", fields: [rejectedById], references: [id])
 
-  company  Company   @relation(fields: [companyId], references: [id])
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   customer Customer? @relation(fields: [customerId], references: [id])
   vendor   Vendor?   @relation(fields: [vendorId], references: [id])
 
@@ -925,7 +942,7 @@ model JournalEntry {
   approvedAt DateTime?
 
   // Relations
-  company                Company                 @relation(fields: [companyId], references: [id])
+  company                Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
   createdBy              User                    @relation("CreatedJournals", fields: [createdById], references: [id])
   verifiedBy             User?                   @relation("VerifiedJournals", fields: [verifiedById], references: [id])
   approvedBy             User?                   @relation("ApprovedJournals", fields: [approvedById], references: [id])
@@ -1009,7 +1026,7 @@ model Bill {
   isJournaled Boolean @default(false)
   journalId   String?
 
-  company    Company     @relation(fields: [companyId], references: [id])
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   vendor     Vendor      @relation(fields: [vendorId], references: [id])
   payments   Payment[]   @relation("BillPayments")
   debitNotes DebitNote[]
@@ -1264,7 +1281,7 @@ model Employee {
   isActive     Boolean   @default(true)
   paymentTerms String    @default("BANK") // CASH, BANK, CHEQUE
 
-  company  Company           @relation(fields: [companyId], references: [id])
+  company  Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
   advances EmployeeAdvance[]
   loans    EmployeeLoan[]
   expenses EmployeeExpense[]
@@ -1290,7 +1307,7 @@ model EmployeeAdvance {
   companyId      String
 
   employee     Employee      @relation(fields: [employeeId], references: [id])
-  company      Company       @relation(fields: [companyId], references: [id])
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   account      Account?      @relation(fields: [accountId], references: [id])
   journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id])
 
@@ -1315,7 +1332,7 @@ model EmployeeLoan {
   companyId       String
 
   employee   Employee                @relation(fields: [employeeId], references: [id])
-  company    Company                 @relation(fields: [companyId], references: [id])
+  company    Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
   repayments EmployeeLoanRepayment[]
 
   createdAt DateTime @default(now())
@@ -1337,7 +1354,7 @@ model EmployeeLoanRepayment {
   companyId      String
 
   loan         EmployeeLoan  @relation(fields: [loanId], references: [id])
-  company      Company       @relation(fields: [companyId], references: [id])
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id])
 
   createdAt DateTime @default(now())
@@ -1360,7 +1377,7 @@ model EmployeeExpense {
 
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
-  Company        Company?      @relation(fields: [companyId], references: [id])
+  Company        Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyId      String?
   Account        Account?      @relation(fields: [accountId], references: [id])
   accountId      String?
@@ -1423,7 +1440,7 @@ model DebitNote {
   isJournaled Boolean @default(false)
   journalId   String?
 
-  company       Company         @relation(fields: [companyId], references: [id])
+  company       Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   vendor        Vendor          @relation(fields: [vendorId], references: [id])
   bill          Bill?           @relation(fields: [billId], references: [id])
   purchaseOrder PurchaseOrder?  @relation("DebitNotePurchaseOrder", fields: [purchaseOrderId], references: [id])
@@ -1480,7 +1497,7 @@ model PayrollRun {
   totalNet        Float    @default(0)
   notes           String?
 
-  company  Company          @relation(fields: [companyId], references: [id])
+  company  Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   payslips PayrollPayslip[]
 
   createdAt DateTime @default(now())
@@ -1553,7 +1570,7 @@ model CreditNote {
   isJournaled Boolean @default(false)
   journalId   String?
 
-  company    Company          @relation(fields: [companyId], references: [id])
+  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   customer   Customer         @relation("CustomerCreditNotes", fields: [customerId], references: [id])
   invoice    Invoice?         @relation(fields: [invoiceId], references: [id])
   salesOrder SalesOrder?      @relation(fields: [salesOrderId], references: [id])
@@ -1663,7 +1680,7 @@ model FixedAsset {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime @updatedAt
 
-  company           Company  @relation(fields: [companyId], references: [id])
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   depreciationAccount Account? @relation("DepreciationAccount", fields: [depreciationAccountId], references: [id])
   accumulatedAccount Account? @relation("AccumulatedDepreciation", fields: [accumulatedDepreciationAccountId], references: [id])
 

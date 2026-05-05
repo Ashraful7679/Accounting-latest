@@ -14,15 +14,19 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [showCreateCompany, setShowCreateCompany] = useState(false);
   const [showCreateOwner, setShowCreateOwner] = useState(false);
-  const [newCompany, setNewCompany] = useState({ name: '', code: '', email: '' });
+  const [newCompany, setNewCompany] = useState({ name: '', code: '', ownerEmail: '' });
   const [newOwner, setNewOwner] = useState({ email: '', password: '', firstName: '', lastName: '', maxCompanies: 5 });
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const roles = user.roles || [];
+
+    if (!token || !roles.includes('Admin')) {
       router.push('/login');
       return;
     }
+
     loadData();
   }, [router]);
 
@@ -47,11 +51,25 @@ export default function AdminDashboard() {
 
   const handleCreateCompany = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const owner = owners.find(
+      (o) => o.email.toLowerCase() === newCompany.ownerEmail.trim().toLowerCase()
+    );
+
+    if (!owner) {
+      toast.error('Owner not found. Please create the owner first or enter a valid owner email.');
+      return;
+    }
+
     try {
-      await api.post('/admin/companies', newCompany);
+      await api.post('/admin/companies', {
+        name: newCompany.name,
+        code: newCompany.code || undefined,
+        ownerId: owner.id,
+      });
       toast.success('Company created');
       setShowCreateCompany(false);
-      setNewCompany({ name: '', code: '', email: '' });
+      setNewCompany({ name: '', code: '', ownerEmail: '' });
       loadData();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to create company');
@@ -160,17 +178,16 @@ export default function AdminDashboard() {
                 />
                 <input
                   type="text"
-                  placeholder="Company Code"
+                  placeholder="Company Code (optional)"
                   value={newCompany.code}
                   onChange={e => setNewCompany({ ...newCompany, code: e.target.value })}
                   className="px-3 py-2 border rounded-lg"
-                  required
                 />
                 <input
                   type="email"
                   placeholder="Owner Email"
-                  value={newCompany.email}
-                  onChange={e => setNewCompany({ ...newCompany, email: e.target.value })}
+                  value={newCompany.ownerEmail}
+                  onChange={e => setNewCompany({ ...newCompany, ownerEmail: e.target.value })}
                   className="px-3 py-2 border rounded-lg"
                   required
                 />

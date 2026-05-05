@@ -14,19 +14,36 @@ import { motion } from 'framer-motion';
 export default function BackupDashboard() {
   const queryClient = useQueryClient();
   const [isRestoring, setIsRestoring] = useState(false);
+  const [backupScope, setBackupScope] = useState<'system' | 'company'>('system');
+  const [selectedCompanyId, setSelectedCompanyId] = useState('');
 
   const { data: backups, isLoading } = useQuery({
     queryKey: ['backups'],
     queryFn: () => api.get('/admin/backups').then(res => res.data.data)
   });
 
+  const { data: companies } = useQuery({
+    queryKey: ['admin-companies'],
+    queryFn: () => api.get('/admin/companies').then(res => res.data.data),
+    enabled: backupScope === 'company',
+  });
+
   const createBackupMutation = useMutation({
-    mutationFn: () => api.post('/admin/backups'),
+    mutationFn: async () => {
+      if (backupScope === 'company' && !selectedCompanyId) {
+        throw new Error('Select a company before creating a company-scoped backup.');
+      }
+      const config = backupScope === 'company'
+        ? { params: { companyId: selectedCompanyId } }
+        : undefined;
+      const response = await api.post('/admin/backups', undefined, config);
+      return response.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['backups'] });
       toast.success('Backup created successfully');
     },
-    onError: () => toast.error('Failed to create backup')
+    onError: (error: any) => toast.error(error.response?.data?.error?.message || error.message || 'Failed to create backup')
   });
 
   const restoreMutation = useMutation({
@@ -62,14 +79,40 @@ export default function BackupDashboard() {
             <p className="text-slate-500 font-bold mt-2">Secure your data with manual snapshots and managed restores.</p>
           </div>
           
-          <button 
-            onClick={() => createBackupMutation.mutate()}
-            disabled={createBackupMutation.isPending}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-8 py-4 rounded-[20px] font-black flex items-center gap-3 shadow-xl shadow-blue-600/20 transition-all scale-100 hover:scale-[1.02] active:scale-[0.98]"
-          >
-            {createBackupMutation.isPending ? 'Creating...' : 'Create Manual Backup'}
-            <Download className="w-5 h-5" />
-          </button>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex items-center gap-2 rounded-3xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <label htmlFor="backupScope" className="text-sm font-semibold text-slate-700">Scope</label>
+              <select
+                id="backupScope"
+                value={backupScope}
+                onChange={(e) => setBackupScope(e.target.value as 'system' | 'company')}
+                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 outline-none"
+              >
+                <option value="system">System</option>
+                <option value="company">Company</option>
+              </select>
+              {backupScope === 'company' && (
+                <select
+                  value={selectedCompanyId}
+                  onChange={(e) => setSelectedCompanyId(e.target.value)}
+                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 outline-none"
+                >
+                  <option value="">Select company</option>
+                  {companies?.map((company: any) => (
+                    <option key={company.id} value={company.id}>{company.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <button 
+              onClick={() => createBackupMutation.mutate()}
+              disabled={createBackupMutation.isPending || (backupScope === 'company' && !selectedCompanyId)}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-8 py-4 rounded-[20px] font-black flex items-center gap-3 shadow-xl shadow-blue-600/20 transition-all scale-100 hover:scale-[1.02] active:scale-[0.98]"
+            >
+              {createBackupMutation.isPending ? 'Creating...' : 'Create Manual Backup'}
+              <Download className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -131,10 +174,15 @@ export default function BackupDashboard() {
                         <FileCode className="w-6 h-6 text-blue-600" />
                       </div>
                       <div>
-                        <h4 className="font-black text-slate-900">{backup.fileName}</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-black text-slate-900">{backup.fileName}</h4>
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${backup.scope === 'COMPANY' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>
+                            {backup.scope ?? (backup.fileName.endsWith('.sql') ? 'SYSTEM' : 'COMPANY')}
+                          </span>
+                        </div>
                         <div className="flex items-center gap-4 text-xs font-bold text-slate-400 mt-0.5">
                           <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(backup.createdAt).toLocaleString()}</span>
-                          <span className="flex items-center gap-1"><HardDrive className="w-3 h-3" /> {formatSize(backup.size)}</span>
+                          <span className="flex items-center gap-1"><HardDrive className="w-3 h-3" /> {formatSize(backup.size ?? backup.fileSize)}</span>
                         </div>
                       </div>
                     </div>
@@ -142,7 +190,6 @@ export default function BackupDashboard() {
                     <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
                         onClick={() => {
-                          const token = localStorage.getItem('token');
                           window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5002/api'}/admin/backups/download/${backup.fileName}`, '_blank');
                         }}
                         className="p-2 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
@@ -152,10 +199,12 @@ export default function BackupDashboard() {
                       </button>
                       <button 
                         onClick={() => handleRestore(backup.fileName)}
-                        className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl font-black text-xs hover:bg-rose-600 transition-colors"
+                        disabled={!backup.fileName.endsWith('.sql')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs transition-colors ${backup.fileName.endsWith('.sql') ? 'bg-slate-900 text-white hover:bg-rose-600' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
+                        title={backup.fileName.endsWith('.sql') ? 'Restore' : 'Restore not supported for this backup type'}
                       >
                         <RotateCcw className="w-4 h-4" />
-                        Restore
+                        {backup.fileName.endsWith('.sql') ? 'Restore' : 'Unsupported'}
                       </button>
                     </div>
                   </div>

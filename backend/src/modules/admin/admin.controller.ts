@@ -76,6 +76,71 @@ export class AdminController {
     }
   }
 
+  private async createAuditLog(request: FastifyRequest, action: string, targetResource: string, targetId: string, details?: Record<string, unknown>) {
+    const ipAddress = (request.ip || (request.headers['x-forwarded-for'] as string)?.split(',')[0] || 'unknown') as string;
+    await (prisma as any).systemAuditLog.create({
+      data: {
+        adminId: (request.user as any).id,
+        action,
+        targetResource,
+        targetId,
+        ipAddress,
+        details: details || null,
+      },
+    });
+  }
+
+  async impersonateUser(request: FastifyRequest, reply: FastifyReply) {
+    const { userId } = request.params as { userId: string };
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        userRoles: { include: { role: true } },
+        userCompanies: { include: { company: true } },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    const roleNames = user.userRoles.map((ur) => ur.role.name);
+    const token = request.server.jwt.sign({
+      id: user.id,
+      email: user.email,
+      isAdmin: false,
+      roles: roleNames,
+    });
+
+    const { password: _, ...userWithoutPassword } = user;
+
+    return reply.send({
+      success: true,
+      data: {
+        token,
+        user: {
+          ...userWithoutPassword,
+          roles: roleNames,
+        },
+      },
+    });
+  }
+
+  async getAuditLogs(request: FastifyRequest, reply: FastifyReply) {
+    const logs = await (prisma as any).systemAuditLog.findMany({
+      orderBy: { timestamp: 'desc' },
+      take: 200,
+      include: {
+        admin: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+
+    return reply.send({ success: true, data: logs });
+  }
+
   async getCompanies(request: FastifyRequest, reply: FastifyReply) {
     const companies = await prisma.company.findMany({
       include: {
@@ -120,16 +185,84 @@ export class AdminController {
     return reply.send({ success: true, data: formatted });
   }
 
-  async createCompany(request: FastifyRequest, reply: FastifyReply) {
-    const { name, address, city, country, phone, email, website, logoUrl, ownerId } = request.body as any;
+  async updateProfile(request: FastifyRequest, reply: FastifyReply) {
+    const { firstName, lastName, email } = request.body as {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+    };
 
-    // Generate unique company code
-    let code = this.generateCompanyCode(name);
-    let counter = 0;
-    while (await prisma.company.findUnique({ where: { code } })) {
-      const uniqueId = randomUUID().split('-')[0].toUpperCase();
-      code = `${name.slice(0, 2).toUpperCase()}-${uniqueId}${counter}`;
-      counter++;
+    const currentUserId = (request.user as any).id;
+
+    if (email) {
+      const existingEmailUser = await prisma.user.findFirst({
+        where: { email, NOT: { id: currentUserId } },
+      });
+      if (existingEmailUser) {
+        throw new ConflictError('Email address is already in use by another account');
+      }
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: currentUserId },
+      data: {
+        ...(firstName !== undefined && { firstName }),
+        ...(lastName !== undefined && { lastName }),
+        ...(email !== undefined && { email }),
+      },
+    });
+
+    const { password: _, ...userWithoutPassword } = updated;
+    return reply.send({ success: true, data: userWithoutPassword });
+  }
+
+  async updatePassword(request: FastifyRequest, reply: FastifyReply) {
+    const { currentPassword, newPassword } = request.body as {
+      currentPassword: string;
+      newPassword: string;
+    };
+
+    if (!currentPassword || !newPassword) {
+      return reply.status(400).send({ success: false, message: 'Current and new passwords are required' });
+    }
+
+    const currentUserId = (request.user as any).id;
+    const user = await prisma.user.findUnique({ where: { id: currentUserId } });
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isValid) {
+      return reply.status(401).send({ success: false, message: 'Current password is incorrect' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: currentUserId },
+      data: { password: hashedPassword },
+    });
+
+    return reply.send({ success: true, message: 'Password updated successfully' });
+  }
+
+  async createCompany(request: FastifyRequest, reply: FastifyReply) {
+    const { name, code: requestedCode, address, city, country, phone, email, website, logoUrl, ownerId } = request.body as any;
+
+    // Use provided code when available, otherwise generate a unique one
+    let code = requestedCode?.trim().toUpperCase() || this.generateCompanyCode(name);
+    if (requestedCode) {
+      const existing = await prisma.company.findUnique({ where: { code } });
+      if (existing) {
+        throw new ConflictError('Company code already exists');
+      }
+    } else {
+      let counter = 0;
+      while (await prisma.company.findUnique({ where: { code } })) {
+        const uniqueId = randomUUID().split('-')[0].toUpperCase();
+        code = `${name.slice(0, 2).toUpperCase()}-${uniqueId}${counter}`;
+        counter++;
+      }
     }
 
     const company = await prisma.company.create({
@@ -330,6 +463,7 @@ export class AdminController {
     }
 
     await prisma.company.delete({ where: { id } });
+    await this.createAuditLog(request, 'DELETE_COMPANY', 'Company', id, { companyId: id, companyName: company.name });
 
     return reply.send({ success: true, message: 'Company deleted successfully' });
   }
@@ -480,6 +614,8 @@ export class AdminController {
       where: { id },
       data: { password: hashedPassword },
     });
+
+    await this.createAuditLog(request, 'RESET_OWNER_PASSWORD', 'User', id, { email: user.email });
 
     return reply.send({ success: true, message: 'Password reset successfully' });
   }

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Users, Plus, Trash2, Edit, ArrowLeft, LogOut, Key } from 'lucide-react';
+import { Users, Plus, Trash2, Edit, ArrowLeft, LogOut, Key, UserCheck } from 'lucide-react';
 
 interface Owner {
   id: string;
@@ -83,6 +83,26 @@ export default function AdminOwnersPage() {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error?.message || 'Failed to reset password');
+    },
+  });
+
+  const impersonateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.post(`/admin/owners/${id}/impersonate`);
+      return response.data.data;
+    },
+    onSuccess: (data: any) => {
+      const currentToken = localStorage.getItem('token');
+      if (currentToken) {
+        sessionStorage.setItem('admin_token', currentToken);
+      }
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      toast.success('Impersonation active. Redirecting to owner session...');
+      window.location.href = '/';
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Failed to impersonate owner');
     },
   });
 
@@ -248,6 +268,14 @@ export default function AdminOwnersPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => impersonateMutation.mutate(owner.id)}
+                          className="p-1 text-blue-600 hover:text-blue-800"
+                          title="Impersonate Owner"
+                          disabled={impersonateMutation.isPending}
+                        >
+                          <UserCheck className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => openPasswordModal(owner.id)}
                           className="p-1 text-yellow-600 hover:text-yellow-800"

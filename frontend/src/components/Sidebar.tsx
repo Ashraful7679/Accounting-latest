@@ -146,7 +146,15 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
     { name: 'Journal Entries', href: `/company/${companyId}/journals`, icon: History },
     { name: 'Products', href: `/company/${companyId}/products`, icon: Package },
     { name: 'Employees', href: `/company/${companyId}/employees`, icon: User },
-    { name: 'Bank Reconciliation', href: `/company/${companyId}/bank/reconcile`, icon: CheckCircle2 },
+    { 
+      name: 'Finance', 
+      icon: Briefcase,
+      children: [
+        { name: 'Fixed Assets', href: `/company/${companyId}/finance/fixed-assets` },
+        { name: 'Period Closing', href: `/company/${companyId}/finance/period-close` },
+        { name: 'Bank Reconciliation', href: `/company/${companyId}/bank/reconcile` },
+      ]
+    },
     { name: 'Reports', href: `/company/${companyId}/reports`, icon: FileBarChart },
     { name: 'Roles', href: `/company/${companyId}/settings/roles`, icon: ShieldCheck },
     { name: 'Backup', href: `/company/${companyId}/settings/backup`, icon: Database },

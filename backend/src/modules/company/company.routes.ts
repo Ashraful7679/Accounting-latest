@@ -77,6 +77,15 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/products/:productId/adjust-stock', productController.adjustStock.bind(productController));
   fastify.delete('/:id/products/:productId', productController.deleteProduct.bind(productController));
 
+  // Fixed Assets
+  fastify.get('/:id/fixed-assets', fixedAssetController.getAssets.bind(fixedAssetController));
+  fastify.post('/:id/fixed-assets', fixedAssetController.createAsset.bind(fixedAssetController));
+  fastify.get('/:id/fixed-assets/:assetId', fixedAssetController.getAsset.bind(fixedAssetController));
+  fastify.put('/:id/fixed-assets/:assetId', fixedAssetController.updateAsset.bind(fixedAssetController));
+  fastify.delete('/:id/fixed-assets/:assetId', fixedAssetController.deleteAsset.bind(fixedAssetController));
+  fastify.post('/:id/fixed-assets/run-depreciation', fixedAssetController.runDepreciation.bind(fixedAssetController));
+  fastify.post('/:id/fixed-assets/:assetId/dispose', fixedAssetController.dispose.bind(fixedAssetController));
+
   // Product Pricing
   fastify.get('/:id/products/pricing', ProductPricingController.calculateAverageCost.bind(ProductPricingController));
   fastify.get('/:id/products/:productId/cost', ProductPricingController.getProductCost.bind(ProductPricingController));

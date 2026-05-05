@@ -134,6 +134,16 @@ export default function FixedAssetsPage() {
   ] : [];
 
   const actions: DetailAction[] = viewMode === 'view' ? [
+    { label: 'Run Depreciation', onClick: async () => {
+      if (!confirm('Run depreciation for all active assets? This will create journal entries.')) return;
+      try {
+        const response = await api.post(`/company/${companyId}/fixed-assets/run-depreciation`);
+        toast.success(`Depreciation completed: ${response.data.data?.depreciated?.length || 0} assets`);
+        queryClient.invalidateQueries({ queryKey: ['fixed-assets', companyId] });
+      } catch (e: any) {
+        toast.error(e.response?.data?.message || 'Failed to run depreciation');
+      }
+    }, variant: 'primary' as const },
     ...(selectedAsset?.status === 'ACTIVE' ? [
       { label: 'Dispose', onClick: () => {
         const saleValue = prompt('Enter sale value:');

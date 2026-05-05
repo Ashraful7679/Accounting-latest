@@ -5,7 +5,7 @@ import { Plus, Trash2, GripVertical } from 'lucide-react';
 import clsx from 'clsx';
 
 export interface DynamicFieldArrayProps<T extends Record<string, any>>
-  extends Omit<UseFieldArrayProps<T>, 'control'> {
+  extends Omit<UseFieldArrayProps<T>, 'control' | 'name'> {
   control: Control<T>;
   name: string;
   label?: string;

@@ -91,7 +91,7 @@ export function TextArea({ error, className, ...props }: TextAreaProps) {
   );
 }
 
-export function getFieldError<T>(errors: FieldErrors<T>, path: string): string | undefined {
+export function getFieldError<T extends Record<string, any>>(errors: FieldErrors<T>, path: string): string | undefined {
   const keys = path.split('.');
   let current: any = errors;
   

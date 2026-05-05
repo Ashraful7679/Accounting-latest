@@ -2,35 +2,63 @@ import prisma from '../config/database';
 import { SYSTEM_MODE } from '../lib/systemMode';
 
 export class SalesOrderRepository {
-  static async findMany(where = {}) {
+  static async findMany(options: {
+    companyId: string;
+    page?: number;
+    limit?: number;
+    currency?: string;
+    search?: string;
+    status?: string;
+  }) {
+    const { companyId, page = 1, limit = 20, currency, search, status } = options;
+    
+    const where: any = { companyId };
+    if (currency) where.currency = currency;
+    if (status) where.status = status;
+    if (search) {
+      where.OR = [
+        { soNumber: { contains: search, mode: 'insensitive' } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } }
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
     if (SYSTEM_MODE === "LIVE") {
       try {
-        return await prisma.salesOrder.findMany({
-          where,
-          include: {
-            customer: true,
-            lc: true,
-            lines: true,
-            dns: {
-              include: { lines: true }
+        const [data, total] = await Promise.all([
+          prisma.salesOrder.findMany({
+            where,
+            include: {
+              customer: true,
+              lc: true,
+              lines: true,
+              dns: { include: { lines: true } },
+              invoices: { include: { lines: true } },
+              purchaseOrders: { include: { supplier: true } }
             },
-            invoices: {
-              include: { lines: true }
-            },
-            purchaseOrders: {
-              include: {
-                supplier: true
-              }
-            }
-          },
-          orderBy: { createdAt: 'desc' }
-        });
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit,
+          }),
+          prisma.salesOrder.count({ where })
+        ]);
+
+        return {
+          data,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          }
+        };
       } catch (e) {
         console.error('Error fetching sales orders:', e);
-        return [];
+        return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
       }
     }
-    return [];
+    return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
   }
 
   static async findById(id: string) {

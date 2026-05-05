@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 
 import { BASE_URL } from '@/lib/api';
 import { OfflineBanner } from '@/components/OfflineBanner';
+import ImpersonationBanner from '@/components/ImpersonationBanner';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -52,6 +53,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <Toaster position="top-right" />
       <OfflineBanner />
+      <ImpersonationBanner />
       {children}
     </QueryClientProvider>
   );

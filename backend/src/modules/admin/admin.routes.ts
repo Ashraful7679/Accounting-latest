@@ -25,6 +25,16 @@ export const adminRoutes = async (fastify: FastifyInstance) => {
   fastify.delete('/owners/:id', controller.deleteOwner.bind(controller));
   fastify.post('/owners/:id/reset-password', controller.resetOwnerPassword.bind(controller));
 
+  // Profile
+  fastify.put('/profile', controller.updateProfile.bind(controller));
+  fastify.put('/profile/password', controller.updatePassword.bind(controller));
+
+  // Owner impersonation / support mode
+  fastify.post('/owners/:userId/impersonate', controller.impersonateUser.bind(controller));
+
+  // Audit logs
+  fastify.get('/audit-logs', controller.getAuditLogs.bind(controller));
+
   // Backups
   fastify.get('/backups', backupController.listBackups.bind(backupController));
   fastify.post('/backups', backupController.createBackup.bind(backupController));

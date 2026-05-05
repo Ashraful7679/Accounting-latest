@@ -82,6 +82,7 @@ export class AuthController {
       id: user.id,
       email: user.email,
       isAdmin,
+      roles: roleNames,
     });
 
     const { password: _, ...userWithoutPassword } = user;

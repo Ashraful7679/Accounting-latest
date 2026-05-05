@@ -6,6 +6,7 @@ export interface AuthUser {
   email: string;
   companyId?: string;
   isAdmin: boolean;
+  roles?: string[];
 }
 
 declare module '@fastify/jwt' {
@@ -57,7 +58,7 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
     }
 
     const roleNames = user.userRoles.map((ur) => ur.role.name);
-    const isAdmin = roleNames.includes('Admin');
+    const isAdmin = decoded.roles?.includes('Admin') || roleNames.includes('Admin');
 
     // Get user's default company
     let companyId: string | undefined;
@@ -75,6 +76,7 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
       email: user.email,
       companyId,
       isAdmin,
+      roles: roleNames,
     };
   } catch (error) {
     return reply.status(401).send({
@@ -85,7 +87,8 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
 };
 
 export const requireAdmin = async (request: FastifyRequest, reply: FastifyReply) => {
-  if (!request.user.isAdmin) {
+  console.log('requireAdmin check, user:', request.user);
+  if (!request.user || !request.user.isAdmin) {
     return reply.status(403).send({
       success: false,
       error: { message: 'Admin access required', statusCode: 403 },

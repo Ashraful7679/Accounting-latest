@@ -118,30 +118,33 @@ export default function PayrollPage() {
     processMutation.mutate({ period: processPeriod, runDate: processDate, options: { taxRate } });
   };
 
-  const tabs: DetailTab[] = [{ id: 'details', label: 'Details' }, { id: 'payslips', label: 'Payslips' }];
+  const tabs: DetailTab[] = [
+    { id: 'details', label: 'Details', content: <div className="p-4 text-sm text-gray-500">Details view</div> }, 
+    { id: 'payslips', label: 'Payslips', content: <div className="p-4 text-sm text-gray-500">Payslips list</div> }
+  ];
 
   const fields: DetailField[] = [
-    { key: 'runNumber', label: 'Run Number' },
-    { key: 'period', label: 'Period' },
-    { key: 'runDate', label: 'Run Date', type: 'date' },
-    { key: 'totalGross', label: 'Total Gross', type: 'currency' },
-    { key: 'totalDeductions', label: 'Total Deductions', type: 'currency' },
-    { key: 'totalNet', label: 'Total Net', type: 'currency' },
-    { key: 'status', label: 'Status' }
+    { label: 'Run Number', value: selectedRun?.runNumber || '-' },
+    { label: 'Period', value: selectedRun?.period || '-' },
+    { label: 'Run Date', value: selectedRun ? new Date(selectedRun.runDate).toLocaleDateString() : '-', type: 'date' },
+    { label: 'Total Gross', value: selectedRun?.totalGross || 0, type: 'currency' },
+    { label: 'Total Deductions', value: selectedRun?.totalDeductions || 0, type: 'currency' },
+    { label: 'Total Net', value: selectedRun?.totalNet || 0, type: 'currency' },
+    { label: 'Status', value: selectedRun?.status || '-', type: 'status' as any }
   ];
 
   const actions: DetailAction[] = viewMode === 'view' ? [
     ...(selectedRun?.status === 'PROCESSED' ? [
-      { label: 'Approve', onClick: () => selectedRun && approveMutation.mutate(selectedRun.id), variant: 'primary' },
+      { label: 'Approve', onClick: () => selectedRun && approveMutation.mutate(selectedRun.id), variant: 'primary' as const },
     ] : []),
     ...(selectedRun?.status === 'APPROVED' ? [
-      ...selectedRun.payslips?.filter(p => p.status === 'PENDING').map(p => ({
+      ...(selectedRun.payslips?.filter(p => p.status === 'PENDING').map(p => ({
         label: `Pay ${p.employee?.firstName} ${p.employee?.lastName}`,
         onClick: () => selectedRun && markPaidMutation.mutate({ runId: selectedRun.id, payslipId: p.id }),
         variant: 'secondary' as const
-      }))
+      })) || [])
     ] : []),
-    { label: 'Delete', onClick: () => selectedRun && deleteMutation.mutate(selectedRun.id), variant: 'danger' }
+    { label: 'Delete', onClick: () => selectedRun && deleteMutation.mutate(selectedRun.id), variant: 'danger' as const }
   ] : [];
 
   if (!mounted) return null;
@@ -219,14 +222,12 @@ export default function PayrollPage() {
       </div>
 
       <DetailPanel
-        open={showDetailPanel}
+        isOpen={showDetailPanel}
         onClose={() => setShowDetailPanel(false)}
         title={selectedRun?.runNumber || ''}
         tabs={tabs}
         fields={fields}
         actions={actions}
-        data={selectedRun}
-        onChange={setSelectedRun}
       />
 
       {processModal && (

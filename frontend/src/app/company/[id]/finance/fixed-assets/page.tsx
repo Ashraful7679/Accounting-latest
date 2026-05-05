@@ -114,51 +114,41 @@ export default function FixedAssetsPage() {
   const handleEdit = () => { setViewMode('edit'); };
 
   const tabs: DetailTab[] = [
-    { id: 'details', label: 'Details' },
-    { id: 'depreciation', label: 'Depreciation' }
+    { id: 'details', label: 'Details', content: <div className="p-4 text-sm text-gray-500">Details view</div> },
+    { id: 'depreciation', label: 'Depreciation', content: <div className="p-4 text-sm text-gray-500">Depreciation schedule</div> }
   ];
 
   const totalDepreciation = selectedAsset?.depreciationEntries?.reduce((sum, d) => sum + d.depreciationAmount, 0) || 0;
   const bookValue = (selectedAsset?.purchaseValue || 0) - totalDepreciation;
 
   const fields: DetailField[] = viewMode === 'view' ? [
-    { key: 'assetNumber', label: 'Asset Number' },
-    { key: 'name', label: 'Name' },
-    { key: 'category', label: 'Category' },
-    { key: 'purchaseDate', label: 'Purchase Date', type: 'date' },
-    { key: 'purchaseValue', label: 'Purchase Value', type: 'currency' },
-    { key: 'usefulLife', label: 'Useful Life (Years)' },
-    { key: 'salvageValue', label: 'Salvage Value', type: 'currency' },
-    { key: 'depreciationMethod', label: 'Depreciation Method' },
-    { key: 'status', label: 'Status' }
-  ] : [
-    { key: 'name', label: 'Name', type: 'text', required: true },
-    { key: 'description', label: 'Description', type: 'text' },
-    { key: 'category', label: 'Category', type: 'select', options: ASSET_CATEGORIES, required: true },
-    { key: 'purchaseDate', label: 'Purchase Date', type: 'date', required: true },
-    { key: 'purchaseValue', label: 'Purchase Value', type: 'number', required: true },
-    { key: 'usefulLife', label: 'Useful Life (Years)', type: 'number', required: true },
-    { key: 'salvageValue', label: 'Salvage Value', type: 'number' },
-    { key: 'depreciationMethod', label: 'Method', type: 'select', options: DEPRECIATION_METHODS },
-    { key: 'depreciationRate', label: 'Depreciation Rate (%)', type: 'number' }
-  ];
+    { label: 'Asset Number', value: selectedAsset?.assetNumber || '-' },
+    { label: 'Name', value: selectedAsset?.name || '-' },
+    { label: 'Category', value: selectedAsset?.category || '-' },
+    { label: 'Purchase Date', value: selectedAsset ? new Date(selectedAsset.purchaseDate).toLocaleDateString() : '-', type: 'date' },
+    { label: 'Purchase Value', value: selectedAsset?.purchaseValue || 0, type: 'currency' },
+    { label: 'Useful Life (Years)', value: selectedAsset?.usefulLife || 0 },
+    { label: 'Salvage Value', value: selectedAsset?.salvageValue || 0, type: 'currency' },
+    { label: 'Depreciation Method', value: selectedAsset?.depreciationMethod || '-' },
+    { label: 'Status', value: selectedAsset?.status || '-', type: 'status' as any }
+  ] : [];
 
   const actions: DetailAction[] = viewMode === 'view' ? [
     ...(selectedAsset?.status === 'ACTIVE' ? [
       { label: 'Dispose', onClick: () => {
         const saleValue = prompt('Enter sale value:');
         if (saleValue && selectedAsset) disposeMutation.mutate({ id: selectedAsset.id, saleValue: parseFloat(saleValue) });
-      }, variant: 'danger' }
+      }, variant: 'danger' as const }
     ] : []),
-    { label: 'Edit', onClick: handleEdit, variant: 'secondary' },
-    { label: 'Delete', onClick: () => selectedAsset && deleteMutation.mutate(selectedAsset.id), variant: 'danger' }
+    { label: 'Edit', onClick: handleEdit, variant: 'secondary' as const },
+    { label: 'Delete', onClick: () => selectedAsset && deleteMutation.mutate(selectedAsset.id), variant: 'danger' as const }
   ] : [
     { label: 'Save', onClick: () => {
       const data = { ...selectedAsset };
       if (viewMode === 'create') createMutation.mutate(data);
       else if (viewMode === 'edit' && selectedAsset) updateMutation.mutate({ id: selectedAsset.id, data });
-    }, variant: 'primary' },
-    { label: 'Cancel', onClick: () => setShowDetailPanel(false), variant: 'secondary' }
+    }, variant: 'primary' as const },
+    { label: 'Cancel', onClick: () => setShowDetailPanel(false), variant: 'secondary' as const }
   ];
 
   if (!mounted) return null;
@@ -235,14 +225,12 @@ export default function FixedAssetsPage() {
       </div>
 
       <DetailPanel
-        open={showDetailPanel}
+        isOpen={showDetailPanel}
         onClose={() => setShowDetailPanel(false)}
         title={viewMode === 'create' ? 'New Asset' : selectedAsset?.assetNumber || ''}
         tabs={viewMode === 'view' ? tabs : []}
         fields={fields}
         actions={actions}
-        data={selectedAsset}
-        onChange={setSelectedAsset}
       />
     </div>
   );

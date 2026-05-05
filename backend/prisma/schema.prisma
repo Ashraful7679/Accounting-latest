@@ -1589,3 +1589,87 @@ model CreditNoteLine {
   @@index([creditNoteId])
   @@index([productId])
 }
+
+// ============================================
+// RECURRING INVOICE MODEL
+// ============================================
+
+model RecurringInvoice {
+  id                    String   @id @default(uuid())
+  companyId              String
+  customerId             String
+  productId              String?
+  description           String?
+  amount                Float
+  currency              String   @default("BDT")
+  taxRate               Float    @default(0)
+  frequency             String   @default("MONTHLY") // DAILY, WEEKLY, BIWEEKLY, MONTHLY, QUARTERLY, YEARLY
+  paymentTerms          Int      @default(30)
+  nextRunDate           DateTime
+  lastRunDate           DateTime?
+  isActive             Boolean  @default(true)
+  
+  createdById           String?
+  
+  // Relations
+  company              Company  @relation(fields: [companyId], references: [id])
+  customer            Customer @relation(fields: [customerId], references: [id])
+  product             Product? @relation(fields: [productId], references: [id])
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([customerId])
+  @@index([nextRunDate])
+  @@index([isActive])
+}
+
+// ============================================
+// FIXED ASSET MODEL
+// ============================================
+
+model FixedAsset {
+  id                  String   @id @default(uuid())
+  companyId            String
+  assetNumber         String
+  assetName           String
+  description         String?
+  category            String?
+  
+  // Asset Details
+  purchaseDate       DateTime
+  purchaseValue     Float
+  salvageValue      Float    @default(0)
+  usefulLife        Int      @default(5)
+  depreciationMethod String @default("STRAIGHT_LINE") // STRAIGHT_LINE, DECLINING_BALANCE, SUM_OF_YEARS
+  depreciationRate  Float?   // For declining balance
+  
+  // Accounts for depreciation
+  depreciationAccountId        String?
+  accumulatedDepreciationAccountId String?
+  
+  // Current Values
+  accumulatedDepreciation Float @default(0)
+  currentValue         Float
+  lastDepreciationDate DateTime?
+  depreciationStartDate DateTime?
+  isDepreciated      Boolean @default(false)
+  
+  // Status
+  status              String  @default("ACTIVE") // ACTIVE, DISPOSED, FULLY_DEPRECATED
+  
+  createdById         String?
+  
+  // Relations
+  company           Company  @relation(fields: [companyId], references: [id])
+  account           Account? @relation(fields: [depreciationAccountId], references: [id])
+  accumulatedAccount Account? @relation(fields: [accumulatedDepreciationAccountId], references: [id])
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([companyId, assetNumber])
+  @@index([companyId])
+  @@index([status])
+}

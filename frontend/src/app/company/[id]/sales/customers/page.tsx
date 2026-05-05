@@ -398,7 +398,7 @@ export default function CompanyCustomersPage() {
         </div>
       </div>
 
-      <DetailPanel isOpen={showDetailPanel} onClose={() => { setShowDetailPanel(false); setSelectedCustomer(null); setViewMode('view'); }} title={viewMode === 'edit' ? 'Edit Customer' : (selectedCustomer?.name || 'New Customer')} subtitle={selectedCustomer?.code} fields={getDetailFields()} actions={getDetailActions()} tabs={selectedCustomer ? [getEditTab()].filter(Boolean) as DetailTab[] : (showDetailPanel && !selectedCustomer) ? [getCreateTab()] : []} status={selectedCustomer ? { value: selectedCustomer.isActive ? 'active' : 'inactive' } : undefined} metadata={selectedCustomer?.createdAt ? { createdAt: selectedCustomer.createdAt } : undefined} size="lg" />
+      <DetailPanel isOpen={showDetailPanel} onClose={() => { setShowDetailPanel(false); setSelectedCustomer(null); setViewMode('view'); }} title={viewMode === 'edit' ? 'Edit Customer' : (selectedCustomer?.name || 'New Customer')} subtitle={selectedCustomer?.code} fields={getDetailFields()} actions={getDetailActions()} tabs={selectedCustomer ? [getEditTab()].filter(Boolean) as DetailTab[] : (showDetailPanel && !selectedCustomer) ? [getCreateTab()] : []} status={selectedCustomer ? { value: selectedCustomer.isActive ? 'active' : 'inactive', type: selectedCustomer.isActive ? 'active' : 'inactive' } : undefined} metadata={selectedCustomer?.createdAt ? { createdAt: selectedCustomer.createdAt } : undefined} size="lg" />
     </div>
   );
 }

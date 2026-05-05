@@ -7,7 +7,7 @@ import api from '@/lib/api';
 import { 
   FileText, Plus, Search, Eye, Edit2, Trash2, 
   CheckCircle2, AlertCircle, XCircle, ArrowRight,
-  Package, Loader2, Send, Approvals
+  Package, Loader2, Send
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
@@ -493,7 +493,7 @@ export default function PurchaseRequisitionsPage() {
         fields={getDetailFields()}
         actions={getDetailActions()}
         tabs={selectedPR ? [getLinesTab()] : (showDetailPanel && !selectedPR) ? [getCreateTab()] : []}
-        status={selectedPR ? { value: selectedPR.status.toLowerCase() as any } : undefined}
+        status={selectedPR ? { value: selectedPR.status.toLowerCase() as any, type: selectedPR.status.toLowerCase() as any } : undefined}
         size="lg"
       />
     </div>

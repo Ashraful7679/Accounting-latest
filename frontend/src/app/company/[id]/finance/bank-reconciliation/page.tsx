@@ -109,36 +109,29 @@ export default function BankReconciliationsPage() {
   const handleEdit = () => { setViewMode('edit'); };
 
   const fields: DetailField[] = viewMode === 'view' ? [
-    { key: 'reconciliationNumber', label: 'Number' },
-    { key: 'statementDate', label: 'Statement Date', type: 'date' },
-    { key: 'account.name', label: 'Bank Account' },
-    { key: 'statementBalance', label: 'Statement Balance', type: 'currency' },
-    { key: 'bookBalance', label: 'Book Balance', type: 'currency' },
-    { key: 'status', label: 'Status' },
-    { key: 'notes', label: 'Notes' }
-  ] : [
-    { key: 'accountId', label: 'Bank Account', type: 'select',
-      options: bankAccounts.map((a: any) => ({ value: a.id, label: a.name })), required: true },
-    { key: 'statementDate', label: 'Statement Date', type: 'date', required: true },
-    { key: 'statementBalance', label: 'Statement Balance', type: 'number', required: true },
-    { key: 'bookBalance', label: 'Book Balance', type: 'number', required: true },
-    { key: 'notes', label: 'Notes', type: 'textarea' }
-  ];
+    { label: 'Number', value: selectedReconciliation?.reconciliationNumber || '-' },
+    { label: 'Statement Date', value: selectedReconciliation ? new Date(selectedReconciliation.statementDate).toLocaleDateString() : '-', type: 'date' },
+    { label: 'Bank Account', value: selectedReconciliation?.account?.name || '-' },
+    { label: 'Statement Balance', value: selectedReconciliation?.statementBalance || 0, type: 'currency' },
+    { label: 'Book Balance', value: selectedReconciliation?.bookBalance || 0, type: 'currency' },
+    { label: 'Status', value: selectedReconciliation?.status || '-', type: 'status' as any },
+    { label: 'Notes', value: selectedReconciliation?.notes || '-' }
+  ] : [];
 
   const actions: DetailAction[] = viewMode === 'view' ? [
     ...(selectedReconciliation?.status === 'DRAFT' ? [
-      { label: 'Match Transactions', onClick: () => selectedReconciliation && matchMutation.mutate({ id: selectedReconciliation.id, accountId: selectedReconciliation.accountId }), variant: 'primary' },
-      { label: 'Approve', onClick: () => selectedReconciliation && approveMutation.mutate(selectedReconciliation.id), variant: 'secondary' },
-      { label: 'Edit', onClick: handleEdit, variant: 'secondary' },
-      { label: 'Delete', onClick: () => selectedReconciliation && deleteMutation.mutate(selectedReconciliation.id), variant: 'danger' }
+      { label: 'Match Transactions', onClick: () => selectedReconciliation && matchMutation.mutate({ id: selectedReconciliation.id, accountId: selectedReconciliation.accountId }), variant: 'primary' as const },
+      { label: 'Approve', onClick: () => selectedReconciliation && approveMutation.mutate(selectedReconciliation.id), variant: 'secondary' as const },
+      { label: 'Edit', onClick: handleEdit, variant: 'secondary' as const },
+      { label: 'Delete', onClick: () => selectedReconciliation && deleteMutation.mutate(selectedReconciliation.id), variant: 'danger' as const }
     ] : [])
   ] : [
     { label: 'Save', onClick: () => {
       const data = { ...selectedReconciliation };
       if (viewMode === 'create') createMutation.mutate(data);
       else if (viewMode === 'edit' && selectedReconciliation) updateMutation.mutate({ id: selectedReconciliation.id, data });
-    }, variant: 'primary' },
-    { label: 'Cancel', onClick: () => setShowDetailPanel(false), variant: 'secondary' }
+    }, variant: 'primary' as const },
+    { label: 'Cancel', onClick: () => setShowDetailPanel(false), variant: 'secondary' as const }
   ];
 
   if (!mounted) return null;
@@ -209,14 +202,15 @@ export default function BankReconciliationsPage() {
       </div>
 
       <DetailPanel
-        open={showDetailPanel}
+        isOpen={showDetailPanel}
         onClose={() => setShowDetailPanel(false)}
         title={viewMode === 'create' ? 'New Reconciliation' : selectedReconciliation?.reconciliationNumber || ''}
-        tabs={viewMode === 'view' ? [{ id: 'details', label: 'Details' }, { id: 'lines', label: 'Items' }] : []}
+        tabs={viewMode === 'view' ? [
+          { id: 'details', label: 'Details', content: <div className="p-4 text-sm text-gray-500">Details view</div> }, 
+          { id: 'lines', label: 'Items', content: <div className="p-4 text-sm text-gray-500">Items view</div> }
+        ] : []}
         fields={fields}
         actions={actions}
-        data={selectedReconciliation}
-        onChange={setSelectedReconciliation}
       />
     </div>
   );

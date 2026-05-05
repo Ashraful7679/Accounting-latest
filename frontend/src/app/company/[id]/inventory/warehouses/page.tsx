@@ -84,37 +84,30 @@ export default function WarehousesPage() {
   const handleEdit = () => { setViewMode('edit'); };
 
   const tabs: DetailTab[] = [
-    { id: 'details', label: 'Details' },
-    { id: 'stock', label: 'Stock' }
+    { id: 'details', label: 'Details', content: <div className="p-4 text-sm text-gray-500">Details view</div> },
+    { id: 'stock', label: 'Stock', content: <div className="p-4 text-sm text-gray-500">Stock view</div> }
   ];
 
   const fields: DetailField[] = viewMode === 'view' ? [
-    { key: 'code', label: 'Code' },
-    { key: 'name', label: 'Name' },
-    { key: 'address', label: 'Address' },
-    { key: 'city', label: 'City' },
-    { key: 'country', label: 'Country' },
-    { key: 'isActive', label: 'Active', type: 'boolean' },
-    { key: 'isDefault', label: 'Default Warehouse', type: 'boolean' }
-  ] : [
-    { key: 'name', label: 'Name', type: 'text', required: true },
-    { key: 'address', label: 'Address', type: 'text' },
-    { key: 'city', label: 'City', type: 'text' },
-    { key: 'country', label: 'Country', type: 'text' },
-    { key: 'isActive', label: 'Active', type: 'checkbox' },
-    { key: 'isDefault', label: 'Default Warehouse', type: 'checkbox' }
-  ];
+    { label: 'Code', value: selectedWarehouse?.code || '-' },
+    { label: 'Name', value: selectedWarehouse?.name || '-' },
+    { label: 'Address', value: selectedWarehouse?.address || '-' },
+    { label: 'City', value: selectedWarehouse?.city || '-' },
+    { label: 'Country', value: selectedWarehouse?.country || '-' },
+    { label: 'Active', value: selectedWarehouse?.isActive ? 'Yes' : 'No' },
+    { label: 'Default Warehouse', value: selectedWarehouse?.isDefault ? 'Yes' : 'No' }
+  ] : [];
 
   const actions: DetailAction[] = viewMode === 'view' ? [
-    { label: 'Edit', onClick: handleEdit, variant: 'primary' },
-    { label: 'Delete', onClick: () => selectedWarehouse && deleteMutation.mutate(selectedWarehouse.id), variant: 'danger' }
+    { label: 'Edit', onClick: handleEdit, variant: 'primary' as const },
+    { label: 'Delete', onClick: () => selectedWarehouse && deleteMutation.mutate(selectedWarehouse.id), variant: 'danger' as const }
   ] : [
     { label: 'Save', onClick: () => {
       const data = { ...selectedWarehouse };
       if (viewMode === 'create') createMutation.mutate(data);
       else if (viewMode === 'edit' && selectedWarehouse) updateMutation.mutate({ id: selectedWarehouse.id, data });
-    }, variant: 'primary' },
-    { label: 'Cancel', onClick: () => setShowDetailPanel(false), variant: 'secondary' }
+    }, variant: 'primary' as const },
+    { label: 'Cancel', onClick: () => setShowDetailPanel(false), variant: 'secondary' as const }
   ];
 
   if (!mounted) return null;
@@ -181,14 +174,12 @@ export default function WarehousesPage() {
       </div>
 
       <DetailPanel
-        open={showDetailPanel}
+        isOpen={showDetailPanel}
         onClose={() => setShowDetailPanel(false)}
         title={viewMode === 'create' ? 'New Warehouse' : selectedWarehouse?.code || ''}
         tabs={viewMode === 'view' ? tabs : []}
         fields={fields}
         actions={actions}
-        data={selectedWarehouse}
-        onChange={setSelectedWarehouse}
       />
     </div>
   );

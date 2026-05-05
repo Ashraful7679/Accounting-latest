@@ -264,7 +264,7 @@ export default function DebitNotesPage() {
       { label: 'Subtotal', value: `${currencySymbol}${formatCurrency(selectedDN.subtotal)}`, type: 'currency' },
       { label: 'Tax', value: `${currencySymbol}${formatCurrency(selectedDN.taxAmount)}`, type: 'currency' },
       { label: 'Total', value: `${currencySymbol}${formatCurrency(selectedDN.totalBDT)}`, type: 'currency' },
-      { label: 'Return to Stock', value: selectedDN.returnToStock ? 'Yes' : 'No', type: 'boolean' },
+      { label: 'Return to Stock', value: selectedDN.returnToStock ? 'Yes' : 'No' },
       { label: 'Reason', value: selectedDN.reason || '-' },
       { label: 'Status', value: getStatusBadge(selectedDN.status) },
     ];
@@ -561,7 +561,7 @@ export default function DebitNotesPage() {
         fields={getDetailFields()}
         actions={getDetailActions()}
         tabs={selectedDN ? [getLinesTab()] : (showDetailPanel && !selectedDN) ? [getCreateTab()] : []}
-        status={selectedDN ? { value: selectedDN.status.toLowerCase() as any } : undefined}
+        status={selectedDN ? { value: selectedDN.status.toLowerCase() as any, type: selectedDN.status.toLowerCase() as any } : undefined}
         size="lg"
       />
     </div>

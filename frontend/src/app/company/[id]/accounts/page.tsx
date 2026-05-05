@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -624,7 +624,7 @@ export default function CompanyAccountsPage() {
         fields={getDetailFields()}
         actions={getDetailActions()}
         tabs={selectedAccount ? [getEditTab()].filter(Boolean) as DetailTab[] : (showDetailPanel && !selectedAccount) ? [getCreateTab()].filter(Boolean) as DetailTab[] : []}
-        status={selectedAccount ? { value: selectedAccount.isActive ? 'active' : 'inactive' } : undefined}
+        status={selectedAccount ? { value: selectedAccount.isActive ? 'active' : 'inactive', type: selectedAccount.isActive ? 'active' : 'inactive' } : undefined}
         metadata={selectedAccount?.createdAt ? { createdAt: selectedAccount.createdAt } : undefined}
         size="lg"
       />

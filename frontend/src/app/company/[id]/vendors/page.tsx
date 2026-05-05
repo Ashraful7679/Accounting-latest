@@ -569,7 +569,7 @@ export default function CompanyVendorsPage() {
         fields={getDetailFields()}
         actions={getDetailActions()}
         tabs={selectedVendor ? [getEditTab()].filter(Boolean) as DetailTab[] : (showDetailPanel && !selectedVendor) ? [getCreateTab()] : []}
-        status={selectedVendor ? { value: selectedVendor.isActive ? 'active' : 'inactive' } : undefined}
+        status={selectedVendor ? { value: selectedVendor.isActive ? 'active' : 'inactive', type: selectedVendor.isActive ? 'active' : 'inactive' } : undefined}
         metadata={selectedVendor?.createdAt ? { createdAt: selectedVendor.createdAt } : undefined}
         size="lg"
       />

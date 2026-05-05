@@ -95,6 +95,13 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/:id/document-flow/sales/:entityType/:entityId', DocumentFlowController.getSalesFlow.bind(DocumentFlowController));
   fastify.get('/:id/document-flow/purchase/:entityType/:entityId', DocumentFlowController.getPurchaseFlow.bind(DocumentFlowController));
 
+  // Chart of Accounts
+  fastify.get('/:id/accounts', coaController.getAccounts.bind(coaController));
+  fastify.get('/:id/account-types', coaController.getAccountTypes.bind(coaController));
+
+  // Dashboard Stats
+  fastify.get('/:id/dashboard-stats', dashboardController.getStats.bind(dashboardController));
+
   // Report Drilldown
   fastify.get('/:id/reports/account-transactions', ReportDrilldownController.getAccountTransactions.bind(ReportDrilldownController));
   fastify.get('/:id/reports/trial-balance-detail', ReportDrilldownController.getTrialBalanceDrilldown.bind(ReportDrilldownController));

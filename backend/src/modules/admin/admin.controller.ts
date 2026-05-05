@@ -441,6 +441,31 @@ export class AdminController {
     return reply.send({ success: true, message: 'Owner deleted successfully' });
   }
 
+  async updateOwner(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as { id: string };
+    const { maxCompanies, firstName, lastName, email, isActive } = request.body as any;
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundError('Owner not found');
+    }
+
+    const updateData: any = {};
+    if (maxCompanies !== undefined) updateData.maxCompanies = maxCompanies;
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (email !== undefined) updateData.email = email;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: { id: true, email: true, firstName: true, lastName: true, maxCompanies: true, isActive: true }
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
   async resetOwnerPassword(request: FastifyRequest, reply: FastifyReply) {
     const { id } = request.params as { id: string };
     const { password } = request.body as { password: string };

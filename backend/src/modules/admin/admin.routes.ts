@@ -21,6 +21,7 @@ export const adminRoutes = async (fastify: FastifyInstance) => {
   // Owners
   fastify.get('/owners', controller.getOwners.bind(controller));
   fastify.post('/owners', controller.createOwner.bind(controller));
+  fastify.put('/owners/:id', controller.updateOwner.bind(controller));
   fastify.delete('/owners/:id', controller.deleteOwner.bind(controller));
   fastify.post('/owners/:id/reset-password', controller.resetOwnerPassword.bind(controller));
 

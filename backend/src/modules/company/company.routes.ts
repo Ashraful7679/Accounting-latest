@@ -78,13 +78,13 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.delete('/:id/products/:productId', productController.deleteProduct.bind(productController));
 
   // Fixed Assets
-  fastify.get('/:id/fixed-assets', fixedAssetController.getAssets.bind(fixedAssetController));
-  fastify.post('/:id/fixed-assets', fixedAssetController.createAsset.bind(fixedAssetController));
-  fastify.get('/:id/fixed-assets/:assetId', fixedAssetController.getAsset.bind(fixedAssetController));
-  fastify.put('/:id/fixed-assets/:assetId', fixedAssetController.updateAsset.bind(fixedAssetController));
-  fastify.delete('/:id/fixed-assets/:assetId', fixedAssetController.deleteAsset.bind(fixedAssetController));
-  fastify.post('/:id/fixed-assets/run-depreciation', fixedAssetController.runDepreciation.bind(fixedAssetController));
-  fastify.post('/:id/fixed-assets/:assetId/dispose', fixedAssetController.dispose.bind(fixedAssetController));
+  fastify.get('/:id/fixed-assets', FixedAssetController.getAssets);
+  fastify.post('/:id/fixed-assets', FixedAssetController.createAsset);
+  fastify.get('/:id/fixed-assets/:assetId', FixedAssetController.getAsset);
+  fastify.put('/:id/fixed-assets/:assetId', FixedAssetController.updateAsset);
+  fastify.delete('/:id/fixed-assets/:assetId', FixedAssetController.deleteAsset);
+  fastify.post('/:id/fixed-assets/run-depreciation', FixedAssetController.runDepreciation);
+  fastify.post('/:id/fixed-assets/:assetId/dispose', FixedAssetController.dispose);
 
   // Product Pricing
   fastify.get('/:id/products/pricing', ProductPricingController.calculateAverageCost.bind(ProductPricingController));

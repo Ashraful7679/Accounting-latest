@@ -257,7 +257,7 @@ export default function CreditNotesPage() {
       { label: 'Subtotal', value: `${currencySymbol}${formatCurrency(selectedCN.subtotal)}`, type: 'currency' },
       { label: 'Tax', value: `${currencySymbol}${formatCurrency(selectedCN.taxAmount)}`, type: 'currency' },
       { label: 'Total', value: `${currencySymbol}${formatCurrency(selectedCN.totalBDT)}`, type: 'currency' },
-      { label: 'Return to Stock', value: selectedCN.returnToStock ? 'Yes' : 'No', type: 'boolean' },
+      { label: 'Return to Stock', value: selectedCN.returnToStock ? 'Yes' : 'No' },
       { label: 'Reason', value: selectedCN.reason || '-' },
       { label: 'Status', value: getStatusBadge(selectedCN.status) },
     ];
@@ -547,7 +547,7 @@ export default function CreditNotesPage() {
         fields={getDetailFields()}
         actions={getDetailActions()}
         tabs={selectedCN ? [getLinesTab()] : (showDetailPanel && !selectedCN) ? [getCreateTab()] : []}
-        status={selectedCN ? { value: selectedCN.status.toLowerCase() as any } : undefined}
+        status={selectedCN ? { value: selectedCN.status.toLowerCase() as any, type: selectedCN.status.toLowerCase() as any } : undefined}
         size="lg"
       />
     </div>

@@ -117,41 +117,34 @@ export default function StockTransfersPage() {
   const handleEdit = () => { setViewMode('edit'); };
 
   const tabs: DetailTab[] = [
-    { id: 'details', label: 'Details' },
-    { id: 'lines', label: 'Items' }
+    { id: 'details', label: 'Details', content: <div className="p-4 text-sm text-gray-500">Details view</div> },
+    { id: 'lines', label: 'Items', content: <div className="p-4 text-sm text-gray-500">Items view</div> }
   ];
 
   const totalQuantity = selectedTransfer?.lines?.reduce((sum, l) => sum + l.quantity, 0) || 0;
 
   const fields: DetailField[] = viewMode === 'view' ? [
-    { key: 'transferNumber', label: 'Transfer #' },
-    { key: 'transferDate', label: 'Date', type: 'date' },
-    { key: 'fromWarehouse.name', label: 'From' },
-    { key: 'toWarehouse.name', label: 'To' },
-    { key: 'status', label: 'Status' },
-    { key: 'notes', label: 'Notes' }
-  ] : [
-    { key: 'fromWarehouseId', label: 'From Warehouse', type: 'select', 
-      options: warehouses.map((w: Warehouse) => ({ value: w.id, label: w.name })), required: true },
-    { key: 'toWarehouseId', label: 'To Warehouse', type: 'select',
-      options: warehouses.map((w: Warehouse) => ({ value: w.id, label: w.name })), required: true },
-    { key: 'transferDate', label: 'Transfer Date', type: 'date' },
-    { key: 'notes', label: 'Notes', type: 'textarea' }
-  ];
+    { label: 'Transfer #', value: selectedTransfer?.transferNumber || '-' },
+    { label: 'Date', value: selectedTransfer ? new Date(selectedTransfer.transferDate).toLocaleDateString() : '-', type: 'date' },
+    { label: 'From', value: selectedTransfer?.fromWarehouse?.name || '-' },
+    { label: 'To', value: selectedTransfer?.toWarehouse?.name || '-' },
+    { label: 'Status', value: selectedTransfer?.status || '-', type: 'status' as any },
+    { label: 'Notes', value: selectedTransfer?.notes || '-' }
+  ] : [];
 
   const actions: DetailAction[] = viewMode === 'view' ? [
     ...(selectedTransfer?.status === 'DRAFT' ? [
-      { label: 'Approve & Transfer', onClick: () => selectedTransfer && approveMutation.mutate(selectedTransfer.id), variant: 'primary' },
-      { label: 'Edit', onClick: handleEdit, variant: 'secondary' },
-      { label: 'Delete', onClick: () => selectedTransfer && deleteMutation.mutate(selectedTransfer.id), variant: 'danger' }
+      { label: 'Approve & Transfer', onClick: () => selectedTransfer && approveMutation.mutate(selectedTransfer.id), variant: 'primary' as const },
+      { label: 'Edit', onClick: handleEdit, variant: 'secondary' as const },
+      { label: 'Delete', onClick: () => selectedTransfer && deleteMutation.mutate(selectedTransfer.id), variant: 'danger' as const }
     ] : [])
   ] : [
     { label: 'Save', onClick: () => {
       const data = { ...selectedTransfer };
       if (viewMode === 'create') createMutation.mutate(data);
       else if (viewMode === 'edit' && selectedTransfer) updateMutation.mutate({ id: selectedTransfer.id, data });
-    }, variant: 'primary' },
-    { label: 'Cancel', onClick: () => setShowDetailPanel(false), variant: 'secondary' }
+    }, variant: 'primary' as const },
+    { label: 'Cancel', onClick: () => setShowDetailPanel(false), variant: 'secondary' as const }
   ];
 
   if (!mounted) return null;
@@ -222,14 +215,12 @@ export default function StockTransfersPage() {
       </div>
 
       <DetailPanel
-        open={showDetailPanel}
+        isOpen={showDetailPanel}
         onClose={() => setShowDetailPanel(false)}
         title={viewMode === 'create' ? 'New Transfer' : selectedTransfer?.transferNumber || ''}
         tabs={viewMode === 'view' ? tabs : []}
         fields={fields}
         actions={actions}
-        data={selectedTransfer}
-        onChange={setSelectedTransfer}
       />
     </div>
   );

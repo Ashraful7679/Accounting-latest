@@ -97,36 +97,31 @@ export default function StockReconciliationsPage() {
   const handleEdit = () => { setViewMode('edit'); };
 
   const tabs: DetailTab[] = [
-    { id: 'details', label: 'Details' },
-    { id: 'lines', label: 'Variances' }
+    { id: 'details', label: 'Details', content: <div className="p-4 text-sm text-gray-500">Details view</div> },
+    { id: 'lines', label: 'Variances', content: <div className="p-4 text-sm text-gray-500">Variances list</div> }
   ];
 
   const fields: DetailField[] = viewMode === 'view' ? [
-    { key: 'reconciliationNumber', label: 'Number' },
-    { key: 'reconciliationDate', label: 'Date', type: 'date' },
-    { key: 'warehouse.name', label: 'Warehouse' },
-    { key: 'status', label: 'Status' },
-    { key: 'notes', label: 'Notes' }
-  ] : [
-    { key: 'warehouseId', label: 'Warehouse', type: 'select',
-      options: warehouses.map((w: any) => ({ value: w.id, label: w.name })), required: true },
-    { key: 'reconciliationDate', label: 'Date', type: 'date' },
-    { key: 'notes', label: 'Notes', type: 'textarea' }
-  ];
+    { label: 'Number', value: selectedReconciliation?.reconciliationNumber || '-' },
+    { label: 'Date', value: selectedReconciliation ? new Date(selectedReconciliation.reconciliationDate).toLocaleDateString() : '-', type: 'date' },
+    { label: 'Warehouse', value: selectedReconciliation?.warehouse?.name || '-' },
+    { label: 'Status', value: selectedReconciliation?.status || '-', type: 'status' as any },
+    { label: 'Notes', value: selectedReconciliation?.notes || '-' }
+  ] : [];
 
   const actions: DetailAction[] = viewMode === 'view' ? [
     ...(selectedReconciliation?.status === 'DRAFT' ? [
-      { label: 'Approve', onClick: () => selectedReconciliation && approveMutation.mutate(selectedReconciliation.id), variant: 'primary' },
-      { label: 'Edit', onClick: handleEdit, variant: 'secondary' },
-      { label: 'Delete', onClick: () => selectedReconciliation && deleteMutation.mutate(selectedReconciliation.id), variant: 'danger' }
+      { label: 'Approve', onClick: () => selectedReconciliation && approveMutation.mutate(selectedReconciliation.id), variant: 'primary' as const },
+      { label: 'Edit', onClick: handleEdit, variant: 'secondary' as const },
+      { label: 'Delete', onClick: () => selectedReconciliation && deleteMutation.mutate(selectedReconciliation.id), variant: 'danger' as const }
     ] : [])
   ] : [
     { label: 'Save', onClick: () => {
       const data = { ...selectedReconciliation };
       if (viewMode === 'create') createMutation.mutate(data);
       else if (viewMode === 'edit' && selectedReconciliation) updateMutation.mutate({ id: selectedReconciliation.id, data });
-    }, variant: 'primary' },
-    { label: 'Cancel', onClick: () => setShowDetailPanel(false), variant: 'secondary' }
+    }, variant: 'primary' as const },
+    { label: 'Cancel', onClick: () => setShowDetailPanel(false), variant: 'secondary' as const }
   ];
 
   if (!mounted) return null;
@@ -195,14 +190,12 @@ export default function StockReconciliationsPage() {
       </div>
 
       <DetailPanel
-        open={showDetailPanel}
+        isOpen={showDetailPanel}
         onClose={() => setShowDetailPanel(false)}
         title={viewMode === 'create' ? 'New Reconciliation' : selectedReconciliation?.reconciliationNumber || ''}
         tabs={viewMode === 'view' ? tabs : []}
         fields={fields}
         actions={actions}
-        data={selectedReconciliation}
-        onChange={setSelectedReconciliation}
       />
     </div>
   );

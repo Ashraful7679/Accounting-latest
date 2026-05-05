@@ -14,7 +14,6 @@ import { BackupController } from './modules/backup/backup.controller';
 import { BackupService } from './modules/system/backup.service';
 import { errorHandler } from './middleware/errorHandler';
 import { offlineCheck } from './middleware/offlineCheck';
-import { CronScheduler } from './lib/scheduler';
 
 // --- STARTUP LOGGING ---
 // const startupLog = join(process.cwd(), 'startup.log');
@@ -123,8 +122,8 @@ const start = async () => {
     console.log(`🚀 Server ready at ${typeof port === 'number' ? `http://${host}:${port}` : `socket ${port}`}`);
     console.log(`=========================================`);
 
-    // Start background cron jobs
-    CronScheduler.start();
+    // Start background cron jobs (disabled until schema is updated)
+    // CronScheduler.start();
 
     // --- Automated Backup Cron (Daily at 2 AM) ---
     // Note: In an industrial ERP, we use BackupService for a complete disaster recovery snapshot (pg_dump)

@@ -99,13 +99,13 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/portal/:companyId/customer/:token', PortalController.getCustomerPortalData.bind(PortalController));
   fastify.get('/portal/:companyId/vendor/:token', PortalController.getVendorPortalData.bind(PortalController));
 
-  // Employees
-  fastify.get('/:id/employees', employeeController.getEmployees.bind(employeeController));
-  fastify.post('/:id/employees', employeeController.createEmployee.bind(employeeController));
-  fastify.get('/:id/employees/:employeeId', employeeController.getEmployeeDetail.bind(employeeController));
-  fastify.put('/:id/employees/:employeeId', employeeController.updateEmployee.bind(employeeController));
-  fastify.delete('/:id/employees/:employeeId', employeeController.deleteEmployee.bind(employeeController));
-  fastify.post('/:id/employees/:employeeId/pay-salary', employeeController.paySalary.bind(employeeController));
+  // Staff / Employees
+  fastify.get('/:id/staff', employeeController.getEmployees.bind(employeeController));
+  fastify.post('/:id/staff', employeeController.createEmployee.bind(employeeController));
+  fastify.get('/:id/staff/:employeeId', employeeController.getEmployeeDetail.bind(employeeController));
+  fastify.put('/:id/staff/:employeeId', employeeController.updateEmployee.bind(employeeController));
+  fastify.delete('/:id/staff/:employeeId', employeeController.deleteEmployee.bind(employeeController));
+  fastify.post('/:id/staff/:employeeId/pay-salary', employeeController.paySalary.bind(employeeController));
 
   // Employee Advances
   fastify.get('/:id/employee-advances', employeeController.getEmployeeAdvances.bind(employeeController));

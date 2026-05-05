@@ -146,6 +146,8 @@ model Company {
 
   settings CompanySettings?
 
+  fixedAssets FixedAsset[]
+
   // Soft Delete
   deletedAt  DateTime?
   createdAt  DateTime     @default(now())
@@ -400,6 +402,8 @@ model Account {
   payments         Payment[]
   employeeAdvances EmployeeAdvance[]
   employeeExpenses EmployeeExpense[]
+  fixedAssets             FixedAsset[] @relation("DepreciationAccount")
+  accumulatedDepreciation FixedAsset[] @relation("AccumulatedDepreciation")
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -1658,6 +1662,10 @@ model FixedAsset {
   
   createdAt        DateTime  @default(now())
   updatedAt        DateTime @updatedAt
+
+  company           Company  @relation(fields: [companyId], references: [id])
+  depreciationAccount Account? @relation("DepreciationAccount", fields: [depreciationAccountId], references: [id])
+  accumulatedAccount Account? @relation("AccumulatedDepreciation", fields: [accumulatedDepreciationAccountId], references: [id])
 
   @@unique([companyId, assetNumber])
   @@index([companyId])

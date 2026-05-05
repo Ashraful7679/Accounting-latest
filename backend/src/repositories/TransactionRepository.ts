@@ -9,32 +9,67 @@ let offlineJournals: any[] = [...demoJournals];
 
 export class TransactionRepository {
   // --- Invoices ---
-  static async findInvoices(where = {}) {
+  static async findInvoices(options: {
+    companyId: string;
+    type?: string;
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+  }) {
+    const { companyId, type, page = 1, limit = 20, search, status } = options;
+    
+    const where: any = { companyId };
+    if (type) where.type = type.toUpperCase();
+    if (status) where.status = status.toUpperCase();
+    if (search) {
+      where.OR = [
+        { invoiceNumber: { contains: search, mode: 'insensitive' } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } }
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
     if (SYSTEM_MODE === "LIVE") {
       try {
-        return await prisma.invoice.findMany({
-          where,
-          include: { 
-            customer: true,
-            vendor: true,
-            createdBy: { select: { firstName: true, lastName: true } },
-            verifiedBy: { select: { firstName: true, lastName: true } },
-            approvedBy: { select: { firstName: true, lastName: true } },
-            lines: true
-          },
-          orderBy: { createdAt: 'desc' }
-        });
+        const [data, total] = await Promise.all([
+          prisma.invoice.findMany({
+            where,
+            include: { 
+              customer: true,
+              vendor: true,
+              createdBy: { select: { firstName: true, lastName: true } },
+              verifiedBy: { select: { firstName: true, lastName: true } },
+              approvedBy: { select: { firstName: true, lastName: true } },
+              lines: true
+            },
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit,
+          }),
+          prisma.invoice.count({ where })
+        ]);
+
+        return {
+          data,
+          pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+        };
       } catch (error) {
-        console.error('Invoice search failed, falling back to offline storage');
+        console.error('Invoice search failed:', error);
       }
     }
-    const companyId = (where as any).companyId;
-    const type = (where as any).type;
-    let results = companyId ? offlineInvoices.filter(inv => inv.companyId === companyId) : offlineInvoices;
-    if (type) {
-      results = results.filter(inv => inv.type === type.toUpperCase());
-    }
-    return results;
+    
+    const companyId_ = (options as any).companyId;
+    const type_ = (options as any).type;
+    let results = companyId_ ? offlineInvoices.filter(inv => inv.companyId === companyId_) : offlineInvoices;
+    if (type_) results = results.filter(inv => inv.type === type_.toUpperCase());
+    
+    const start = (page - 1) * limit;
+    return {
+      data: results.slice(start, start + limit),
+      pagination: { page, limit, total: results.length, totalPages: Math.ceil(results.length / limit) }
+    };
   }
 
   static async findInvoiceById(id: string) {

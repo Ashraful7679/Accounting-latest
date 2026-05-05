@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteList } from '@/hooks/useInfiniteList';
+import { InfinitePagination, LoadingSkeleton, EmptyState } from '@/components/Pagination';
 import api from '@/lib/api';
 import { 
   FileText, Plus, Search, Eye, Trash2, 
@@ -45,13 +47,12 @@ export default function SalesInvoicesPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  const { data: invoices, isLoading } = useQuery({
-    queryKey: ['sales-invoices', companyId],
-    queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/invoices?type=sales`);
-      return response.data.data as Invoice[];
-    },
-    enabled: !!companyId,
+  const { data: invoices, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteList<Invoice>({
+    companyId,
+    endpoint: 'invoices',
+    queryKey: ['sales-invoices'],
+    search: searchTerm,
+    filter: { type: 'sales', status: filterStatus === 'all' ? undefined : filterStatus },
   });
 
   const deleteMutation = useMutation({
@@ -72,18 +73,11 @@ export default function SalesInvoicesPage() {
       queryClient.invalidateQueries({ queryKey: ['sales-invoices', companyId] });
       toast.success('Invoice reverted to Draft');
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Failed to revert invoice');
+    onError: (err: unknown) => {
+      const error = err as { response?: { data?: { message?: string } } };
+      toast.error(error.response?.data?.message || 'Failed to revert invoice');
     }
   });
-
-  const filteredInvoices = invoices?.filter((inv: Invoice) => {
-    const matchesSearch = !searchTerm || 
-      inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.customer?.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || inv.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  }) || [];
 
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -146,7 +140,7 @@ export default function SalesInvoicesPage() {
         </div>
         <div className="bg-white border border-gray-200 rounded-sm p-2 flex items-center justify-center shadow-sm">
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-            Active Records: <span className="text-gray-900">{filteredInvoices.length}</span>
+            Total Records: <span className="text-gray-900">{invoices?.length || 0}</span>
           </p>
         </div>
       </div>
@@ -166,10 +160,10 @@ export default function SalesInvoicesPage() {
           <tbody className="divide-y divide-gray-100">
             {isLoading ? (
               <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400 font-mono">SYNCING SALES DATA...</td></tr>
-            ) : filteredInvoices.length === 0 ? (
+            ) : invoices?.length === 0 ? (
               <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400 font-mono uppercase tracking-widest">No matching invoices</td></tr>
             ) : (
-              filteredInvoices.map((inv) => (
+              invoices.map((inv) => (
                 <tr key={inv.id} className="hover:bg-gray-50/50 group transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex flex-col">

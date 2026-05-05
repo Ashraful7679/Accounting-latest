@@ -25,23 +25,19 @@ export default function LoginPage() {
       localStorage.setItem('roles', JSON.stringify(user.roles));
 
       const roles = user.roles || [];
-      const userEmail = user.email?.toLowerCase() || '';
       
-      // Debug: check what we got
       console.log('Login success, user:', user.email, 'roles:', roles);
       
-      // Check for admin role or admin email
-      if (roles.includes('Admin') || userEmail.includes('admin')) {
+      //优先级: Admin > Owner > Company User
+      if (roles.includes('Admin') || user.email?.toLowerCase().includes('admin')) {
         window.location.href = '/admin/dashboard';
-      } else if (roles.includes('Owner') || userEmail.includes('@')) {
+      } else if (roles.includes('Owner') || user.email?.includes('@')) {
         window.location.href = '/owner/dashboard';
+      } else if (user.userCompanies && user.userCompanies.length > 0) {
+        const defaultCompany = user.userCompanies.find((uc: any) => uc.isDefault) || user.userCompanies[0];
+        window.location.href = `/company/${defaultCompany.companyId}/dashboard`;
       } else {
-        if (user.userCompanies && user.userCompanies.length > 0) {
-          const defaultCompany = user.userCompanies.find((uc: any) => uc.isDefault) || user.userCompanies[0];
-          window.location.href = `/company/${defaultCompany.companyId}/dashboard`;
-        } else {
-          window.location.href = '/owner/dashboard';
-        }
+        window.location.href = '/owner/dashboard';
       }
     },
     onError: (error: any) => {

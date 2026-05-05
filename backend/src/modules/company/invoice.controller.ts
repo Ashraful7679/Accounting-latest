@@ -6,6 +6,7 @@ import { NotFoundError, ForbiddenError, ValidationError } from '../../middleware
 import { BaseCompanyController } from './base.controller';
 import { JournalService } from '../accounting/journal.service';
 import { InventoryService } from './inventory.service';
+import { checkOptimisticLock } from '../../lib/optimisticLock';
 
 export class InvoiceController extends BaseCompanyController {
   // ============ INVOICES ============

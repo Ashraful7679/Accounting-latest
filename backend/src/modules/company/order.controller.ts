@@ -4,9 +4,10 @@ import { PurchaseOrderRepository } from '../../repositories/PurchaseOrderReposit
 import { SalesOrderRepository } from '../../repositories/SalesOrderRepository';
 import { NotificationController } from './notification.controller';
 import { InventoryService } from './inventory.service';
-import { NotFoundError, ForbiddenError, ValidationError } from '../../middleware/errorHandler';
+import { NotFoundError, ForbiddenError, ValidationError, OptimisticLockError } from '../../middleware/errorHandler';
 import { BaseCompanyController } from './base.controller';
 import { JournalService } from '../accounting/journal.service';
+import { checkOptimisticLock } from '../../lib/optimisticLock';
 
 export class OrderController extends BaseCompanyController {
   // ============ SALES ORDERS ============
@@ -84,6 +85,10 @@ export class OrderController extends BaseCompanyController {
     const { id: companyId, soId } = request.params as { id: string, soId: string };
     const updateData = request.body as any;
     const userId = (request.user as any).id;
+
+    // Check optimistic lock
+    await checkOptimisticLock(request, reply, 'sales-order');
+    if (reply.sent) return;
 
     const so = await (prisma as any).salesOrder.findUnique({ where: { id: soId } });
     if (!so) throw new NotFoundError('Sales Order not found');

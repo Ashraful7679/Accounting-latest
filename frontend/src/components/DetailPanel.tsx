@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   X, Edit2, Trash2, Printer, Link2, FileText, 
   Clock, CheckCircle2, AlertCircle, ChevronRight, MoreVertical,
-  Save, RefreshCw, Download, Send, Copy, Eye
+  Save, RefreshCw, Download, Send, Copy, Eye, ChevronLeft
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -17,8 +17,10 @@ function cn(...inputs: ClassValue[]) {
 export interface DetailField {
   label: string;
   value: string | number | boolean | React.ReactNode;
-  type?: 'text' | 'number' | 'currency' | 'date' | 'status' | 'currency' | 'quantity' | 'select';
+  type?: 'text' | 'number' | 'currency' | 'date' | 'status' | 'quantity' | 'select' | 'link';
   options?: { label: string; value: string }[];
+  href?: string;
+  onClick?: () => void;
 }
 
 export interface DetailAction {
@@ -28,6 +30,7 @@ export interface DetailAction {
   variant?: 'primary' | 'secondary' | 'danger' | 'success';
   disabled?: boolean;
   loading?: boolean;
+  permission?: 'create' | 'view' | 'edit' | 'delete' | 'verify' | 'approve' | 'export' | 'print';
 }
 
 export interface DetailTab {
@@ -35,6 +38,15 @@ export interface DetailTab {
   label: string;
   icon?: React.ElementType;
   content: React.ReactNode;
+}
+
+export interface LinkedEntity {
+  type: 'purchase_order' | 'sales_order' | 'journal_entry' | 'grn' | 'challan' | 'invoice' | 'debit_note' | 'credit_note';
+  id: string;
+  title: string;
+  fields: DetailField[];
+  tabs?: DetailTab[];
+  actions?: DetailAction[];
 }
 
 interface DetailPanelProps {
@@ -45,16 +57,10 @@ interface DetailPanelProps {
   fields: DetailField[];
   actions?: DetailAction[];
   tabs?: DetailTab[];
-  status?: {
-    value: string;
-    type: 'pending' | 'approved' | 'rejected' | 'active' | 'inactive' | 'draft';
-  };
-  metadata?: {
-    createdAt?: string;
-    createdBy?: string;
-    updatedAt?: string;
-    updatedBy?: string;
-  };
+  permissions?: Record<string, boolean>;
+  status?: { value: string; type: 'pending' | 'approved' | 'rejected' | 'active' | 'inactive' | 'draft' };
+  metadata?: { createdAt?: string; createdBy?: string; updatedAt?: string; updatedBy?: string };
+  linkedEntity?: LinkedEntity | null;
   children?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
 }
@@ -76,21 +82,28 @@ const sizeClasses = {
   full: 'max-w-[90vw]',
 };
 
-function formatValue(value: any, type?: string): React.ReactNode {
+function formatValue(value: unknown, type?: string): React.ReactNode {
   if (value === null || value === undefined || value === '') return '-';
   if (React.isValidElement(value)) return value;
   
   switch (type) {
     case 'currency':
       return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'BDT' }).format(Number(value));
+    case 'link':
+      return (
+        <button
+          onClick={(value as unknown as { _onClick?: () => void })._onClick}
+          className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+        >
+          {String(value)}
+        </button>
+      );
     case 'quantity':
       return new Intl.NumberFormat('en-US').format(Number(value));
     case 'date':
-      return new Date(value).toLocaleDateString('en-US', { 
-        year: 'numeric', month: 'short', day: 'numeric' 
-      });
+      return new Date(String(value)).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
     case 'status':
-      if (typeof value === 'object') return value;
+      if (typeof value === 'object') return value as React.ReactNode;
       const s = statusStyles[value as keyof typeof statusStyles] || statusStyles.draft;
       const Icon = s.icon;
       return (
@@ -122,13 +135,21 @@ export default function DetailPanel({
   fields,
   actions = [],
   tabs = [],
+  permissions = {},
   status,
   metadata,
+  linkedEntity = null,
   children,
   size = 'lg',
 }: DetailPanelProps) {
   const [activeTab, setActiveTab] = useState(tabs[0]?.id || 'details');
   const [mounted, setMounted] = useState(false);
+  const [currentLinked, setCurrentLinked] = useState<LinkedEntity | null>(null);
+
+  const filteredActions = actions.filter(action => {
+    if (!action.permission) return true;
+    return permissions[action.permission] === true;
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -136,157 +157,78 @@ export default function DetailPanel({
 
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
+      setCurrentLinked(linkedEntity);
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
+  }, [isOpen, linkedEntity]);
+
+  const handleLinkedBack = () => {
+    setCurrentLinked(null);
+    setActiveTab(tabs[0]?.id || 'details');
+  };
 
   if (!mounted || !isOpen) return null;
 
+  const displayTitle = currentLinked?.title || title;
+  const displayFields = currentLinked?.fields || fields;
+  const displayTabs = currentLinked?.tabs || tabs;
+  const displayActions = currentLinked?.actions || filteredActions;
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      
-      {/* Panel */}
-      <div className={cn(
-        'relative flex flex-col w-full h-full bg-white shadow-2xl animate-in slide-in-from-right duration-300',
-        sizeClasses[size]
-      )}>
-        {/* Header */}
+      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+      <div className={cn('relative flex flex-col w-full h-full bg-white shadow-2xl animate-in slide-in-from-right duration-300', sizeClasses[size])}>
         <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex-1 min-w-0 pr-4">
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold text-slate-900 truncate">{title}</h2>
-              {status && formatValue(status.value, 'status')}
+          <div className="flex items-center gap-3 flex-1 min-w-0 pr-4">
+            {currentLinked && (
+              <button onClick={handleLinkedBack} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500" title="Back">
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold text-slate-900 truncate">{displayTitle}</h2>
+                {status && formatValue(status.value, 'status')}
+              </div>
+              {subtitle && <p className="text-sm text-slate-500 mt-0.5 truncate">{subtitle}</p>}
             </div>
-            {subtitle && <p className="text-sm text-slate-500 mt-0.5 truncate">{subtitle}</p>}
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-lg text-slate-500">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Tabs */}
-        {tabs.length > 0 && (
-          <div className="flex gap-1 px-6 border-b border-slate-100 bg-white">
-            {tabs.map((tab) => {
-              const Icon = tab.icon || FileText;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors',
-                    activeTab === tab.id
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-700'
-                  )}
-                >
-                  <Icon className="w-4 h-4" />
-                  {tab.label}
-                </button>
-              );
-            })}
+        {displayTabs.length > 0 && (
+          <div className="flex border-b border-slate-200 px-6">
+            {displayTabs.map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn('px-4 py-3 text-sm font-bold border-b-2 transition-colors', activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700')}>
+                {tab.label}
+              </button>
+            ))}
           </div>
         )}
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
-          {tabs.length > 0 ? (
-            tabs.find(t => t.id === activeTab)?.content || (
-              <div className="p-6">
-                <div className="grid grid-cols-2 gap-4">
-                  {fields.map((field, idx) => (
-                    <div key={idx} className={cn(
-                      'space-y-1',
-                      field.label.toLowerCase().includes('description') || field.label.toLowerCase().includes('address') ? 'col-span-2' : ''
-                    )}>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        {field.label}
-                      </label>
-                      <div className="text-slate-900 font-medium">
-                        {formatValue(field.value, field.type)}
-                      </div>
-                    </div>
-                  ))}
+        <div className="flex-1 overflow-y-auto p-6">
+          {activeTab === 'details' || displayTabs.length === 0 ? (
+            <div className="space-y-4">
+              {displayFields.map((field, idx) => (
+                <div key={idx} className="flex justify-between">
+                  <span className="text-sm font-bold text-slate-500">{field.label}</span>
+                  <span className="text-sm font-medium text-slate-900 text-right">{formatValue(field.value, field.type)}</span>
                 </div>
-              </div>
-            )
-          ) : (
-            <div className="p-6">
-              <div className="grid grid-cols-2 gap-4">
-                {fields.map((field, idx) => (
-                  <div key={idx} className={cn(
-                    'space-y-1',
-                    field.label.toLowerCase().includes('description') || field.label.toLowerCase().includes('address') || field.label.toLowerCase().includes('notes') ? 'col-span-2' : ''
-                  )}>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      {field.label}
-                    </label>
-                    <div className="text-slate-900 font-medium">
-                      {formatValue(field.value, field.type)}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
+          ) : (
+            displayTabs.find(t => t.id === activeTab)?.content
           )}
-          
-          {children}
         </div>
 
-        {/* Metadata Footer */}
-        {metadata && (
-          <div className="px-6 py-3 bg-slate-50 border-t border-slate-100">
-            <div className="flex gap-4 text-xs text-slate-400">
-              {metadata.createdAt && (
-                <span>Created: {new Date(metadata.createdAt).toLocaleString()}</span>
-              )}
-              {metadata.createdBy && (
-                <span>by {metadata.createdBy}</span>
-              )}
-              {metadata.updatedAt && (
-                <span>Updated: {new Date(metadata.updatedAt).toLocaleString()}</span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Actions */}
-        {actions.length > 0 && (
+        {displayActions.length > 0 && (
           <div className="p-4 border-t border-slate-100 bg-slate-50 flex gap-2 flex-wrap">
-            {actions.map((action, idx) => {
+            {displayActions.map((action, idx) => {
               const Icon = action.icon || Save;
               return (
-                <button
-                  key={idx}
-                  onClick={action.onClick}
-                  disabled={action.disabled || action.loading}
-                  className={cn(
-                    'flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all',
-                    action.variant === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700' :
-                    action.variant === 'danger' ? 'bg-red-600 text-white hover:bg-red-700' :
-                    action.variant === 'success' ? 'bg-emerald-600 text-white hover:bg-emerald-700' :
-                    'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50',
-                    (action.disabled || action.loading) && 'opacity-50 cursor-not-allowed'
-                  )}
-                >
-                  {action.loading ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Icon className="w-4 h-4" />
-                  )}
+                <button key={idx} onClick={action.onClick} disabled={action.disabled || action.loading} className={cn('flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all', action.variant === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700' : action.variant === 'danger' ? 'bg-red-600 text-white hover:bg-red-700' : action.variant === 'success' ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50', (action.disabled || action.loading) && 'opacity-50 cursor-not-allowed')}>
+                  {action.loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4" />}
                   {action.label}
                 </button>
               );

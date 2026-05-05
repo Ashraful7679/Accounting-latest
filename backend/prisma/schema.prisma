@@ -1611,11 +1611,6 @@ model RecurringInvoice {
   
   createdById           String?
   
-  // Relations
-  company              Company  @relation(fields: [companyId], references: [id])
-  customer            Customer @relation(fields: [customerId], references: [id])
-  product             Product? @relation(fields: [productId], references: [id])
-
   createdAt           DateTime  @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -1661,11 +1656,6 @@ model FixedAsset {
   
   createdById         String?
   
-  // Relations
-  company           Company  @relation(fields: [companyId], references: [id])
-  account           Account? @relation(fields: [depreciationAccountId], references: [id])
-  accumulatedAccount Account? @relation(fields: [accumulatedDepreciationAccountId], references: [id])
-
   createdAt        DateTime  @default(now())
   updatedAt        DateTime @updatedAt
 

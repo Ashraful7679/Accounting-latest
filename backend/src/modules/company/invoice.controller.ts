@@ -11,13 +11,24 @@ export class InvoiceController extends BaseCompanyController {
   // ============ INVOICES ============
   async getInvoices(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { type } = request.query as { type?: string };
+    const { type, page = '1', limit = '20', search, status } = request.query as { 
+      type?: string;
+      page?: string;
+      limit?: string;
+      search?: string;
+      status?: string;
+    };
     
-    const where: any = { companyId };
-    if (type) where.type = type.toUpperCase();
-
-    const invoices = await TransactionRepository.findInvoices(where);
-    return reply.send({ success: true, data: invoices });
+    const result = await TransactionRepository.findInvoices({
+      companyId,
+      type: type?.toUpperCase(),
+      page: parseInt(page),
+      limit: parseInt(limit),
+      search,
+      status,
+    });
+    
+    return reply.send({ success: true, data: result });
   }
 
   async getInvoice(request: FastifyRequest, reply: FastifyReply) {

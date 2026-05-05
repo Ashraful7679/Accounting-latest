@@ -39,6 +39,15 @@ export class ConflictError extends AppError {
   }
 }
 
+export class OptimisticLockError extends AppError {
+  serverVersion?: string;
+  
+  constructor(message: string = 'Data has been modified', serverVersion?: string, remedy?: string) {
+    super(message, 412, remedy, 'OPTIMISTIC_LOCK');
+    this.serverVersion = serverVersion;
+  }
+}
+
 export class ValidationError extends AppError {
   constructor(message: string = 'Validation error', remedy?: string) {
     super(message, 422, remedy, 'VALIDATION_ERROR');

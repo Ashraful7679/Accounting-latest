@@ -215,7 +215,11 @@ async function generateNotifications(companyId: string) {
 export class DashboardController {
   async getStats(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const userId = (request.user as any).id;
+    const userId = (request.user as any)?.id;
+    
+    if (!userId) {
+      return reply.status(401).send({ error: 'Authentication required' });
+    }
 
     console.log(`[DashboardStats] Fetching for User: ${userId}, Company: ${companyId}`);
 

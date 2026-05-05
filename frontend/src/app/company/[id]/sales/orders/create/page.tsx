@@ -11,7 +11,7 @@ import {
   User, Calendar, ShoppingCart, Loader2, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { formatCurrency, defaultCurrency } from '@/lib/decimalUtils';
+import { formatCurrency } from '@/lib/decimalUtils';
 import { useCompany } from '@/lib/CompanyContext';
 import { z } from 'zod';
 

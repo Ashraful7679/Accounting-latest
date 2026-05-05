@@ -12,8 +12,24 @@ export class OrderController extends BaseCompanyController {
   // ============ SALES ORDERS ============
   async getSalesOrders(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const sos = await SalesOrderRepository.findMany({ companyId });
-    return reply.send({ success: true, data: sos });
+    const { page = '1', limit = '20', currency, search, status } = request.query as { 
+      page?: string; 
+      limit?: string; 
+      currency?: string;
+      search?: string;
+      status?: string;
+    };
+    
+    const result = await SalesOrderRepository.findMany({
+      companyId,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      currency,
+      search,
+      status,
+    });
+    
+    return reply.send({ success: true, data: result });
   }
 
   async createSalesOrder(request: FastifyRequest, reply: FastifyReply) {

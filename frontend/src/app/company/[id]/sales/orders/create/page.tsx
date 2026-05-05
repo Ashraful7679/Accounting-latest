@@ -2,16 +2,36 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm, Controller, useFieldArray } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import api from '@/lib/api';
 import { 
   Plus, Trash2, ArrowLeft, Save, 
   User, Calendar, ShoppingCart, Loader2, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { formatCurrency } from '@/lib/decimalUtils';
+import { formatCurrency, defaultCurrency } from '@/lib/decimalUtils';
 import { useCompany } from '@/lib/CompanyContext';
-import React from 'react';
+import { z } from 'zod';
+
+const salesOrderLineSchema = z.object({
+  productId: z.string().optional(),
+  itemDescription: z.string().min(1, 'Product required'),
+  quantity: z.number().min(1, 'Min 1'),
+  unitPrice: z.number().min(0),
+  total: z.number(),
+});
+
+const createSalesOrderSchema = z.object({
+  customerId: z.string().min(1, 'Customer required'),
+  soDate: z.string().min(1, 'Date required'),
+  expectedDeliveryDate: z.string().optional(),
+  orderType: z.enum(['local', 'foreign']),
+  lines: z.array(salesOrderLineSchema).min(1),
+});
+
+type SalesOrderFormData = z.infer<typeof createSalesOrderSchema>;
 
 export default function CreateSalesOrderPage() {
   const router = useRouter();
@@ -23,50 +43,59 @@ export default function CreateSalesOrderPage() {
   const [mounted, setMounted] = useState(false);
 
   const initialType = searchParams.get('type') === 'foreign' ? 'foreign' : 'local';
-  const [orderType, setOrderType] = useState<'local'|'foreign'>(initialType);
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingEntities, setPendingEntities] = useState<{customers: string[], products: string[]}>({ customers: [], products: [] });
-
-  const [formData, setFormData] = useState({
-    customerName: '',
-    soDate: new Date().toISOString().split('T')[0],
-    expectedDeliveryDate: '',
-    lines: [{ itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }] as any[]
-  });
 
   useEffect(() => { setMounted(true); }, []);
 
   const { data: customers } = useQuery({
     queryKey: ['customers', companyId],
-    queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/customers`);
-      return response.data.data;
-    },
+    queryFn: () => api.get(`/company/${companyId}/customers`).then(r => r.data.data),
     enabled: !!companyId,
   });
 
   const { data: products } = useQuery({
     queryKey: ['products', companyId],
-    queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/products`);
-      return response.data.data;
-    },
+    queryFn: () => api.get(`/company/${companyId}/products`).then(r => r.data.data),
     enabled: !!companyId,
   });
 
-  // Fetch product pricing data for margin analysis
   const { data: productPricing } = useQuery({
     queryKey: ['product-pricing', companyId],
-    queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/products/pricing`);
-      return response.data.data;
-    },
+    queryFn: () => api.get(`/company/${companyId}/products/pricing`).then(r => r.data.data),
     enabled: !!companyId,
   });
 
-  // Calculate margin for a line
-  const getLineMargin = (line: any) => {
+  const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<SalesOrderFormData>({
+    resolver: zodResolver(createSalesOrderSchema),
+    defaultValues: {
+      customerId: '',
+      soDate: new Date().toISOString().split('T')[0],
+      expectedDeliveryDate: '',
+      orderType: initialType,
+      lines: [{ productId: '', itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }],
+    },
+  });
+
+  const { fields, append, remove } = useFieldArray({ control, name: 'lines' });
+
+  const orderType = watch('orderType');
+
+  const filteredCustomers = customers?.filter((c: any) => 
+    orderType === 'local' ? c.preferredCurrency === 'BDT' : c.preferredCurrency !== 'BDT'
+  );
+
+  const calculateLineTotal = (index: number) => {
+    const line = watch(`lines.${index}`);
+    return (line?.quantity || 0) * (line?.unitPrice || 0);
+  };
+
+  const calculateTotal = () => {
+    return fields.reduce((sum, _, i) => sum + calculateLineTotal(i), 0);
+  };
+
+  const getLineMargin = (line: SalesOrderFormData['lines'][0]) => {
     const product = products?.find((p: any) => p.name === line.itemDescription);
     const pricing = productPricing?.find((p: any) => p.productId === product?.id);
     if (!pricing?.averageCost || !line.unitPrice) return null;
@@ -78,165 +107,36 @@ export default function CreateSalesOrderPage() {
     };
   };
 
-  // Check if any line is below margin
-  const hasLowMargin = formData.lines.some(line => {
-    const marginData = getLineMargin(line);
-    return marginData?.isBelowMargin;
+  const hasLowMargin = fields.some((_, i) => {
+    const line = watch(`lines.${i}`);
+    return getLineMargin(line)?.isBelowMargin;
   });
 
-  const filteredCustomers = customers?.filter((c: any) => 
-    orderType === 'local' ? c.preferredCurrency === 'BDT' : c.preferredCurrency !== 'BDT'
-  );
-
-  const handleLineChange = (index: number, field: string, value: any) => {
-    const newLines = [...formData.lines];
-    const line = { ...newLines[index], [field]: value };
-
-    if (field === 'itemDescription') {
-      const existingProduct = products?.find((p: any) => p.name === value);
-      if (existingProduct) {
-        let price = existingProduct.unitPrice || 0;
-        const targetCurrency = orderType === 'local' ? 'BDT' : 'USD';
-        
-        // Always calculate from original product price to avoid recursive conversion errors
-        if (existingProduct.currency === 'USD' && targetCurrency === 'BDT') {
-          price = price * companyExchangeRate;
-        } else if (existingProduct.currency === 'BDT' && targetCurrency === 'USD') {
-          price = price / companyExchangeRate;
-        }
-        
-        line.unitPrice = Number(price.toFixed(2));
-      }
-    }
-
-    line.total = Number((line.quantity * line.unitPrice).toFixed(2));
-    newLines[index] = line;
-    setFormData({ ...formData, lines: newLines });
-  };
-
-  // Recalculate all line prices when order type or exchange rate changes
-  useEffect(() => {
-    if (!mounted || !products) return;
-    
-    setFormData(prev => ({
-      ...prev,
-      lines: prev.lines.map(line => {
-        const existingProduct = products?.find((p: any) => p.name === line.itemDescription);
-        if (!existingProduct) return line;
-
-        const targetCurrency = orderType === 'local' ? 'BDT' : 'USD';
-        let newPrice = existingProduct.unitPrice || 0;
-
-        if (existingProduct.currency === 'USD' && targetCurrency === 'BDT') {
-          newPrice = newPrice * companyExchangeRate;
-        } else if (existingProduct.currency === 'BDT' && targetCurrency === 'USD') {
-          newPrice = newPrice / companyExchangeRate;
-        }
-
-        const price = Number(newPrice.toFixed(2));
-        return {
-          ...line,
-          unitPrice: price,
-          total: Number((line.quantity * price).toFixed(2))
-        };
-      })
-    }));
-  }, [orderType, companyExchangeRate, products, mounted]);
-
-  const addLine = () => {
-    setFormData({
-      ...formData,
-      lines: [...formData.lines, { itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }]
-    });
-  };
-
-  const removeLine = (index: number) => {
-    if (formData.lines.length === 1) return;
-    const newLines = formData.lines.filter((_, i) => i !== index);
-    setFormData({ ...formData, lines: newLines });
-  };
-
-  const calculateTotal = () => {
-    return formData.lines.reduce((sum, line) => sum + line.total, 0);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.customerName) { toast.error('Please enter or select a customer'); return; }
-    if (formData.lines.some(l => !l.itemDescription || l.quantity <= 0)) {
-      toast.error('Please complete all product lines'); return;
-    }
-
-    // Check for new entities
-    const existingCustomer = customers?.find((c: any) => c.name === formData.customerName);
-    const newCustomers = !existingCustomer ? [formData.customerName] : [];
-    const newProducts = formData.lines
-      .filter(l => !products?.find((p: any) => p.name === l.itemDescription))
-      .map(l => l.itemDescription);
-    
-    const uniqueNewProducts = Array.from(new Set(newProducts));
-
-    if (newCustomers.length > 0 || uniqueNewProducts.length > 0) {
-      setPendingEntities({ customers: newCustomers, products: uniqueNewProducts });
-      setShowConfirmModal(true);
-      return;
-    }
-
-    proceedWithSubmission();
-  };
-
-  const proceedWithSubmission = async () => {
+  const onSubmit = async (data: SalesOrderFormData) => {
     setIsSaving(true);
-    setShowConfirmModal(false);
     try {
-      let finalCustomerId = '';
-      const existingCustomer = customers?.find((c: any) => c.name === formData.customerName);
-      if (existingCustomer) {
-        finalCustomerId = existingCustomer.id;
-      } else {
-        const res = await api.post(`/company/${companyId}/customers`, {
-          name: formData.customerName,
-          type: orderType === 'local' ? 'Local' : 'Foreign',
-          preferredCurrency: orderType === 'local' ? 'BDT' : 'USD'
-        });
-        finalCustomerId = res.data.data.id;
-      }
-
-      const finalLines = await Promise.all(formData.lines.map(async (line) => {
-        let finalProductId = '';
-        const existingProduct = products?.find((p: any) => p.name === line.itemDescription);
-        if (existingProduct) {
-          finalProductId = existingProduct.id;
-        } else {
-          const res = await api.post(`/company/${companyId}/products`, {
-            name: line.itemDescription,
-            unitPrice: line.unitPrice,
-            currency: orderType === 'local' ? 'BDT' : 'USD'
-          });
-          finalProductId = res.data.data.id;
-        }
-        return { ...line, productId: finalProductId, itemDescription: line.itemDescription };
-      }));
-
       const total = calculateTotal();
-      const payload = {
-        customerId: finalCustomerId,
-        soDate: formData.soDate,
-        expectedDeliveryDate: formData.expectedDeliveryDate,
-        currency: orderType === 'local' ? 'BDT' : 'USD',
-        exchangeRate: orderType === 'local' ? 1 : companyExchangeRate,
-        status: 'DRAFT',
-        lines: finalLines,
-        totalBDT: orderType === 'local' ? total : total * companyExchangeRate,
-        totalForeign: orderType === 'foreign' ? total : 0
-      };
+      const currency = orderType === 'local' ? 'BDT' : 'USD';
+      const exchangeRate = orderType === 'local' ? 1 : companyExchangeRate;
 
-      await api.post(`/company/${companyId}/sales-orders`, payload);
+      await api.post(`/company/${companyId}/sales-orders`, {
+        customerId: data.customerId,
+        soDate: data.soDate,
+        expectedDeliveryDate: data.expectedDeliveryDate,
+        currency,
+        exchangeRate,
+        status: 'DRAFT',
+        lines: data.lines.map(l => ({ ...l, total: l.quantity * l.unitPrice })),
+        totalBDT: orderType === 'local' ? total : total * companyExchangeRate,
+        totalForeign: orderType === 'foreign' ? total : 0,
+      });
+
       queryClient.invalidateQueries({ queryKey: ['sales-orders', companyId] });
-      toast.success('Sales Order created successfully');
+      toast.success('Sales Order created');
       router.push(`/company/${companyId}/sales/orders`);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to create sales order');
+      toast.error(err.response?.data?.message || 'Failed to create');
+    } finally {
       setIsSaving(false);
     }
   };
@@ -252,103 +152,94 @@ export default function CreateSalesOrderPage() {
         {products?.map((p: any) => <option key={p.id} value={p.name} />)}
       </datalist>
 
-      {/* Header */}
       <div className="flex justify-between items-center bg-white p-4 rounded-sm border border-gray-200 shadow-sm">
         <div className="flex items-center gap-4">
-          <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-900 transition-colors">
+          <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-900">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-blue-600" />
-              Create Sales Order
-            </h1>
-          </div>
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <ShoppingCart className="w-5 h-5 text-blue-600" />
+            Create Sales Order
+          </h1>
         </div>
 
         <div className="flex items-center gap-6">
           {orderType === 'foreign' && (
             <div className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-sm">
-              USD/BDT Rate: <span className="text-gray-900">{companyExchangeRate}</span>
+              USD/BDT: <span className="text-gray-900">{companyExchangeRate}</span>
             </div>
           )}
-          <div className="flex bg-gray-100 p-1 rounded-sm">
-            <button 
-              onClick={() => setOrderType('local')} 
-              className={`px-4 py-1.5 rounded-sm text-[10px] font-bold uppercase tracking-wider transition-colors ${orderType === 'local' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
-            >
-              Local
-            </button>
-            <button 
-              onClick={() => setOrderType('foreign')} 
-              className={`px-4 py-1.5 rounded-sm text-[10px] font-bold uppercase tracking-wider transition-colors ${orderType === 'foreign' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
-            >
-              Foreign
-            </button>
-          </div>
+          <Controller
+            name="orderType"
+            control={control}
+            render={({ field }) => (
+              <div className="flex bg-gray-100 p-1 rounded-sm">
+                <button type="button" onClick={() => field.onChange('local')} className={`px-4 py-1.5 rounded-sm text-xs font-bold ${field.value === 'local' ? 'bg-white text-gray-900' : 'text-gray-500'}`}>Local</button>
+                <button type="button" onClick={() => field.onChange('foreign')} className={`px-4 py-1.5 rounded-sm text-xs font-bold ${field.value === 'foreign' ? 'bg-white text-gray-900' : 'text-gray-500'}`}>Foreign</button>
+              </div>
+            )}
+          />
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Info */}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Customer</label>
-            <div className="relative">
-              <User className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-              <input 
-                list="customer-list"
-                required
-                value={formData.customerName}
-                onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
-                placeholder="Type or select..."
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Order Date</label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-              <input 
-                type="date"
-                required
-                value={formData.soDate}
-                onChange={(e) => setFormData({ ...formData, soDate: e.target.value })}
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Expected Delivery</label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-              <input 
-                type="date"
-                value={formData.expectedDeliveryDate}
-                onChange={(e) => setFormData({ ...formData, expectedDeliveryDate: e.target.value })}
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
-              />
-            </div>
-          </div>
+          <Controller
+            name="customerId"
+            control={control}
+            render={({ field }) => (
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase">Customer</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                  <input list="customer-list" {...field} onChange={(e) => field.onChange(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm" placeholder="Type or select..." />
+                </div>
+                {errors.customerId && <p className="text-xs text-red-500">{errors.customerId.message}</p>}
+              </div>
+            )}
+          />
+
+          <Controller
+            name="soDate"
+            control={control}
+            render={({ field }) => (
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase">Order Date</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                  <input type="date" {...field} className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm font-mono" />
+                </div>
+                {errors.soDate && <p className="text-xs text-red-500">{errors.soDate.message}</p>}
+              </div>
+            )}
+          />
+
+          <Controller
+            name="expectedDeliveryDate"
+            control={control}
+            render={({ field }) => (
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase">Expected Delivery</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                  <input type="date" {...field} className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm font-mono" />
+                </div>
+              </div>
+            )}
+          />
         </div>
 
-        {/* Schedule */}
         <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
-          <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50">
-            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Order Schedule</h3>
-            <button 
-              type="button"
-              onClick={addLine}
-              className="text-[10px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 uppercase transition-colors"
-            >
+          <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50">
+            <h3 className="text-xs font-bold text-gray-500 uppercase">Order Schedule</h3>
+            <button type="button" onClick={() => append({ productId: '', itemDescription: '', quantity: 1, unitPrice: 0, total: 0 })} className="text-xs font-bold text-blue-600 flex items-center gap-1">
               <Plus className="w-3.5 h-3.5" /> Add Item
             </button>
           </div>
 
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-[10px] text-gray-500 uppercase font-bold tracking-wider">
+              <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase font-bold">
                 <th className="px-4 py-3 text-left">Product / Description</th>
                 <th className="px-4 py-3 text-right w-24">Qty</th>
                 {orderType === 'foreign' ? (
@@ -362,174 +253,98 @@ export default function CreateSalesOrderPage() {
                     <th className="px-4 py-3 text-right w-32">Total (BDT)</th>
                   </>
                 )}
-                <th className="px-4 py-3 text-center w-24 text-[10px] text-gray-400 uppercase tracking-wider">Margin</th>
+                <th className="px-4 py-3 text-center w-24">Margin</th>
                 <th className="px-4 py-3 text-center w-12"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {formData.lines.map((line, index) => (
-                <tr key={index} className="hover:bg-gray-50/50 group transition-colors">
+              {fields.map((field, index) => (
+                <tr key={field.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2">
-                    <input 
-                      list="product-list"
-                      required
-                      value={line.itemDescription}
-                      onChange={(e) => handleLineChange(index, 'itemDescription', e.target.value)}
-                      className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-blue-500 rounded-sm px-2 py-1.5 text-sm focus:ring-0 outline-none text-gray-900 transition-colors"
-                      placeholder="Type or select..."
+                    <Controller
+                      name={`lines.${index}.itemDescription`}
+                      control={control}
+                      render={({ field: f }) => (
+                        <input list="product-list" {...f} onChange={(e) => f.onChange(e.target.value)} className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-blue-500 rounded-sm px-2 py-1.5 text-sm" placeholder="Type or select..." />
+                      )}
                     />
                   </td>
                   <td className="px-4 py-2">
-                    <input 
-                      type="number"
-                      required min="0.01" step="any"
-                      value={line.quantity}
-                      onChange={(e) => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                      className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-blue-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none transition-colors"
+                    <Controller
+                      name={`lines.${index}.quantity`}
+                      control={control}
+                      render={({ field: f }) => (
+                        <input type="number" step="any" {...f} onChange={(e) => f.onChange(parseFloat(e.target.value) || 0)} className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-blue-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono" />
+                      )}
                     />
                   </td>
                   {orderType === 'foreign' ? (
                     <>
                       <td className="px-4 py-2">
-                        <div className="flex flex-col items-end">
-                          <input 
-                            type="number" step="any"
-                            value={line.unitPrice}
-                            onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                            className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-blue-500 rounded-sm px-2 py-1 text-sm text-right font-mono outline-none transition-colors"
-                          />
-                          <span className="text-[10px] text-gray-400 font-mono pr-2">BDT {formatCurrency(line.unitPrice * companyExchangeRate)}</span>
-                        </div>
+                        <Controller
+                          name={`lines.${index}.unitPrice`}
+                          control={control}
+                          render={({ field: f }) => (
+                            <input type="number" step="any" {...f} onChange={(e) => f.onChange(parseFloat(e.target.value) || 0)} className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-blue-500 rounded-sm px-2 py-1 text-sm text-right font-mono" />
+                          )}
+                        />
                       </td>
-<td className="px-4 py-2 text-right">
-                        <div className="flex flex-col items-end pr-2 justify-center h-full pt-1.5">
-                          <span className="font-mono font-bold text-gray-900">{formatCurrency(line.total)}</span>
-                          <span className="text-[10px] text-gray-400 font-mono mt-0.5">BDT {formatCurrency(line.total * companyExchangeRate)}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2">
-                        {((): any => {
-                          const marginData = getLineMargin(line);
-                          if (!marginData) return null;
-                          return (
-                            <div className={`text-xs ${marginData.isBelowMargin ? 'text-red-500 font-bold' : 'text-emerald-500'}`}>
-                              {marginData.isBelowMargin && <AlertTriangle className="w-3 h-3 inline mr-1" />}
-                              {marginData.margin}%
-                            </div>
-                          );
-                        })()}
-                      </td>
+                      <td className="px-4 py-2 text-right font-mono">{formatCurrency(calculateLineTotal(index))}</td>
                     </>
                   ) : (
                     <>
-                      <td className="px-4 py-2" />
-                      <td className="px-4 py-2" />
+                      <td className="px-4 py-2">
+                        <Controller
+                          name={`lines.${index}.unitPrice`}
+                          control={control}
+                          render={({ field: f }) => (
+                            <input type="number" step="any" {...f} onChange={(e) => f.onChange(parseFloat(e.target.value) || 0)} className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-blue-500 rounded-sm px-2 py-1 text-sm text-right font-mono" />
+                          )}
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono">{formatCurrency(calculateLineTotal(index))}</td>
                     </>
                   )}
-
                   <td className="px-4 py-2 text-center">
-                    <button 
-                      type="button"
-                      onClick={() => removeLine(index)}
-                      className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {(() => {
+                      const line = watch(`lines.${index}`);
+                      const margin = getLineMargin(line);
+                      if (!margin) return <span className="text-gray-300">--</span>;
+                      return <span className={margin.isBelowMargin ? 'text-red-500' : 'text-green-600'}>{margin.margin}%</span>;
+                    })()}
+                  </td>
+                  <td className="px-4 py-2 text-center">
+                    {fields.length > 1 && (
+                      <button type="button" onClick={() => remove(index)} className="text-red-400 hover:text-red-600">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-
-          <div className="flex justify-end p-6 bg-gray-50 border-t border-gray-200">
-            <div className="text-right">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Order Total</p>
-              {orderType === 'foreign' ? (
-                <>
-                  <p className="text-2xl font-black text-gray-900 font-mono">USD {formatCurrency(calculateTotal())}</p>
-                  <p className="text-sm font-bold text-gray-500 font-mono mt-1">BDT {formatCurrency(calculateTotal() * companyExchangeRate)}</p>
-                </>
-              ) : (
-                <p className="text-2xl font-black text-gray-900 font-mono">BDT {formatCurrency(calculateTotal())}</p>
-              )}
-            </div>
-          </div>
         </div>
 
-        <div className="flex justify-end items-center gap-4">
-          {hasLowMargin && (
-            <div className="flex items-center gap-2 text-red-500 bg-red-50 px-4 py-2 rounded-sm">
-              <AlertTriangle className="w-4 h-4" />
-              <span className="text-xs font-bold">Some items below minimum margin</span>
-            </div>
-          )}
-          <button 
-            type="submit"
-            disabled={isSaving}
-            className={`px-8 py-3 rounded-sm text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 shadow-sm ${
-              hasLowMargin 
-                ? 'bg-red-600 text-white hover:bg-red-700' 
-                : 'bg-gray-900 text-white hover:bg-gray-800'
-            } disabled:opacity-50`}
-          >
-            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Confirm Sales Order
-          </button>
+        <div className="flex justify-between items-center">
+          <div className="text-2xl font-black text-gray-900 font-mono">
+            Total: {orderType === 'foreign' ? `USD ${formatCurrency(calculateTotal())}` : `BDT ${formatCurrency(calculateTotal())}`}
+          </div>
+
+          <div className="flex items-center gap-4">
+            {hasLowMargin && (
+              <div className="flex items-center gap-2 text-red-500 bg-red-50 px-4 py-2 rounded-sm">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="text-xs font-bold">Below margin</span>
+              </div>
+            )}
+            <button type="submit" disabled={isSaving} className="px-8 py-3 rounded-sm text-xs font-bold uppercase flex items-center gap-2 bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50">
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Confirm Sales Order
+            </button>
+          </div>
         </div>
       </form>
-
-      {/* Confirmation Modal for New Entities */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-sm shadow-2xl w-full max-w-md border border-gray-200 animate-in zoom-in-95 duration-200 overflow-hidden">
-            <div className="px-8 py-6 border-b border-gray-200 bg-gray-50">
-              <h3 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em]">New Records Detected</h3>
-            </div>
-            <div className="p-8 space-y-6">
-              <p className="text-[10px] font-bold text-gray-500 uppercase leading-relaxed tracking-widest">
-                The following entities do not exist in the system. Would you like to create them and proceed with the order?
-              </p>
-              
-              {pendingEntities.customers.length > 0 && (
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-blue-600 uppercase tracking-widest">New Customer</label>
-                  <div className="p-3 bg-blue-50 border border-blue-100 rounded-sm font-bold text-xs text-blue-900">
-                    {pendingEntities.customers[0]}
-                  </div>
-                </div>
-              )}
-
-              {pendingEntities.products.length > 0 && (
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">New Products ({pendingEntities.products.length})</label>
-                  <div className="max-h-32 overflow-y-auto space-y-1 pr-2">
-                    {pendingEntities.products.map((p, i) => (
-                      <div key={i} className="p-2 bg-indigo-50 border border-indigo-100 rounded-sm font-bold text-[10px] text-indigo-900 uppercase">
-                        {p}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-4">
-                <button 
-                  onClick={() => setShowConfirmModal(false)} 
-                  className="flex-1 py-3 bg-white border border-gray-200 text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-sm"
-                >
-                  Edit Order
-                </button>
-                <button 
-                  onClick={proceedWithSubmission}
-                  className="flex-1 py-3 bg-gray-900 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-sm shadow-xl shadow-gray-200 hover:bg-black transition-all"
-                >
-                  Create & Save
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

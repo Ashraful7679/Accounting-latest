@@ -1,12 +1,69 @@
 import prisma from '../config/database';
 import { SequenceService } from '../modules/company/sequence.service';
 
+interface FindManyOptions {
+  companyId: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+  isActive?: boolean;
+}
+
+interface PaginatedResult<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 export class ProductRepository {
-  static async findMany(where: any = {}) {
-    return prisma.product.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-    });
+  static async findMany(options: FindManyOptions): Promise<PaginatedResult<any>> {
+    const { companyId, page = 1, limit = 20, search, isActive } = options;
+    
+    const where: any = { companyId };
+    if (isActive !== undefined) where.isActive = isActive;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { code: { contains: search, mode: 'insensitive' } },
+        { sku: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          sku: true,
+          description: true,
+          unitType: true,
+          unitPrice: true,
+          stockAmount: true,
+          isActive: true,
+          currency: true,
+          type: true,
+          updatedAt: true,
+          createdAt: true,
+        }
+      }),
+      prisma.product.count({ where })
+    ]);
+
+    return {
+      data,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    };
   }
 
   static async findById(id: string) {
@@ -63,11 +120,6 @@ export class ProductRepository {
 
       if (diff === 0) return product;
 
-      // Ensure system accounts exist
-      // We need AccountRepository but within transaction we should be careful, 
-      // but AccountRepository uses prisma. 
-      // For simplicity here, we'll use raw prisma within the tx
-      
       let inventoryAccount = await tx.account.findFirst({
         where: { companyId: product.companyId, category: 'INVENTORY' }
       });
@@ -104,16 +156,13 @@ export class ProductRepository {
         });
       }
 
-      // Update product stock
       const updatedProduct = await tx.product.update({
         where: { id: productId },
         data: { stockAmount: newAmount }
       });
 
-      // Calculate financial value (using unitPrice as a proxy for cost for now)
       const valueDiff = Math.abs(diff * product.unitPrice);
       
-      // Create Journal Entry
       const entryNumber = await SequenceService.generateDocumentNumber(product.companyId, 'journal', tx);
       
       const journalEntry = await tx.journalEntry.create({
@@ -129,8 +178,6 @@ export class ProductRepository {
         }
       });
 
-      // Increase Stock: Debit Inventory, Credit Adjustment
-      // Decrease Stock: Debit Adjustment, Credit Inventory
       if (diff > 0) {
         await tx.journalEntryLine.create({
           data: {

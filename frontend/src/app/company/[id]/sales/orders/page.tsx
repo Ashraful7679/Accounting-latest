@@ -1,16 +1,16 @@
 'use client';
 
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, useCallback } from 'react';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Plus, Search, ChevronDown, ChevronRight, Truck, Tag, Link as LinkIcon, Trash2, X, ShoppingBag, Eye, FileText, Printer, Loader2, ChevronLeft, ChevronUp } from 'lucide-react';
+import { Plus, Search, ChevronDown, ChevronRight, ChevronUp, Trash2, Loader2, ShoppingBag } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
 import { cn } from '@/lib/utils';
-import React from 'react';
-import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
+import DetailPanel from '@/components/DetailPanel';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface SalesOrderLine {
   id: string;
@@ -55,8 +55,9 @@ function SalesOrdersPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'local' | 'foreign'>('local');
   const [searchTerm, setSearchTerm] = useState('');
-  const [showPOSelector, setShowPOSelector] = useState<{ soId: string } | null>(null);
   const [mounted, setMounted] = useState(false);
+
+  const { canCreate, canEdit, canDelete } = usePermissions('salesOrders', companyId);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -188,13 +189,15 @@ function SalesOrdersPage() {
               className="pl-9 pr-4 py-2 w-64 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <button
-            onClick={() => router.push(`/company/${companyId}/sales/orders/create?type=${activeTab}`)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            New Order
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => router.push(`/company/${companyId}/sales/orders/create?type=${activeTab}`)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              New Order
+            </button>
+          )}
         </div>
       </div>
 
@@ -258,20 +261,24 @@ function SalesOrdersPage() {
                     <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                       {order.status === 'DRAFT' && (
                         <>
-                          <button
-                            onClick={() => handleStatusUpdate(order.id, 'CONFIRMED')}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
-                            title="Confirm"
-                          >
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => deleteMutation.mutate(order.id)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => handleStatusUpdate(order.id, 'CONFIRMED')}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                              title="Confirm"
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={() => deleteMutation.mutate(order.id)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </>
                       )}
                     </div>

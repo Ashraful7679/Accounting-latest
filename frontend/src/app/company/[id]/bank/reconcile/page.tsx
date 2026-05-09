@@ -38,7 +38,7 @@ export default function BankReconcilePage() {
   const { data: accounts } = useQuery({
     queryKey: ['bank-accounts', companyId],
     queryFn: () => api.get(`/company/${companyId}/accounts`).then(res => 
-      res.data.data.filter((acc: any) => 
+      (res.data?.data || []).filter((acc: any) => 
         acc.accountType?.name === 'ASSET' && 
         (acc.name.toLowerCase().includes('bank') || acc.name.toLowerCase().includes('cash'))
       )

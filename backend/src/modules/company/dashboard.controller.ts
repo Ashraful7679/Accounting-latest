@@ -233,16 +233,17 @@ export class DashboardController {
     });
 
     if (!userCompany) {
-      // Check if user is a Global Admin
+      // Check if user is a Global Admin or Owner
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { userRoles: { include: { role: true } } }
       });
 
-      const isAdmin = user?.userRoles.some(ur => ur.role.name === 'Admin');
+      const isAdmin = user?.userRoles.some((ur: any) => ur.role.name === 'Admin');
+      const isOwner = user?.userRoles.some((ur: any) => ur.role.name === 'Owner');
 
-      if (isAdmin) {
-        // Mock a userCompany object for admins to allow access
+      if (isAdmin || isOwner) {
+        // Mock a userCompany object for admins/owners to allow access
         const company = await prisma.company.findUnique({ where: { id: companyId } });
         if (!company) throw new NotFoundError('Company not found');
 
@@ -251,7 +252,7 @@ export class DashboardController {
           companyId,
           user,
           company,
-          isMainOwner: true, // Admins get full view
+          isMainOwner: true, // Admins/Owners get full view
           ownershipPercentage: 0,
         } as any;
       } else {

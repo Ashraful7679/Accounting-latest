@@ -37,6 +37,16 @@ import { BranchController } from './branch.controller';
 
 import { authenticate } from '../../middleware/auth';
 
+// ─── Public (unauthenticated) portal routes ────────────────────────────────
+// Registered BEFORE the authenticated scope so the preHandler hook does NOT
+// apply. These are accessed by external customers/vendors via token URLs.
+export const portalRoutes = async (fastify: FastifyInstance) => {
+  const portalController = new PortalController();
+  fastify.get('/portal/:companyId/customer/:token', PortalController.getCustomerPortalData.bind(PortalController));
+  fastify.get('/portal/:companyId/vendor/:token', PortalController.getVendorPortalData.bind(PortalController));
+};
+
+// ─── Authenticated company routes ────────────────────────────────────────────
 export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.addHook('preHandler', authenticate);
 
@@ -112,6 +122,8 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.put('/:id/accounts/:accountId', coaController.updateAccount.bind(coaController));
   fastify.get('/:id/account-types', coaController.getAccountTypes.bind(coaController));
   fastify.post('/:id/heal-balances', coaController.healBalances.bind(coaController));
+  // Canonical alias — prefer this in new frontend code
+  fastify.post('/:id/recalculate-balances', coaController.healBalances.bind(coaController));
 
   // Customers (CRUD)
   fastify.get('/:id/customers', entityController.getCustomers.bind(entityController));
@@ -137,9 +149,8 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/vendors/:vendorId/enable-portal', PortalController.enableVendorPortal.bind(PortalController));
   fastify.post('/:id/portal/:type/:id/disable', PortalController.disablePortal.bind(PortalController));
 
-  // Public Portal Routes (no auth required)
-  fastify.get('/portal/:companyId/customer/:token', PortalController.getCustomerPortalData.bind(PortalController));
-  fastify.get('/portal/:companyId/vendor/:token', PortalController.getVendorPortalData.bind(PortalController));
+  // NOTE: Public portal read routes are registered in portalRoutes() (unauthenticated scope).
+  // The management routes below (enable/disable portal) still require auth.
 
 
   // Employee Advances
@@ -179,7 +190,9 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/invoices/:invoiceId/delink-dn', invoiceController.delinkDN.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/delink-grn', invoiceController.delinkGRN.bind(invoiceController));
   fastify.delete('/:id/invoices/:invoiceId', invoiceController.deleteInvoice.bind(invoiceController));
-  fastify.post('/:id/invoices/:invoiceId/reverse', invoiceController.deleteInvoice.bind(invoiceController));
+  // POST /reverse always performs a full accounting reversal (creates mirror entry).
+  // Use DELETE /:invoiceId for hard-deletion of DRAFT records instead.
+  fastify.post('/:id/invoices/:invoiceId/reverse', invoiceController.reverseInvoiceRoute.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/verify', invoiceController.verifyInvoice.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/approve', invoiceController.approveInvoice.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/submit', invoiceController.submitInvoice.bind(invoiceController));
@@ -215,7 +228,9 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/journals', journalController.createJournal.bind(journalController));
   fastify.put('/:id/journals/:journalId', journalController.updateJournal.bind(journalController));
   fastify.delete('/:id/journals/:journalId', journalController.deleteJournal.bind(journalController));
-  fastify.post('/:id/journals/:journalId/reverse', journalController.deleteJournal.bind(journalController));
+  // POST /reverse always performs a full accounting reversal (creates mirror entry).
+  // Use DELETE /:journalId for hard-deletion of DRAFT records instead.
+  fastify.post('/:id/journals/:journalId/reverse', journalController.reverseJournalRoute.bind(journalController));
   fastify.post('/:id/journals/:journalId/verify', journalController.verifyJournal.bind(journalController));
   fastify.post('/:id/journals/:journalId/submit', journalController.submitJournal.bind(journalController));
   fastify.post('/:id/journals/:journalId/reject', journalController.rejectJournal.bind(journalController));

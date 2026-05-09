@@ -211,6 +211,27 @@ export class JournalController extends BaseCompanyController {
     return reply.send({ success: true, message: 'Journal deleted' });
   }
 
+  /**
+   * POST /:id/journals/:journalId/reverse
+   * Always creates an accounting reversal. Never performs a hard delete.
+   * This is the dedicated handler for the /reverse route.
+   */
+  async reverseJournalRoute(request: FastifyRequest, reply: FastifyReply) {
+    const { journalId } = request.params as { journalId: string };
+    const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+    const { reason } = (request.body as { reason?: string }) || {};
+
+    const journal = await prisma.journalEntry.findUnique({
+      where: { id: journalId },
+      include: { lines: true },
+    });
+
+    if (!journal) throw new NotFoundError('Journal not found');
+
+    return this.reverseJournal(journal, companyId, userId, reply, reason);
+  }
+
   private async reverseJournal(journal: any, companyId: string, userId: string, reply: FastifyReply, reason?: string) {
     const reversalNumber = await this.generateDocumentNumber(companyId, 'journal');
 

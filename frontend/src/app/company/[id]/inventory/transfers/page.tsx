@@ -51,19 +51,19 @@ export default function StockTransfersPage() {
 
   const { data: transfers = [], isLoading } = useQuery({
     queryKey: ['stock-transfers', companyId],
-    queryFn: () => api.get(`/company/${companyId}/stock-transfers`).then(r => r.data),
+    queryFn: () => api.get(`/company/${companyId}/stock-transfers`).then(r => r.data.data),
     enabled: !!companyId
   });
 
   const { data: warehouses = [] } = useQuery({
     queryKey: ['warehouses', companyId],
-    queryFn: () => api.get(`/company/${companyId}/warehouses`).then(r => r.data),
+    queryFn: () => api.get(`/company/${companyId}/warehouses`).then(r => r.data.data),
     enabled: !!companyId
   });
 
   const { data: products = [] } = useQuery({
     queryKey: ['products', companyId],
-    queryFn: () => api.get(`/company/${companyId}/products`).then(r => r.data),
+    queryFn: () => api.get(`/company/${companyId}/products`).then(r => r.data.data),
     enabled: !!companyId
   });
 

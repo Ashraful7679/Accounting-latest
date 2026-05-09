@@ -288,7 +288,7 @@ export default function LCDetailPage() {
                     onClick={() => {
                         setPaymentFormData({
                           ...paymentFormData,
-                          allocations: lc.pis.filter((p: any) => p.status !== 'PAID').map((p: any) => ({
+                          allocations: (Array.isArray(lc?.pis) ? lc.pis : []).filter((p: any) => p.status !== 'PAID').map((p: any) => ({
                             piId: p.id,
                             piNumber: p.piNumber,
                             total: p.amount,

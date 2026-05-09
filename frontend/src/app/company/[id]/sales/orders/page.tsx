@@ -83,7 +83,7 @@ function SalesOrdersPage() {
     enabled: !!companyId && mounted,
   });
 
-  const salesOrders = data?.pages.flatMap(page => page.data) ?? [];
+  const salesOrders = (Array.isArray(data?.pages) ? data.pages : []).flatMap(page => Array.isArray(page?.data) ? page.data : []) || [];
 
   const { data: purchaseOrders } = useQuery({
     queryKey: ['purchase-orders', companyId],

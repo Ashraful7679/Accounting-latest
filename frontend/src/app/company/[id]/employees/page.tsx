@@ -381,7 +381,7 @@ export default function EmployeesPage() {
                   {(Array.isArray(advancesData) ? advancesData : []).map((adv) => (
                     <tr key={adv.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3">{new Date(adv.date).toLocaleDateString()}</td>
-                      <td className="px-4 py-3">{adv.employee.firstName} {adv.employee.lastName}</td>
+                      <td className="px-4 py-3">{adv.employee?.firstName || ''} {adv.employee?.lastName || ''}</td>
                       <td className="px-4 py-3 text-slate-500">{adv.purpose || '-'}</td>
                       <td className="px-4 py-3 text-right font-mono">{adv.amount.toLocaleString()}</td>
                       <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(adv.status)}`}>{adv.status}</span></td>
@@ -426,7 +426,7 @@ export default function EmployeesPage() {
                 <tbody className="divide-y">
                   {(Array.isArray(loansData) ? loansData : []).map((loan) => (
                     <tr key={loan.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3">{loan.employee.firstName} {loan.employee.lastName}</td>
+                      <td className="px-4 py-3">{loan.employee?.firstName || ''} {loan.employee?.lastName || ''}</td>
                       <td className="px-4 py-3 text-right font-mono">{loan.principalAmount.toLocaleString()}</td>
                       <td className="px-4 py-3 text-right font-mono">{loan.interestAmount.toLocaleString()}</td>
                       <td className="px-4 py-3 text-right font-mono font-bold">{loan.totalAmount.toLocaleString()}</td>
@@ -474,7 +474,7 @@ export default function EmployeesPage() {
                   {(Array.isArray(expensesData) ? expensesData : []).map((exp) => (
                     <tr key={exp.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3">{new Date(exp.date).toLocaleDateString()}</td>
-                      <td className="px-4 py-3">{exp.employee.firstName} {exp.employee.lastName}</td>
+                      <td className="px-4 py-3">{exp.employee?.firstName || ''} {exp.employee?.lastName || ''}</td>
                       <td className="px-4 py-3"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-semibold">{exp.category}</span></td>
                       <td className="px-4 py-3 text-slate-500">{exp.description || '-'}</td>
                       <td className="px-4 py-3 text-right font-mono">{exp.amount.toLocaleString()}</td>

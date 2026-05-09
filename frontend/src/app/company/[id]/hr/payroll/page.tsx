@@ -61,7 +61,7 @@ export default function PayrollPage() {
 
   const { data: runs = [], isLoading } = useQuery({
     queryKey: ['payroll-runs', companyId],
-    queryFn: () => api.get(`/company/${companyId}/payroll-runs`).then(r => r.data),
+    queryFn: () => api.get(`/company/${companyId}/payroll-runs`).then(r => r.data.data),
     enabled: !!companyId
   });
 

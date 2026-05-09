@@ -39,7 +39,7 @@ export default function WarehousesPage() {
 
   const { data: warehouses = [], isLoading } = useQuery({
     queryKey: ['warehouses', companyId],
-    queryFn: () => api.get(`/company/${companyId}/warehouses`).then(r => r.data),
+    queryFn: () => api.get(`/company/${companyId}/warehouses`).then(r => r.data.data),
     enabled: !!companyId
   });
 
@@ -154,9 +154,9 @@ export default function WarehousesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.length === 0 ? (
+                  {(Array.isArray(filtered) ? filtered : []).length === 0 ? (
                     <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">No warehouses found</td></tr>
-                  ) : filtered.map((w: Warehouse) => (
+                  ) : (Array.isArray(filtered) ? filtered : []).map((w: Warehouse) => (
                     <tr key={w.id} onClick={() => handleView(w)} className="border-t hover:bg-gray-50 cursor-pointer">
                       <td className="px-4 py-3 text-sm">{w.code}</td>
                       <td className="px-4 py-3 text-sm font-medium">{w.name}</td>

@@ -30,7 +30,13 @@ export class OrderController extends BaseCompanyController {
       status,
     });
     
-    return reply.send({ success: true, data: result });
+    return reply.send({ 
+      success: true, 
+      data: {
+        data: result.data || [],
+        pagination: result.pagination 
+      }
+    });
   }
 
   async createSalesOrder(request: FastifyRequest, reply: FastifyReply) {
@@ -149,8 +155,28 @@ export class OrderController extends BaseCompanyController {
   // ============ PURCHASE ORDERS ============
   async getPurchaseOrders(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const pos = await PurchaseOrderRepository.findMany({ companyId });
-    return reply.send({ success: true, data: pos });
+    const { page = '1', limit = '20', search, status } = request.query as { 
+      page?: string; 
+      limit?: string; 
+      search?: string;
+      status?: string;
+    };
+
+    const result = await PurchaseOrderRepository.findMany({ 
+      companyId,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      search,
+      status
+    });
+
+    return reply.send({ 
+      success: true, 
+      data: {
+        data: result.data || [],
+        pagination: result.pagination
+      }
+    });
   }
 
   async createPurchaseOrder(request: FastifyRequest, reply: FastifyReply) {

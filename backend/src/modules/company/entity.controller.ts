@@ -10,8 +10,18 @@ export class EntityController extends BaseCompanyController {
   // ============ CUSTOMERS ============
   async getCustomers(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const customers = await CustomerRepository.findMany({ companyId });
-    return reply.send({ success: true, data: customers.data || customers });
+    const { page, limit, search } = request.query as any;
+    const customers = await CustomerRepository.findMany({ 
+      companyId,
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      search
+    });
+    return reply.send({ 
+      success: true, 
+      data: customers.data || customers,
+      pagination: customers.pagination 
+    });
   }
 
   async createCustomer(request: FastifyRequest, reply: FastifyReply) {

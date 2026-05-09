@@ -2,31 +2,61 @@ import prisma from '../config/database';
 import { SYSTEM_MODE } from '../lib/systemMode';
 
 export class PurchaseOrderRepository {
-  static async findMany(where = {}) {
+  static async findMany(options: {
+    companyId: string;
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+  }) {
+    const { companyId, page = 1, limit = 20, search, status } = options;
+    
+    const where: any = { companyId };
+    if (status) where.status = status;
+    if (search) {
+      where.OR = [
+        { poNumber: { contains: search, mode: 'insensitive' } },
+        { supplier: { name: { contains: search, mode: 'insensitive' } } }
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
     if (SYSTEM_MODE === "LIVE") {
       try {
-        return await prisma.purchaseOrder.findMany({
-          where,
-          include: {
-            supplier: true,
-            lc: true,
-            lines: true,
-            grns: {
-              include: { lines: true }
+        const [data, total] = await Promise.all([
+          prisma.purchaseOrder.findMany({
+            where,
+            include: {
+              supplier: true,
+              lc: true,
+              lines: true,
+              grns: { include: { lines: true } },
+              invoices: { include: { lines: true } },
+              salesOrders: true
             },
-            invoices: {
-              include: { lines: true }
-            },
-            salesOrders: true
-          },
-          orderBy: { createdAt: 'desc' }
-        });
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit,
+          }),
+          prisma.purchaseOrder.count({ where })
+        ]);
+
+        return {
+          data,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          }
+        };
       } catch (e) {
         console.error('Error fetching purchase orders:', e);
-        return [];
+        return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
       }
     }
-    return []; // Return empty for mock for now
+    return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
   }
 
   static async findById(id: string) {

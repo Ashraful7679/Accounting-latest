@@ -51,12 +51,9 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   const paymentController = new PaymentController();
   const piController = new PIController();
   const productController = new ProductController();
-  const documentFlowController = new DocumentFlowController();
-  const reportDrilldownController = new ReportDrilldownController();
-  const portalController = new PortalController();
+  const coaController = new CoaController();
   const backupController = new BackupController();
   const billsController = new BillsController();
-  const coaController = new CoaController();
   const entityController = new EntityController();
   const invoiceController = new InvoiceController();
   const journalController = new JournalController();
@@ -66,8 +63,6 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   const debitNoteController = new DebitNoteController();
   const creditNoteController = new CreditNoteController();
   const bankReconciliationController = new BankReconciliationController();
-  const fixedAssetController = new FixedAssetController();
-  const exchangeRateController = new ExchangeRateController();
   const payrollController = new PayrollController();
   const rbacController = new RBACController();
 
@@ -79,14 +74,26 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/products/:productId/adjust-stock', productController.adjustStock.bind(productController));
   fastify.delete('/:id/products/:productId', productController.deleteProduct.bind(productController));
 
+  // Employees
+  fastify.get('/:id/employees', employeeController.getEmployees.bind(employeeController));
+  fastify.post('/:id/employees', employeeController.createEmployee.bind(employeeController));
+  fastify.get('/:id/employees/:employeeId', employeeController.getEmployeeDetail.bind(employeeController));
+  fastify.put('/:id/employees/:employeeId', employeeController.updateEmployee.bind(employeeController));
+  fastify.delete('/:id/employees/:employeeId', employeeController.deleteEmployee.bind(employeeController));
+  fastify.post('/:id/employees/:employeeId/pay-salary', employeeController.paySalary.bind(employeeController));
+
+  // Periods
+  fastify.get('/:id/fiscal-years', periodController.getFiscalYears.bind(periodController));
+  fastify.post('/:id/period-close', periodController.closePeriod.bind(periodController));
+
   // Fixed Assets
-  fastify.get('/:id/fixed-assets', FixedAssetController.getAssets);
-  fastify.post('/:id/fixed-assets', FixedAssetController.createAsset);
-  fastify.get('/:id/fixed-assets/:assetId', FixedAssetController.getAsset);
-  fastify.put('/:id/fixed-assets/:assetId', FixedAssetController.updateAsset);
-  fastify.delete('/:id/fixed-assets/:assetId', FixedAssetController.deleteAsset);
-  fastify.post('/:id/fixed-assets/run-depreciation', FixedAssetController.runDepreciation);
-  fastify.post('/:id/fixed-assets/:assetId/dispose', FixedAssetController.dispose);
+  fastify.get('/:id/fixed-assets', FixedAssetController.getAssets.bind(FixedAssetController));
+  fastify.post('/:id/fixed-assets', FixedAssetController.createAsset.bind(FixedAssetController));
+  fastify.get('/:id/fixed-assets/:assetId', FixedAssetController.getAsset.bind(FixedAssetController));
+  fastify.put('/:id/fixed-assets/:assetId', FixedAssetController.updateAsset.bind(FixedAssetController));
+  fastify.delete('/:id/fixed-assets/:assetId', FixedAssetController.deleteAsset.bind(FixedAssetController));
+  fastify.post('/:id/fixed-assets/run-depreciation', FixedAssetController.runDepreciation.bind(FixedAssetController));
+  fastify.post('/:id/fixed-assets/:assetId/dispose', FixedAssetController.dispose.bind(FixedAssetController));
 
   // Product Pricing
   fastify.get('/:id/products/pricing', ProductPricingController.calculateAverageCost.bind(ProductPricingController));
@@ -132,13 +139,6 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/portal/:companyId/customer/:token', PortalController.getCustomerPortalData.bind(PortalController));
   fastify.get('/portal/:companyId/vendor/:token', PortalController.getVendorPortalData.bind(PortalController));
 
-  // Staff / Employees
-  fastify.get('/:id/staff', employeeController.getEmployees.bind(employeeController));
-  fastify.post('/:id/staff', employeeController.createEmployee.bind(employeeController));
-  fastify.get('/:id/staff/:employeeId', employeeController.getEmployeeDetail.bind(employeeController));
-  fastify.put('/:id/staff/:employeeId', employeeController.updateEmployee.bind(employeeController));
-  fastify.delete('/:id/staff/:employeeId', employeeController.deleteEmployee.bind(employeeController));
-  fastify.post('/:id/staff/:employeeId/pay-salary', employeeController.paySalary.bind(employeeController));
 
   // Employee Advances
   fastify.get('/:id/employee-advances', employeeController.getEmployeeAdvances.bind(employeeController));
@@ -273,7 +273,6 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   // Company Details & Settings
   fastify.get('/:id', controller.getCompany.bind(controller));
   fastify.get('/:id/settings', controller.getCompany.bind(controller));
-  fastify.post('/:id/close-period', periodController.closePeriod.bind(periodController));
 
   // Bills (Accounts Payable Documents)
   fastify.get('/:id/bills', billsController.getBills.bind(billsController));

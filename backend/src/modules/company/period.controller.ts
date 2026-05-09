@@ -5,9 +5,45 @@ import { BaseCompanyController } from './base.controller';
 
 export class PeriodController extends BaseCompanyController {
   
+  async getFiscalYears(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+    const closingJournals = await prisma.journalEntry.findMany({
+      where: {
+        companyId,
+        description: { contains: 'Period Closing Entry for Fiscal Year' },
+        status: 'APPROVED'
+      },
+      select: { date: true, description: true, id: true, createdBy: { select: { firstName: true, lastName: true } } }
+    });
+
+    const result = years.map(year => {
+      const journal = closingJournals.find(j => 
+        j.description.includes(`FY ${year}`) || 
+        (new Date(j.date).getFullYear() === year && j.description.includes('Period Closing'))
+      );
+
+      return {
+        year,
+        closed: !!journal,
+        period: journal ? {
+          id: journal.id,
+          companyId,
+          closeDate: journal.date,
+          description: journal.description,
+          closedBy: { name: `${journal.createdBy?.firstName || ''} ${journal.createdBy?.lastName || ''}`.trim() }
+        } : null
+      };
+    });
+
+    return reply.send({ success: true, data: result });
+  }
+
   async closePeriod(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { closingDate, description } = request.body as { closingDate: string; description?: string };
+    const { closingDate, description, year } = request.body as { closingDate: string; description?: string; year?: number };
     const userId = (request.user as any).id;
 
     const result = await prisma.$transaction(async (tx: any) => {
@@ -110,7 +146,7 @@ export class PeriodController extends BaseCompanyController {
           entryNumber,
           companyId,
           date: new Date(closingDate),
-          description: description || `Period Closing Entry for Fiscal Year`,
+          description: description || `Period Closing Entry for Fiscal Year FY ${year || new Date(closingDate).getFullYear()}`,
           totalDebit,
           totalCredit,
           status: 'APPROVED',

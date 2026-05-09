@@ -29,7 +29,13 @@ export class InvoiceController extends BaseCompanyController {
       status,
     });
     
-    return reply.send({ success: true, data: result });
+    return reply.send({ 
+      success: true, 
+      data: {
+        data: result.data, 
+        pagination: result.pagination 
+      }
+    });
   }
 
   async getInvoice(request: FastifyRequest, reply: FastifyReply) {

@@ -7,8 +7,18 @@ import { ValidationError, NotFoundError } from '../../middleware/errorHandler';
 export class ProductController {
   async getProducts(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const products = await ProductRepository.findMany({ companyId });
-    return reply.send({ success: true, data: products.data || products });
+    const { page, limit, search } = request.query as any;
+    const products = await ProductRepository.findMany({ 
+      companyId,
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      search
+    });
+    return reply.send({ 
+      success: true, 
+      data: products.data || products,
+      pagination: products.pagination 
+    });
   }
 
   async getProduct(request: FastifyRequest, reply: FastifyReply) {

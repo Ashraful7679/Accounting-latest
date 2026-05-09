@@ -44,12 +44,12 @@ export default function DeliveryChallansPage() {
     setExpandedChallans(newExpanded);
   };
 
-  const filteredChallans = challans?.filter((dc: any) => {
+  const filteredChallans = (Array.isArray(challans) ? challans : [])?.filter((dc: any) => {
     return !searchTerm || 
       dc.dnNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       dc.salesOrder?.soNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       dc.salesOrder?.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-  }) || [];
+  });
 
   if (!mounted) return null;
 

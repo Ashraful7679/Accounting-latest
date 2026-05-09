@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, AreaChart, Area
@@ -14,6 +15,9 @@ interface FinanceChartsProps {
 }
 
 export function FinanceCharts({ charts, formatCurrency }: FinanceChartsProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -38,11 +42,13 @@ export function FinanceCharts({ charts, formatCurrency }: FinanceChartsProps) {
     return chart?.data || [];
   };
 
+  if (!mounted) return <div className="h-[400px] bg-white animate-pulse rounded-sm" />;
+
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         {/* Revenue vs Expenses */}
-        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm min-h-[400px] flex flex-col">
+        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm min-h-[400px] flex flex-col min-w-0">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-[10px] font-bold text-gray-900 uppercase tracking-[0.2em]">Operating Performance</h3>
@@ -68,7 +74,7 @@ export function FinanceCharts({ charts, formatCurrency }: FinanceChartsProps) {
         </div>
 
         {/* Net Cash Flow */}
-        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm min-h-[400px] flex flex-col">
+        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm min-h-[400px] flex flex-col min-w-0">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-[10px] font-bold text-gray-900 uppercase tracking-[0.2em]">Cash Flow Dynamics</h3>
@@ -100,7 +106,7 @@ export function FinanceCharts({ charts, formatCurrency }: FinanceChartsProps) {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         {/* Buyer Distribution */}
-        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm min-h-[400px] flex flex-col">
+        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm min-h-[400px] flex flex-col min-w-0">
           <h3 className="text-[10px] font-bold text-gray-900 uppercase tracking-[0.2em] mb-8">Revenue Concentration</h3>
           <div className="flex-1 flex items-center min-h-[300px]">
             <div className="w-1/2 h-full">
@@ -142,7 +148,7 @@ export function FinanceCharts({ charts, formatCurrency }: FinanceChartsProps) {
         </div>
 
         {/* Liquidity Position */}
-        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm min-h-[400px] flex flex-col">
+        <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm min-h-[400px] flex flex-col min-w-0">
           <div className="flex items-center justify-between mb-8">
              <h3 className="text-[10px] font-bold text-gray-900 uppercase tracking-[0.2em]">Liquidity Breakdown</h3>
              <div className="flex items-center gap-1.5">

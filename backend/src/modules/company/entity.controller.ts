@@ -11,7 +11,7 @@ export class EntityController extends BaseCompanyController {
   async getCustomers(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
     const customers = await CustomerRepository.findMany({ companyId });
-    return reply.send({ success: true, data: customers });
+    return reply.send({ success: true, data: customers.data || customers });
   }
 
   async createCustomer(request: FastifyRequest, reply: FastifyReply) {

@@ -442,22 +442,7 @@ export default function ProductsPage() {
           </div>
           
           <button
-            onClick={() => {
-              setSelectedProduct(null);
-              setShowDetailPanel(true);
-              setViewMode('view');
-              setEditForm({
-                code: '',
-                name: '',
-                sku: '',
-                description: '',
-                unitType: '',
-                unitPrice: '',
-                type: 'SALES_PURCHASE',
-                currency: 'BDT',
-                isActive: true,
-              });
-            }}
+            onClick={() => router.push(`/company/${companyId}/products/create`)}
             className="group relative px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all duration-300 hover:shadow-lg hover:shadow-blue-200 active:scale-95 flex items-center gap-2"
           >
             <Plus className="w-5 h-5 transition-transform group-hover:rotate-90" />
@@ -531,10 +516,10 @@ export default function ProductsPage() {
                           <p className="text-slate-900 font-bold text-lg">No products found</p>
                           <p className="text-slate-500 text-sm mt-1">Get started by adding your first product to the catalog.</p>
                         </div>
-                        <button onClick={() => {
-                          setSelectedProduct(null);
-                          setShowDetailPanel(true);
-                        }} className="text-blue-600 font-bold text-sm hover:underline flex items-center gap-1">
+                        <button 
+                          onClick={() => router.push(`/company/${companyId}/products/create`)} 
+                          className="text-blue-600 font-bold text-sm hover:underline flex items-center gap-1"
+                        >
                           <Plus className="w-4 h-4" /> Add your first product
                         </button>
                       </div>

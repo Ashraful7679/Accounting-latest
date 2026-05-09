@@ -135,7 +135,14 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
       ]
     },
     { name: 'Journal Entries', href: `/company/${companyId}/journals`, icon: History },
-    { name: 'Products', href: `/company/${companyId}/products`, icon: Package },
+    { 
+      name: 'Products', 
+      icon: Package,
+      children: [
+        { name: 'Catalog', href: `/company/${companyId}/products` },
+        { name: 'Add Product', href: `/company/${companyId}/products/create` },
+      ]
+    },
     { name: 'Employees', href: `/company/${companyId}/employees`, icon: User },
     { 
       name: 'Finance', 

@@ -576,9 +576,13 @@ export class DashboardController {
       for (const line of currentMonthCFLines) {
         if (!line.account.cashFlowType) continue;
         const amount = Number(line.creditBase) - Number(line.debitBase);
-        const target = line.account.cashFlowType.toLowerCase() as 'operating' | 'investing' | 'financing';
-        if (amount > 0) cfBreakdown[target].inflows += amount;
-        else cfBreakdown[target].outflows += Math.abs(amount);
+        const target = line.account.cashFlowType.toLowerCase() as keyof typeof cfBreakdown;
+        
+        // Ensure the target exists in our breakdown object (operating, investing, or financing)
+        if (cfBreakdown[target] && typeof (cfBreakdown[target] as any).inflows !== 'undefined') {
+          if (amount > 0) (cfBreakdown[target] as any).inflows += amount;
+          else (cfBreakdown[target] as any).outflows += Math.abs(amount);
+        }
       }
 
       ['operating', 'investing', 'financing'].forEach((k: any) => {

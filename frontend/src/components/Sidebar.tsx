@@ -98,7 +98,7 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
         { name: 'Customers', href: `/company/${companyId}/sales/customers` },
         { name: 'Sales Orders', href: `/company/${companyId}/sales/orders` },
         { name: 'Proforma Invoice', href: `/company/${companyId}/sales/pis` },
-        { name: 'Delivery Notes', href: `/company/${companyId}/sales/deliveries` },
+        { name: 'Delivery Notes', href: `/company/${companyId}/sales/challans` },
         { name: 'Sales Invoices', href: `/company/${companyId}/sales/invoices` },
         { name: 'Collections', href: `/company/${companyId}/payments/receive` },
       ]

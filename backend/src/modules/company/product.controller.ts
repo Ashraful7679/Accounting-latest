@@ -8,7 +8,7 @@ export class ProductController {
   async getProducts(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
     const products = await ProductRepository.findMany({ companyId });
-    return reply.send({ success: true, data: products });
+    return reply.send({ success: true, data: products.data || products });
   }
 
   async getProduct(request: FastifyRequest, reply: FastifyReply) {

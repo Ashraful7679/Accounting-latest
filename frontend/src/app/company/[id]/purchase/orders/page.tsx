@@ -57,7 +57,7 @@ export default function PurchaseOrdersPage() {
     queryKey: ['sales-orders', companyId],
     queryFn: async () => {
       const response = await api.get(`/company/${companyId}/sales-orders`);
-      return response.data.data;
+      return response.data.data?.data || response.data.data;
     },
     enabled: !!companyId,
   });

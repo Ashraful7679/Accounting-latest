@@ -185,8 +185,26 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/invoices/:invoiceId/retrieve', invoiceController.retrieveInvoice.bind(invoiceController));
   fastify.post('/:id/invoices/:invoiceId/revert-approval', (req, rep) => invoiceController.revertInvoice(req, rep));
 
-  // Delivery Challans (DN) & GRN deletion
+  // Sales Orders
+  fastify.get('/:id/sales-orders', orderController.getSalesOrders.bind(orderController));
+  fastify.post('/:id/sales-orders', orderController.createSalesOrder.bind(orderController));
+  fastify.put('/:id/sales-orders/:soId', orderController.updateSalesOrder.bind(orderController));
+  fastify.post('/:id/sales-orders/:soId/assign-po', orderController.assignPurchaseOrder.bind(orderController));
+  fastify.post('/:id/sales-orders/:soId/dn', orderController.generateDeliveryChallan.bind(orderController));
+
+  // Purchase Orders
+  fastify.get('/:id/purchase-orders', orderController.getPurchaseOrders.bind(orderController));
+  fastify.post('/:id/purchase-orders', orderController.createPurchaseOrder.bind(orderController));
+  fastify.put('/:id/purchase-orders/:poId', orderController.updatePurchaseOrder.bind(orderController));
+  fastify.post('/:id/purchase-orders/:poId/status', orderController.updatePurchaseOrderStatus.bind(orderController));
+  fastify.post('/:id/purchase-orders/:poId/grn', orderController.generateGRN.bind(orderController));
+  fastify.post('/:id/purchase-orders/:poId/assign-so', orderController.assignSalesOrder.bind(orderController));
+  fastify.delete('/:id/purchase-orders/:poId', orderController.deletePurchaseOrder.bind(orderController));
+
+  // Delivery Challans (DN) & GRNs
+  fastify.get('/:id/challans', orderController.getDeliveryChallans.bind(orderController));
   fastify.delete('/:id/challans/:dnId', orderController.deleteDeliveryChallan.bind(orderController));
+  fastify.get('/:id/grns', orderController.getGRNs.bind(orderController));
   fastify.delete('/:id/grns/:grnId', orderController.deleteGRN.bind(orderController));
 
   // Journals

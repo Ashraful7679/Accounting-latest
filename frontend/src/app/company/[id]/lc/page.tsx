@@ -407,7 +407,11 @@ export default function LCPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {(Array.isArray(salesOrders) ? salesOrders : []).filter((so: any) => !(Array.isArray(lcs) ? lcs : []).find((l: any) => l.id === showSOSelector.lcId)?.salesOrders.find((s: any) => s.id === so.id)).map((so: any) => (
+                    {(Array.isArray(salesOrders) ? salesOrders : []).filter((so: any) => {
+                      const currentLC = (Array.isArray(lcs) ? lcs : []).find((l: any) => l.id === showSOSelector.lcId);
+                      const isAlreadyAssigned = (Array.isArray(currentLC?.salesOrders) ? currentLC.salesOrders : []).some((s: any) => s.id === so.id);
+                      return !isAlreadyAssigned;
+                    }).map((so: any) => (
                       <tr key={so.id} className="hover:bg-white transition-colors">
                         <td className="p-4 text-xs font-black text-gray-900 uppercase">{so.soNumber}</td>
                         <td className="p-4 text-right">
@@ -471,7 +475,11 @@ export default function LCPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {(Array.isArray(purchaseOrders) ? purchaseOrders : []).filter((po: any) => !(Array.isArray(lcs) ? lcs : []).find((l: any) => l.id === showPOSelector.lcId)?.purchaseOrders.find((p: any) => p.id === po.id)).map((po: any) => (
+                    {(Array.isArray(purchaseOrders) ? purchaseOrders : []).filter((po: any) => {
+                      const currentLC = (Array.isArray(lcs) ? lcs : []).find((l: any) => l.id === showPOSelector.lcId);
+                      const isAlreadyAssigned = (Array.isArray(currentLC?.purchaseOrders) ? currentLC.purchaseOrders : []).some((p: any) => p.id === po.id);
+                      return !isAlreadyAssigned;
+                    }).map((po: any) => (
                       <tr key={po.id} className="hover:bg-white transition-colors">
                         <td className="p-4 text-xs font-black text-gray-900 uppercase">{po.poNumber}</td>
                         <td className="p-4 text-right font-mono text-xs font-black text-gray-900">{formatCurrency(po.totalBDT)}</td>

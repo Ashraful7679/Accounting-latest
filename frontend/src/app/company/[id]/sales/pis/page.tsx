@@ -161,7 +161,7 @@ export default function ExportPIsPage() {
     const line = { ...newLines[index], [field]: value };
     
     if (field === 'productId' && value) {
-      const product = allProductsData?.find((p: any) => p.id === value);
+      const product = (Array.isArray(allProductsData) ? allProductsData : []).find((p: any) => p.id === value);
       if (product) {
         const rawUnitPrice = product.unitPrice || 0;
         const productCurrency = product.currency || 'BDT';

@@ -85,7 +85,7 @@ export default function CreateSalesInvoicePage() {
       const customerId = searchParams.get('customerId');
       
       if (customerId) {
-        const customer = customers?.find((c: any) => c.id === customerId);
+        const customer = (Array.isArray(customers) ? customers : []).find((c: any) => c.id === customerId);
         if (customer) {
           setFormData(prev => ({ ...prev, customerName: customer.name }));
         }
@@ -111,7 +111,7 @@ export default function CreateSalesInvoicePage() {
     const line = { ...newLines[index], [field]: value };
 
     if (field === 'itemDescription') {
-      const existingProduct = products?.find((p: any) => p.name === value);
+      const existingProduct = (Array.isArray(products) ? products : []).find((p: any) => p.name === value);
       if (existingProduct) {
         let price = existingProduct.unitPrice || 0;
         const targetCurrency = orderType === 'local' ? 'BDT' : 'USD';
@@ -157,7 +157,7 @@ export default function CreateSalesInvoicePage() {
       });
     } else {
       currentPIs.push(piId);
-      const pi = customerPIs.find((p: any) => p.id === piId);
+      const pi = (Array.isArray(customerPIs) ? customerPIs : []).find((p: any) => p.id === piId);
       if (pi && pi.lines) {
         const newLinesFromPI = pi.lines.map((l: any) => ({
           productId: l.productId,
@@ -192,7 +192,7 @@ export default function CreateSalesInvoicePage() {
       });
     } else {
       currentDNs.push(dnId);
-      const dn = challans?.find((d: any) => d.id === dnId);
+      const dn = (Array.isArray(challans) ? challans : []).find((d: any) => d.id === dnId);
       if (dn && dn.lines) {
         const newLinesFromDN = dn.lines.map((l: any) => ({
           productId: l.productId,
@@ -232,7 +232,7 @@ export default function CreateSalesInvoicePage() {
     // Check for new entities
     const newCustomers = !selectedCustomer ? [formData.customerName] : [];
     const newProducts = formData.lines
-      .filter(l => !l.productId && !products?.find((p: any) => p.name === l.itemDescription))
+      .filter(l => !l.productId && !(Array.isArray(products) ? products : []).find((p: any) => p.name === l.itemDescription))
       .map(l => l.itemDescription);
     
     // De-duplicate new products
@@ -264,7 +264,7 @@ export default function CreateSalesInvoicePage() {
       const finalLines = await Promise.all(formData.lines.map(async (line) => {
         let finalProductId = line.productId;
         if (!finalProductId) {
-          const existingProduct = products?.find((p: any) => p.name === line.itemDescription);
+          const existingProduct = (Array.isArray(products) ? products : []).find((p: any) => p.name === line.itemDescription);
           if (existingProduct) {
             finalProductId = existingProduct.id;
           } else {
@@ -510,7 +510,7 @@ export default function CreateSalesInvoicePage() {
                       placeholder="Type item name..."
                     />
                     {line.piId && (
-                      <span className="text-[8px] font-bold text-emerald-500 uppercase tracking-tighter pl-2">Source: {customerPIs.find((p: any) => p.id === line.piId)?.piNumber}</span>
+                      <span className="text-[8px] font-bold text-emerald-500 uppercase tracking-tighter pl-2">Source: {(Array.isArray(customerPIs) ? customerPIs : []).find((p: any) => p.id === line.piId)?.piNumber}</span>
                     )}
                   </td>
                   <td className="px-4 py-2">

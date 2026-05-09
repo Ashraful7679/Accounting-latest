@@ -2,9 +2,8 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
 import { NotFoundError, ForbiddenError } from '../../middleware/errorHandler';
 import { BaseCompanyController } from './base.controller';
+import { RBACService } from './rbac.service';
 
-// Simplified RBAC controller — Role model is global (no companyId).
-// Permissions are managed via UserPermission model.
 export class RBACController extends BaseCompanyController {
   async getRoles(request: FastifyRequest, reply: FastifyReply) {
     const roles = await prisma.role.findMany({
@@ -20,6 +19,7 @@ export class RBACController extends BaseCompanyController {
       description: role.description,
       isSystem: role.isSystem,
       isActive: role.isActive,
+      permissions: role.permissions,
       userCount: role._count.userRoles
     }));
 
@@ -48,6 +48,7 @@ export class RBACController extends BaseCompanyController {
         description: role.description,
         isSystem: role.isSystem,
         isActive: role.isActive,
+        permissions: role.permissions,
         users: role.userRoles.map(ur => ({
           id: ur.user.id,
           name: `${ur.user.firstName} ${ur.user.lastName}`,
@@ -126,9 +127,23 @@ export class RBACController extends BaseCompanyController {
   }
 
   async updatePermission(request: FastifyRequest, reply: FastifyReply) {
-    // UserPermission model stores per-user overrides.
-    // Stub: extend when RolePermission model is added to schema.
-    return reply.send({ success: true, message: 'Permission management not yet available' });
+    const { roleId } = request.params as { id: string; roleId: string };
+    const { module, permission, value } = request.body as { module: string; permission: string; value: boolean };
+
+    const role = await prisma.role.findUnique({ where: { id: roleId } });
+    if (!role) throw new NotFoundError('Role not found');
+    if (role.isSystem) throw new ForbiddenError('Cannot modify system role permissions');
+
+    const currentPermissions = (role.permissions as Record<string, Record<string, boolean>>) || {};
+    if (!currentPermissions[module]) currentPermissions[module] = {};
+    currentPermissions[module][permission] = value;
+
+    await prisma.role.update({
+      where: { id: roleId },
+      data: { permissions: currentPermissions }
+    });
+
+    return reply.send({ success: true, message: 'Permission updated successfully' });
   }
 
   async assignRoleToUser(request: FastifyRequest, reply: FastifyReply) {
@@ -164,5 +179,12 @@ export class RBACController extends BaseCompanyController {
     await prisma.userRole.delete({ where: { id: assignment.id } });
 
     return reply.send({ success: true, message: 'Role removed successfully' });
+  }
+
+  async getMyPermissions(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const user = request.user as { id: string };
+    const permissions = await RBACService.getUserPermissions(user.id, companyId);
+    return reply.send({ success: true, data: permissions });
   }
 }

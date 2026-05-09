@@ -58,11 +58,11 @@ export function usePermissions(
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const decoded = useMemo(() => parseJWT(token || ''), [token]);
   
-  const { data: roleData, isLoading } = useQuery({
-    queryKey: ['user-permissions', companyId],
+  const { data: serverPermissions, isLoading } = useQuery({
+    queryKey: ['my-permissions', companyId],
     queryFn: async () => {
       if (!companyId) return null;
-      const response = await api.get(`/company/${companyId}/roles`);
+      const response = await api.get(`/company/${companyId}/my-permissions`);
       return response.data.data;
     },
     enabled: !!companyId,
@@ -70,66 +70,39 @@ export function usePermissions(
   });
 
   const permissions = useMemo(() => {
-    if (!decoded) {
+    const isOwner = decoded?.role === 'OWNER' || decoded?.roles?.includes('OWNER') || false;
+    const isAdmin = isOwner || decoded?.role === 'ADMIN' || decoded?.roles?.includes('ADMIN') || false;
+
+    if (isOwner || isAdmin) {
       return {
-        canCreate: false, canView: false, canEdit: false, canDelete: false,
-        canVerify: false, canApprove: false, canExport: false, canPrint: false
+        canCreate: true, canView: true, canEdit: true, canDelete: true,
+        canVerify: true, canApprove: true, canExport: true, canPrint: true
       };
     }
 
-    if (decoded.permissions && decoded.permissions[module]) {
+    const serverMod = serverPermissions?.[module];
+    if (serverMod) {
+      return {
+        canCreate: serverMod.canCreate ?? false,
+        canView: serverMod.canView ?? true,
+        canEdit: serverMod.canEdit ?? false,
+        canDelete: serverMod.canDelete ?? false,
+        canVerify: serverMod.canVerify ?? false,
+        canApprove: serverMod.canApprove ?? false,
+        canExport: serverMod.canExport ?? false,
+        canPrint: serverMod.canPrint ?? false,
+      };
+    }
+
+    if (decoded?.permissions?.[module]) {
       return decoded.permissions[module];
-    }
-
-    if (decoded.role === 'OWNER' || decoded.role === 'ADMIN') {
-      return {
-        canCreate: true, canView: true, canEdit: true, canDelete: true,
-        canVerify: true, canApprove: true, canExport: true, canPrint: true
-      };
-    }
-
-    if (decoded.roles?.includes('OWNER') || decoded.roles?.includes('ADMIN')) {
-      return {
-        canCreate: true, canView: true, canEdit: true, canDelete: true,
-        canVerify: true, canApprove: true, canExport: true, canPrint: true
-      };
     }
 
     return {
       canCreate: false, canView: true, canEdit: false, canDelete: false,
       canVerify: false, canApprove: false, canExport: false, canPrint: false
     };
-  }, [decoded, module]);
-
-  useMemo(() => {
-    if (!roleData) return;
-
-    const userPermissions: Record<string, Permission> = {};
-    
-    roleData?.forEach((role: { permissions: Record<string, Permission> }) => {
-      Object.entries(role.permissions || {}).forEach(([mod, perms]) => {
-        if (!userPermissions[mod]) {
-          userPermissions[mod] = {
-            canCreate: false, canView: false, canEdit: false, canDelete: false,
-            canVerify: false, canApprove: false, canExport: false, canPrint: false
-          };
-        }
-        userPermissions[mod].canCreate ||= perms.canCreate;
-        userPermissions[mod].canView ||= perms.canView;
-        userPermissions[mod].canEdit ||= perms.canEdit;
-        userPermissions[mod].canDelete ||= perms.canDelete;
-        userPermissions[mod].canVerify ||= perms.canVerify;
-        userPermissions[mod].canApprove ||= perms.canApprove;
-        userPermissions[mod].canExport ||= perms.canExport;
-        userPermissions[mod].canPrint ||= perms.canPrint;
-      });
-    });
-
-    const modulePermissions = userPermissions[module];
-    if (modulePermissions) {
-      Object.assign(permissions, modulePermissions);
-    }
-  }, [roleData, module]);
+  }, [decoded, serverPermissions, module]);
 
   const hasAny = (actions: PermissionAction[]) => {
     return actions.some(action => {

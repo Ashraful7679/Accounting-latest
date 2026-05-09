@@ -84,44 +84,86 @@ export const ROLE_TEMPLATES = {
 };
 
 export class RBACService {
-  /**
-   * Check if a user has permission to perform an action on a module.
-   * Falls back to checking UserPermission model, then company ownership.
-   */
   static async checkPermission(
     userId: string,
     companyId: string,
     module: string,
     action: 'create' | 'view' | 'edit' | 'delete' | 'verify' | 'approve' | 'export' | 'print'
   ): Promise<boolean> {
-    // Check if user is company owner/admin
     const userCompany = await prisma.userCompany.findUnique({
       where: { userId_companyId: { userId, companyId } }
     });
     if (userCompany?.isMainOwner) return true;
 
-    // Check user-specific permission overrides
-    const userPerm = await prisma.userPermission.findFirst({
-      where: { userId, module }
+    const userPerm = await prisma.userPermission.findUnique({
+      where: { userId_module: { userId, module } }
     });
 
     if (userPerm) {
-      const field = `can${action.charAt(0).toUpperCase()}${action.slice(1)}`;
-      if ((userPerm as any)[field]) return true;
+      const field = `can${action.charAt(0).toUpperCase()}${action.slice(1)}` as keyof typeof userPerm;
+      if (typeof userPerm[field] === 'boolean') {
+        return userPerm[field];
+      }
+    }
+
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId },
+      include: { role: true }
+    });
+
+    for (const ur of userRoles) {
+      const template = (ROLE_TEMPLATES as any)[ur.role.name];
+      if (template?.permissions?.[module]) {
+        const actionKey = `can${action.charAt(0).toUpperCase()}${action.slice(1)}`;
+        if ((template.permissions[module] as any)[actionKey]) return true;
+      }
     }
 
     return false;
   }
 
   static async getUserPermissions(userId: string, _companyId?: string) {
-    const userPerms = await prisma.userPermission.findMany({ where: { userId } });
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId },
+      include: { role: true }
+    });
+
     const permissions: Record<string, any> = {};
 
+    for (const ur of userRoles) {
+      const template = (ROLE_TEMPLATES as any)[ur.role.name];
+      if (!template?.permissions) continue;
+      for (const [mod, perms] of Object.entries(template.permissions)) {
+        if (!permissions[mod]) {
+          permissions[mod] = {
+            canCreate: false, canView: false, canEdit: false, canDelete: false,
+            canVerify: false, canApprove: false, canExport: false, canPrint: false
+          };
+        }
+        const p = perms as Record<string, boolean>;
+        permissions[mod].canCreate ||= p.canCreate;
+        permissions[mod].canView ||= p.canView;
+        permissions[mod].canEdit ||= p.canEdit;
+        permissions[mod].canDelete ||= p.canDelete;
+        permissions[mod].canVerify ||= p.canVerify;
+        permissions[mod].canApprove ||= p.canApprove;
+        permissions[mod].canExport ||= p.canExport;
+        permissions[mod].canPrint ||= p.canPrint;
+      }
+    }
+
+    const userPerms = await prisma.userPermission.findMany({ where: { userId } });
     for (const up of userPerms) {
-      if (!permissions[up.module]) permissions[up.module] = {};
-      Object.keys(up).forEach(key => {
-        if (key !== 'id' && key !== 'userId' && key !== 'module') {
-          (permissions[up.module] as any)[key] = (up as any)[key];
+      if (!permissions[up.module]) {
+        permissions[up.module] = {
+          canCreate: false, canView: false, canEdit: false, canDelete: false,
+          canVerify: false, canApprove: false, canExport: false, canPrint: false
+        };
+      }
+      Object.keys(permissions[up.module]).forEach(key => {
+        const v = (up as any)[key];
+        if (typeof v === 'boolean') {
+          permissions[up.module][key] = v;
         }
       });
     }

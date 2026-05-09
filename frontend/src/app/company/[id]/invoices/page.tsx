@@ -129,7 +129,7 @@ export default function CompanyInvoicesPage() {
     enabled: !!companyId,
   });
 
-  const cashBankAccounts = accountsData?.filter((a: any) => 
+  const cashBankAccounts = (Array.isArray(accountsData) ? accountsData : [])?.filter((a: any) => 
     a.accountType?.name === 'ASSET' && (a.category === 'CASH' || a.category === 'BANK' || a.name.toLowerCase().includes('cash') || a.name.toLowerCase().includes('bank'))
   ) || [];
 

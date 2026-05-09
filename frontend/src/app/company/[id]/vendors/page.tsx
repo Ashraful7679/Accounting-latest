@@ -123,7 +123,7 @@ export default function CompanyVendorsPage() {
     },
   });
 
-  const filteredVendors = vendors?.filter(v =>
+  const filteredVendors = (Array.isArray(vendors) ? vendors : [])?.filter(v =>
     !searchTerm || 
     v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     v.code.toLowerCase().includes(searchTerm.toLowerCase())

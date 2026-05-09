@@ -252,7 +252,8 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/backup/restore/:fileName', backupController.restoreBackup.bind(backupController));
   fastify.post('/:id/backup/restore/upload', backupController.uploadAndRestore.bind(backupController));
 
-  // Company Settings & Period Closing
+  // Company Details & Settings
+  fastify.get('/:id', controller.getCompany.bind(controller));
   fastify.get('/:id/settings', controller.getCompany.bind(controller));
   fastify.post('/:id/close-period', periodController.closePeriod.bind(periodController));
 

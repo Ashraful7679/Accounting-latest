@@ -329,7 +329,7 @@ export default function OwnerEmployeesPage() {
     }
   };
 
-  const nonManagerEmployees = employeesData?.filter((e) => e.role !== 'Manager') || [];
+  const nonManagerEmployees = (Array.isArray(employeesData) ? employeesData : [])?.filter((e) => e.role !== 'Manager') || [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -400,7 +400,7 @@ export default function OwnerEmployeesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {employeesData?.filter(e => e.role !== 'Owner').map((employee) => (
+                {(Array.isArray(employeesData) ? employeesData : [])?.filter(e => e.role !== 'Owner').map((employee) => (
                   <tr key={employee.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       {employee.firstName} {employee.lastName}
@@ -644,7 +644,7 @@ export default function OwnerEmployeesPage() {
                   className="input"
                 >
                   <option value="">No Manager</option>
-                  {employeesData?.filter((emp) => {
+                  {(Array.isArray(employeesData) ? employeesData : [])?.filter((emp) => {
                     if (!selectedEmployee) return false;
                     if (emp.id === selectedEmployee.id) return false;
 

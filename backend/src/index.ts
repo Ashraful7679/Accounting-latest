@@ -32,8 +32,8 @@ if (process.env.CORS_ORIGINS) {
 } else {
   // Allow common development and staging domains
   corsOrigins.push(
-    'https://hurainjannatoyshee.com', 
-    'https://www.hurainjannatoyshee.com',
+    'https://accabiz-frontend.onrender.com',
+    'https://accabiz-backend.onrender.com',
     /\.onrender\.com$/,
     /\.netlify\.app$/,
     /\.vercel\.app$/
@@ -112,12 +112,12 @@ const start = async () => {
     const host = '0.0.0.0';
 
     console.log(`Booting server... Attempting to listen on ${typeof port === 'number' ? `${host}:${port}` : `socket ${port}`}`);
-    
-    await fastify.listen({ 
-      port: port as any, 
-      host: typeof port === 'number' ? host : undefined 
+
+    await fastify.listen({
+      port: port as any,
+      host: typeof port === 'number' ? host : undefined
     });
-    
+
     console.log(`=========================================`);
     console.log(`🚀 Server ready at ${typeof port === 'number' ? `http://${host}:${port}` : `socket ${port}`}`);
     console.log(`=========================================`);

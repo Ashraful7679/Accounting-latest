@@ -224,6 +224,7 @@ export class JournalService {
         totalDebit: totalBase,
         totalCredit: totalBase,
         createdById: userId,
+        branchId: (invoice as any).branchId,
         lines: { create: lines }
       }
     });
@@ -281,6 +282,7 @@ export class JournalService {
         totalDebit: totalBase,
         totalCredit: totalBase,
         createdById: userId,
+        branchId: (bill as any).branchId,
         lines: {
           create: [
             {
@@ -362,6 +364,7 @@ export class JournalService {
         totalDebit: subtotalBase,
         totalCredit: subtotalBase,
         createdById: userId,
+        branchId: (dn as any).branchId,
         lines: {
           create: [
             {
@@ -431,6 +434,7 @@ export class JournalService {
         totalDebit: subtotalBase,
         totalCredit: subtotalBase,
         createdById: userId,
+        branchId: (grn as any).branchId,
         lines: {
           create: [
             {

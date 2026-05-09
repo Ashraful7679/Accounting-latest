@@ -7,6 +7,7 @@ import { BaseCompanyController } from './base.controller';
 import { JournalService } from '../accounting/journal.service';
 import { InventoryService } from './inventory.service';
 import { checkOptimisticLock } from '../../lib/optimisticLock';
+import { RBACService } from './rbac.service';
 
 export class InvoiceController extends BaseCompanyController {
   // ============ INVOICES ============
@@ -124,6 +125,7 @@ export class InvoiceController extends BaseCompanyController {
         lines: {
           create: linesData
         },
+        branchId: data.branchId || null,
         dns: data.dnIds ? { connect: data.dnIds.map((id: string) => ({ id })) } : undefined,
         grns: data.grnIds ? { connect: data.grnIds.map((id: string) => ({ id })) } : undefined,
       });
@@ -485,6 +487,12 @@ export class InvoiceController extends BaseCompanyController {
 
     if (!this.canVerify(invoice.status, role)) {
       throw new ForbiddenError(`Cannot verify this invoice from current status: ${invoice.status}`);
+    }
+
+    // Manager Verification Rule
+    const canVerifyEntry = await RBACService.canManagerVerifyEntry(userId, invoice.createdById, role);
+    if (!canVerifyEntry) {
+      throw new ForbiddenError('Managers can only verify documents created by their subordinates and cannot verify their own entries.');
     }
 
     const updated = await prisma.invoice.update({

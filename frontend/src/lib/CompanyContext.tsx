@@ -23,6 +23,8 @@ interface CompanyContextType {
   isLoading: boolean;
   exchangeRate: number;
   baseCurrency: string;
+  multiBranchEnabled: boolean;
+  defaultBranchId: string | null;
   updateExchangeRate: (rate: number) => Promise<void>;
   setExchangeRate: (rate: number) => void;
   setBaseCurrency: (currency: string) => void;
@@ -41,6 +43,8 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [exchangeRate, setExchangeRate] = useState<number>(1);
   const [baseCurrency, setBaseCurrency] = useState('USD');
+  const [multiBranchEnabled, setMultiBranchEnabled] = useState(false);
+  const [defaultBranchId, setDefaultBranchId] = useState<string | null>(null);
 
   // Load initial state from localStorage to prevent flash of '1' on reset
   useEffect(() => {
@@ -105,10 +109,14 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         const name = res.data.data.name;
         const rate = res.data.data.settings?.lastUsedRate || 1;
         const currency = res.data.data.baseCurrency || 'USD';
+        const multiBranch = !!res.data.data.settings?.multiBranchEnabled;
+        const defaultBranch = res.data.data.settings?.defaultBranchId || null;
         
         setCompanyName(name);
         setExchangeRate(rate);
         setBaseCurrency(currency);
+        setMultiBranchEnabled(multiBranch);
+        setDefaultBranchId(defaultBranch);
         
         localStorage.setItem(`company_name_${id}`, name);
         localStorage.setItem(`company_rate_${id}`, rate.toString());
@@ -139,7 +147,8 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   return (
     <CompanyContext.Provider value={{ 
       companyId, companyName, role, permissions, hasPermission, isLoading,
-      exchangeRate, baseCurrency, updateExchangeRate, setExchangeRate, setBaseCurrency
+      exchangeRate, baseCurrency, updateExchangeRate, setExchangeRate, setBaseCurrency,
+      multiBranchEnabled, defaultBranchId
     }}>
       {children}
     </CompanyContext.Provider>

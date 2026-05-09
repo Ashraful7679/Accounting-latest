@@ -154,4 +154,25 @@ export class RBACService {
 
     return 'User';
   }
+
+  /**
+   * Enforces the Manager Verification Rule:
+   * 1. A Manager cannot verify their own entries.
+   * 2. A Manager can only verify entries created by their subordinates.
+   * 
+   * Note: Owners and Admins are exempt from these restrictions.
+   */
+  static async canManagerVerifyEntry(managerId: string, createdById: string, role: string): Promise<boolean> {
+    if (role === 'Owner' || role === 'Admin') return true;
+    if (role !== 'Manager') return false; // Non-managers shouldn't be verifying unless they have explicit permission (handled elsewhere)
+
+    if (managerId === createdById) return false; // Cannot verify own entry
+
+    // Check if createdById is a subordinate of managerId
+    const subordinate = await prisma.user.findFirst({
+      where: { id: createdById, managerId: managerId }
+    });
+
+    return !!subordinate;
+  }
 }

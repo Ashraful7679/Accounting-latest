@@ -1,8 +1,8 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
 import path from 'path';
-import { NotFoundError, ValidationError } from '../../middleware/errorHandler';
-import { saveFile, getFile } from '../../lib/storage';
+import { NotFoundError, ValidationError, ForbiddenError } from '../../middleware/errorHandler';
+import { saveFile, getFile, deleteFile } from '../../lib/storage';
 
 export class AttachmentController {
   async upload(request: FastifyRequest, reply: FastifyReply) {
@@ -22,11 +22,23 @@ export class AttachmentController {
           throw new ValidationError('entityType and entityId are required in query params');
         }
 
+        // Restrictions: max 10MB, PDF/JPG/PNG/CSV
+        const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png', 'text/csv'];
+        if (!allowedMimes.includes(part.mimetype)) {
+          throw new ValidationError('Invalid file type. Only PDF, JPG, PNG, and CSV are allowed.');
+        }
+
         const relativeDir = path.join('transactions', entityType.toLowerCase(), entityId);
         const fileName = `${Date.now()}-${part.filename}`;
-        const relativeFilePath = path.join(relativeDir, fileName);
+        const relativeFilePath = path.join(relativeDir, fileName).replace(/\\/g, '/');
 
         const result = await saveFile(relativeFilePath, part.file, part.mimetype);
+
+        // Check size after streaming
+        if (result.fileSize > 10 * 1024 * 1024) {
+          await deleteFile(relativeFilePath);
+          throw new ValidationError('File size exceeds the 10MB limit.');
+        }
 
         uploadedAttachment = await prisma.attachment.create({
           data: {
@@ -63,7 +75,7 @@ export class AttachmentController {
       throw new NotFoundError('Attachment not found');
     }
 
-    const file = await getFile(attachment.filePath.replace(/\\/g, '/'));
+    const file = await getFile(attachment.filePath);
     if (!file) {
       throw new NotFoundError(`File not found: ${attachment.filePath}`);
     }
@@ -89,7 +101,16 @@ export class AttachmentController {
   }
 
   async deleteAttachment(request: FastifyRequest, reply: FastifyReply) {
-    const { id: attachmentId } = request.params as { id: string };
+    const { attachmentId } = request.params as { attachmentId: string };
+    const userId = (request.user as any).id;
+
+    const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });
+    if (!attachment) throw new NotFoundError('Attachment not found');
+
+    // Basic permission: only uploader can delete
+    if (attachment.uploadedById !== userId) {
+      throw new ForbiddenError('You can only delete your own attachments');
+    }
 
     await prisma.attachment.update({
       where: { id: attachmentId },

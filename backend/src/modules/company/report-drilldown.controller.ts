@@ -9,14 +9,16 @@ export class ReportDrilldownController {
       fromDate?: string;
       toDate?: string;
       type?: string;
+      branchId?: string;
     };
 
     try {
       const where: any = {
-        journalEntry: { 
+        journalEntry: {
           companyId, 
           status: 'APPROVED',
-          deletedAt: null 
+          deletedAt: null,
+          ...((request.query as any).branchId ? { branchId: (request.query as any).branchId } : {})
         },
         accountId
       };
@@ -99,6 +101,7 @@ export class ReportDrilldownController {
       fromDate?: string;
       toDate?: string;
       type?: string;
+      branchId?: string;
     };
 
     try {
@@ -118,7 +121,8 @@ export class ReportDrilldownController {
           companyId,
           status: 'APPROVED',
           deletedAt: null,
-          date: Object.keys(dateFilter).length > 0 ? dateFilter : undefined
+          date: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
+          ...(request.query as any).branchId ? { branchId: (request.query as any).branchId } : {}
         },
         accountId: { in: accountIds }
       };

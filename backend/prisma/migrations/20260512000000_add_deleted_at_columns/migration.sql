@@ -1,0 +1,7 @@
+-- Add missing deletedAt columns (only for existing tables)
+ALTER TABLE "PurchaseOrder" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP;
+ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP;
+ALTER TABLE "JournalEntry" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP;
+ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP;
+ALTER TABLE "Customer" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP;
+ALTER TABLE "Vendor" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP;

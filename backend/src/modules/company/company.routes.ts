@@ -37,6 +37,8 @@ import { RBACController } from './rbac.controller';
 import { authenticate } from '../../middleware/auth';
 
 export const companyRoutes = async (fastify: FastifyInstance) => {
+  fastify.addHook('preHandler', authenticate);
+
   const controller = new CompanyController();
   const dashboardController = new DashboardController();
   const lcController = new LCController();

@@ -77,7 +77,7 @@ export default function PurchaseInvoicesPage() {
     }
   });
 
-  const filteredInvoices = invoices?.filter((inv: Invoice) => {
+  const filteredInvoices = (Array.isArray(invoices) ? invoices : [])?.filter((inv: Invoice) => {
     const matchesSearch = !searchTerm || 
       inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inv.vendor?.name.toLowerCase().includes(searchTerm.toLowerCase());

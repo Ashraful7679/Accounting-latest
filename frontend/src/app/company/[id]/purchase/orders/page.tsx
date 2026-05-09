@@ -167,7 +167,7 @@ export default function PurchaseOrdersPage() {
             ) : purchaseOrders?.length === 0 ? (
               <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 font-mono uppercase tracking-widest">No orders found</td></tr>
             ) : (
-              purchaseOrders?.filter(po => 
+              (Array.isArray(purchaseOrders) ? purchaseOrders : []).filter(po => 
                 (po.poNumber?.toLowerCase() ?? '').includes(searchTerm.toLowerCase()) ||
                 (po.supplier?.name?.toLowerCase() ?? '').includes(searchTerm.toLowerCase())
               ).map((po) => (
@@ -415,7 +415,7 @@ export default function PurchaseOrdersPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50 font-mono">
-                    {salesOrders?.filter((so: any) => !purchaseOrders?.find(p => p.id === showSOSelector.poId)?.salesOrders.find(s => s.id === so.id)).map((so: any) => (
+                    {(Array.isArray(salesOrders) ? salesOrders : [])?.filter((so: any) => !(Array.isArray(purchaseOrders) ? purchaseOrders : []).find(p => p.id === showSOSelector.poId)?.salesOrders.find(s => s.id === so.id)).map((so: any) => (
                       <tr key={so.id} className="hover:bg-gray-50/50 transition-colors group">
                         <td className="p-4 font-bold text-gray-900 uppercase">{so.soNumber}</td>
                         <td className="p-4 text-right font-bold text-gray-900">{formatCurrency(so.totalBDT)} {so.currency}</td>

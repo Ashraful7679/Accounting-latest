@@ -272,7 +272,7 @@ export default function ExportPIsPage() {
     }
   };
 
-  const filteredPIs = pisData?.filter(pi => {
+  const filteredPIs = (Array.isArray(pisData) ? pisData : []).filter((pi: PI) => {
     const matchesSearch = !searchTerm ||
       (pi.piNumber?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (pi.customer?.name?.toLowerCase() || '').includes(searchTerm.toLowerCase());

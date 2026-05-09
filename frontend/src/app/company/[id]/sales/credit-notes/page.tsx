@@ -175,7 +175,7 @@ export default function CreditNotesPage() {
     },
   });
 
-  const filteredCNs = creditNotes?.filter(cn =>
+  const filteredCNs = (Array.isArray(creditNotes) ? creditNotes : []).filter(cn =>
     !searchTerm || 
     cn.creditNoteNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     cn.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -327,7 +327,7 @@ export default function CreditNotesPage() {
                 required
               >
                 <option value="">Select Customer</option>
-                {customers?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {(Array.isArray(customers) ? customers : []).map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
@@ -338,7 +338,7 @@ export default function CreditNotesPage() {
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg"
               >
                 <option value="">None</option>
-                {invoices?.filter((i: any) => i.status === 'APPROVED').map((i: any) => (
+                {(Array.isArray(invoices) ? invoices : []).filter((i: any) => i.status === 'APPROVED').map((i: any) => (
                   <option key={i.id} value={i.id}>{i.invoiceNumber}</option>
                 ))}
               </select>
@@ -351,7 +351,7 @@ export default function CreditNotesPage() {
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg"
               >
                 <option value="">None</option>
-                {salesOrders?.map((so: any) => <option key={so.id} value={so.id}>{so.soNumber}</option>)}
+                {(Array.isArray(salesOrders) ? salesOrders : []).map((so: any) => <option key={so.id} value={so.id}>{so.soNumber}</option>)}
               </select>
             </div>
             <div>
@@ -405,7 +405,7 @@ export default function CreditNotesPage() {
                       className="w-full px-2 py-2 border border-slate-200 rounded-lg text-sm"
                     />
                     <datalist id="products-list">
-                      {products?.map((p: any) => <option key={p.id} value={p.name} />)}
+                      {(Array.isArray(products) ? products : []).map((p: any) => <option key={p.id} value={p.name} />)}
                     </datalist>
                   </div>
                   <input

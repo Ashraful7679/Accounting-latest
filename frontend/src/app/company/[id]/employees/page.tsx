@@ -347,7 +347,7 @@ export default function EmployeesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {employeesData?.map((emp) => (
+                  {(Array.isArray(employeesData) ? employeesData : []).map((emp) => (
                     <tr key={emp.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 font-medium">{emp.employeeCode}</td>
                       <td className="px-4 py-3">{emp.firstName} {emp.lastName}</td>
@@ -378,7 +378,7 @@ export default function EmployeesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {advancesData?.map((adv) => (
+                  {(Array.isArray(advancesData) ? advancesData : []).map((adv) => (
                     <tr key={adv.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3">{new Date(adv.date).toLocaleDateString()}</td>
                       <td className="px-4 py-3">{adv.employee.firstName} {adv.employee.lastName}</td>
@@ -424,7 +424,7 @@ export default function EmployeesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {loansData?.map((loan) => (
+                  {(Array.isArray(loansData) ? loansData : []).map((loan) => (
                     <tr key={loan.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3">{loan.employee.firstName} {loan.employee.lastName}</td>
                       <td className="px-4 py-3 text-right font-mono">{loan.principalAmount.toLocaleString()}</td>
@@ -471,7 +471,7 @@ export default function EmployeesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {expensesData?.map((exp) => (
+                  {(Array.isArray(expensesData) ? expensesData : []).map((exp) => (
                     <tr key={exp.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3">{new Date(exp.date).toLocaleDateString()}</td>
                       <td className="px-4 py-3">{exp.employee.firstName} {exp.employee.lastName}</td>
@@ -572,7 +572,7 @@ export default function EmployeesPage() {
                     <label className="block text-sm font-medium mb-1">Employee *</label>
                     <select value={formData.employeeId || ''} onChange={(e) => setFormData({...formData, employeeId: e.target.value})} className="input" required>
                       <option value="">Select Employee</option>
-                      {employeesData?.map(emp => <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>)}
+                      {(Array.isArray(employeesData) ? employeesData : []).map(emp => <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>)}
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -605,7 +605,7 @@ export default function EmployeesPage() {
                     <label className="block text-sm font-medium mb-1">Employee *</label>
                     <select value={formData.employeeId || ''} onChange={(e) => setFormData({...formData, employeeId: e.target.value})} className="input" required>
                       <option value="">Select Employee</option>
-                      {employeesData?.map(emp => <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>)}
+                      {(Array.isArray(employeesData) ? employeesData : []).map(emp => <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>)}
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -641,7 +641,7 @@ export default function EmployeesPage() {
                     <label className="block text-sm font-medium mb-1">Employee *</label>
                     <select value={formData.employeeId || ''} onChange={(e) => setFormData({...formData, employeeId: e.target.value})} className="input" required>
                       <option value="">Select Employee</option>
-                      {employeesData?.map(emp => <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>)}
+                      {(Array.isArray(employeesData) ? employeesData : []).map(emp => <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>)}
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-4">

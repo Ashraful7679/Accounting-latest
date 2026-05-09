@@ -199,7 +199,7 @@ export default function DetailPanel({
 
         {displayTabs.length > 0 && (
           <div className="flex border-b border-slate-200 px-6">
-            {displayTabs.map(tab => (
+            {(Array.isArray(displayTabs) ? displayTabs : []).map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn('px-4 py-3 text-sm font-bold border-b-2 transition-colors', activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700')}>
                 {tab.label}
               </button>
@@ -210,7 +210,7 @@ export default function DetailPanel({
         <div className="flex-1 overflow-y-auto p-6">
           {activeTab === 'details' || displayTabs.length === 0 ? (
             <div className="space-y-4">
-              {displayFields.map((field, idx) => (
+              {(Array.isArray(displayFields) ? displayFields : []).map((field, idx) => (
                 <div key={idx} className="flex justify-between">
                   <span className="text-sm font-bold text-slate-500">{field.label}</span>
                   <span className="text-sm font-medium text-slate-900 text-right">{formatValue(field.value, field.type)}</span>
@@ -224,7 +224,7 @@ export default function DetailPanel({
 
         {displayActions.length > 0 && (
           <div className="p-4 border-t border-slate-100 bg-slate-50 flex gap-2 flex-wrap">
-            {displayActions.map((action, idx) => {
+            {(Array.isArray(displayActions) ? displayActions : []).map((action, idx) => {
               const Icon = action.icon || Save;
               return (
                 <button key={idx} onClick={action.onClick} disabled={action.disabled || action.loading} className={cn('flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all', action.variant === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700' : action.variant === 'danger' ? 'bg-red-600 text-white hover:bg-red-700' : action.variant === 'success' ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50', (action.disabled || action.loading) && 'opacity-50 cursor-not-allowed')}>

@@ -88,7 +88,7 @@ export default function StockReconciliationsPage() {
     onError: (e: any) => toast.error(e.response?.data?.error || 'Error approving reconciliation')
   });
 
-  const filtered = reconciliations.filter((r: StockReconciliation) => 
+  const filtered = (Array.isArray(reconciliations) ? reconciliations : []).filter((r: StockReconciliation) => 
     r.reconciliationNumber.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -174,7 +174,7 @@ export default function StockReconciliationsPage() {
                       <td className="px-4 py-3 text-sm font-medium">{r.reconciliationNumber}</td>
                       <td className="px-4 py-3 text-sm">{new Date(r.reconciliationDate).toLocaleDateString()}</td>
                       <td className="px-4 py-3 text-sm">{r.warehouse?.name}</td>
-                      <td className="px-4 py-3 text-center text-sm">{r.lines?.length || 0}</td>
+                      <td className="px-4 py-3 text-center text-sm">{(Array.isArray(r.lines) ? r.lines : []).length}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`px-2 py-1 rounded text-xs ${r.status === 'APPROVED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                           {r.status}

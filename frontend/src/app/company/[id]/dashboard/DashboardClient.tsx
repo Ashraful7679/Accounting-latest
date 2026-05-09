@@ -228,7 +228,7 @@ export default function DashboardClient() {
                   {/* Breakdown tooltip on hover */}
                   {kpi.breakdown && kpi.breakdown.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-slate-100 space-y-1">
-                      {kpi.breakdown.slice(0, 3).map((item: any, idx: number) => (
+                      {(Array.isArray(kpi.breakdown) ? kpi.breakdown : []).slice(0, 3).map((item: any, idx: number) => (
                         <div key={idx} className="flex items-center justify-between text-xs">
                           <span className="text-slate-400 truncate max-w-[140px]">{item.label}</span>
                           <span className="font-semibold text-slate-600">{formatCurrency(item.amount)}</span>

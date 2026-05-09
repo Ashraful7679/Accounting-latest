@@ -242,10 +242,10 @@ export default function ReportsClient() {
                           <section>
                             <h3 className="text-emerald-600 font-black uppercase tracking-widest text-xs mb-4">Operating Income</h3>
                             <div className="divide-y divide-slate-100">
-                              {reportData?.income?.map((i: any, idx: number) => (
+                              {(Array.isArray(reportData?.income) ? reportData.income : [])?.map((i: any, idx: number) => (
                                 <div key={idx} className="flex justify-between py-3">
                                   <span className="font-bold text-slate-700">{i.name}</span>
-                                  <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {i.amount.toLocaleString()}</span>
+                                  <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {i.amount?.toLocaleString()}</span>
                                 </div>
                               ))}
                               <div className="flex justify-between py-4 border-t-2 border-emerald-100 bg-emerald-50 px-4 rounded-xl mt-2">
@@ -257,10 +257,10 @@ export default function ReportsClient() {
                           <section>
                             <h3 className="text-rose-600 font-black uppercase tracking-widest text-xs mb-4">Operating Expenses</h3>
                             <div className="divide-y divide-slate-100">
-                              {reportData?.expenseAccounts?.map((e: any, idx: number) => (
+                              {(Array.isArray(reportData?.expenseAccounts) ? reportData.expenseAccounts : [])?.map((e: any, idx: number) => (
                                 <div key={idx} className="flex justify-between py-3">
                                   <span className="font-bold text-slate-700">{e.name}</span>
-                                  <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {e.amount.toLocaleString()}</span>
+                                  <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {e.amount?.toLocaleString()}</span>
                                 </div>
                               ))}
                               <div className="flex justify-between py-4 border-t-2 border-rose-100 bg-rose-50 px-4 rounded-xl mt-2">
@@ -285,16 +285,16 @@ export default function ReportsClient() {
                             <section>
                               <h3 className="text-emerald-600 font-black uppercase tracking-widest text-xs mb-4">Assets</h3>
                               <div className="divide-y divide-slate-100">
-                                {reportData?.assets?.map((a: any, idx: number) => (
+                                {(Array.isArray(reportData?.assets) ? reportData.assets : [])?.map((a: any, idx: number) => (
                                   <div key={idx} className="flex justify-between py-3">
                                     <span className="font-bold text-slate-700">{a.name}</span>
-                                    <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {a.balance.toLocaleString()}</span>
+                                    <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {a.balance?.toLocaleString()}</span>
                                   </div>
                                 ))}
                                 <div className="flex justify-between py-4 border-t-2 border-emerald-100 bg-emerald-50 px-4 rounded-xl mt-2">
                                   <span className="font-black text-emerald-700">Total Assets</span>
                                   <span className="font-black text-emerald-900">
-                                    {getCurrencySymbol(company?.currency)} {reportData?.assets?.reduce((sum: number, a: any) => sum + (a.balance || 0), 0).toLocaleString()}
+                                    {getCurrencySymbol(company?.currency)} {(Array.isArray(reportData?.assets) ? reportData.assets : [])?.reduce((sum: number, a: any) => sum + (a.balance || 0), 0).toLocaleString()}
                                   </span>
                                 </div>
                               </div>
@@ -305,16 +305,16 @@ export default function ReportsClient() {
                             <section>
                               <h3 className="text-rose-600 font-black uppercase tracking-widest text-xs mb-4">Liabilities</h3>
                               <div className="divide-y divide-slate-100">
-                                {reportData?.liabilities?.map((l: any, idx: number) => (
+                                {(Array.isArray(reportData?.liabilities) ? reportData.liabilities : [])?.map((l: any, idx: number) => (
                                   <div key={idx} className="flex justify-between py-3">
                                     <span className="font-bold text-slate-700">{l.name}</span>
-                                    <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {l.balance.toLocaleString()}</span>
+                                    <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {l.balance?.toLocaleString()}</span>
                                   </div>
                                 ))}
                                 <div className="flex justify-between py-4 border-t-2 border-rose-100 bg-rose-50 px-4 rounded-xl mt-2">
                                   <span className="font-black text-rose-700">Total Liabilities</span>
                                   <span className="font-black text-rose-900">
-                                    {getCurrencySymbol(company?.currency)} {reportData?.liabilities?.reduce((sum: number, l: any) => sum + (l.balance || 0), 0).toLocaleString()}
+                                    {getCurrencySymbol(company?.currency)} {(Array.isArray(reportData?.liabilities) ? reportData.liabilities : [])?.reduce((sum: number, l: any) => sum + (l.balance || 0), 0).toLocaleString()}
                                   </span>
                                 </div>
                               </div>
@@ -323,16 +323,16 @@ export default function ReportsClient() {
                             <section>
                               <h3 className="text-blue-600 font-black uppercase tracking-widest text-xs mb-4">Equity</h3>
                               <div className="divide-y divide-slate-100">
-                                {reportData?.equity?.map((e: any, idx: number) => (
+                                {(Array.isArray(reportData?.equity) ? reportData.equity : [])?.map((e: any, idx: number) => (
                                   <div key={idx} className="flex justify-between py-3">
                                     <span className="font-bold text-slate-700">{e.name}</span>
-                                    <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {e.balance.toLocaleString()}</span>
+                                    <span className="font-black text-slate-900">{getCurrencySymbol(company?.currency)} {e.balance?.toLocaleString()}</span>
                                   </div>
                                 ))}
                                 <div className="flex justify-between py-4 border-t-2 border-blue-100 bg-blue-50 px-4 rounded-xl mt-2">
                                   <span className="font-black text-blue-700">Total Equity</span>
                                   <span className="font-black text-blue-900">
-                                    {getCurrencySymbol(company?.currency)} {reportData?.equity?.reduce((sum: number, e: any) => sum + (e.balance || 0), 0).toLocaleString()}
+                                    {getCurrencySymbol(company?.currency)} {(Array.isArray(reportData?.equity) ? reportData.equity : [])?.reduce((sum: number, e: any) => sum + (e.balance || 0), 0).toLocaleString()}
                                   </span>
                                 </div>
                               </div>
@@ -340,10 +340,10 @@ export default function ReportsClient() {
 
                             <div className="flex justify-between py-6 border-y-4 border-slate-900 mt-10">
                               <h2 className="text-xl font-black text-slate-900">Total Liabilities + Equity</h2>
-                              <span className="text-2xl font-black text-slate-900">
-                                {getCurrencySymbol(company?.currency)} {((reportData?.liabilities?.reduce((s: number, l: any) => s + (l.balance || 0), 0) || 0) + 
-                                  (reportData?.equity?.reduce((s: number, e: any) => s + (e.balance || 0), 0) || 0)).toLocaleString()}
-                              </span>
+                                <span className="text-2xl font-black text-slate-900">
+                                  {getCurrencySymbol(company?.currency)} {(( (Array.isArray(reportData?.liabilities) ? reportData.liabilities : [])?.reduce((s: number, l: any) => s + (l.balance || 0), 0) || 0) + 
+                                    ( (Array.isArray(reportData?.equity) ? reportData.equity : [])?.reduce((s: number, e: any) => s + (e.balance || 0), 0) || 0)).toLocaleString()}
+                                </span>
                             </div>
                           </div>
                         </div>
@@ -360,7 +360,7 @@ export default function ReportsClient() {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
-                                {(reportData?.accounts || []).map((account: any, i: number) => (
+                                {(Array.isArray(reportData?.accounts) ? reportData.accounts : []).map((account: any, i: number) => (
                                   <tr 
                                     key={i} 
                                     onClick={() => setDrilldownAccount(account)}
@@ -400,7 +400,7 @@ export default function ReportsClient() {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
-                                {(reportData?.results || []).map((row: any, i: number) => (
+                                {(Array.isArray(reportData?.results) ? reportData.results : []).map((row: any, i: number) => (
                                   <tr key={i} className="hover:bg-slate-50 transition-colors">
                                     <td className="py-3 px-3 font-black text-slate-900 whitespace-nowrap">{row.name}</td>
                                     <td className="py-3 px-3 text-right font-bold whitespace-nowrap">
@@ -439,7 +439,7 @@ export default function ReportsClient() {
                               <tbody className="divide-y divide-slate-100">
                                 {(() => {
                                   let runningBalance = 0;
-                                  return (reportData as any[])?.map((line: any, i: number) => {
+                                  return (Array.isArray(reportData) ? reportData : [])?.map((line: any, i: number) => {
                                     const isDebitType = line.account.accountType?.type === 'DEBIT' || line.account.type === 'DEBIT';
                                     const change = isDebitType
                                       ? (Number(line.debit) - Number(line.credit))
@@ -481,7 +481,7 @@ export default function ReportsClient() {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
-                                {reportData?.map((lc: any, i: number) => (
+                                {(Array.isArray(reportData) ? reportData : [])?.map((lc: any, i: number) => (
                                   <tr key={i} className="hover:bg-slate-50 transition-colors">
                                     <td className="py-3 px-3 font-black text-slate-900 whitespace-nowrap">{lc.lcNumber}</td>
                                     <td className="py-3 px-3 font-bold text-slate-600 whitespace-nowrap hidden sm:table-cell">{lc.bankName}</td>
@@ -588,7 +588,7 @@ export default function ReportsClient() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {(drilldownData?.transactions || []).map((tx: any, i: number) => (
+                          {(Array.isArray(drilldownData?.transactions) ? drilldownData.transactions : []).map((tx: any, i: number) => (
                             <tr key={i} className="hover:bg-slate-50">
                               <td className="px-4 py-2 text-slate-500 text-xs">
                                 {new Date(tx.date).toLocaleDateString()}

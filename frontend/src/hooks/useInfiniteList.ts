@@ -56,7 +56,7 @@ export function useInfiniteList<T>({
     enabled: !!companyId && enabled,
   });
 
-  const flatData = result.data?.pages.flatMap(page => page.data) ?? [];
+  const flatData = result.data?.pages.flatMap(page => Array.isArray(page?.data) ? page.data : []) ?? [];
 
   return {
     ...result,

@@ -125,10 +125,10 @@ export default function CompanyCustomersPage() {
     },
   });
 
-  const filteredCustomers = customers?.filter(c =>
+  const filteredCustomers = (Array.isArray(customers) ? customers : [])?.filter(c =>
     !searchTerm || 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.code.toLowerCase().includes(searchTerm.toLowerCase())
+    (c.name?.toLowerCase() ?? '').includes(searchTerm.toLowerCase()) ||
+    (c.code?.toLowerCase() ?? '').includes(searchTerm.toLowerCase())
   ) || [];
 
   const handleRowClick = (customer: Customer) => {
@@ -380,7 +380,7 @@ export default function CompanyCustomersPage() {
             <div className="p-20 text-center"><User className="w-12 h-12 text-slate-300 mx-auto mb-3" /><p className="text-slate-900 font-bold">No customers found</p></div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {filteredCustomers.map((customer) => (
+              {(Array.isArray(filteredCustomers) ? filteredCustomers : []).map((customer) => (
                 <div key={customer.id} onClick={() => handleRowClick(customer)} className="p-4 hover:bg-slate-50 cursor-pointer flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div><div className="font-bold text-slate-900">{customer.name}</div><div className="text-sm text-slate-500">{customer.code}</div></div>

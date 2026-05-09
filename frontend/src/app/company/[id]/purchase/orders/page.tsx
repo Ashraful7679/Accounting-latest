@@ -108,7 +108,7 @@ export default function PurchaseOrdersPage() {
   };
 
   const calculateUsedValue = (po: PurchaseOrder) => {
-    return po.salesOrders.reduce((sum, so) => sum + (so.totalBDT || 0), 0);
+    return (Array.isArray(po.salesOrders) ? po.salesOrders : []).reduce((sum, so) => sum + (so.totalBDT || 0), 0);
   };
 
   if (!mounted) return null;
@@ -257,7 +257,7 @@ export default function PurchaseOrdersPage() {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-50">
-                                {po.lines?.map((line: any) => (
+                                {(Array.isArray(po.lines) ? po.lines : [])?.map((line: any) => (
                                   <tr key={line.id} className="text-[11px] font-bold text-gray-600">
                                     <td className="py-3 uppercase tracking-tighter">{line.itemDescription || line.description}</td>
                                     <td className="py-3 text-center font-mono">{line.quantity}</td>
@@ -279,7 +279,7 @@ export default function PurchaseOrdersPage() {
                                 <Truck className="w-4 h-4" /> Goods Receipt Notes (GRN)
                               </h4>
                               <div className="space-y-2">
-                                {po.grns?.map((grn: any) => (
+                                {(Array.isArray(po.grns) ? po.grns : [])?.map((grn: any) => (
                                   <div key={grn.id} className="p-3 bg-gray-50 rounded-sm border border-gray-100 flex justify-between items-center group/doc">
                                     <div>
                                       <p className="text-[10px] font-black text-gray-900 uppercase tracking-tighter">{grn.grnNumber}</p>
@@ -299,7 +299,7 @@ export default function PurchaseOrdersPage() {
                                     </div>
                                   </div>
                                 ))}
-                                {(!po.grns || po.grns.length === 0) && <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic py-2">No receipts yet</p>}
+                                {(!Array.isArray(po.grns) || po.grns.length === 0) && <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic py-2">No receipts yet</p>}
                               </div>
                             </div>
 
@@ -309,7 +309,7 @@ export default function PurchaseOrdersPage() {
                                 <FileText className="w-4 h-4" /> Purchase Invoices (PI)
                               </h4>
                               <div className="space-y-2">
-                                {po.invoices?.map((inv: any) => (
+                                {(Array.isArray(po.invoices) ? po.invoices : [])?.map((inv: any) => (
                                   <div key={inv.id} className="p-3 bg-gray-50 rounded-sm border border-gray-100 flex justify-between items-center">
                                     <div>
                                       <p className="text-[10px] font-black text-gray-900 uppercase tracking-tighter">{inv.invoiceNumber}</p>
@@ -328,7 +328,7 @@ export default function PurchaseOrdersPage() {
                                     </div>
                                   </div>
                                 ))}
-                                {(!po.invoices || po.invoices.length === 0) && <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic py-2">No invoices generated</p>}
+                                {(!Array.isArray(po.invoices) || po.invoices.length === 0) && <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic py-2">No invoices generated</p>}
                               </div>
                             </div>
                           </div>
@@ -343,7 +343,7 @@ export default function PurchaseOrdersPage() {
                             </button>
                           </div>
                           
-                          {po.salesOrders.length === 0 ? (
+                          {(!Array.isArray(po.salesOrders) || po.salesOrders.length === 0) ? (
                             <div className="text-[10px] text-gray-400 font-mono uppercase text-center py-8 border border-dashed border-gray-100 rounded-sm">
                               NO ALLOCATIONS FOUND
                             </div>
@@ -359,7 +359,7 @@ export default function PurchaseOrdersPage() {
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50 font-mono">
-                                  {po.salesOrders.map((so: any) => (
+                                  {(Array.isArray(po.salesOrders) ? po.salesOrders : []).map((so: any) => (
                                     <tr key={so.id} className="hover:bg-gray-50/30 transition-colors">
                                       <td className="px-4 py-3 font-bold text-gray-900 uppercase">{so.soNumber}</td>
                                       <td className="px-4 py-3 text-gray-600 uppercase">{so.customer?.name}</td>

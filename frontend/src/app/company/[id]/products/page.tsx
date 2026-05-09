@@ -128,7 +128,7 @@ export default function ProductsPage() {
     },
   });
 
-  const filteredProducts = products?.filter(p =>
+  const filteredProducts = (Array.isArray(products) ? products : [])?.filter(p =>
     (p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
      p.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
      p.sku?.toLowerCase().includes(searchTerm.toLowerCase())) &&

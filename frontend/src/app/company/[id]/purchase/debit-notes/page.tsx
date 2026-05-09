@@ -182,7 +182,7 @@ export default function DebitNotesPage() {
     },
   });
 
-  const filteredDNs = debitNotes?.filter(dn =>
+  const filteredDNs = (Array.isArray(debitNotes) ? debitNotes : []).filter(dn =>
     !searchTerm || 
     dn.debitNoteNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     dn.vendor?.name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -335,7 +335,7 @@ export default function DebitNotesPage() {
                 required
               >
                 <option value="">Select Vendor</option>
-                {vendors?.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                {(Array.isArray(vendors) ? vendors : []).map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
               </select>
             </div>
             <div>
@@ -346,7 +346,7 @@ export default function DebitNotesPage() {
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg"
               >
                 <option value="">None</option>
-                {bills?.filter((b: any) => b.status === 'APPROVED').map((b: any) => (
+                {(Array.isArray(bills) ? bills : []).filter((b: any) => b.status === 'APPROVED').map((b: any) => (
                   <option key={b.id} value={b.id}>{b.billNumber}</option>
                 ))}
               </select>
@@ -359,7 +359,7 @@ export default function DebitNotesPage() {
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg"
               >
                 <option value="">None</option>
-                {purchaseOrders?.map((po: any) => (
+                {(Array.isArray(purchaseOrders) ? purchaseOrders : []).map((po: any) => (
                   <option key={po.id} value={po.id}>{po.poNumber}</option>
                 ))}
               </select>
@@ -416,7 +416,7 @@ export default function DebitNotesPage() {
                       className="w-full px-2 py-2 border border-slate-200 rounded-lg text-sm"
                     />
                     <datalist id="products-list">
-                      {products?.map((p: any) => <option key={p.id} value={p.name} />)}
+                      {(Array.isArray(products) ? products : []).map((p: any) => <option key={p.id} value={p.name} />)}
                     </datalist>
                   </div>
                   <input

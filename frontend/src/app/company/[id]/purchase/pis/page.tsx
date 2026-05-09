@@ -58,7 +58,7 @@ export default function ImportPIsPage() {
     },
   });
 
-  const filteredPIs = pis?.filter((pi: PI) => {
+  const filteredPIs = (Array.isArray(pis) ? pis : [])?.filter((pi: PI) => {
     return !searchTerm || 
       pi.piNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       pi.vendor?.name.toLowerCase().includes(searchTerm.toLowerCase());

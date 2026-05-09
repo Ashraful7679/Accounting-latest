@@ -17,15 +17,20 @@ interface HeaderProps {
 
 export default function Header({ companyId, breadcrumbs, role: propRole, unreadCount = 0 }: HeaderProps) {
   const { exchangeRate } = useCompany();
+  const [mounted, setMounted] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [role, setRole] = useState(propRole || 'User');
-  const [time, setTime] = useState(new Date());
+  const [time, setTime] = useState<Date | null>(null);
+
+  useEffect(() => { setMounted(true); }, []);
 
   // Tick clock
   useEffect(() => {
+    if (!mounted) return;
+    setTime(new Date());
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [mounted]);
 
   useEffect(() => {
     if (!propRole) {
@@ -53,7 +58,7 @@ export default function Header({ companyId, breadcrumbs, role: propRole, unreadC
         <div className="flex items-center gap-2 text-slate-600 border-r border-slate-200 pr-6">
           <Clock className="w-3.5 h-3.5 text-slate-400" />
           <span className="text-xs font-black font-mono text-slate-900">
-            {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {time ? time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
           </span>
         </div>
 

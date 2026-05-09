@@ -27,6 +27,9 @@ npm run build    # next build
 
 ## Known Issues & Fixes
 
+> [!TIP]
+> For a detailed list of potential issues and their solutions, refer to [TROUBLESHOOTING.md](file:///d:/BrainyFlavors/Accounting-Github/AccaBiz%20-%20Copy/TROUBLESHOOTING.md).
+
 1. **Missing authenticate hook**: Company routes (`company.routes.ts`) must have `fastify.addHook('preHandler', authenticate)` - other route files (admin, owner, system) already have this
 2. **Missing columns**: If Prisma throws "column does not exist", create migration to add missing columns (e.g., `LC.deletedAt`, `Account.referenceId`)
 3. **Route 404**: Check if route exists in controller AND is registered in routes file

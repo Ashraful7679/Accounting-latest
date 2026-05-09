@@ -1,7 +1,7 @@
 ﻿'use client';
 
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { 
@@ -20,11 +20,19 @@ export default function ActivityHistoryPage() {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'journal' | 'invoice' | 'payment'>('all');
+  const [mounted, setMounted] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState('');
+  const [userRole, setUserRole] = useState('User');
 
-  // Get current user for renderer (following dashboard pattern)
-  const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-  const user = userStr ? JSON.parse(userStr) : null;
-  const currentUserId = user?.id || '';
+  useEffect(() => {
+    setMounted(true);
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      const parsed = JSON.parse(userStr);
+      setCurrentUserId(parsed?.id || '');
+      setUserRole(parsed?.role || 'User');
+    }
+  }, []);
 
   const { data: activities, isLoading } = useQuery({
     queryKey: ['company-activities', companyId, filter],
@@ -63,7 +71,7 @@ export default function ActivityHistoryPage() {
       <Header 
         companyId={companyId} 
         breadcrumbs={breadcrumbs} 
-        role={user?.role || 'User'} 
+        role={userRole} 
         unreadCount={0} 
       />
 
@@ -147,7 +155,7 @@ export default function ActivityHistoryPage() {
             <div className="grid grid-cols-1 gap-4">
               <AnimatePresence mode="popLayout">
                 {filteredActivities.map((activity, idx) => {
-                  const message = renderActivityMessage(activity, currentUserId, user?.role || 'User');
+                  const message = renderActivityMessage(activity, currentUserId, userRole);
                   const href = activity.entityType === 'journal' ? `/company/${companyId}/journals` : '#';
                   
                   return (

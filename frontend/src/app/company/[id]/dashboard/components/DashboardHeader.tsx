@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { LayoutDashboard, RefreshCw, FileBarChart } from 'lucide-react';
 import Link from 'next/link';
 
@@ -9,11 +10,17 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ companyName, companyId }: DashboardHeaderProps) {
-  const today = new Date().toLocaleDateString('en-US', { 
-    day: 'numeric', 
-    month: 'short', 
-    year: 'numeric' 
-  });
+  const [mounted, setMounted] = useState(false);
+  const [today, setToday] = useState('');
+
+  useEffect(() => {
+    setMounted(true);
+    setToday(new Date().toLocaleDateString('en-US', { 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric' 
+    }));
+  }, []);
 
   return (
     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 mb-12">
@@ -36,7 +43,7 @@ export function DashboardHeader({ companyName, companyId }: DashboardHeaderProps
       <div className="flex items-center gap-4 w-full lg:w-auto">
          <div className="hidden lg:flex flex-col items-end px-6 border-r border-slate-200">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Observation Date</p>
-            <p className="text-sm font-black text-slate-700">{today}</p>
+            <p className="text-sm font-black text-slate-700">{mounted ? today : '---'}</p>
          </div>
          
          <div className="flex items-center gap-3 flex-1 lg:flex-initial">

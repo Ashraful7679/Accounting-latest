@@ -156,7 +156,7 @@ export default function PurchaseRequisitionsPage() {
     },
   });
 
-  const filteredPRs = requisitions?.filter(pr =>
+  const filteredPRs = (Array.isArray(requisitions) ? requisitions : []).filter(pr =>
     !searchTerm || 
     pr.prNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     pr.supplier?.name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -305,7 +305,7 @@ export default function PurchaseRequisitionsPage() {
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg"
               >
                 <option value="">Select Supplier</option>
-                {vendors?.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                {(Array.isArray(vendors) ? vendors : []).map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
               </select>
             </div>
             <div>
@@ -346,7 +346,7 @@ export default function PurchaseRequisitionsPage() {
                       className="w-full px-2 py-2 border border-slate-200 rounded-lg text-sm"
                     />
                     <datalist id="products-list">
-                      {products?.map((p: any) => <option key={p.id} value={p.name} />)}
+                      {(Array.isArray(products) ? products : []).map((p: any) => <option key={p.id} value={p.name} />)}
                     </datalist>
                   </div>
                   <input

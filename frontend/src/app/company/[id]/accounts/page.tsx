@@ -228,11 +228,11 @@ export default function CompanyAccountsPage() {
     resetForm();
   };
 
-  const filteredAccounts = accountsData?.filter(a =>
+  const filteredAccounts = (Array.isArray(accountsData) ? accountsData : []).filter(a =>
     !searchTerm || 
     a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     a.code.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  );
 
   // Group accounts by type
   const groupedAccounts = filteredAccounts.reduce((acc, account) => {
@@ -305,7 +305,7 @@ export default function CompanyAccountsPage() {
                 required
               >
                 <option value="">Select Type</option>
-                {accountTypesData?.map((type) => (
+                {(Array.isArray(accountTypesData) ? accountTypesData : []).map((type) => (
                   <option key={type.id} value={type.id}>{type.name}</option>
                 ))}
               </select>
@@ -328,7 +328,7 @@ export default function CompanyAccountsPage() {
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
               >
                 <option value="">No Parent (Root)</option>
-                {accountsData?.filter(a => a.id !== selectedAccount?.id).map((account) => (
+                {(Array.isArray(accountsData) ? accountsData : []).filter(a => a.id !== selectedAccount?.id).map((account) => (
                   <option key={account.id} value={account.id}>{account.code} - {account.name}</option>
                 ))}
               </select>
@@ -408,7 +408,7 @@ export default function CompanyAccountsPage() {
                 required
               >
                 <option value="">Select Type</option>
-                {accountTypesData?.map((type) => (
+                {(Array.isArray(accountTypesData) ? accountTypesData : []).map((type) => (
                   <option key={type.id} value={type.id}>{type.name}</option>
                 ))}
               </select>
@@ -442,7 +442,7 @@ export default function CompanyAccountsPage() {
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg font-medium"
               >
                 <option value="">No Parent (Root)</option>
-                {accountsData?.map((account) => (
+                {(Array.isArray(accountsData) ? accountsData : []).map((account) => (
                   <option key={account.id} value={account.id}>{account.code} - {account.name}</option>
                 ))}
               </select>

@@ -108,7 +108,7 @@ export default function StockTransfersPage() {
     onError: (e: any) => toast.error(e.response?.data?.error || 'Error approving transfer')
   });
 
-  const filtered = transfers.filter((t: StockTransfer) => 
+  const filtered = (Array.isArray(transfers) ? transfers : []).filter((t: StockTransfer) => 
     t.transferNumber.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -121,7 +121,7 @@ export default function StockTransfersPage() {
     { id: 'lines', label: 'Items', content: <div className="p-4 text-sm text-gray-500">Items view</div> }
   ];
 
-  const totalQuantity = selectedTransfer?.lines?.reduce((sum, l) => sum + l.quantity, 0) || 0;
+  const totalQuantity = (Array.isArray(selectedTransfer?.lines) ? selectedTransfer.lines : []).reduce((sum, l) => sum + l.quantity, 0) || 0;
 
   const fields: DetailField[] = viewMode === 'view' ? [
     { label: 'Transfer #', value: selectedTransfer?.transferNumber || '-' },
@@ -199,7 +199,7 @@ export default function StockTransfersPage() {
                       <td className="px-4 py-3 text-sm">{new Date(t.transferDate).toLocaleDateString()}</td>
                       <td className="px-4 py-3 text-sm">{t.fromWarehouse?.name}</td>
                       <td className="px-4 py-3 text-sm">{t.toWarehouse?.name}</td>
-                      <td className="px-4 py-3 text-center text-sm">{t.lines?.length || 0}</td>
+                      <td className="px-4 py-3 text-center text-sm">{(Array.isArray(t.lines) ? t.lines : []).length}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`px-2 py-1 rounded text-xs ${t.status === 'TRANSFERRED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                           {t.status}

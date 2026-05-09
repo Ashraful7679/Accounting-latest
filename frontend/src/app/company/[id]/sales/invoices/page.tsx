@@ -163,7 +163,7 @@ export default function SalesInvoicesPage() {
             ) : invoices?.length === 0 ? (
               <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400 font-mono uppercase tracking-widest">No matching invoices</td></tr>
             ) : (
-              invoices.map((inv) => (
+              (Array.isArray(invoices) ? invoices : []).map((inv) => (
                 <tr key={inv.id} className="hover:bg-gray-50/50 group transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex flex-col">

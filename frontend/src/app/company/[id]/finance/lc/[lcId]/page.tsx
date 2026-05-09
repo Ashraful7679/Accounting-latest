@@ -116,8 +116,8 @@ export default function LCDetailPage() {
 
   const calculateStats = () => {
     if (!lc) return { piTotal: 0, settled: 0, outstanding: 0, loanAmount: 0 };
-    const piTotal = lc.pis?.reduce((sum: number, pi: any) => sum + pi.amount, 0) || 0;
-    const settled = lc.payments?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
+    const piTotal = (Array.isArray(lc.pis) ? lc.pis : [])?.reduce((sum: number, pi: any) => sum + pi.amount, 0) || 0;
+    const settled = (Array.isArray(lc.payments) ? lc.payments : [])?.reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
     
     let loanAmount = 0;
     if (lc.loanType === 'PERCENTAGE') loanAmount = (lc.amount * lc.loanValue) / 100;
@@ -240,7 +240,7 @@ export default function LCDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {lc.pis?.map((pi: any) => {
+                    {(Array.isArray(lc.pis) ? lc.pis : [])?.map((pi: any) => {
                       const paid = pi.paymentAllocations?.reduce((s: number, a: any) => s + a.allocatedAmount, 0) || 0;
                       return (
                         <tr key={pi.id} className="hover:bg-gray-50 transition-colors group">
@@ -268,7 +268,7 @@ export default function LCDetailPage() {
                         </tr>
                       );
                     })}
-                    {(!lc.pis || lc.pis.length === 0) && (
+                    {(!Array.isArray(lc.pis) || lc.pis.length === 0) && (
                       <tr><td colSpan={4} className="px-6 py-12 text-center text-[10px] font-bold text-gray-300 uppercase tracking-widest">No PI records attached</td></tr>
                     )}
                   </tbody>
@@ -308,10 +308,10 @@ export default function LCDetailPage() {
                 )}
               </div>
               <div className="divide-y divide-gray-100">
-                {lc.payments?.length === 0 ? (
+                {(!Array.isArray(lc.payments) || lc.payments.length === 0) ? (
                   <div className="px-6 py-12 text-center text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">No transactions recorded</div>
                 ) : (
-                  lc.payments?.map((pmt: any) => (
+                  (Array.isArray(lc.payments) ? lc.payments : [])?.map((pmt: any) => (
                     <div key={pmt.id} className="p-6 hover:bg-gray-50 transition-all flex items-center justify-between group">
                       <div className="flex items-center gap-4">
                         <div className={cn(
@@ -328,7 +328,7 @@ export default function LCDetailPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                         {pmt.piAllocations?.map((a: any) => (
+                         {(Array.isArray(pmt.piAllocations) ? pmt.piAllocations : [])?.map((a: any) => (
                            <span key={a.id} className="px-2 py-1 bg-gray-100 text-gray-600 rounded-sm text-[8px] font-black uppercase tracking-tighter border border-gray-200">
                              {a.pi?.piNumber}: {formatVal(a.allocatedAmount)}
                            </span>
@@ -379,11 +379,11 @@ export default function LCDetailPage() {
                 <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.2em]">Audit Trail</h4>
               </div>
               <div className="p-6">
-                {!activities || activities.length === 0 ? (
+                {(!Array.isArray(activities) || activities.length === 0) ? (
                   <p className="text-[10px] font-bold text-gray-400 uppercase text-center py-4 tracking-widest italic tracking-tighter">No Events Logged</p>
                 ) : (
                   <div className="space-y-6 relative before:absolute before:left-[5px] before:top-2 before:bottom-2 before:w-[1px] before:bg-gray-100">
-                    {activities.map((act: any) => (
+                    {(Array.isArray(activities) ? activities : []).map((act: any) => (
                       <div key={act.id} className="relative pl-6">
                          <div className="absolute left-0 top-1 w-[11px] h-[11px] rounded-full border-2 border-white bg-gray-200 shadow-sm" />
                          <div>
@@ -479,7 +479,7 @@ export default function LCDetailPage() {
                     onChange={e => setPaymentFormData({...paymentFormData, accountId: e.target.value})}
                   >
                     <option value="">-- SELECT ACCOUNT --</option>
-                    {accounts?.filter((a: any) => a.category === 'CASH' || a.category === 'BANK').map((a: any) => (
+                    {(Array.isArray(accounts) ? accounts : [])?.filter((a: any) => a.category === 'CASH' || a.category === 'BANK').map((a: any) => (
                       <option key={a.id} value={a.id}>{a.name.toUpperCase()} ({a.category})</option>
                     ))}
                   </select>
@@ -543,7 +543,7 @@ export default function LCDetailPage() {
               <div className="space-y-1.5"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Target Loan/PAD/LTR Account</label>
                 <select className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-sm font-black text-[10px] uppercase tracking-widest outline-none focus:border-gray-900" value={settlementAccountId} onChange={e => setSettlementAccountId(e.target.value)}>
                   <option value="">-- SELECT FINANCING ACCOUNT --</option>
-                  {accounts?.filter((a: any) => ['BANK_LOAN','PAD','LTR','LIABILITY'].includes(a.category)).map((a: any) => (<option key={a.id} value={a.id}>{a.name.toUpperCase()} ({a.category})</option>))}
+                  {(Array.isArray(accounts) ? accounts : [])?.filter((a: any) => ['BANK_LOAN','PAD','LTR','LIABILITY'].includes(a.category)).map((a: any) => (<option key={a.id} value={a.id}>{a.name.toUpperCase()} ({a.category})</option>))}
                 </select>
               </div>
               <div className="flex gap-3 pt-4">

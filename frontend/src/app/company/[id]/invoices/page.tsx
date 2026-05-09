@@ -441,7 +441,7 @@ export default function CompanyInvoicesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {invoicesData?.map((invoice) => (
+                {(Array.isArray(invoicesData) ? invoicesData : []).map((invoice) => (
                   <tr key={invoice.id} className="hover:bg-slate-50">
                     <td className="px-6 py-4 text-sm font-medium text-slate-900">{invoice.invoiceNumber}</td>
                     <td className="px-6 py-4 text-sm text-slate-500">{invoice.customer?.name || '-'}</td>
@@ -513,7 +513,7 @@ export default function CompanyInvoicesPage() {
                 ))}
               </tbody>
             </table>
-            {invoicesData?.length === 0 && (
+            {(!Array.isArray(invoicesData) || invoicesData.length === 0) && (
               <div className="text-center py-8 text-gray-500">No invoices found</div>
             )}
           </div>
@@ -539,7 +539,7 @@ export default function CompanyInvoicesPage() {
                     required
                   >
                     <option value="">Select Customer</option>
-                    {customersData?.map((customer) => (
+                    {(Array.isArray(customersData) ? customersData : []).map((customer) => (
                       <option key={customer.id} value={customer.id}>
                         {customer.name}
                       </option>
@@ -622,7 +622,7 @@ export default function CompanyInvoicesPage() {
                             className="input w-full"
                           >
                             <option value="">One-off / Search Product</option>
-                            {productsData?.map((p: any) => (
+                            {(Array.isArray(productsData) ? productsData : []).map((p: any) => (
                               <option key={p.id} value={p.id}>
                                 {p.name} ({p.sku})
                               </option>

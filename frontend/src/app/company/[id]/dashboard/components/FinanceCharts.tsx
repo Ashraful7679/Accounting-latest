@@ -38,8 +38,8 @@ export function FinanceCharts({ charts, formatCurrency }: FinanceChartsProps) {
   };
 
   const getChartData = (name: string) => {
-    const chart = charts.find((c: any) => c.name === name);
-    return chart?.data || [];
+    const chart = (Array.isArray(charts) ? charts : []).find((c: any) => c.name === name);
+    return Array.isArray(chart?.data) ? chart.data : [];
   };
 
   if (!mounted) return <div className="h-[400px] bg-white animate-pulse rounded-sm" />;

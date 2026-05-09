@@ -74,7 +74,7 @@ export default function WarehousesPage() {
     onError: (e: any) => toast.error(e.response?.data?.error || 'Error deleting warehouse')
   });
 
-  const filtered = warehouses.filter((w: Warehouse) => 
+  const filtered = (Array.isArray(warehouses) ? warehouses : []).filter((w: Warehouse) => 
     w.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     w.code.toLowerCase().includes(searchTerm.toLowerCase())
   );

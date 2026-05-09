@@ -178,7 +178,7 @@ export default function DeliveryChallansPage() {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-50">
-                                {dc.lines.map((line: any) => (
+                                {(Array.isArray(dc.lines) ? dc.lines : []).map((line: any) => (
                                   <tr key={line.id} className="hover:bg-gray-50/50 transition-colors">
                                     <td className="px-6 py-3">
                                       <div className="flex flex-col">

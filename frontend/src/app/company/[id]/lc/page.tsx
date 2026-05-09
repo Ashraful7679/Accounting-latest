@@ -89,19 +89,19 @@ export default function LCPage() {
     setExpandedLCs(newExpanded);
   };
 
-  const filteredLCs = lcs?.filter((lc: any) => {
+  const filteredLCs = (Array.isArray(lcs) ? lcs : []).filter((lc: any) => {
     const matchesSearch = !searchTerm || 
       lc.lcNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lc.bankName?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || lc.status === filterStatus;
     return matchesSearch && matchesStatus;
-  }) || [];
+  });
 
   const calculateUsedValue = (lc: any) => {
     if (lc.type === 'IMPORT') {
-      return lc.purchaseOrders?.reduce((sum: number, po: any) => sum + (po.totalBDT || 0), 0) || 0;
+      return (Array.isArray(lc.purchaseOrders) ? lc.purchaseOrders : []).reduce((sum: number, po: any) => sum + (po.totalBDT || 0), 0) || 0;
     } else {
-      return lc.salesOrders?.reduce((sum: number, so: any) => sum + (so.totalAmount || 0), 0) || 0;
+      return (Array.isArray(lc.salesOrders) ? lc.salesOrders : []).reduce((sum: number, so: any) => sum + (so.totalAmount || 0), 0) || 0;
     }
   };
 
@@ -278,7 +278,7 @@ export default function LCPage() {
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100">
-                                    {lc.purchaseOrders.map((po: any) => (
+                                    {(Array.isArray(lc.purchaseOrders) ? lc.purchaseOrders : []).map((po: any) => (
                                       <tr key={po.id} className="hover:bg-gray-50 transition-colors group">
                                         <td className="px-4 py-3 text-xs font-black text-gray-900 uppercase">{po.poNumber}</td>
                                         <td className="px-4 py-3 text-[10px] font-bold text-gray-600 uppercase">{po.supplier?.name}</td>
@@ -342,7 +342,7 @@ export default function LCPage() {
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100">
-                                    {lc.salesOrders.map((so: any) => (
+                                    {(Array.isArray(lc.salesOrders) ? lc.salesOrders : []).map((so: any) => (
                                       <tr key={so.id} className="hover:bg-gray-50 transition-colors group">
                                         <td className="px-4 py-3 text-xs font-black text-gray-900 uppercase">{so.soNumber}</td>
                                         <td className="px-4 py-3 text-[10px] font-bold text-gray-600 uppercase">{so.customer?.name}</td>
@@ -407,7 +407,7 @@ export default function LCPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {salesOrders?.filter((so: any) => !lcs?.find((l: any) => l.id === showSOSelector.lcId)?.salesOrders.find((s: any) => s.id === so.id)).map((so: any) => (
+                    {(Array.isArray(salesOrders) ? salesOrders : []).filter((so: any) => !(Array.isArray(lcs) ? lcs : []).find((l: any) => l.id === showSOSelector.lcId)?.salesOrders.find((s: any) => s.id === so.id)).map((so: any) => (
                       <tr key={so.id} className="hover:bg-white transition-colors">
                         <td className="p-4 text-xs font-black text-gray-900 uppercase">{so.soNumber}</td>
                         <td className="p-4 text-right">
@@ -471,7 +471,7 @@ export default function LCPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {purchaseOrders?.filter((po: any) => !lcs?.find((l: any) => l.id === showPOSelector.lcId)?.purchaseOrders.find((p: any) => p.id === po.id)).map((po: any) => (
+                    {(Array.isArray(purchaseOrders) ? purchaseOrders : []).filter((po: any) => !(Array.isArray(lcs) ? lcs : []).find((l: any) => l.id === showPOSelector.lcId)?.purchaseOrders.find((p: any) => p.id === po.id)).map((po: any) => (
                       <tr key={po.id} className="hover:bg-white transition-colors">
                         <td className="p-4 text-xs font-black text-gray-900 uppercase">{po.poNumber}</td>
                         <td className="p-4 text-right font-mono text-xs font-black text-gray-900">{formatCurrency(po.totalBDT)}</td>

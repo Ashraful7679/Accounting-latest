@@ -104,7 +104,7 @@ export default function PayrollPage() {
     onError: (e: any) => toast.error(e.response?.data?.error || 'Error')
   });
 
-  const filtered = runs.filter((r: PayrollRun) => 
+  const filtered = (Array.isArray(runs) ? runs : []).filter((r: PayrollRun) => 
     r.period.includes(searchTerm) || r.runNumber.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -138,11 +138,11 @@ export default function PayrollPage() {
       { label: 'Approve', onClick: () => selectedRun && approveMutation.mutate(selectedRun.id), variant: 'primary' as const },
     ] : []),
     ...(selectedRun?.status === 'APPROVED' ? [
-      ...(selectedRun.payslips?.filter(p => p.status === 'PENDING').map(p => ({
+      ...(Array.isArray(selectedRun.payslips) ? selectedRun.payslips : []).filter(p => p.status === 'PENDING').map(p => ({
         label: `Pay ${p.employee?.firstName} ${p.employee?.lastName}`,
         onClick: () => selectedRun && markPaidMutation.mutate({ runId: selectedRun.id, payslipId: p.id }),
         variant: 'secondary' as const
-      })) || [])
+      }))
     ] : []),
     { label: 'Delete', onClick: () => selectedRun && deleteMutation.mutate(selectedRun.id), variant: 'danger' as const }
   ] : [];

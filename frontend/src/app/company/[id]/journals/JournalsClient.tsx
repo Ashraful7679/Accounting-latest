@@ -114,7 +114,7 @@ export default function JournalsClient() {
             </tr>
           </thead>
           <tbody>
-            ${(journal.lines || []).map((line: any) => `
+            ${(Array.isArray(journal.lines) ? journal.lines : []).map((line: any) => `
               <tr>
                 <td>
                   <div style="font-weight:bold;">${line.account?.name || 'Unknown'}</div>
@@ -470,7 +470,7 @@ export default function JournalsClient() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {journalsData?.map((journal: any) => (
+                  {(Array.isArray(journalsData) ? journalsData : []).map((journal: any) => (
                     <tr key={journal.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4 text-sm font-bold text-slate-900">{journal.entryNumber}</td>
                       <td className="px-6 py-4 text-sm text-slate-500 font-medium">
@@ -558,7 +558,7 @@ export default function JournalsClient() {
                     <div key={index} className="flex gap-2 items-start">
                       <select value={line.accountId} onChange={(e) => updateLine(index, 'accountId', e.target.value)} className="input flex-1" required>
                         <option value="">Select Account</option>
-                        {accountsData?.map((account: any) => (
+                        {(Array.isArray(accountsData) ? accountsData : []).map((account: any) => (
                           <option key={account.id} value={account.id}>
                             {account.code.split('-').pop()} - {account.name}
                           </option>
@@ -612,7 +612,7 @@ export default function JournalsClient() {
                   />
                   {attachments.length > 0 && (
                     <div className="mt-2 space-y-1">
-                      {attachments.map((file, idx) => (
+                      {(Array.isArray(attachments) ? attachments : []).map((file, idx) => (
                         <div key={idx} className="flex items-center justify-between text-xs bg-white p-2 rounded">
                           <span className="truncate max-w-[200px]">{file.name}</span>
                           <button
@@ -687,7 +687,7 @@ export default function JournalsClient() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {selectedJournal.lines?.map((line: any, idx: number) => (
+                  {(Array.isArray(selectedJournal.lines) ? selectedJournal.lines : []).map((line: any, idx: number) => (
                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-4 py-2 border-r border-slate-50">
                         <div className="font-semibold text-slate-700">{line.account?.code}</div>

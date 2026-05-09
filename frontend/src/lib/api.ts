@@ -1,16 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import toast from 'react-hot-toast';
 
-let API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5002';
-
-// In production (not localhost), use the default production URL if env is not set
-if (typeof window !== 'undefined' &&
-  !window.location.hostname.includes('localhost') &&
-  !window.location.hostname.includes('127.0.0.1')) {
-  if (!process.env.NEXT_PUBLIC_API_URL) {
-    API_URL = 'http://localhost:5002';
-  }
-}
+let API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://accabiz-backend.onrender.com';
 
 if (!API_URL.endsWith('/api')) {
   API_URL = `${API_URL.replace(/\/$/, '')}/api`;
@@ -125,6 +116,17 @@ function parseFieldErrors(error: AxiosError): Record<string, string> {
         fieldErrors[field] = detail.message || 'Invalid value';
       }
     });
+  }
+  
+  // Handle backend's { success: false, error: { message: "Field X is required", code, statusCode } } format
+  const errorObj = responseData.error as Record<string, unknown> | undefined;
+  if (errorObj && typeof errorObj.message === 'string') {
+    const msg = errorObj.message;
+    // Try to extract field name from messages like "X is required" or "X must be ..."
+    const fieldMatch = msg.match(/'(\w+)'\s+(is required|must)/) || msg.match(/^(\w+)\s+(is required|must)/);
+    if (fieldMatch) {
+      fieldErrors[fieldMatch[1].toLowerCase()] = msg;
+    }
   }
   
   return fieldErrors;

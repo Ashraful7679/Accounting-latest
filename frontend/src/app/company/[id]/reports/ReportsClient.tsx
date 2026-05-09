@@ -43,7 +43,10 @@ export default function ReportsClient() {
   const router = useRouter();
   const params = useParams();
   const companyId = params.id as string;
+  const [mounted, setMounted] = useState(false);
   
+  useEffect(() => { setMounted(true); }, []);
+
   const [selectedReport, setSelectedReport] = useState<ReportInfo | null>(null);
   const [filters, setFilters] = useState({
     startDate: '',
@@ -221,7 +224,7 @@ export default function ReportsClient() {
                       <p className="text-slate-500 font-bold">
                         {filters.startDate ? `From: ${filters.startDate}` : 'Beginning'} - {filters.endDate ? `To: ${filters.endDate}` : 'Today'}
                       </p>
-                      <p className="text-[10px] text-slate-400 mt-4 uppercase font-black">Generated: {new Date().toLocaleString()}</p>
+                       <p className="text-[10px] text-slate-400 mt-4 uppercase font-black">Generated: {mounted ? new Date().toLocaleString() : '...'}</p>
                     </div>
                   </div>
                 </div>

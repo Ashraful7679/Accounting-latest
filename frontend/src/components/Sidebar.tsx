@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useCompany } from '@/lib/CompanyContext';
 import { 
   Building2, Users, FileText, Receipt, TrendingUp,
   CreditCard, Package, FileBarChart, Settings, DollarSign,
@@ -34,13 +35,13 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
   const params = useParams();
   const pathname = usePathname();
   const router = useRouter();
+  const { companyId: contextCompanyId } = useCompany();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
 
   // Derive role from prop or localStorage (client-side only)
   const [role, setRole] = React.useState(propRole || 'User');
   const [mounted, setMounted] = React.useState(false);
-  const [realCompanyId, setRealCompanyId] = useState<string | null>(null);
 
   React.useEffect(() => {
     setMounted(true);
@@ -49,24 +50,14 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
       setRole(roles[0] || 'User');
     }
 
-    // Extract real company UUID from the actual browser URL (bypassing .htaccess rewrite)
+    // Sync resolved company ID to localStorage for cross-session persistence
     const match = window.location.pathname.match(/\/company\/([^/]+)/);
-    let idStr = params.id as string;
-    
     if (match && match[1] && !['placeholder', '[id]', '%5Bid%5D'].includes(match[1])) {
-      idStr = match[1];
-      localStorage.setItem('active_company_id', idStr);
-    } else {
-      const active = localStorage.getItem('active_company_id');
-      if (active) idStr = active;
+      localStorage.setItem('active_company_id', match[1]);
     }
-    
-    if (!['placeholder', '[id]', '%5Bid%5D'].includes(idStr)) {
-      setRealCompanyId(idStr);
-    }
-  }, [propRole, params.id]);
+  }, [propRole]);
 
-  const companyId = realCompanyId || params.id;
+  const companyId = contextCompanyId || (typeof params.id === 'string' ? params.id : '');
   const isOwner = role === 'Owner' || role === 'Admin';
 
   // Auto-expand menus when a submenu is active
@@ -204,7 +195,7 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 py-2 overflow-y-auto">
-        {(!mounted || !realCompanyId) ? (
+        {(!mounted || !companyId || ['placeholder', '[id]', '%5Bid%5D'].includes(String(companyId))) ? (
           <div className="flex justify-center p-4">
             <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
           </div>

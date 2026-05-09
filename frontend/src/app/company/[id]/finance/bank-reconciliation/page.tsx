@@ -36,11 +36,12 @@ export default function BankReconciliationsPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  const { data: reconciliations = [], isLoading } = useQuery({
+  const { data: reconciliationsRaw, isLoading } = useQuery({
     queryKey: ['bank-reconciliations', companyId],
     queryFn: () => api.get(`/company/${companyId}/bank-reconciliations`).then(r => r.data.data),
     enabled: !!companyId
   });
+  const reconciliations: BankReconciliation[] = Array.isArray(reconciliationsRaw) ? reconciliationsRaw : [];
 
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts', companyId],
@@ -48,7 +49,7 @@ export default function BankReconciliationsPage() {
     enabled: !!companyId
   });
 
-  const bankAccounts = (accounts || []).filter((a: any) => a.category === 'BANK');
+  const bankAccounts = (Array.isArray(accounts) ? accounts : []).filter((a: any) => a.category === 'BANK');
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.post(`/company/${companyId}/bank-reconciliations`, data),

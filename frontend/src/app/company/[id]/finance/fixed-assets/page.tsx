@@ -55,11 +55,12 @@ export default function FixedAssetsPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  const { data: assets = [], isLoading } = useQuery({
+  const { data: assetsRaw, isLoading } = useQuery({
     queryKey: ['fixed-assets', companyId],
     queryFn: () => api.get(`/company/${companyId}/fixed-assets`).then(r => r.data.data),
     enabled: !!companyId
   });
+  const assets: FixedAsset[] = Array.isArray(assetsRaw) ? assetsRaw : [];
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.post(`/company/${companyId}/fixed-assets`, data),

@@ -64,7 +64,7 @@ export default function CreatePurchaseOrderPage() {
     const line = { ...newLines[index], [field]: value };
 
     if (field === 'itemDescription') {
-      const existingProduct = products?.find((p: any) => p.name === value);
+      const existingProduct = (Array.isArray(products) ? products : []).find((p: any) => p.name === value);
       if (existingProduct) {
         let price = existingProduct.unitPrice || 0;
         const targetCurrency = orderType === 'local' ? 'BDT' : 'USD';
@@ -92,7 +92,7 @@ export default function CreatePurchaseOrderPage() {
     setFormData(prev => ({
       ...prev,
       lines: prev.lines.map(line => {
-        const existingProduct = products?.find((p: any) => p.name === line.itemDescription);
+        const existingProduct = (Array.isArray(products) ? products : []).find((p: any) => p.name === line.itemDescription);
         if (!existingProduct) return line;
 
         const targetCurrency = orderType === 'local' ? 'BDT' : 'USD';
@@ -139,10 +139,10 @@ export default function CreatePurchaseOrderPage() {
     }
 
     // Check for new entities
-    const existingVendor = vendors?.find((v: any) => v.name === formData.vendorName);
+    const existingVendor = (Array.isArray(vendors) ? vendors : []).find((v: any) => v.name === formData.vendorName);
     const newVendors = !existingVendor ? [formData.vendorName] : [];
     const newProducts = formData.lines
-      .filter(l => !products?.find((p: any) => p.name === l.itemDescription))
+      .filter(l => !(Array.isArray(products) ? products : []).find((p: any) => p.name === l.itemDescription))
       .map(l => l.itemDescription);
     
     const uniqueNewProducts = Array.from(new Set(newProducts));
@@ -161,7 +161,7 @@ export default function CreatePurchaseOrderPage() {
     setShowConfirmModal(false);
     try {
       let finalVendorId = '';
-      const existingVendor = vendors?.find((v: any) => v.name === formData.vendorName);
+      const existingVendor = (Array.isArray(vendors) ? vendors : []).find((v: any) => v.name === formData.vendorName);
       if (existingVendor) {
         finalVendorId = existingVendor.id;
       } else {
@@ -175,7 +175,7 @@ export default function CreatePurchaseOrderPage() {
 
       const finalLines = await Promise.all(formData.lines.map(async (line) => {
         let finalProductId = '';
-        const existingProduct = products?.find((p: any) => p.name === line.itemDescription);
+        const existingProduct = (Array.isArray(products) ? products : []).find((p: any) => p.name === line.itemDescription);
         if (existingProduct) {
           finalProductId = existingProduct.id;
         } else {

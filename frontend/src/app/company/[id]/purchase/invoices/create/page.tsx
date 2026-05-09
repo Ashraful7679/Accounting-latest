@@ -85,7 +85,7 @@ export default function CreatePurchaseInvoicePage() {
       const vendorId = searchParams.get('vendorId');
       
       if (vendorId) {
-        const vendor = vendors?.find((v: any) => v.id === vendorId);
+        const vendor = (Array.isArray(vendors) ? vendors : []).find((v: any) => v.id === vendorId);
         if (vendor) {
           setFormData(prev => ({ ...prev, vendorName: vendor.name }));
         }
@@ -103,7 +103,7 @@ export default function CreatePurchaseInvoicePage() {
     orderType === 'local' ? v.type === 'Local' || !v.type : v.type === 'Foreign'
   );
 
-  const selectedVendor = vendors?.find((v: any) => v.name === formData.vendorName);
+  const selectedVendor = (Array.isArray(vendors) ? vendors : []).find((v: any) => v.name === formData.vendorName);
   const vendorPOs = (Array.isArray(pos) ? pos : []).filter((po: any) => po.supplierId === selectedVendor?.id && (po.status === 'SENT' || po.status === 'APPROVED' || po.status === 'PARTIALLY_RECEIVED')) || [];
 
   const handleLineChange = (index: number, field: string, value: any) => {
@@ -111,7 +111,7 @@ export default function CreatePurchaseInvoicePage() {
     const line = { ...newLines[index], [field]: value };
 
     if (field === 'itemDescription') {
-      const existingProduct = products?.find((p: any) => p.name === value);
+      const existingProduct = (Array.isArray(products) ? products : []).find((p: any) => p.name === value);
       if (existingProduct) {
         let price = existingProduct.unitPrice || 0;
         const targetCurrency = orderType === 'local' ? 'BDT' : 'USD';
@@ -157,7 +157,7 @@ export default function CreatePurchaseInvoicePage() {
       });
     } else {
       currentPOs.push(poId);
-      const po = vendorPOs.find((p: any) => p.id === poId);
+      const po = (Array.isArray(vendorPOs) ? vendorPOs : []).find((p: any) => p.id === poId);
       if (po && po.lines) {
         const newLinesFromPO = po.lines.map((l: any) => ({
           productId: l.productId,
@@ -192,7 +192,7 @@ export default function CreatePurchaseInvoicePage() {
       });
     } else {
       currentGRNs.push(grnId);
-      const grn = grns?.find((g: any) => g.id === grnId);
+      const grn = (Array.isArray(grns) ? grns : []).find((g: any) => g.id === grnId);
       if (grn && grn.lines) {
         const newLinesFromGRN = grn.lines.map((l: any) => ({
           productId: l.productId,
@@ -232,7 +232,7 @@ export default function CreatePurchaseInvoicePage() {
     // Check for new entities
     const newVendors = !selectedVendor ? [formData.vendorName] : [];
     const newProducts = formData.lines
-      .filter(l => !l.productId && !products?.find((p: any) => p.name === l.itemDescription))
+      .filter(l => !l.productId && !(Array.isArray(products) ? products : []).find((p: any) => p.name === l.itemDescription))
       .map(l => l.itemDescription);
     
     const uniqueNewProducts = Array.from(new Set(newProducts));
@@ -263,7 +263,7 @@ export default function CreatePurchaseInvoicePage() {
       const finalLines = await Promise.all(formData.lines.map(async (line) => {
         let finalProductId = line.productId;
         if (!finalProductId) {
-          const existingProduct = products?.find((p: any) => p.name === line.itemDescription);
+          const existingProduct = (Array.isArray(products) ? products : []).find((p: any) => p.name === line.itemDescription);
           if (existingProduct) {
             finalProductId = existingProduct.id;
           } else {
@@ -508,7 +508,7 @@ export default function CreatePurchaseInvoicePage() {
                       placeholder="Type or select..."
                     />
                     {line.poId && (
-                      <span className="text-[8px] font-bold text-blue-500 uppercase tracking-tighter pl-2">Linked to {vendorPOs.find((p: any) => p.id === line.poId)?.poNumber}</span>
+                      <span className="text-[8px] font-bold text-blue-500 uppercase tracking-tighter pl-2">Linked to {(Array.isArray(vendorPOs) ? vendorPOs : []).find((p: any) => p.id === line.poId)?.poNumber}</span>
                     )}
                   </td>
                   <td className="px-4 py-2">

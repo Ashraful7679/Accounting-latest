@@ -96,8 +96,8 @@ export default function CreateSalesOrderPage() {
   };
 
   const getLineMargin = (line: SalesOrderFormData['lines'][0]) => {
-    const product = products?.find((p: any) => p.name === line.itemDescription);
-    const pricing = productPricing?.find((p: any) => p.productId === product?.id);
+    const product = (Array.isArray(products) ? products : []).find((p: any) => p.name === line.itemDescription);
+    const pricing = (Array.isArray(productPricing) ? productPricing : []).find((p: any) => p.productId === product?.id);
     if (!pricing?.averageCost || !line.unitPrice) return null;
     const margin = ((line.unitPrice - pricing.averageCost) / line.unitPrice) * 100;
     return {

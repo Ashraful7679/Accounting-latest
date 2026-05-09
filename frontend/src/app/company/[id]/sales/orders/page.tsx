@@ -135,7 +135,7 @@ function SalesOrdersPage() {
     return new Date(date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: '2-digit' });
   };
 
-  const filteredOrders = salesOrders.filter((order: any) => 
+  const filteredOrders = (Array.isArray(salesOrders) ? salesOrders : []).filter((order: any) => 
     order.currency === (activeTab === 'local' ? 'BDT' : 'USD')
   );
 

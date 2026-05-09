@@ -27,7 +27,7 @@ export default function AuditClient() {
     if (!token) router.push('/login');
   }, [router]);
 
-  const { data: activities = [], isLoading } = useQuery({
+  const { data: activitiesRaw, isLoading } = useQuery({
     queryKey: ['audit-logs', companyId],
     queryFn: async () => {
       const response = await api.get(`/company/${companyId}/audit`);
@@ -35,6 +35,7 @@ export default function AuditClient() {
     },
     enabled: !!companyId && mounted,
   });
+  const activities: any[] = Array.isArray(activitiesRaw) ? activitiesRaw : [];
 
   if (!mounted) return null;
 

@@ -11,6 +11,8 @@ import { Plus, FileText, Trash2, Check, X, ArrowLeft, LogOut, Eye, Edit, CreditC
 import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
 import { AttachmentManager } from '@/components/AttachmentManager';
 import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
+import { InfoTooltip, FormFieldWithInfo } from '@/components/InfoTooltip';
+import { invoiceFieldInfo } from '@/data/fieldDefinitions';
 
 
 interface Customer {
@@ -524,8 +526,12 @@ export default function CompanyInvoicesPage() {
             <h3 className="text-xl font-semibold mb-4">Create Invoice</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
+<div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Customer
+                    <span className="text-red-500">*</span>
+                    <InfoTooltip fieldInfo={invoiceFieldInfo.customer} />
+                  </label>
                   <select
                     value={formData.customerId}
                     onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
@@ -541,7 +547,10 @@ export default function CompanyInvoicesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Date</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Invoice Date
+                    <InfoTooltip fieldInfo={invoiceFieldInfo.invoiceDate} />
+                  </label>
                   <input
                     type="date"
                     value={formData.invoiceDate}
@@ -553,7 +562,10 @@ export default function CompanyInvoicesPage() {
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Currency
+                    <InfoTooltip fieldInfo={invoiceFieldInfo.currency} />
+                  </label>
                   <select
                     value={formData.currency}
                     onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
@@ -565,7 +577,10 @@ export default function CompanyInvoicesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Exchange Rate</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Exchange Rate
+                    <InfoTooltip fieldInfo={invoiceFieldInfo.exchangeRate} />
+                  </label>
                   <input
                     type="number"
                     step="0.01"
@@ -576,7 +591,10 @@ export default function CompanyInvoicesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Due Date
+                    <InfoTooltip fieldInfo={invoiceFieldInfo.dueDate} />
+                  </label>
                   <input
                     type="date"
                     value={formData.dueDate}
@@ -619,6 +637,7 @@ export default function CompanyInvoicesPage() {
                             onChange={(e) => updateLine(index, 'description', e.target.value)}
                             className="input w-full"
                             required
+                            title={invoiceFieldInfo.description.function}
                           />
                         </div>
                         <div className="col-span-1">
@@ -629,6 +648,7 @@ export default function CompanyInvoicesPage() {
                             onChange={(e) => updateLine(index, 'quantity', parseFloat(e.target.value))}
                             className="input w-full text-center"
                             required
+                            title={invoiceFieldInfo.quantity.function}
                           />
                         </div>
                         <div className="col-span-2">
@@ -639,6 +659,7 @@ export default function CompanyInvoicesPage() {
                             onChange={(e) => updateLine(index, 'unitPrice', parseFloat(e.target.value))}
                             className="input w-full text-right"
                             required
+                            title={invoiceFieldInfo.unitPrice.function}
                           />
                         </div>
                         <div className="col-span-1">
@@ -648,6 +669,7 @@ export default function CompanyInvoicesPage() {
                             value={line.taxRate}
                             onChange={(e) => updateLine(index, 'taxRate', parseFloat(e.target.value))}
                             className="input w-full text-center"
+                            title={invoiceFieldInfo.taxRate.function}
                           />
                         </div>
                       </div>

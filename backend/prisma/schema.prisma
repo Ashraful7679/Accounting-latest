@@ -91,6 +91,7 @@ model Role {
   description String?
   isSystem    Boolean    @default(false)
   isActive    Boolean    @default(true)
+  permissions Json?
   userRoles   UserRole[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -112,8 +113,12 @@ model UserPermission {
   module     String
   canCreate  Boolean @default(false)
   canView    Boolean @default(true)
+  canEdit    Boolean @default(false)
+  canDelete  Boolean @default(false)
   canVerify  Boolean @default(false)
   canApprove Boolean @default(false)
+  canExport  Boolean @default(false)
+  canPrint   Boolean @default(false)
   user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, module])

@@ -99,7 +99,10 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
 
   // Chart of Accounts
   fastify.get('/:id/accounts', coaController.getAccounts.bind(coaController));
+  fastify.post('/:id/accounts', coaController.createAccount.bind(coaController));
+  fastify.put('/:id/accounts/:accountId', coaController.updateAccount.bind(coaController));
   fastify.get('/:id/account-types', coaController.getAccountTypes.bind(coaController));
+  fastify.post('/:id/heal-balances', coaController.healBalances.bind(coaController));
 
   // Dashboard Stats
   fastify.get('/:id/dashboard-stats', dashboardController.getStats.bind(dashboardController));

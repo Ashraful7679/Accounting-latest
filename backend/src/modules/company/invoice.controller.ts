@@ -300,6 +300,26 @@ export class InvoiceController extends BaseCompanyController {
     return reply.send({ success: true, message: 'Invoice deleted and quantities reverted' });
   }
 
+  /**
+   * POST /:id/invoices/:invoiceId/reverse
+   * Always creates an accounting reversal. Never performs a hard delete.
+   * This is the dedicated handler for the /reverse route.
+   */
+  async reverseInvoiceRoute(request: FastifyRequest, reply: FastifyReply) {
+    const { invoiceId } = request.params as { invoiceId: string };
+    const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: { lines: true },
+    });
+
+    if (!invoice) throw new NotFoundError('Invoice not found');
+
+    return this.reverseInvoice(invoice, companyId, userId, reply);
+  }
+
   private async reverseInvoice(invoice: any, companyId: string, userId: string, reply: FastifyReply) {
     const reversalNumber = await this.generateDocumentNumber(companyId, 'invoice');
     const revPrefix = invoice.type === 'SALES' ? 'RVS' : 'RVP';

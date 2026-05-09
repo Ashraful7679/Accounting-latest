@@ -8,7 +8,7 @@ import fs from 'fs';
 import { authRoutes } from './modules/auth/auth.routes';
 import { adminRoutes } from './modules/admin/admin.routes';
 import { ownerRoutes } from './modules/owner/owner.routes';
-import { companyRoutes } from './modules/company/company.routes';
+import { companyRoutes, portalRoutes } from './modules/company/company.routes';
 import { systemRoutes } from './modules/system/system.routes';
 import { BackupController } from './modules/backup/backup.controller';
 import { BackupService } from './modules/system/backup.service';
@@ -89,6 +89,7 @@ fastify.get('/health', async () => {
 fastify.register(authRoutes, { prefix: '/api/auth' });
 fastify.register(adminRoutes, { prefix: '/api/admin' });
 fastify.register(ownerRoutes, { prefix: '/api/owner' });
+fastify.register(portalRoutes, { prefix: '/api' });  // public — no JWT required
 fastify.register(companyRoutes, { prefix: '/api/company' });
 fastify.register(systemRoutes, { prefix: '/api/system' });
 

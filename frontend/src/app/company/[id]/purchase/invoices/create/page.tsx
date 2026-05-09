@@ -99,12 +99,12 @@ export default function CreatePurchaseInvoicePage() {
     }
   }, [mounted, grns, searchParams, vendors]);
 
-  const filteredVendors = vendors?.filter((v: any) => 
+  const filteredVendors = (Array.isArray(vendors) ? vendors : []).filter((v: any) => 
     orderType === 'local' ? v.type === 'Local' || !v.type : v.type === 'Foreign'
   );
 
   const selectedVendor = vendors?.find((v: any) => v.name === formData.vendorName);
-  const vendorPOs = pos?.filter((po: any) => po.supplierId === selectedVendor?.id && (po.status === 'SENT' || po.status === 'APPROVED' || po.status === 'PARTIALLY_RECEIVED')) || [];
+  const vendorPOs = (Array.isArray(pos) ? pos : []).filter((po: any) => po.supplierId === selectedVendor?.id && (po.status === 'SENT' || po.status === 'APPROVED' || po.status === 'PARTIALLY_RECEIVED')) || [];
 
   const handleLineChange = (index: number, field: string, value: any) => {
     const newLines = [...formData.lines];
@@ -322,10 +322,10 @@ export default function CreatePurchaseInvoicePage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6 bg-gray-50 min-h-screen">
       <datalist id="vendor-list">
-        {filteredVendors?.map((v: any) => <option key={v.id} value={v.name} />)}
+        {(Array.isArray(filteredVendors) ? filteredVendors : []).map((v: any) => <option key={v.id} value={v.name} />)}
       </datalist>
       <datalist id="product-list">
-        {products?.map((p: any) => <option key={p.id} value={p.name} />)}
+        {(Array.isArray(products) ? products : []).map((p: any) => <option key={p.id} value={p.name} />)}
       </datalist>
 
       {/* Header */}
@@ -435,13 +435,13 @@ export default function CreatePurchaseInvoicePage() {
             </div>
           )}
 
-          {selectedVendor && grns?.filter((g: any) => g.supplierId === selectedVendor.id).length > 0 && (
+          {selectedVendor && (Array.isArray(grns) ? grns : []).filter((g: any) => g.supplierId === selectedVendor.id).length > 0 && (
             <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
               <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                 <Truck className="w-3 h-3" /> Link GRNs
               </h3>
               <div className="flex flex-wrap gap-2">
-                {grns?.filter((g: any) => g.supplierId === selectedVendor.id).map((grn: any) => (
+                {(Array.isArray(grns) ? grns : []).filter((g: any) => g.supplierId === selectedVendor.id).map((grn: any) => (
                   <button
                     key={grn.id}
                     type="button"

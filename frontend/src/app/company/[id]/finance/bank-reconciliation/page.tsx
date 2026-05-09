@@ -38,13 +38,13 @@ export default function BankReconciliationsPage() {
 
   const { data: reconciliations = [], isLoading } = useQuery({
     queryKey: ['bank-reconciliations', companyId],
-    queryFn: () => api.get(`/company/${companyId}/bank-reconciliations`).then(r => r.data),
+    queryFn: () => api.get(`/company/${companyId}/bank-reconciliations`).then(r => r.data.data),
     enabled: !!companyId
   });
 
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts', companyId],
-    queryFn: () => api.get(`/company/${companyId}/accounts`).then(r => r.data),
+    queryFn: () => api.get(`/company/${companyId}/accounts`).then(r => r.data.data),
     enabled: !!companyId
   });
 

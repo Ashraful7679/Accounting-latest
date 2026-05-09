@@ -99,12 +99,12 @@ export default function CreateSalesInvoicePage() {
     }
   }, [mounted, challans, searchParams, customers]);
 
-  const filteredCustomers = customers?.filter((c: any) => 
+  const filteredCustomers = (Array.isArray(customers) ? customers : []).filter((c: any) => 
     orderType === 'local' ? c.type === 'Local' || !c.type : c.type === 'Foreign'
   );
 
-  const selectedCustomer = customers?.find((c: any) => c.name === formData.customerName);
-  const customerPIs = exportPIs?.filter((pi: any) => pi.customerId === selectedCustomer?.id && (pi.status === 'SENT' || pi.status === 'APPROVED' || pi.status === 'PARTIAL')) || [];
+  const selectedCustomer = (Array.isArray(customers) ? customers : []).find((c: any) => c.name === formData.customerName);
+  const customerPIs = (Array.isArray(exportPIs) ? exportPIs : []).filter((pi: any) => pi.customerId === selectedCustomer?.id && (pi.status === 'SENT' || pi.status === 'APPROVED' || pi.status === 'PARTIAL')) || [];
 
   const handleLineChange = (index: number, field: string, value: any) => {
     const newLines = [...formData.lines];
@@ -324,10 +324,10 @@ export default function CreateSalesInvoicePage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6 bg-gray-50 min-h-screen">
       <datalist id="customer-list">
-        {filteredCustomers?.map((c: any) => <option key={c.id} value={c.name} />)}
+        {(Array.isArray(filteredCustomers) ? filteredCustomers : []).map((c: any) => <option key={c.id} value={c.name} />)}
       </datalist>
       <datalist id="product-list">
-        {products?.filter((p:any) => p.type === 'Sales' || !p.type).map((p: any) => <option key={p.id} value={p.name} />)}
+        {(Array.isArray(products) ? products : []).filter((p:any) => p.type === 'Sales' || !p.type).map((p: any) => <option key={p.id} value={p.name} />)}
       </datalist>
 
       {/* Header */}
@@ -443,7 +443,7 @@ export default function CreateSalesInvoicePage() {
                 <Truck className="w-3 h-3" /> Link Delivery Notes
               </h3>
               <div className="flex flex-wrap gap-2">
-                {challans?.filter((d: any) => d.customerId === selectedCustomer.id).map((dn: any) => (
+                  {(Array.isArray(challans) ? challans : []).filter((d: any) => d.customerId === selectedCustomer.id).map((dn: any) => (
                   <button
                     key={dn.id}
                     type="button"

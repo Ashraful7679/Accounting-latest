@@ -36,13 +36,13 @@ export default function StockReconciliationsPage() {
 
   const { data: reconciliations = [], isLoading } = useQuery({
     queryKey: ['stock-reconciliations', companyId],
-    queryFn: () => api.get(`/company/${companyId}/stock-reconciliations`).then(r => r.data),
+    queryFn: () => api.get(`/company/${companyId}/stock-reconciliations`).then(r => r.data.data),
     enabled: !!companyId
   });
 
   const { data: warehouses = [] } = useQuery({
     queryKey: ['warehouses', companyId],
-    queryFn: () => api.get(`/company/${companyId}/warehouses`).then(r => r.data),
+    queryFn: () => api.get(`/company/${companyId}/warehouses`).then(r => r.data.data),
     enabled: !!companyId
   });
 

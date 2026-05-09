@@ -55,7 +55,7 @@ export default function CreatePurchaseOrderPage() {
     enabled: !!companyId,
   });
 
-  const filteredVendors = vendors?.filter((v: any) => 
+  const filteredVendors = (Array.isArray(vendors) ? vendors : []).filter((v: any) => 
     orderType === 'local' ? v.preferredCurrency === 'BDT' : v.preferredCurrency !== 'BDT'
   );
 
@@ -217,10 +217,10 @@ export default function CreatePurchaseOrderPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6 bg-gray-50 min-h-screen">
       <datalist id="vendor-list">
-        {filteredVendors?.map((v: any) => <option key={v.id} value={v.name} />)}
+        {(Array.isArray(filteredVendors) ? filteredVendors : []).map((v: any) => <option key={v.id} value={v.name} />)}
       </datalist>
       <datalist id="product-list">
-        {products?.map((p: any) => <option key={p.id} value={p.name} />)}
+        {(Array.isArray(products) ? products : []).map((p: any) => <option key={p.id} value={p.name} />)}
       </datalist>
 
       {/* Header */}

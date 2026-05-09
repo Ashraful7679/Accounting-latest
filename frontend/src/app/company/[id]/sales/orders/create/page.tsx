@@ -82,7 +82,7 @@ export default function CreateSalesOrderPage() {
 
   const orderType = watch('orderType');
 
-  const filteredCustomers = customers?.filter((c: any) => 
+  const filteredCustomers = (Array.isArray(customers) ? customers : []).filter((c: any) => 
     orderType === 'local' ? c.preferredCurrency === 'BDT' : c.preferredCurrency !== 'BDT'
   );
 
@@ -146,10 +146,10 @@ export default function CreateSalesOrderPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6 bg-gray-50 min-h-screen">
       <datalist id="customer-list">
-        {filteredCustomers?.map((c: any) => <option key={c.id} value={c.name} />)}
+        {(Array.isArray(filteredCustomers) ? filteredCustomers : []).map((c: any) => <option key={c.id} value={c.name} />)}
       </datalist>
       <datalist id="product-list">
-        {products?.map((p: any) => <option key={p.id} value={p.name} />)}
+        {(Array.isArray(products) ? products : []).map((p: any) => <option key={p.id} value={p.name} />)}
       </datalist>
 
       <div className="flex justify-between items-center bg-white p-4 rounded-sm border border-gray-200 shadow-sm">

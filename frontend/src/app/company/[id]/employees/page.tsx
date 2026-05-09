@@ -8,6 +8,8 @@ import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { handleError } from '@/lib/error-handler';
 import { Plus, Trash2, Edit2, Check, X, User, DollarSign, Wallet, CreditCard, FileText, ChevronRight } from 'lucide-react';
+import { InfoTooltip } from '@/components/InfoTooltip';
+import { employeeFieldInfo } from '@/data/fieldDefinitions';
 
 
 interface Employee {
@@ -514,11 +516,17 @@ export default function EmployeesPage() {
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-1">First Name *</label>
+                      <label className="block text-sm font-medium mb-1">
+                        First Name *
+                        <InfoTooltip fieldInfo={employeeFieldInfo.firstName} />
+                      </label>
                       <input type="text" value={formData.firstName || ''} onChange={(e) => setFormData({...formData, firstName: e.target.value})} className="input" required />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1">Last Name *</label>
+                      <label className="block text-sm font-medium mb-1">
+                        Last Name *
+                        <InfoTooltip fieldInfo={employeeFieldInfo.lastName} />
+                      </label>
                       <input type="text" value={formData.lastName || ''} onChange={(e) => setFormData({...formData, lastName: e.target.value})} className="input" required />
                     </div>
                   </div>
@@ -534,16 +542,25 @@ export default function EmployeesPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-1">Designation</label>
+                      <label className="block text-sm font-medium mb-1">
+                        Designation
+                        <InfoTooltip fieldInfo={employeeFieldInfo.designation} />
+                      </label>
                       <input type="text" value={formData.designation || ''} onChange={(e) => setFormData({...formData, designation: e.target.value})} className="input" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1">Department</label>
+                      <label className="block text-sm font-medium mb-1">
+                        Department
+                        <InfoTooltip fieldInfo={employeeFieldInfo.department} />
+                      </label>
                       <input type="text" value={formData.department || ''} onChange={(e) => setFormData({...formData, department: e.target.value})} className="input" />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Salary</label>
+                    <label className="block text-sm font-medium mb-1">
+                      Salary
+                      <InfoTooltip fieldInfo={employeeFieldInfo.salary} />
+                    </label>
                     <input type="number" value={formData.salary || 0} onChange={(e) => setFormData({...formData, salary: parseFloat(e.target.value)})} className="input" />
                   </div>
                 </>

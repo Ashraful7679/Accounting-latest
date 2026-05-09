@@ -17,6 +17,8 @@ import { renderActivityMessage, type ActivityLog } from '@/utils/activityRendere
 import { handleError } from '@/lib/error-handler';
 import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
 import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
+import { InfoTooltip } from '@/components/InfoTooltip';
+import { journalFieldInfo } from '@/data/fieldDefinitions';
 
 interface Account {
   id: string;
@@ -532,16 +534,25 @@ export default function JournalsClient() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date
+                    <InfoTooltip fieldInfo={journalFieldInfo.date} />
+                  </label>
                   <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="input" disabled={userRole !== 'Owner'} required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                    <InfoTooltip fieldInfo={journalFieldInfo.description} />
+                  </label>
                   <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="input" />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Journal Lines</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Journal Lines
+                  <InfoTooltip fieldInfo={journalFieldInfo.account} />
+                </label>
                 <div className="space-y-2">
                   {formData.lines.map((line, index) => (
                     <div key={index} className="flex gap-2 items-start">
@@ -553,11 +564,11 @@ export default function JournalsClient() {
                           </option>
                         ))}
                       </select>
-                      <select value={line.debitCredit} onChange={(e) => updateLine(index, 'debitCredit', e.target.value)} className="input w-24">
+                      <select value={line.debitCredit} onChange={(e) => updateLine(index, 'debitCredit', e.target.value)} className="input w-24" title={line.debitCredit === 'debit' ? journalFieldInfo.debit.function : journalFieldInfo.credit.function}>
                         <option value="debit">Debit</option>
                         <option value="credit">Credit</option>
                       </select>
-                      <input type="number" value={line.amount} onChange={(e) => updateLine(index, 'amount', parseFloat(e.target.value) || 0)} className="input w-32" placeholder="Amount" required min="0" step="0.01" />
+                      <input type="number" value={line.amount} onChange={(e) => updateLine(index, 'amount', parseFloat(e.target.value) || 0)} className="input w-32" placeholder="Amount" required min="0" step="0.01" title={line.debitCredit === 'debit' ? journalFieldInfo.debit.function : journalFieldInfo.credit.function} />
                       <button type="button" onClick={() => removeLine(index)} className="p-2 text-red-600 hover:text-red-800">
                         <Trash2 className="w-4 h-4" />
                       </button>

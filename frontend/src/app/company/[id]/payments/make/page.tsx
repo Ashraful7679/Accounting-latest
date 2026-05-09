@@ -10,6 +10,8 @@ import {
   Calendar, ArrowUpRight
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { InfoTooltip } from '@/components/InfoTooltip';
+import { paymentFieldInfo } from '@/data/fieldDefinitions';
 
 
 export default function MakePaymentPage() {
@@ -157,7 +159,10 @@ export default function MakePaymentPage() {
             <h3 className="text-xl font-semibold mb-4">Make Payment</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Supplier *</label>
+                <label className="block text-sm font-medium mb-1">
+                  Supplier *
+                  <InfoTooltip fieldInfo={paymentFieldInfo.reference} />
+                </label>
                 <select 
                   value={formData.vendorId} 
                   onChange={(e) => setFormData({...formData, vendorId: e.target.value})} 
@@ -171,7 +176,10 @@ export default function MakePaymentPage() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Amount *</label>
+                  <label className="block text-sm font-medium mb-1">
+                    Amount *
+                    <InfoTooltip fieldInfo={paymentFieldInfo.amount} />
+                  </label>
                   <input 
                     type="number" 
                     step="0.01" 
@@ -194,7 +202,10 @@ export default function MakePaymentPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Payment Method</label>
+                  <label className="block text-sm font-medium mb-1">
+                    Payment Method
+                    <InfoTooltip fieldInfo={paymentFieldInfo.method} />
+                  </label>
                   <select value={formData.paymentMethod} onChange={(e) => setFormData({...formData, paymentMethod: e.target.value})} className="input">
                     <option value="CASH">Cash</option>
                     <option value="BANK">Bank Transfer</option>
@@ -219,7 +230,10 @@ export default function MakePaymentPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Reference/Invoice #</label>
+                <label className="block text-sm font-medium mb-1">
+                  Reference/Invoice #
+                  <InfoTooltip fieldInfo={paymentFieldInfo.reference} />
+                </label>
                 <input type="text" value={formData.reference} onChange={(e) => setFormData({...formData, reference: e.target.value})} className="input" placeholder="Optional reference" />
               </div>
 

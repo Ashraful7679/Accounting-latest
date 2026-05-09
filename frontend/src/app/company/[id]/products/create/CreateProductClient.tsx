@@ -9,6 +9,8 @@ import {
   RotateCw, Briefcase
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { InfoTooltip } from '@/components/InfoTooltip';
+import { productFieldInfo } from '@/data/fieldDefinitions';
 
 export default function CreateProductClient() {
   const router = useRouter();
@@ -113,6 +115,7 @@ export default function CreateProductClient() {
                   <div>
                     <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
                       Product Name <span className="text-red-500">*</span>
+                      <InfoTooltip fieldInfo={productFieldInfo.name} />
                     </label>
                     <input
                       type="text"
@@ -158,7 +161,10 @@ export default function CreateProductClient() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-bold text-slate-700 mb-1.5">Unit Type</label>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5">
+                      Unit Type
+                      <InfoTooltip fieldInfo={productFieldInfo.unit} />
+                    </label>
                     <select
                       value={formData.unitType}
                       onChange={(e) => setFormData({...formData, unitType: e.target.value})}
@@ -238,7 +244,10 @@ export default function CreateProductClient() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-sm font-bold text-slate-700 mb-1.5 text-orange-600">Unit Price</label>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5 text-orange-600">
+                      Unit Price
+                      <InfoTooltip fieldInfo={productFieldInfo.unitPrice} />
+                    </label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-lg">
                         {formData.currency === 'USD' ? '$' : formData.currency === 'EUR' ? '€' : formData.currency === 'GBP' ? '£' : '৳'}

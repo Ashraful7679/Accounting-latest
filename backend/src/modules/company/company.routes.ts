@@ -104,6 +104,18 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/:id/account-types', coaController.getAccountTypes.bind(coaController));
   fastify.post('/:id/heal-balances', coaController.healBalances.bind(coaController));
 
+  // Customers (CRUD)
+  fastify.get('/:id/customers', entityController.getCustomers.bind(entityController));
+  fastify.post('/:id/customers', entityController.createCustomer.bind(entityController));
+  fastify.put('/:id/customers/:customerId', entityController.updateCustomer.bind(entityController));
+  fastify.delete('/:id/customers/:customerId', entityController.deleteCustomer.bind(entityController));
+
+  // Vendors (CRUD)
+  fastify.get('/:id/vendors', entityController.getVendors.bind(entityController));
+  fastify.post('/:id/vendors', entityController.createVendor.bind(entityController));
+  fastify.put('/:id/vendors/:vendorId', entityController.updateVendor.bind(entityController));
+  fastify.delete('/:id/vendors/:vendorId', entityController.deleteVendor.bind(entityController));
+
   // Dashboard Stats
   fastify.get('/:id/dashboard-stats', dashboardController.getStats.bind(dashboardController));
 
@@ -210,6 +222,16 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/:id/reports/lc-liability', reportController.getLCLiability.bind(reportController));
   fastify.get('/:id/reports/cash-flow', reportController.getCashFlowStatement.bind(reportController));
   fastify.get('/:id/reports/customer-statement/:customerId', reportController.getCustomerStatement.bind(reportController));
+
+  // LC (Letters of Credit)
+  fastify.get('/:id/lcs', lcController.getLCs.bind(lcController));
+  fastify.get('/:id/lcs/:lcId', lcController.getLCDetail.bind(lcController));
+  fastify.post('/:id/lcs', lcController.createLC.bind(lcController));
+
+  // PI (Proforma Invoices)
+  fastify.get('/:id/pis', piController.getAllPIs.bind(piController));
+  fastify.get('/:id/pis/:piId', piController.getPIDetail.bind(piController));
+  fastify.post('/:id/pis', piController.createPI.bind(piController));
 
   // Dimensions
   fastify.get('/:id/projects', dimensionController.getProjects.bind(dimensionController));

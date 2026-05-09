@@ -29,7 +29,7 @@ export class CompanyController extends BaseCompanyController {
 
   async updateSettings(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { baseCurrency, lastUsedRate } = request.body as { baseCurrency?: string, lastUsedRate?: number };
+    const { baseCurrency, lastUsedRate, multiBranchEnabled, defaultBranchId } = request.body as any;
 
     // Update Company Base Currency if provided
     if (baseCurrency) {
@@ -45,9 +45,13 @@ export class CompanyController extends BaseCompanyController {
       create: {
         companyId,
         lastUsedRate: lastUsedRate ?? 1,
+        multiBranchEnabled: !!multiBranchEnabled,
+        defaultBranchId: defaultBranchId || null,
       },
       update: {
-        ...(lastUsedRate !== undefined ? { lastUsedRate } : {})
+        ...(lastUsedRate !== undefined ? { lastUsedRate } : {}),
+        ...(multiBranchEnabled !== undefined ? { multiBranchEnabled: !!multiBranchEnabled } : {}),
+        ...(defaultBranchId !== undefined ? { defaultBranchId: defaultBranchId || null } : {}),
       }
     });
 

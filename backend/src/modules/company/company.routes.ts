@@ -33,6 +33,7 @@ import { FixedAssetController } from './fixed-asset.controller';
 import { ExchangeRateController } from './exchange-rate.controller';
 import { PayrollController } from './payroll.controller';
 import { RBACController } from './rbac.controller';
+import { BranchController } from './branch.controller';
 
 import { authenticate } from '../../middleware/auth';
 
@@ -65,6 +66,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   const bankReconciliationController = new BankReconciliationController();
   const payrollController = new PayrollController();
   const rbacController = new RBACController();
+  const branchController = new BranchController();
 
   // Products
   fastify.get('/:id/products', productController.getProducts.bind(productController));
@@ -274,13 +276,21 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/:id', controller.getCompany.bind(controller));
   fastify.get('/:id/settings', controller.getCompany.bind(controller));
 
+  // Branches
+  fastify.get('/:id/branches', branchController.getBranches.bind(branchController));
+  fastify.post('/:id/branches', branchController.createBranch.bind(branchController));
+  fastify.put('/:id/branches/:branchId', branchController.updateBranch.bind(branchController));
+  fastify.delete('/:id/branches/:branchId', branchController.deleteBranch.bind(branchController));
+
   // Bills (Accounts Payable Documents)
   fastify.get('/:id/bills', billsController.getBills.bind(billsController));
   fastify.post('/:id/bills', billsController.createBill.bind(billsController));
   fastify.get('/:id/bills/:billId', billsController.getBill.bind(billsController));
   fastify.put('/:id/bills/:billId', billsController.updateBill.bind(billsController));
   fastify.delete('/:id/bills/:billId', billsController.deleteBill.bind(billsController));
+  fastify.post('/:id/bills/:billId/verify', billsController.verifyBill.bind(billsController));
   fastify.post('/:id/bills/:billId/approve', billsController.approveBill.bind(billsController));
+  fastify.post('/:id/bills/:billId/reject', billsController.rejectBill.bind(billsController));
 
   // Role-Based Access Control (RBAC)
   fastify.get('/:id/roles', rbacController.getRoles.bind(rbacController));

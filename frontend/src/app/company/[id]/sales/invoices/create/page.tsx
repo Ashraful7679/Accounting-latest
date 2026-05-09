@@ -7,7 +7,7 @@ import api from '@/lib/api';
 import { 
   Plus, Trash2, ArrowLeft, Save, 
   User, Calendar, Receipt, Loader2, Link as LinkIcon,
-  TrendingUp, Truck, ShieldAlert, RotateCcw
+  TrendingUp, Truck, ShieldAlert, RotateCcw, MapPin
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
@@ -20,7 +20,7 @@ export default function CreateSalesInvoicePage() {
   const searchParams = useSearchParams();
   const companyId = params.id as string;
   const queryClient = useQueryClient();
-  const { exchangeRate: companyExchangeRate } = useCompany();
+  const { exchangeRate: companyExchangeRate, multiBranchEnabled, defaultBranchId } = useCompany();
   const [mounted, setMounted] = useState(false);
 
   const initialType = searchParams.get('type') === 'foreign' ? 'foreign' : 'local';
@@ -31,6 +31,7 @@ export default function CreateSalesInvoicePage() {
 
   const [formData, setFormData] = useState({
     customerName: '',
+    branchId: defaultBranchId || '',
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
     piIds: [] as string[],
@@ -77,6 +78,15 @@ export default function CreateSalesInvoicePage() {
       return response.data.data;
     },
     enabled: !!companyId,
+  });
+
+  const { data: branches } = useQuery({
+    queryKey: ['branches', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/branches`);
+      return response.data.data;
+    },
+    enabled: !!companyId && multiBranchEnabled,
   });
 
   useEffect(() => {
@@ -299,6 +309,7 @@ export default function CreateSalesInvoicePage() {
         currency: orderType === 'local' ? 'BDT' : 'USD',
         exchangeRate: orderType === 'local' ? 1 : companyExchangeRate,
         status: 'DRAFT',
+        branchId: formData.branchId || undefined,
         lines: finalLines,
         piIds: formData.piIds,
         dnIds: formData.dnIds,
@@ -384,6 +395,27 @@ export default function CreateSalesInvoicePage() {
               />
             </div>
           </div>
+
+          {multiBranchEnabled && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Branch</label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                <select 
+                  required
+                  value={formData.branchId}
+                  onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
+                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors appearance-none bg-white"
+                >
+                  <option value="">Select Branch...</option>
+                  {(Array.isArray(branches) ? branches : []).map((b: any) => (
+                    <option key={b.id} value={b.id}>{b.name} {b.isMain ? '(Main)' : ''}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Invoice Date</label>
             <div className="relative">

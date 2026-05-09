@@ -8,7 +8,7 @@ import { toast } from 'react-hot-toast';
 import { 
   Plus, Search, Filter, Download, Upload, Printer, Send, Check, X, 
   Edit2, Trash2, Eye, ArrowLeft, ChevronRight, ArrowRight, Info, 
-  CheckCheck, FileText, Clock, Bell, MoreHorizontal, Wallet, Receipt
+  CheckCheck, FileText, Clock, Bell, MoreHorizontal, Wallet, Receipt, MapPin
 } from 'lucide-react';
 import api from '@/lib/api';
 import NotificationPanel from '@/components/NotificationPanel';
@@ -19,6 +19,7 @@ import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
 import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
 import { InfoTooltip } from '@/components/InfoTooltip';
 import { journalFieldInfo } from '@/data/fieldDefinitions';
+import { useCompany } from '@/lib/CompanyContext';
 
 interface Account {
   id: string;
@@ -55,6 +56,7 @@ export default function JournalsClient() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
+  const { multiBranchEnabled, defaultBranchId } = useCompany();
   const [userRole, setUserRole] = useState<string>('');
   const [notifOpen, setNotifOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
@@ -167,6 +169,15 @@ export default function JournalsClient() {
     },
   });
 
+  const { data: branches } = useQuery({
+    queryKey: ['branches', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/branches`);
+      return response.data.data;
+    },
+    enabled: !!companyId && multiBranchEnabled,
+  });
+
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedJournal, setSelectedJournal] = useState<JournalEntry | null>(null);
@@ -174,6 +185,7 @@ export default function JournalsClient() {
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     description: '',
+    branchId: defaultBranchId || '',
     lines: [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }] as Line[],
   });
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -208,6 +220,7 @@ export default function JournalsClient() {
       setFormData({
         date: journal.date ? new Date(journal.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         description: journal.description || '',
+        branchId: (journal as any).branchId || defaultBranchId || '',
         lines: lines.length > 0 ? lines : [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }],
       });
     } else {
@@ -215,6 +228,7 @@ export default function JournalsClient() {
       setFormData({
         date: new Date().toISOString().split('T')[0],
         description: '',
+        branchId: defaultBranchId || '',
         lines: [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }],
       });
     }
@@ -229,6 +243,7 @@ export default function JournalsClient() {
     setFormData({
       date: new Date().toISOString().split('T')[0],
       description: '',
+      branchId: defaultBranchId || '',
       lines: [{ accountId: '', amount: 0, debitCredit: 'debit' as const, description: '' }],
     });
     setAttachments([]);
@@ -548,6 +563,27 @@ export default function JournalsClient() {
                   <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="input" />
                 </div>
               </div>
+
+              {multiBranchEnabled && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Branch
+                    <MapPin className="inline w-3 h-3 ml-1 text-gray-400" />
+                  </label>
+                  <select 
+                    value={formData.branchId} 
+                    onChange={(e) => setFormData({ ...formData, branchId: e.target.value })} 
+                    className="input w-full"
+                    required
+                  >
+                    <option value="">Select Branch...</option>
+                    {(Array.isArray(branches) ? branches : []).map((b: any) => (
+                      <option key={b.id} value={b.id}>{b.name} {b.isMain ? '(Main)' : ''}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Journal Lines

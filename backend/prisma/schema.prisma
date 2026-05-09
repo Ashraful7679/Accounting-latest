@@ -43,18 +43,22 @@ model User {
   // Audit Trail - Created
   createdInvoices Invoice[]      @relation("CreatedInvoices")
   createdJournals JournalEntry[] @relation("CreatedJournals")
+  createdBills    Bill[]         @relation("CreatedBills")
 
   // Audit Trail - Verified
   verifiedInvoices Invoice[]      @relation("VerifiedInvoices")
   verifiedJournals JournalEntry[] @relation("VerifiedJournals")
+  verifiedBills    Bill[]         @relation("VerifiedBills")
 
   // Audit Trail - Approved
   approvedInvoices Invoice[]      @relation("ApprovedInvoices")
   approvedJournals JournalEntry[] @relation("ApprovedJournals")
+  approvedBills    Bill[]         @relation("ApprovedBills")
 
   // Audit Trail - Rejected
   rejectedInvoices Invoice[]      @relation("RejectedInvoices")
   rejectedJournals JournalEntry[] @relation("RejectedJournals")
+  rejectedBills    Bill[]         @relation("RejectedBills")
 
   // Documents uploaded
   uploadedAttachments Attachment[]
@@ -140,7 +144,7 @@ model Company {
   customers      Customer[]
   vendors        Vendor[]
   accounts       Account[]
-  // branches     Branch[] // REMOVED FOR MULTI-TENANCY PURPOSES
+  branches       Branch[]
   projects       Project[]
   costCenters    CostCenter[]
   products       Product[]
@@ -174,6 +178,37 @@ model Company {
   DebitNote  DebitNote[]
   PayrollRun PayrollRun[]
   CreditNote CreditNote[]
+}
+
+model Branch {
+  id        String  @id @default(uuid())
+  name      String
+  code      String?
+  address   String?
+  phone     String?
+  email     String?
+  companyId String
+  isActive  Boolean @default(true)
+  isMain    Boolean @default(false)
+
+  // Relations
+  company     Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoices    Invoice[]
+  journals    JournalEntry[]
+  bills       Bill[]
+  grns        GRN[]
+  dns         DN[]
+  payments    Payment[]
+  debitNotes  DebitNote[]
+  creditNotes CreditNote[]
+
+  // Soft Delete
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([companyId, name])
+  @@index([companyId])
 }
 
 model DocumentSequence {
@@ -413,16 +448,16 @@ model Account {
   currencyId String?
   currency   Currency? @relation(fields: [currencyId], references: [id])
 
-  company          Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  accountType      AccountType        @relation(fields: [accountTypeId], references: [id])
-  parent           Account?           @relation("AccountHierarchy", fields: [parentId], references: [id])
-  children         Account[]          @relation("AccountHierarchy")
-  journalLines     JournalEntryLine[]
-  payments         Payment[]
-  employeeAdvances EmployeeAdvance[]
-  employeeExpenses EmployeeExpense[]
-  fixedAssets             FixedAsset[] @relation("DepreciationAccount")
-  accumulatedDepreciation FixedAsset[] @relation("AccumulatedDepreciation")
+  company                 Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  accountType             AccountType        @relation(fields: [accountTypeId], references: [id])
+  parent                  Account?           @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children                Account[]          @relation("AccountHierarchy")
+  journalLines            JournalEntryLine[]
+  payments                Payment[]
+  employeeAdvances        EmployeeAdvance[]
+  employeeExpenses        EmployeeExpense[]
+  fixedAssets             FixedAsset[]       @relation("DepreciationAccount")
+  accumulatedDepreciation FixedAsset[]       @relation("AccumulatedDepreciation")
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -714,12 +749,15 @@ model GRN {
   // Internal Accounting Logic
   isJournaled Boolean @default(false)
   journalId   String?
+  branchId    String?
+  branch      Branch? @relation(fields: [branchId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([companyId, grnNumber])
   @@index([companyId])
+  @@index([branchId])
 }
 
 model GRNLine {
@@ -750,12 +788,15 @@ model DN {
   // Internal Accounting Logic
   isJournaled Boolean @default(false)
   journalId   String?
+  branchId    String?
+  branch      Branch? @relation(fields: [branchId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([companyId, dnNumber])
   @@index([companyId])
+  @@index([branchId])
 }
 
 model DNLine {
@@ -843,6 +884,8 @@ model Invoice {
 
   // Soft Delete
   deletedAt DateTime?
+  branchId  String?
+  branch    Branch?   @relation(fields: [branchId], references: [id])
 
   // Audit Trail
   createdById     String
@@ -925,6 +968,8 @@ model JournalEntry {
   currencyId   String?
   currency     Currency? @relation(fields: [currencyId], references: [id])
   exchangeRate Float     @default(1)
+  branchId     String?
+  branch       Branch?   @relation(fields: [branchId], references: [id])
 
   // Status
   status String @default("DRAFT")
@@ -1011,15 +1056,34 @@ model JournalEntryLine {
 // ============================================
 
 model Bill {
-  id         String    @id @default(uuid())
+  id         String  @id @default(uuid())
   billNumber String
   companyId  String
   vendorId   String
-  status     String    @default("DRAFT")
-  subtotal   Float
-  taxAmount  Float     @default(0)
-  total      Float
-  dueDate    DateTime?
+  branchId   String?
+
+  billDate DateTime  @default(now())
+  dueDate  DateTime?
+
+  // Currency
+  currency       String @default("BDT")
+  exchangeRate   Float  @default(1)
+  subtotal       Float
+  taxAmount      Float  @default(0)
+  discountAmount Float  @default(0)
+  total          Float
+
+  // Status: DRAFT → PENDING_VERIFICATION → VERIFIED → APPROVED
+  status String @default("DRAFT")
+
+  // Audit Trail
+  createdById     String
+  verifiedById    String?
+  verifiedAt      DateTime?
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectedById    String?
+  rejectionReason String?
 
   // Soft Delete
   deletedAt DateTime?
@@ -1028,12 +1092,19 @@ model Bill {
   isJournaled Boolean @default(false)
   journalId   String?
 
-  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  vendor     Vendor      @relation(fields: [vendorId], references: [id])
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch     Branch? @relation(fields: [branchId], references: [id])
+  vendor     Vendor  @relation(fields: [vendorId], references: [id])
+  createdBy  User    @relation("CreatedBills", fields: [createdById], references: [id])
+  verifiedBy User?   @relation("VerifiedBills", fields: [verifiedById], references: [id])
+  approvedBy User?   @relation("ApprovedBills", fields: [approvedById], references: [id])
+  rejectedBy User?   @relation("RejectedBills", fields: [rejectedById], references: [id])
+
   payments   Payment[]   @relation("BillPayments")
   debitNotes DebitNote[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([companyId, billNumber])
   @@index([companyId])
@@ -1221,11 +1292,15 @@ model Payment {
 
   // Soft Delete
   deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  branchId  String?
+  branch    Branch?   @relation(fields: [branchId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([companyId, paymentNumber])
   @@index([companyId])
+  @@index([branchId])
   @@index([companyId, deletedAt])
   @@index([invoiceId])
   @@index([billId])
@@ -1398,7 +1473,9 @@ model CompanySettings {
   companyId String  @unique
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  lastUsedRate Float @default(1)
+  lastUsedRate       Float   @default(1)
+  multiBranchEnabled Boolean @default(false)
+  defaultBranchId    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1441,6 +1518,8 @@ model DebitNote {
   // Internal Accounting
   isJournaled Boolean @default(false)
   journalId   String?
+  branchId    String?
+  branch      Branch? @relation(fields: [branchId], references: [id])
 
   company       Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   vendor        Vendor          @relation(fields: [vendorId], references: [id])
@@ -1457,6 +1536,7 @@ model DebitNote {
 
   @@unique([companyId, debitNoteNumber])
   @@index([companyId])
+  @@index([branchId])
   @@index([vendorId])
   @@index([billId])
   @@index([status])
@@ -1571,6 +1651,8 @@ model CreditNote {
   // Internal Accounting
   isJournaled Boolean @default(false)
   journalId   String?
+  branchId    String?
+  branch      Branch? @relation(fields: [branchId], references: [id])
 
   company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   customer   Customer         @relation("CustomerCreditNotes", fields: [customerId], references: [id])
@@ -1587,6 +1669,7 @@ model CreditNote {
 
   @@unique([companyId, creditNoteNumber])
   @@index([companyId])
+  @@index([branchId])
   @@index([customerId])
   @@index([invoiceId])
   @@index([status])
@@ -1618,24 +1701,24 @@ model CreditNoteLine {
 // ============================================
 
 model RecurringInvoice {
-  id                    String   @id @default(uuid())
-  companyId              String
-  customerId             String
-  productId              String?
-  description           String?
-  amount                Float
-  currency              String   @default("BDT")
-  taxRate               Float    @default(0)
-  frequency             String   @default("MONTHLY") // DAILY, WEEKLY, BIWEEKLY, MONTHLY, QUARTERLY, YEARLY
-  paymentTerms          Int      @default(30)
-  nextRunDate           DateTime
-  lastRunDate           DateTime?
-  isActive             Boolean  @default(true)
-  
-  createdById           String?
-  
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime @updatedAt
+  id           String    @id @default(uuid())
+  companyId    String
+  customerId   String
+  productId    String?
+  description  String?
+  amount       Float
+  currency     String    @default("BDT")
+  taxRate      Float     @default(0)
+  frequency    String    @default("MONTHLY") // DAILY, WEEKLY, BIWEEKLY, MONTHLY, QUARTERLY, YEARLY
+  paymentTerms Int       @default(30)
+  nextRunDate  DateTime
+  lastRunDate  DateTime?
+  isActive     Boolean   @default(true)
+
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([companyId])
   @@index([customerId])
@@ -1648,43 +1731,43 @@ model RecurringInvoice {
 // ============================================
 
 model FixedAsset {
-  id                  String   @id @default(uuid())
-  companyId            String
-  assetNumber         String
-  assetName           String
-  description         String?
-  category            String?
-  
+  id          String  @id @default(uuid())
+  companyId   String
+  assetNumber String
+  assetName   String
+  description String?
+  category    String?
+
   // Asset Details
   purchaseDate       DateTime
-  purchaseValue     Float
-  salvageValue      Float    @default(0)
-  usefulLife        Int      @default(5)
-  depreciationMethod String @default("STRAIGHT_LINE") // STRAIGHT_LINE, DECLINING_BALANCE, SUM_OF_YEARS
-  depreciationRate  Float?   // For declining balance
-  
-  // Accounts for depreciation
-  depreciationAccountId        String?
-  accumulatedDepreciationAccountId String?
-  
-  // Current Values
-  accumulatedDepreciation Float @default(0)
-  currentValue         Float
-  lastDepreciationDate DateTime?
-  depreciationStartDate DateTime?
-  isDepreciated      Boolean @default(false)
-  
-  // Status
-  status              String  @default("ACTIVE") // ACTIVE, DISPOSED, FULLY_DEPRECATED
-  
-  createdById         String?
-  
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime @updatedAt
+  purchaseValue      Float
+  salvageValue       Float    @default(0)
+  usefulLife         Int      @default(5)
+  depreciationMethod String   @default("STRAIGHT_LINE") // STRAIGHT_LINE, DECLINING_BALANCE, SUM_OF_YEARS
+  depreciationRate   Float? // For declining balance
 
-  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // Accounts for depreciation
+  depreciationAccountId            String?
+  accumulatedDepreciationAccountId String?
+
+  // Current Values
+  accumulatedDepreciation Float     @default(0)
+  currentValue            Float
+  lastDepreciationDate    DateTime?
+  depreciationStartDate   DateTime?
+  isDepreciated           Boolean   @default(false)
+
+  // Status
+  status String @default("ACTIVE") // ACTIVE, DISPOSED, FULLY_DEPRECATED
+
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   depreciationAccount Account? @relation("DepreciationAccount", fields: [depreciationAccountId], references: [id])
-  accumulatedAccount Account? @relation("AccumulatedDepreciation", fields: [accumulatedDepreciationAccountId], references: [id])
+  accumulatedAccount  Account? @relation("AccumulatedDepreciation", fields: [accumulatedDepreciationAccountId], references: [id])
 
   @@unique([companyId, assetNumber])
   @@index([companyId])

@@ -42,6 +42,9 @@ export class ReportController extends BaseCompanyController {
     if (endDate && endDate !== '') dateFilter.lte = new Date(endDate);
     const hasDateFilter = Object.keys(dateFilter).length > 0;
 
+    const { branchId } = request.query as { branchId?: string };
+    const branchFilter = branchId ? { branchId } : {};
+
     const accounts = await prisma.account.findMany({
       where: { companyId },
       include: {
@@ -50,6 +53,7 @@ export class ReportController extends BaseCompanyController {
           where: {
             journalEntry: {
               status: 'APPROVED',
+              ...branchFilter,
               ...(hasDateFilter ? { date: dateFilter } : {})
             }
           }
@@ -83,12 +87,13 @@ export class ReportController extends BaseCompanyController {
 
   async getLedger(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { accountId, accountName, startDate, endDate } = request.query as any;
+    const { accountId, accountName, startDate, endDate, branchId } = request.query as any;
     
     const where: any = {
       journalEntry: {
         companyId,
         status: 'APPROVED',
+        ...(branchId ? { branchId } : {}),
         ...(startDate || endDate ? {
           date: {
             ...(startDate && startDate !== '' ? { gte: new Date(startDate) } : {}),
@@ -128,12 +133,12 @@ export class ReportController extends BaseCompanyController {
 
   async getProfitLoss(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { startDate, endDate, compareStartDate, compareEndDate } = request.query as any;
-    const pnl = await this._calculatePnL(companyId, startDate, endDate);
+    const { startDate, endDate, compareStartDate, compareEndDate, branchId } = request.query as any;
+    const pnl = await this._calculatePnL(companyId, startDate, endDate, branchId);
 
     let comparison: any = null;
     if (compareStartDate && compareEndDate) {
-      const priorPnl = await this._calculatePnL(companyId, compareStartDate, compareEndDate);
+      const priorPnl = await this._calculatePnL(companyId, compareStartDate, compareEndDate, branchId);
       comparison = {
         prior: priorPnl,
         revenueVariance: Number(pnl.revenue) - Number(priorPnl.revenue),
@@ -149,11 +154,11 @@ export class ReportController extends BaseCompanyController {
 
   async getBalanceSheet(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { startDate, endDate } = request.query as any;
-    const bs = await this._calculateBalanceSheet(companyId, startDate, endDate);
+    const { startDate, endDate, branchId } = request.query as any;
+    const bs = await this._calculateBalanceSheet(companyId, startDate, endDate, branchId);
 
     // Accounting equation validation
-    const pnl = await this._calculatePnL(companyId, startDate, endDate);
+    const pnl = await this._calculatePnL(companyId, startDate, endDate, branchId);
     const isBalanced = Math.abs(bs.totalAssets - (bs.totalLiabilities + bs.totalEquity + pnl.netProfit)) < 1;
 
     return reply.send({
@@ -175,7 +180,8 @@ export class ReportController extends BaseCompanyController {
       where: {
         companyId,
         type: type === 'AP' ? 'PURCHASE' : 'SALES',
-        status: { in: ['APPROVED', 'PARTIALLY_PAID'] }
+        status: { in: ['APPROVED', 'PARTIALLY_PAID'] },
+        ...((request.query as any).branchId ? { branchId: (request.query as any).branchId } : {})
       },
       include: {
         customer: true,
@@ -219,6 +225,7 @@ export class ReportController extends BaseCompanyController {
         companyId,
         type: type === 'PURCHASE' ? 'PURCHASE' : 'SALE',
         status: { in: ['APPROVED', 'PARTIALLY_PAID'] },
+        ...((request.query as any).branchId ? { branchId: (request.query as any).branchId } : {}),
         OR: query ? [
           { invoiceNumber: { contains: query, mode: 'insensitive' } },
           { customer: { name: { contains: query, mode: 'insensitive' } } },
@@ -257,7 +264,8 @@ export class ReportController extends BaseCompanyController {
     const lcs = await prisma.lC.findMany({
       where: { 
         companyId,
-        status: { in: ['OPEN', 'AMENDED'] }
+        status: { in: ['OPEN', 'AMENDED'] },
+        ...((request.query as any).branchId ? { branchId: (request.query as any).branchId } : {})
       }
     });
 
@@ -281,7 +289,7 @@ export class ReportController extends BaseCompanyController {
     });
   }
 
-  private async _calculateBalanceSheet(companyId: string, startDate?: string, endDate?: string) {
+  private async _calculateBalanceSheet(companyId: string, startDate?: string, endDate?: string, branchId?: string) {
     const dateFilter: any = {};
     if (startDate) dateFilter.gte = new Date(startDate);
     if (endDate) dateFilter.lte = new Date(endDate);
@@ -295,6 +303,7 @@ export class ReportController extends BaseCompanyController {
           where: {
             journalEntry: {
               status: 'APPROVED',
+              ...(branchId ? { branchId } : {}),
               ...(hasDateFilter ? { date: dateFilter } : {})
             }
           }
@@ -346,7 +355,7 @@ export class ReportController extends BaseCompanyController {
     };
   }
 
-  private async _calculatePnL(companyId: string, startDate?: string, endDate?: string) {
+  private async _calculatePnL(companyId: string, startDate?: string, endDate?: string, branchId?: string) {
     const dateFilter: any = {};
     if (startDate) dateFilter.gte = new Date(startDate);
     if (endDate) dateFilter.lte = new Date(endDate);
@@ -360,6 +369,7 @@ export class ReportController extends BaseCompanyController {
           where: {
             journalEntry: {
               status: 'APPROVED',
+              ...(branchId ? { branchId } : {}),
               ...(hasDateFilter ? { date: dateFilter } : {})
             }
           }
@@ -397,7 +407,7 @@ export class ReportController extends BaseCompanyController {
 
   async getCashFlowStatement(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { startDate, endDate } = request.query as { startDate?: string; endDate?: string };
+    const { startDate, endDate, branchId } = request.query as { startDate?: string; endDate?: string; branchId?: string };
 
     const now = new Date();
     const periodStart = startDate ? new Date(startDate) : new Date(now.getFullYear(), now.getMonth(), 1);
@@ -406,7 +416,12 @@ export class ReportController extends BaseCompanyController {
     // Get all journal lines within the period that have a cashFlowType
     const lines = await prisma.journalEntryLine.findMany({
       where: {
-        journalEntry: { companyId, status: 'APPROVED', date: { gte: periodStart, lte: periodEnd } },
+        journalEntry: { 
+          companyId, 
+          status: 'APPROVED', 
+          date: { gte: periodStart, lte: periodEnd },
+          ...(branchId ? { branchId } : {})
+        },
         account: { cashFlowType: { not: null } }
       },
       include: { account: true }

@@ -4,6 +4,7 @@ import { TransactionRepository } from '../../repositories/TransactionRepository'
 import { NotificationController } from './notification.controller';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../middleware/errorHandler';
 import { BaseCompanyController } from './base.controller';
+import { RBACService } from './rbac.service';
 
 export class JournalController extends BaseCompanyController {
   // ============ JOURNALS ============
@@ -275,6 +276,12 @@ export class JournalController extends BaseCompanyController {
 
     if (!this.canVerify(journal.status, role)) {
       throw new ForbiddenError('Cannot verify this journal');
+    }
+
+    // Manager Verification Rule
+    const canVerifyEntry = await RBACService.canManagerVerifyEntry(userId, journal.createdById, role);
+    if (!canVerifyEntry) {
+      throw new ForbiddenError('Managers can only verify documents created by their subordinates and cannot verify their own entries.');
     }
 
     const updated = await prisma.journalEntry.update({

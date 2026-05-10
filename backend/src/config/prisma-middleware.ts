@@ -23,53 +23,11 @@ const softDeleteModels = [
 export function registerSoftDelete(prisma: any) {
   prisma.$use(async (params: Prisma.MiddlewareParams, next: any) => {
     
-    // --- RECURSIVE FILTER HELPER ---
-    // This ensures that even nested relation filters (e.g. lines of a journal) 
-    // are automatically filtered by deletedAt: null.
-    const injectSoftDeleteRecursively = (where: any) => {
-      if (!where || typeof where !== 'object' || where instanceof Date) return;
-
-      // Recurse into nested objects (Relations or Logical Operators)
-      Object.keys(where).forEach(key => {
-        const val = where[key];
-        if (typeof val === 'object' && val !== null && !Array.isArray(val) && !(val instanceof Date)) {
-          // Check if this is a relation filter by looking at the key
-          // In Prisma, relation names are usually camelCase. 
-          // We don't know for sure if it's a relation, but we can try to inject deletedAt: null.
-          // To be safe, we skip known Prisma operators.
-          const prismaOperators = ['contains', 'mode', 'gte', 'lte', 'gt', 'lt', 'in', 'not', 'equals', 'search', 'startsWith', 'endsWith'];
-          const isOperator = Object.keys(val).some(k => prismaOperators.includes(k));
-          
-          if (!isOperator) {
-            // It's likely a relation or a nested object.
-            // We inject deletedAt: null here if we think it's a soft-delete model.
-            // Since we can't know the model name easily from the relation name,
-            // we inject it anyway; Prisma will only throw if the model doesn't have it.
-            // Actually, to be 100% safe, we only inject if the key corresponds to a known relation.
-            // But we don't have that map. So we inject and let Prisma's validation handle it?
-            // No, that will crash queries.
-            
-            // LOGIC: If the object has 'some', 'every', 'none', it's a collection relation.
-            if (val.some || val.every || val.none) {
-              if (val.some) injectSoftDeleteRecursively(val.some);
-              if (val.every) injectSoftDeleteRecursively(val.every);
-              if (val.none) injectSoftDeleteRecursively(val.none);
-            } else {
-              // Try to inject at this nested level
-              if (val.deletedAt === undefined) {
-                // We only inject if it's likely a model (has other filters like id, companyId etc)
-                // This is a heuristic.
-                val.deletedAt = null;
-              }
-              injectSoftDeleteRecursively(val);
-            }
-          }
-        } else if (Array.isArray(val) && (key === 'OR' || key === 'AND' || key === 'NOT')) {
-          // Handle logical arrays
-          val.forEach(item => injectSoftDeleteRecursively(item));
-        }
-      });
-    };
+    // NOTE: We intentionally do NOT recursively inject deletedAt into nested
+    // relation filters. Doing so would corrupt queries on models that don't
+    // have a deletedAt field (e.g. Role, UserRole, Branch). Root-level
+    // injection below is sufficient — Prisma's own query engine handles
+    // relation-level filtering independently.
 
     // 1. SOFT DELETE: Intercept 'delete' and 'deleteMany'
     if (params.action === 'delete') {
@@ -137,13 +95,11 @@ export function registerSoftDelete(prisma: any) {
       if (!params.args) params.args = {};
       if (!params.args.where) params.args.where = {};
       
-      // Inject at root level
+      // Inject only at root level — never recurse into nested relations
+      // since those may reference models without a deletedAt field (e.g. Role).
       if (params.args.where.deletedAt === undefined) {
         params.args.where.deletedAt = null;
       }
-
-      // Inject recursively into relations
-      injectSoftDeleteRecursively(params.args.where);
     }
 
     return next(params);

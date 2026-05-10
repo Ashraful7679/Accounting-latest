@@ -25,9 +25,10 @@ const ROLE_PERMISSIONS: Record<string, {
 }> = {
   //            create  view   edit   delete verify approve export print
   User:       { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
-  Accountant: { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: false, canApprove: false, canExport: true,  canPrint: true  },
+  DataEntry:  { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: true  },
+  Accountant: { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: false, canExport: true,  canPrint: true  },
   Controller: { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
-  Manager:    { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: false, canExport: true,  canPrint: true  },
+  Manager:    { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
   Owner:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
   Admin:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
 };
@@ -829,6 +830,49 @@ export class OwnerController {
     });
 
     return reply.send({ success: true, data: permission });
+  }
+
+  // Bulk update employee permissions
+  async bulkUpdateEmployeePermissions(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as { id: string };
+    const { permissions } = request.body as { permissions: any[] };
+
+    if (!Array.isArray(permissions)) {
+      throw new ValidationError('Permissions must be an array');
+    }
+
+    // Use a transaction for reliability
+    await prisma.$transaction(
+      permissions.map((perm) =>
+        (prisma.userPermission as any).upsert({
+          where: { userId_module: { userId: id, module: perm.module } },
+          update: {
+            canCreate: perm.canCreate,
+            canView: perm.canView,
+            canEdit: perm.canEdit,
+            canDelete: perm.canDelete,
+            canVerify: perm.canVerify,
+            canApprove: perm.canApprove,
+            canExport: perm.canExport,
+            canPrint: perm.canPrint,
+          },
+          create: {
+            userId: id,
+            module: perm.module,
+            canCreate: perm.canCreate,
+            canView: perm.canView,
+            canEdit: perm.canEdit,
+            canDelete: perm.canDelete,
+            canVerify: perm.canVerify,
+            canApprove: perm.canApprove,
+            canExport: perm.canExport,
+            canPrint: perm.canPrint,
+          },
+        })
+      )
+    );
+
+    return reply.send({ success: true, message: 'Permissions updated successfully' });
   }
 
   // Set employee's reporting manager

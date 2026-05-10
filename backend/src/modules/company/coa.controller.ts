@@ -164,34 +164,69 @@ export class CoaController extends BaseCompanyController {
   }
 
   static async initializeCompanyCOA(companyId: string, category: string = 'GENERAL') {
-    const template = COA_TEMPLATES[category] || COA_TEMPLATES.GENERAL;
     const accountTypes = await prisma.accountType.findMany();
-    
     const typeIdMap: Record<string, string> = {};
     accountTypes.forEach(t => { typeIdMap[t.name] = t.id; });
 
+    // 1. Get base template (GENERAL)
+    let template = [...COA_TEMPLATES.GENERAL];
+
+    // 2. If a specific category is requested, merge it
+    if (category !== 'GENERAL' && COA_TEMPLATES[category]) {
+      const categoryTemplate = COA_TEMPLATES[category];
+      
+      const mergeTemplates = (base: CoaAccountTemplate[], extra: CoaAccountTemplate[]) => {
+        for (const item of extra) {
+          const existing = base.find(b => b.code === item.code);
+          if (existing) {
+            if (item.children && item.children.length > 0) {
+              existing.children = existing.children || [];
+              mergeTemplates(existing.children, item.children);
+            }
+          } else {
+            base.push(item);
+          }
+        }
+      };
+      
+      mergeTemplates(template, categoryTemplate);
+    }
+
     const createFromTemplate = async (items: CoaAccountTemplate[], parentId: string | null = null) => {
-      for (const item of items) {
+      // Sort items by code to ensure parents are created before children (though recursion handles this)
+      const sortedItems = [...items].sort((a, b) => a.code.localeCompare(b.code));
+      
+      for (const item of sortedItems) {
         const typeId = typeIdMap[item.type];
         if (!typeId) continue;
 
-        const account = await prisma.account.create({
-          data: {
-            companyId,
-            code: item.code,
-            name: item.name,
-            accountTypeId: typeId,
-            parentId,
-            category: item.category || 'NONE',
-            cashFlowType: item.cashFlowType || 'OPERATING',
-            openingBalance: 0,
-            currentBalance: 0,
-            isActive: true
-          }
+        // Check if account already exists (to prevent errors in case of partial overlap)
+        const existing = await prisma.account.findFirst({
+          where: { companyId, code: item.code }
         });
 
+        let accountId = existing?.id;
+
+        if (!existing) {
+          const account = await prisma.account.create({
+            data: {
+              companyId,
+              code: item.code,
+              name: item.name,
+              accountTypeId: typeId,
+              parentId,
+              category: item.category || 'NONE',
+              cashFlowType: item.cashFlowType || 'OPERATING',
+              openingBalance: 0,
+              currentBalance: 0,
+              isActive: true
+            }
+          });
+          accountId = account.id;
+        }
+
         if (item.children && item.children.length > 0) {
-          await createFromTemplate(item.children, account.id);
+          await createFromTemplate(item.children, accountId || null);
         }
       }
     };

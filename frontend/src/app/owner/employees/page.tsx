@@ -38,9 +38,10 @@ interface Role {
 
 const ROLE_PERMISSIONS_DEFAULTS: Record<string, any> = {
   User:       { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
-  Accountant: { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: false, canApprove: false, canExport: true,  canPrint: true  },
+  DataEntry:  { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: true  },
+  Accountant: { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: false, canExport: true,  canPrint: true  },
   Controller: { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
-  Manager:    { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: false, canExport: true,  canPrint: true  },
+  Manager:    { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
   Owner:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
   Admin:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
 };
@@ -151,10 +152,7 @@ export default function OwnerEmployeesPage() {
 
   const updatePermissionsMutation = useMutation({
     mutationFn: async ({ id, permissions: perms }: { id: string; permissions: any[] }) => {
-      const promises = perms.map((p) =>
-        api.put(`/owner/employees/${id}/permissions`, p)
-      );
-      await Promise.all(promises);
+      await api.put(`/owner/employees/${id}/permissions/bulk`, { permissions: perms });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['owner-employees'] });
@@ -564,8 +562,26 @@ export default function OwnerEmployeesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Companies *</label>
-                <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-2">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Companies *</label>
+                  <div className="space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, companyIds: companiesData.map(c => c.id) })}
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, companyIds: [] })}
+                      className="text-xs text-red-600 hover:underline"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-1 max-h-40 overflow-y-auto p-2 border rounded-md bg-gray-50">
                   {companiesData?.map((company) => (
                     <label key={company.id} className="flex items-center gap-2">
                       <input

@@ -106,6 +106,8 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.delete('/:id/fixed-assets/:assetId', FixedAssetController.deleteAsset.bind(FixedAssetController));
   fastify.post('/:id/fixed-assets/run-depreciation', FixedAssetController.runDepreciation.bind(FixedAssetController));
   fastify.post('/:id/fixed-assets/:assetId/dispose', FixedAssetController.dispose.bind(FixedAssetController));
+  fastify.post('/:id/fixed-assets/:assetId/verify', FixedAssetController.verifyAsset.bind(FixedAssetController));
+  fastify.post('/:id/fixed-assets/:assetId/approve', FixedAssetController.approveAsset.bind(FixedAssetController));
 
   // Product Pricing
   fastify.get('/:id/products/pricing', ProductPricingController.calculateAverageCost.bind(ProductPricingController));
@@ -331,6 +333,8 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/branches', branchController.createBranch.bind(branchController));
   fastify.put('/:id/branches/:branchId', branchController.updateBranch.bind(branchController));
   fastify.delete('/:id/branches/:branchId', branchController.deleteBranch.bind(branchController));
+  fastify.post('/:id/branches/:branchId/verify', branchController.verifyBranch.bind(branchController));
+  fastify.post('/:id/branches/:branchId/approve', branchController.approveBranch.bind(branchController));
 
   // Bills (Accounts Payable Documents)
   fastify.get('/:id/bills', billsController.getBills.bind(billsController));

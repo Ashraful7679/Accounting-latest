@@ -5,8 +5,9 @@ import { authenticate, requireOwner } from '../../middleware/auth';
 export const ownerRoutes = async (fastify: FastifyInstance) => {
   const controller = new OwnerController();
 
-  // All routes require authentication
+  // All routes require authentication and Owner role
   fastify.addHook('preHandler', authenticate);
+  fastify.addHook('preHandler', requireOwner);
 
   // Get companies assigned to this owner
   fastify.get('/companies', controller.getMyCompanies.bind(controller));

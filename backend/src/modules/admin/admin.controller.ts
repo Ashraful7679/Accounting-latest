@@ -540,7 +540,10 @@ export class AdminController {
     };
 
     // Check if user exists
-    const existing = await prisma.user.findUnique({ where: { email } });
+    // Check if active user exists
+    const existing = await (prisma.user as any).findFirst({ 
+      where: { email, deletedAt: null } 
+    });
     if (existing) {
       throw new ConflictError('Email already exists');
     }

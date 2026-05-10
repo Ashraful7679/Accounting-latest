@@ -24,6 +24,36 @@ async function main() {
   }
   console.log('✅ Roles created');
 
+  // Create default role permissions templates
+  const ROLE_TEMPLATES = {
+    Owner: { canCreate: true, canView: true, canEdit: true, canDelete: true, canVerify: true, canApprove: true, canExport: true, canPrint: true },
+    Manager: { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: true, canApprove: true, canExport: true, canPrint: true },
+    Accountant: { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: false, canApprove: false, canExport: true, canPrint: true },
+    User: { canCreate: false, canView: true, canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
+  };
+
+  const MODULES = [
+    'journals', 'invoices', 'bills', 'payments', 'purchase_orders',
+    'customers', 'vendors', 'accounts', 'reports', 'employees',
+    'lc', 'pi', 'loans', 'products', 'attachments',
+    'employee_advances', 'employee_loans', 'employee_expenses',
+    'debit_notes', 'credit_notes', 'fixed_assets', 'grn', 'dn', 'payroll',
+  ];
+
+  for (const [roleName, perms] of Object.entries(ROLE_TEMPLATES)) {
+    const role = await prisma.role.findFirst({ where: { name: roleName } });
+    if (role) {
+      for (const module of MODULES) {
+        await prisma.rolePermission.upsert({
+          where: { roleId_module: { roleId: role.id, module } },
+          update: perms,
+          create: { roleId: role.id, module, ...perms },
+        });
+      }
+    }
+  }
+  console.log('✅ Role permission templates created');
+
   // Create default currencies
   const currencies = [
     { code: 'BDT', name: 'Bangladeshi Taka', symbol: '৳' },

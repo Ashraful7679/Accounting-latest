@@ -25,11 +25,10 @@ cd backend && npx prisma migrate status
 
 ## 🛠 Active Issues
 
-- [x] **TypeScript Out-of-Sync**: Resolved IDE errors by forcing `npx prisma generate` and fixing email unique field lookups in controllers.
-- [x] **Employee Creation Failure**: Added validation and partial unique index to allow re-registration.
-- [x] **Permission Setting Failure**: Expanded to 8 toggles and unified payload in frontend.
-- [x] **Logical Default Permissions**: Implemented centralized `ROLE_PERMISSIONS_DEFAULTS` in frontend and backend.
-- [ ] **Audit Trail Validation**: Verify that `SystemAuditLog` correctly records all administrative and owner actions.
+- [x] **Audit Trail Validation**: Implemented `ActivityLogService` and integrated it into Branch and Fixed Asset workflows.
+- [x] **Branch Verification**: Added status-based verification and approval workflow for branches.
+- [x] **Fixed Asset Integrity**: Implemented verification, approval, and automated depreciation runs with journal entries.
+- [ ] **Performance Audit**: Check query performance for large company datasets (Employees, Journals).
 - [ ] **Performance Audit**: Check query performance for large company datasets (Employees, Journals).
 
 ---

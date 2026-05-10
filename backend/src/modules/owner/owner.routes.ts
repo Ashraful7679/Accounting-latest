@@ -37,6 +37,7 @@ export const ownerRoutes = async (fastify: FastifyInstance) => {
 
   // Update employee permissions
   fastify.put('/employees/:id/permissions', controller.updateEmployeePermissions.bind(controller));
+  fastify.put('/employees/:id/permissions/bulk', controller.bulkUpdateEmployeePermissions.bind(controller));
 
   // Set reporting manager
   fastify.put('/employees/:id/manager', controller.setEmployeeManager.bind(controller));

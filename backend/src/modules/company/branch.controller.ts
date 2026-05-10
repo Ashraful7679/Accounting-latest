@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
 import { ValidationError, NotFoundError, ForbiddenError } from '../../middleware/errorHandler';
 import { BaseCompanyController } from './base.controller';
+import { ActivityLogService } from './activity-log.service';
 
 export class BranchController extends BaseCompanyController {
   async getBranches(request: FastifyRequest, reply: FastifyReply) {
@@ -72,6 +73,15 @@ export class BranchController extends BaseCompanyController {
       }
     }
 
+    await ActivityLogService.log({
+      companyId,
+      entityType: 'branch',
+      entityId: branch.id,
+      action: 'CREATED',
+      performedById: userId,
+      metadata: { branchCode: branch.code, branchName: branch.name }
+    });
+
     return reply.status(201).send({ success: true, data: branch });
   }
 
@@ -118,6 +128,15 @@ export class BranchController extends BaseCompanyController {
         });
       }
     }
+
+    await ActivityLogService.log({
+      companyId,
+      entityType: 'branch',
+      entityId: branch.id,
+      action: 'UPDATED',
+      performedById: userId,
+      metadata: { branchCode: branch.code, branchName: branch.name }
+    });
 
     return reply.send({ success: true, data: branch });
   }
@@ -168,6 +187,15 @@ export class BranchController extends BaseCompanyController {
       }
     });
 
+    await ActivityLogService.log({
+      companyId,
+      entityType: 'branch',
+      entityId: branch.id,
+      action: 'VERIFIED',
+      performedById: userId,
+      metadata: { branchCode: branch.code, branchName: branch.name }
+    });
+
     return reply.send({ success: true, data: branch });
   }
 
@@ -184,6 +212,15 @@ export class BranchController extends BaseCompanyController {
         approvedById: userId,
         approvedAt: new Date()
       }
+    });
+
+    await ActivityLogService.log({
+      companyId,
+      entityType: 'branch',
+      entityId: branch.id,
+      action: 'APPROVED',
+      performedById: userId,
+      metadata: { branchCode: branch.code, branchName: branch.name }
     });
 
     return reply.send({ success: true, data: branch });

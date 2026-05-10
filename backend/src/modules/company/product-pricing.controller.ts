@@ -6,11 +6,23 @@ export class ProductPricingController {
     const { id: companyId } = request.params as { id: string };
     const { productIds } = request.query as { productIds?: string };
 
-    if (!productIds) {
-      return reply.status(400).send({ error: 'productIds required' });
+    let ids: string[] = [];
+    
+    if (productIds) {
+      ids = productIds.split(',');
+    } else {
+      // If no IDs provided, fetch all products for the company
+      const products = await prisma.product.findMany({
+        where: { companyId },
+        select: { id: true }
+      });
+      ids = products.map(p => p.id);
     }
 
-    const ids = productIds.split(',');
+    if (ids.length === 0) {
+      return reply.send({ success: true, data: [] });
+    }
+
     const results = [];
 
     for (const productId of ids) {

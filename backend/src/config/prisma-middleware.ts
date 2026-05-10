@@ -87,7 +87,8 @@ export function registerSoftDelete(prisma: any) {
     }
 
     // 2. FILTERING: Intercept 'findFirst', 'findMany', 'count', etc.
-    if (softDeleteModels.includes(params.model || '')) {
+    const readActions = ['findFirst', 'findMany', 'findUnique', 'count', 'aggregate', 'groupBy'];
+    if (softDeleteModels.includes(params.model || '') && readActions.includes(params.action)) {
       if (params.action === 'findUnique' || params.action === 'findFirst') {
         params.action = 'findFirst';
       }
@@ -96,7 +97,6 @@ export function registerSoftDelete(prisma: any) {
       if (!params.args.where) params.args.where = {};
       
       // Inject only at root level — never recurse into nested relations
-      // since those may reference models without a deletedAt field (e.g. Role).
       if (params.args.where.deletedAt === undefined) {
         params.args.where.deletedAt = null;
       }

@@ -16,6 +16,16 @@ This skill provides comprehensive testing patterns for the AccaBiz ERP system. U
 4. Payment allocations
 5. Security/RBAC checks
 
+## Minimum Quality Gate
+
+Before merge/deploy for touched modules:
+
+- [ ] Relevant unit tests pass.
+- [ ] Relevant integration tests pass.
+- [ ] At least one regression test is added for each bug fix.
+- [ ] Finance-critical flows assert double-entry and idempotency.
+- [ ] Permission-denied scenario is tested for sensitive actions.
+
 ## Test Structure
 
 ### Backend Tests Location

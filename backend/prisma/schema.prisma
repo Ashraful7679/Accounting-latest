@@ -91,7 +91,6 @@ model Role {
   description String?
   isSystem    Boolean    @default(false)
   isActive    Boolean    @default(true)
-  permissions Json?
   userRoles   UserRole[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt

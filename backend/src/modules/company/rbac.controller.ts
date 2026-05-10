@@ -19,7 +19,7 @@ export class RBACController extends BaseCompanyController {
       description: role.description,
       isSystem: role.isSystem,
       isActive: role.isActive,
-      permissions: role.permissions,
+      permissions: {},
       userCount: role._count.userRoles
     }));
 
@@ -48,7 +48,7 @@ export class RBACController extends BaseCompanyController {
         description: role.description,
         isSystem: role.isSystem,
         isActive: role.isActive,
-        permissions: role.permissions,
+        permissions: {},
         users: role.userRoles.map(ur => ({
           id: ur.user.id,
           name: `${ur.user.firstName} ${ur.user.lastName}`,

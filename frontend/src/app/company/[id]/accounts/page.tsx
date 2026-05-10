@@ -156,7 +156,7 @@ export default function CompanyAccountsPage() {
 
   const syncMutation = useMutation({
     mutationFn: async () => {
-      const response = await api.post(`/company/${companyId}/heal-balances`);
+      const response = await api.post(`/company/${companyId}/recalculate-balances`);
       return response.data;
     },
     onSuccess: (data) => {

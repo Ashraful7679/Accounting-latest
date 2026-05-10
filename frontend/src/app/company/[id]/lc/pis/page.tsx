@@ -155,12 +155,12 @@ export default function LCPIsPage() {
     return styles[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const filteredPIs = pisData?.filter((pi: LCPI) => {
+  const filteredPIs = Array.isArray(pisData) ? pisData.filter((pi: LCPI) => {
     const matchesSearch = !searchTerm || 
       pi.piNumber?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || pi.status === filterStatus;
     return matchesSearch && matchesStatus;
-  }) || [];
+  }) : [];
 
   if (!mounted) return null;
 
@@ -329,7 +329,7 @@ export default function LCPIsPage() {
                   required
                 >
                   <option value="">SELECT INSTRUMENT</option>
-                  {lcsData?.map((lc: any) => <option key={lc.id} value={lc.id}>{lc.lcNumber}</option>)}
+                  {Array.isArray(lcsData) && lcsData.map((lc: any) => <option key={lc.id} value={lc.id}>{lc.lcNumber}</option>)}
                 </select>
               </div>
 
@@ -342,7 +342,7 @@ export default function LCPIsPage() {
                   required
                 >
                   <option value="">SELECT CUSTOMER</option>
-                  {customersData?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {Array.isArray(customersData) && customersData.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
 

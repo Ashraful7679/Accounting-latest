@@ -130,7 +130,7 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
         { name: 'Receive Payment', href: `/company/${companyId}/payments/receive` },
         { name: 'Make Payment', href: `/company/${companyId}/payments/make` },
         { name: 'Transfer', href: `/company/${companyId}/payments/transfer` },
-        { name: 'Payment History', href: `/company/${companyId}/invoices` },
+        { name: 'Payment History', href: `/company/${companyId}/payments/history` },
         { name: 'Payment Allocation', href: `/company/${companyId}/payments/allocate` },
       ]
     },

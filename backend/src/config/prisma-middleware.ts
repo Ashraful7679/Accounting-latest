@@ -134,6 +134,7 @@ export function registerSoftDelete(prisma: any) {
         params.action = 'findFirst';
       }
 
+      if (!params.args) params.args = {};
       if (!params.args.where) params.args.where = {};
       
       // Inject at root level

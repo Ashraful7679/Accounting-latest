@@ -61,7 +61,7 @@ export class OwnerController {
       const ownersCount = await prisma.user.count({
         where: {
           userCompanies: { some: { companyId: uc.company.id } },
-          userRoles: { some: { role: { name: 'Owner' } } }
+          userRoles: { some: { role: { is: { name: 'Owner' } } } }
         }
       });
 
@@ -69,7 +69,7 @@ export class OwnerController {
       const employeesCount = await prisma.user.count({
         where: {
           userCompanies: { some: { companyId: uc.company.id } },
-          userRoles: { none: { role: { name: 'Owner' } } }
+          userRoles: { none: { role: { is: { name: 'Owner' } } } }
         }
       });
 
@@ -458,7 +458,7 @@ export class OwnerController {
         companyId,
         user: {
           isSystem: false,
-          userRoles: { some: { role: { name: 'Owner' } } }
+          userRoles: { some: { role: { is: { name: 'Owner' } } } }
         }
       },
       include: {
@@ -620,7 +620,7 @@ export class OwnerController {
         userCompanies: { some: { companyId: { in: companyIds } } },
         isSystem: false, // Hide developer/system admin accounts
         userRoles: {
-          none: { role: { name: 'Owner' } } // Only show 'middlemen' (non-owner staff)
+          none: { role: { is: { name: 'Owner' } } } // Only show 'middlemen' (non-owner staff)
         }
       } as any,
       include: {

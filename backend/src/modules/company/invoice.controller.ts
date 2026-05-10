@@ -94,13 +94,13 @@ export class InvoiceController extends BaseCompanyController {
       }
 
       const role = await this.getUserRole(userId, companyId);
-      const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
+      const isOwner = role === 'Owner';
       
       const invoiceDate = new Date(data.invoiceDate);
       const today = new Date();
       today.setHours(23, 59, 59, 999);
 
-      if (invoiceDate > today && !isOwnerOrAdmin) {
+      if (invoiceDate > today && !isOwner) {
         throw new ValidationError('Future invoice dates are only allowed for owners');
       }
 
@@ -467,7 +467,7 @@ export class InvoiceController extends BaseCompanyController {
     const userId = (request.user as any).id;
 
     const role = await this.getUserRole(userId, companyId);
-    if (role !== 'Accountant' && role !== 'Owner' && role !== 'Admin') {
+    if (role !== 'Accountant' && role !== 'Owner') {
       throw new ForbiddenError('Insufficient permissions to submit invoices');
     }
 
@@ -744,7 +744,7 @@ export class InvoiceController extends BaseCompanyController {
 
     try {
       const role = await this.getUserRole(userId, companyId);
-      if (role !== 'Owner' && role !== 'Admin') {
+      if (role !== 'Owner') {
         throw new ForbiddenError('Only Owners or Admins can revert approved invoices');
       }
 

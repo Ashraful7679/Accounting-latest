@@ -37,11 +37,12 @@ export const PERMISSIONS = {
 
 export const ROLE_TEMPLATES = {
   'Admin': {
-    description: 'Full system access',
-    permissions: Object.keys(PERMISSIONS).reduce((acc, mod) => ({
-      ...acc,
-      [mod]: { canCreate: true, canView: true, canEdit: true, canDelete: true, canVerify: true, canApprove: true, canExport: true, canPrint: true }
-    }), {})
+    description: 'System-level administrative access',
+    permissions: {
+      'admin.users': { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: false, canApprove: false, canExport: true, canPrint: true },
+      'admin.roles': { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: false, canApprove: false, canExport: true, canPrint: true },
+      'settings': { canCreate: false, canView: true, canEdit: true, canDelete: false, canVerify: false, canApprove: false, canExport: true, canPrint: true },
+    }
   },
   'Controller': {
     description: 'Can approve all transactions',
@@ -119,8 +120,8 @@ export class RBACService {
         if (template.permissions[module][actionField]) return true;
       }
       
-      // Special case for global roles like Admin/Owner
-      if (ur.role.name === 'Admin' || ur.role.name === 'Owner') {
+      // Special case for Owner role (global within context)
+      if (ur.role.name === 'Owner') {
         return true;
       }
     }
@@ -151,8 +152,8 @@ export class RBACService {
       include: { role: true }
     });
 
-    // 2. Admin bypass (if they have the Admin role)
-    if (userRoles.some(ur => ur.role.name === 'Admin' || ur.role.name === 'Owner')) {
+    // 2. Owner bypass
+    if (userRoles.some(ur => ur.role.name === 'Owner')) {
       const fullAccess: Record<string, any> = {};
       Object.keys(PERMISSIONS).forEach(mod => {
         fullAccess[mod] = {
@@ -225,7 +226,7 @@ export class RBACService {
       include: { role: true }
     });
 
-    if (userRoles.some(ur => ur.role.name === 'Admin' || ur.role.isSystem)) return 'Admin';
+    if (userRoles.some(ur => ur.role.isSystem)) return 'System';
     if (userRoles.some(ur => ur.role.name === 'Controller')) return 'Controller';
     if (userRoles.some(ur => ur.role.name === 'Accountant')) return 'Accountant';
 
@@ -240,7 +241,7 @@ export class RBACService {
    * Note: Owners and Admins are exempt from these restrictions.
    */
   static async canManagerVerifyEntry(managerId: string, createdById: string, role: string): Promise<boolean> {
-    if (role === 'Owner' || role === 'Admin') return true;
+    if (role === 'Owner') return true;
     if (role !== 'Manager') return false; // Non-managers shouldn't be verifying unless they have explicit permission (handled elsewhere)
 
     if (managerId === createdById) return false; // Cannot verify own entry

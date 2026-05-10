@@ -567,7 +567,7 @@ export default function OwnerEmployeesPage() {
                   <div className="space-x-2">
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, companyIds: companiesData.map(c => c.id) })}
+                      onClick={() => setFormData({ ...formData, companyIds: companiesData?.map(c => c.id) || [] })}
                       className="text-xs text-blue-600 hover:underline"
                     >
                       Select All

@@ -59,9 +59,9 @@ export class JournalController extends BaseCompanyController {
 
       const journalDate = new Date(data.date);
       const role = await this.getUserRole(userId, companyId);
-      const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
+      const isOwner = role === 'Owner';
 
-      const status = (role === 'Accountant' || role === 'Controller' || isOwnerOrAdmin) ? 'PENDING_VERIFICATION' : 'DRAFT';
+      const status = (role === 'Accountant' || role === 'Controller' || isOwner) ? 'PENDING_VERIFICATION' : 'DRAFT';
 
       const journal = await TransactionRepository.createJournal({
         description: data.description || null,
@@ -339,9 +339,9 @@ export class JournalController extends BaseCompanyController {
     if (!journal) throw new NotFoundError('Journal not found');
 
     const canReject =
-      (journal.status === 'PENDING_VERIFICATION' && (role === 'Manager' || role === 'Owner' || role === 'Admin')) ||
-      (journal.status === 'PENDING_APPROVAL' && (role === 'Owner' || role === 'Admin')) ||
-      (journal.status === 'VERIFIED' && (role === 'Owner' || role === 'Admin'));
+      (journal.status === 'PENDING_VERIFICATION' && (role === 'Manager' || role === 'Owner')) ||
+      (journal.status === 'PENDING_APPROVAL' && (role === 'Owner')) ||
+      (journal.status === 'VERIFIED' && (role === 'Owner'));
 
     if (!canReject) {
       throw new ForbiddenError('Cannot reject this journal');
@@ -376,7 +376,7 @@ export class JournalController extends BaseCompanyController {
     const userId = (request.user as any).id;
 
     const role = await this.getUserRole(userId, companyId);
-    if (role !== 'Accountant' && role !== 'Owner' && role !== 'Admin') {
+    if (role !== 'Accountant' && role !== 'Owner') {
       throw new ForbiddenError('Insufficient permissions to retrieve journals');
     }
 
@@ -404,7 +404,7 @@ export class JournalController extends BaseCompanyController {
     const userId = (request.user as any).id;
 
     const role = await this.getUserRole(userId, companyId);
-    if (role !== 'Accountant' && role !== 'Owner' && role !== 'Admin') {
+    if (role !== 'Accountant' && role !== 'Owner') {
       throw new ForbiddenError('Insufficient permissions to submit journals');
     }
 
@@ -469,7 +469,7 @@ export class JournalController extends BaseCompanyController {
         performedById: userId
       });
 
-      const isOwnerOrAdmin = role === 'Owner' || role === 'Admin';
+      const isOwner = role === 'Owner';
 
       for (const line of journal.lines) {
         const isDebitType = (line.account as any).accountType.type === 'DEBIT';
@@ -479,7 +479,7 @@ export class JournalController extends BaseCompanyController {
 
         const potentialBalance = Number(line.account.currentBalance) + balanceChange;
 
-        if (potentialBalance < 0 && !(line.account as any).allowNegative && !isOwnerOrAdmin) {
+        if (potentialBalance < 0 && !(line.account as any).allowNegative && !isOwner) {
           throw new ValidationError(
             `Transaction rejected: ${line.account.name} balance (${potentialBalance.toLocaleString()}) would be negative.`
           );

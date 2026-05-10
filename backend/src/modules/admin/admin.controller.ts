@@ -403,7 +403,7 @@ export class AdminController {
         }
 
         // Ensure COA exists now that an owner is linked
-        await this.ensureCOA(id, company.code);
+        await CoaController.initializeCompanyCOA(id, (company as any).category || 'GENERAL');
       }
     }
 

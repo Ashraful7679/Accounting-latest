@@ -15,6 +15,16 @@ AccaBiz follows a **Clean, Professional, and High-Density** design aesthetic sui
 - **Palette**: Neutral grays (`#f9fafb` background, `#111827` foreground) with professional blue accents (`#2563eb`) for primary actions.
 - **Layout**: Sidebar-driven navigation with a fluid content area. Use `DetailPanel` for side-sheet interactions to maintain context.
 
+## Accessibility Baseline
+
+For any new or refactored UI:
+
+- [ ] All interactive elements are keyboard reachable.
+- [ ] Inputs have visible labels or accessible names.
+- [ ] Focus states are visible on buttons/links/inputs.
+- [ ] Status colors are not the sole carrier of meaning.
+- [ ] Table headers are semantic (`<thead>`, `<th>`) and scoped clearly.
+
 ## Component Patterns
 
 ### 1. Page Structure

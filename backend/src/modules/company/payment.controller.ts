@@ -134,17 +134,31 @@ export class PaymentController {
         }
       }
 
-      // 3. Invoice/Bill Payment (Sales or Purchase)
+      // 3. Auto-Allocate to Invoice (single invoice payment)
       if (invoiceId) {
         const invoice = await tx.invoice.findUnique({ where: { id: invoiceId } });
         if (!invoice) throw new NotFoundError('Invoice not found');
 
+        // Auto-allocate: Create PaymentInvoice record if not exists
+        const existingAlloc = await (tx as any).paymentInvoice.findFirst({
+          where: { paymentId: pmt.id, invoiceId: invoice.id }
+        });
+        if (!existingAlloc) {
+          await (tx as any).paymentInvoice.create({
+            data: {
+              paymentId: pmt.id,
+              invoiceId: invoice.id,
+              allocatedAmount: Number(amount)
+            }
+          });
+        }
+
         // Auto-journal for Regular Invoice Payment
         await TransactionRepository.generatePaymentJournal(tx, pmt, companyId, userId, invoice.type === 'SALES' ? 'SALES' : 'PURCHASE');
         
-        // Update Invoice status logic...
+        // Update Invoice status
         const previousPayments = await tx.payment.aggregate({
-          where: { invoiceId: invoice.id },
+          where: { invoiceId: invoice.id, id: { not: pmt.id } },
           _sum: { amount: true }
         });
         
@@ -157,6 +171,7 @@ export class PaymentController {
         });
       }
 
+      // 4. Auto-Allocate to Bill (single bill payment)
       if (billId) {
         const bill = await tx.bill.findUnique({ where: { id: billId } });
         if (!bill) throw new NotFoundError('Bill not found');
@@ -164,8 +179,9 @@ export class PaymentController {
         // Auto-journal for Regular Bill Payment
         await TransactionRepository.generatePaymentJournal(tx, pmt, companyId, userId, 'PURCHASE');
         
+        // Update Bill status
         const previousPayments = await tx.payment.aggregate({
-          where: { billId: bill.id },
+          where: { billId: bill.id, id: { not: pmt.id } },
           _sum: { amount: true }
         });
         
@@ -178,9 +194,98 @@ export class PaymentController {
         });
       }
 
-      // 4. Advance Payment Journal Entry (No Invoice/Bill yet)
+      // 5. Advance Payment: Auto-apply to oldest unpaid invoices/bills
       if (!invoiceId && !billId && !lcId && (data.customerId || data.vendorId)) {
         await TransactionRepository.generatePaymentJournal(tx, pmt, companyId, userId, data.customerId ? 'SALES' : 'PURCHASE');
+        
+        // Auto-apply to oldest unpaid invoices/bills (FIFO)
+        let remainingAmount = Number(amount);
+        
+        if (data.customerId) {
+          // Find oldest unpaid sales invoices for this customer
+          const unpaidInvoices = await tx.invoice.findMany({
+            where: { 
+              customerId: data.customerId, 
+              status: { in: ['APPROVED', 'PARTIALLY_PAID'] },
+              type: 'SALES'
+            },
+            orderBy: { invoiceDate: 'asc' }
+          });
+          
+          for (const inv of unpaidInvoices) {
+            if (remainingAmount <= 0) break;
+            
+            const previousPaid = await tx.paymentInvoice.aggregate({
+              where: { invoiceId: inv.id },
+              _sum: { allocatedAmount: true }
+            });
+            const totalPaid = (previousPaid._sum.allocatedAmount || 0);
+            const outstanding = inv.total - totalPaid;
+            const toAllocate = Math.min(remainingAmount, outstanding);
+            
+            if (toAllocate > 0) {
+              await (tx as any).paymentInvoice.create({
+                data: {
+                  paymentId: pmt.id,
+                  invoiceId: inv.id,
+                  allocatedAmount: toAllocate
+                }
+              });
+              
+              remainingAmount -= toAllocate;
+              
+              // Update invoice status
+              const newTotalPaid = totalPaid + toAllocate;
+              const invStatus = newTotalPaid >= inv.total ? 'PAID' : 'PARTIALLY_PAID';
+              await tx.invoice.update({
+                where: { id: inv.id },
+                data: { status: invStatus }
+              });
+            }
+          }
+        }
+        
+        if (data.vendorId) {
+          // Find oldest unpaid bills for this vendor
+          const unpaidBills = await tx.bill.findMany({
+            where: { 
+              vendorId: data.vendorId, 
+              status: { in: ['APPROVED', 'PARTIALLY_PAID'] }
+            },
+            orderBy: { billDate: 'asc' }
+          });
+          
+          for (const bill of unpaidBills) {
+            if (remainingAmount <= 0) break;
+            
+            const previousPaid = await tx.payment.aggregate({
+              where: { billId: bill.id, id: { not: pmt.id } },
+              _sum: { amount: true }
+            });
+            const totalPaid = (previousPaid._sum.amount || 0);
+            const outstanding = bill.total - totalPaid;
+            const toAllocate = Math.min(remainingAmount, outstanding);
+            
+            if (toAllocate > 0) {
+              // Note: For bills, we create allocation differently
+              // Update the payment with billId for auto-tracking
+              await tx.payment.update({
+                where: { id: pmt.id },
+                data: { billId: bill.id }
+              });
+              
+              remainingAmount -= toAllocate;
+              
+              // Update bill status
+              const newTotalPaid = totalPaid + toAllocate;
+              const billStatus = newTotalPaid >= bill.total ? 'PAID' : 'PARTIALLY_PAID';
+              await tx.bill.update({
+                where: { id: bill.id },
+                data: { status: billStatus }
+              });
+            }
+          }
+        }
       }
 
       return pmt;

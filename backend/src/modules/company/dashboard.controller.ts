@@ -224,8 +224,8 @@ export class DashboardController {
     console.log(`[DashboardStats] Fetching for User: ${userId}, Company: ${companyId}`);
 
     // 1. Get User's Role & Access in this Company
-    let userCompany = await prisma.userCompany.findUnique({
-      where: { userId_companyId: { userId, companyId } },
+    let userCompany = await prisma.userCompany.findFirst({
+      where: { userId, companyId },
       include: {
         user: { include: { userRoles: { include: { role: true } } } },
         company: true

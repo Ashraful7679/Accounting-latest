@@ -76,46 +76,46 @@ export class SequenceService {
 
       switch (type) {
         case 'invoice':
-          alreadyExists = !!(await client.invoice.findUnique({ where: { companyId_invoiceNumber: { companyId, invoiceNumber: candidate } } }));
+          alreadyExists = !!(await client.invoice.findFirst({ where: { companyId, invoiceNumber: candidate } }));
           break;
         case 'journal':
-          alreadyExists = !!(await client.journalEntry.findUnique({ where: { companyId_entryNumber: { companyId, entryNumber: candidate } } }));
+          alreadyExists = !!(await client.journalEntry.findFirst({ where: { companyId, entryNumber: candidate } }));
           break;
         case 'po':
-          alreadyExists = !!(await client.purchaseOrder.findUnique({ where: { companyId_poNumber: { companyId, poNumber: candidate } } }));
+          alreadyExists = !!(await client.purchaseOrder.findFirst({ where: { companyId, poNumber: candidate } }));
           break;
         case 'pi':
-          alreadyExists = !!(await (client as any).pI.findUnique({ where: { companyId_piNumber: { companyId, piNumber: candidate } } }));
+          alreadyExists = !!(await (client as any).pI.findFirst({ where: { companyId, piNumber: candidate } }));
           break;
         case 'lc':
-          alreadyExists = !!(await (client as any).lC.findUnique({ where: { companyId_lcNumber: { companyId, lcNumber: candidate } } }));
+          alreadyExists = !!(await (client as any).lC.findFirst({ where: { companyId, lcNumber: candidate } }));
           break;
         case 'customer':
-          alreadyExists = !!(await client.customer.findUnique({ where: { companyId_code: { companyId, code: candidate } } }));
+          alreadyExists = !!(await client.customer.findFirst({ where: { companyId, code: candidate } }));
           break;
         case 'vendor':
-          alreadyExists = !!(await client.vendor.findUnique({ where: { companyId_code: { companyId, code: candidate } } }));
+          alreadyExists = !!(await client.vendor.findFirst({ where: { companyId, code: candidate } }));
           break;
         case 'product':
-          alreadyExists = !!(await (client as any).product.findUnique({ where: { companyId_code: { companyId, code: candidate } } }));
+          alreadyExists = !!(await (client as any).product.findFirst({ where: { companyId, code: candidate } }));
           break;
         case 'employee':
-          alreadyExists = !!(await client.employee.findUnique({ where: { companyId_employeeCode: { companyId, employeeCode: candidate } } }));
+          alreadyExists = !!(await client.employee.findFirst({ where: { companyId, employeeCode: candidate } }));
           break;
         case 'account':
-          alreadyExists = !!(await client.account.findUnique({ where: { companyId_code: { companyId, code: candidate } } }));
+          alreadyExists = !!(await client.account.findFirst({ where: { companyId, code: candidate } }));
           break;
         case 'so':
-          alreadyExists = !!(await (client as any).salesOrder.findUnique({ where: { companyId_soNumber: { companyId, soNumber: candidate } } }));
+          alreadyExists = !!(await (client as any).salesOrder.findFirst({ where: { companyId, soNumber: candidate } }));
           break;
         case 'dn':
-          alreadyExists = !!(await (client as any).dN.findUnique({ where: { companyId_dnNumber: { companyId, dnNumber: candidate } } }));
+          alreadyExists = !!(await (client as any).dN.findFirst({ where: { companyId, dnNumber: candidate } }));
           break;
         case 'grn':
-          alreadyExists = !!(await (client as any).gRN.findUnique({ where: { companyId_grnNumber: { companyId, grnNumber: candidate } } }));
+          alreadyExists = !!(await (client as any).gRN.findFirst({ where: { companyId, grnNumber: candidate } }));
           break;
         case 'bill':
-          alreadyExists = !!(await (client as any).bill.findUnique({ where: { companyId_billNumber: { companyId, billNumber: candidate } } }));
+          alreadyExists = !!(await (client as any).bill.findFirst({ where: { companyId, billNumber: candidate } }));
           break;
       }
 

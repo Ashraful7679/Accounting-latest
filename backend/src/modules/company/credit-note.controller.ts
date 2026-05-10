@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { CreditNoteRepository } from '../../repositories/CreditNoteRepository';
 import { SequenceService } from './sequence.service';
 import { ValidationError, NotFoundError } from '../../middleware/errorHandler';
+import { JournalService } from '../accounting/journal.service';
 import prisma from '../../config/database';
 import { SYSTEM_MODE } from '../../lib/systemMode';
 
@@ -143,6 +144,9 @@ export class CreditNoteController {
         }
       }
     }
+
+    // Auto-post journal entry (idempotent)
+    await JournalService.handleDocumentApproval('CREDIT_NOTE', creditNoteId, userId);
 
     const updated = await CreditNoteRepository.update(creditNoteId, {
       status: 'APPROVED',

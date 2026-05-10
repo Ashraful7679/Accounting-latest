@@ -11,8 +11,8 @@ export class EquityService {
     return await prisma.$transaction(async (tx: any) => {
       // 1. Fetch Company and Owner Details
       const company = await tx.company.findUnique({ where: { id: companyId } });
-      const userCompany = await tx.userCompany.findUnique({
-        where: { userId_companyId: { userId: ownerId, companyId } },
+      const userCompany = await tx.userCompany.findFirst({
+        where: { userId: ownerId, companyId },
         include: { user: true }
       });
 

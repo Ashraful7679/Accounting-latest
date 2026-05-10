@@ -678,9 +678,10 @@ export class InvoiceController extends BaseCompanyController {
         const hasGRN = inv.grns && inv.grns.length > 0;
 
         if (invoice.type === 'PURCHASE' && !hasGRN) {
+          const grnNumber = await this.generateDocumentNumber(companyId, 'grn', tx);
           const grn = await tx.gRN.create({
             data: {
-              grnNumber: `GRN-${Date.now()}`,
+              grnNumber,
               companyId,
               invoiceId: invoice.id,
               status: 'RECEIVED',
@@ -694,10 +695,13 @@ export class InvoiceController extends BaseCompanyController {
             }
           });
           await InventoryService.processGRN(tx, grn.id);
+          // Auto-journal for GRN
+          await JournalService.handleDocumentApproval('GRN', grn.id, userId, tx);
         } else if (invoice.type === 'SALES' && !hasDN) {
+          const dnNumber = await this.generateDocumentNumber(companyId, 'dn', tx);
           const dn = await tx.dN.create({
             data: {
-              dnNumber: `DN-${Date.now()}`,
+              dnNumber,
               companyId,
               invoiceId: invoice.id,
               status: 'SHIPPED',
@@ -710,6 +714,8 @@ export class InvoiceController extends BaseCompanyController {
             }
           });
           await InventoryService.processDN(tx, dn.id);
+          // Auto-journal for DN
+          await JournalService.handleDocumentApproval('DN', dn.id, userId, tx);
         }
 
         // 3. Automated Financial Journaling
@@ -757,7 +763,7 @@ export class InvoiceController extends BaseCompanyController {
         const inv = await tx.invoice.update({
           where: { id: invoiceId },
           data: { status: 'DRAFT', approvedById: null, approvedAt: null },
-          include: { lines: true }
+          include: { lines: true, dns: true, grns: true }
         });
 
         // 2. Revert Order Quantity Updates
@@ -790,11 +796,20 @@ export class InvoiceController extends BaseCompanyController {
           }
         }
 
-        // 3. Delete Journal Entries
+        // 3. Delete Journal Entries (Invoice + Auto-generated DN/GRN)
         if (inv.journalId) {
-          await tx.journalEntry.delete({
-            where: { id: inv.journalId }
-          });
+          await tx.journalEntry.delete({ where: { id: inv.journalId } });
+        }
+        // Also delete DN/GRN journals if they were auto-generated
+        for (const dn of (inv.dns || [])) {
+          if (dn.journalId) {
+            await tx.journalEntry.delete({ where: { id: dn.journalId } }).catch(() => {});
+          }
+        }
+        for (const grn of (inv.grns || [])) {
+          if (grn.journalId) {
+            await tx.journalEntry.delete({ where: { id: grn.journalId } }).catch(() => {});
+          }
         }
 
         return inv;

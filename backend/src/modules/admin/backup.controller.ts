@@ -79,36 +79,141 @@ export class BackupController {
   }
 
   private async createCompanyScopedBackup(companyId: string, outputPath: string): Promise<void> {
-    const company = await prisma.company.findUnique({ where: { id: companyId } });
+    const company = await prisma.company.findUnique({ 
+      where: { id: companyId },
+      include: { settings: true }
+    });
     if (!company) {
       throw new Error('Company not found');
     }
 
     const backupPayload: any = {
       meta: {
+        version: '1.0',
         createdAt: new Date().toISOString(),
         companyId,
         companyName: company.name,
+        companyCode: company.code,
       },
-      data: {},
+      data: {
+        company,
+      },
     };
 
-    const scopedModels = [
-      { name: 'companies', key: 'company', where: { id: companyId } },
-      { name: 'accounts', key: 'account', where: { companyId } },
-      { name: 'customers', key: 'customer', where: { companyId } },
-      { name: 'vendors', key: 'vendor', where: { companyId } },
-      { name: 'products', key: 'product', where: { companyId } },
-      { name: 'journals', key: 'journal', where: { companyId } },
-      { name: 'invoices', key: 'invoice', where: { companyId } },
-      { name: 'purchaseOrders', key: 'purchaseOrder', where: { companyId } },
-      { name: 'lcs', key: 'lc', where: { companyId } },
-      { name: 'attachments', key: 'attachment', where: { companyId } },
+    // 1. Fetch all models with direct companyId
+    const directModels = [
+      { name: 'branches', key: 'branch' },
+      { name: 'documentSequences', key: 'documentSequence' },
+      { name: 'accounts', key: 'account' },
+      { name: 'projects', key: 'project' },
+      { name: 'costCenters', key: 'costCenter' },
+      { name: 'customers', key: 'customer' },
+      { name: 'vendors', key: 'vendor' },
+      { name: 'products', key: 'product' },
+      { name: 'lcs', key: 'lC' },
+      { name: 'pis', key: 'pI' },
+      { name: 'loans', key: 'loan' },
+      { name: 'purchaseOrders', key: 'purchaseOrder' },
+      { name: 'salesOrders', key: 'salesOrder' },
+      { name: 'invoices', key: 'invoice' },
+      { name: 'journalEntries', key: 'journalEntry' },
+      { name: 'bills', key: 'bill' },
+      { name: 'grns', key: 'gRN' },
+      { name: 'dns', key: 'dN' },
+      { name: 'payments', key: 'payment' },
+      { name: 'employees', key: 'employee' },
+      { name: 'employeeAdvances', key: 'employeeAdvance' },
+      { name: 'employeeLoans', key: 'employeeLoan' },
+      { name: 'employeeLoanRepayments', key: 'employeeLoanRepayment' },
+      { name: 'employeeExpenses', key: 'employeeExpense' },
+      { name: 'fixedAssets', key: 'fixedAsset' },
+      { name: 'payrollRuns', key: 'payrollRun' },
+      { name: 'debitNotes', key: 'debitNote' },
+      { name: 'creditNotes', key: 'creditNote' },
+      { name: 'recurringInvoices', key: 'recurringInvoice' },
+      { name: 'activityLogs', key: 'activityLog' },
+      { name: 'notifications', key: 'notification' },
+      { name: 'attachments', key: 'attachment' },
     ];
 
-    for (const model of scopedModels) {
-      const data = await (prisma as any)[model.key].findMany({ where: model.where });
-      backupPayload.data[model.name] = data;
+    for (const model of directModels) {
+      try {
+        const data = await (prisma as any)[model.key].findMany({ 
+          where: { companyId } 
+        });
+        backupPayload.data[model.name] = data;
+      } catch (err) {
+        console.warn(`Could not fetch data for model ${model.name}:`, err);
+        backupPayload.data[model.name] = [];
+      }
+    }
+
+    // 2. Fetch child records (Lines/Details)
+    // PILines
+    if (backupPayload.data.pis.length > 0) {
+      const piIds = backupPayload.data.pis.map((p: any) => p.id);
+      backupPayload.data.piLines = await prisma.pILine.findMany({ where: { piId: { in: piIds } } });
+    }
+
+    // PurchaseOrderLines
+    if (backupPayload.data.purchaseOrders.length > 0) {
+      const poIds = backupPayload.data.purchaseOrders.map((p: any) => p.id);
+      backupPayload.data.purchaseOrderLines = await prisma.purchaseOrderLine.findMany({ where: { purchaseOrderId: { in: poIds } } });
+    }
+
+    // SalesOrderLines
+    if (backupPayload.data.salesOrders.length > 0) {
+      const soIds = backupPayload.data.salesOrders.map((p: any) => p.id);
+      backupPayload.data.salesOrderLines = await prisma.salesOrderLine.findMany({ where: { salesOrderId: { in: soIds } } });
+    }
+
+    // InvoiceLines
+    if (backupPayload.data.invoices.length > 0) {
+      const invIds = backupPayload.data.invoices.map((p: any) => p.id);
+      backupPayload.data.invoiceLines = await prisma.invoiceLine.findMany({ where: { invoiceId: { in: invIds } } });
+    }
+
+    // JournalEntryLines
+    if (backupPayload.data.journalEntries.length > 0) {
+      const journalIds = backupPayload.data.journalEntries.map((p: any) => p.id);
+      backupPayload.data.journalEntryLines = await prisma.journalEntryLine.findMany({ where: { journalEntryId: { in: journalIds } } });
+    }
+
+    // GRNLines
+    if (backupPayload.data.grns.length > 0) {
+      const grnIds = backupPayload.data.grns.map((p: any) => p.id);
+      backupPayload.data.grnLines = await prisma.gRNLine.findMany({ where: { grnId: { in: grnIds } } });
+    }
+
+    // DNLines
+    if (backupPayload.data.dns.length > 0) {
+      const dnIds = backupPayload.data.dns.map((p: any) => p.id);
+      backupPayload.data.dnLines = await prisma.dNLine.findMany({ where: { dnId: { in: dnIds } } });
+    }
+
+    // DebitNoteLines
+    if (backupPayload.data.debitNotes.length > 0) {
+      const dnIds = backupPayload.data.debitNotes.map((p: any) => p.id);
+      backupPayload.data.debitNoteLines = await prisma.debitNoteLine.findMany({ where: { debitNoteId: { in: dnIds } } });
+    }
+
+    // CreditNoteLines
+    if (backupPayload.data.creditNotes.length > 0) {
+      const cnIds = backupPayload.data.creditNotes.map((p: any) => p.id);
+      backupPayload.data.creditNoteLines = await prisma.creditNoteLine.findMany({ where: { creditNoteId: { in: cnIds } } });
+    }
+
+    // PayrollPayslips
+    if (backupPayload.data.payrollRuns.length > 0) {
+      const runIds = backupPayload.data.payrollRuns.map((p: any) => p.id);
+      backupPayload.data.payrollPayslips = await prisma.payrollPayslip.findMany({ where: { payrollRunId: { in: runIds } } });
+    }
+
+    // Payment Allocations
+    if (backupPayload.data.payments.length > 0) {
+      const paymentIds = backupPayload.data.payments.map((p: any) => p.id);
+      backupPayload.data.paymentPIs = await prisma.paymentPI.findMany({ where: { paymentId: { in: paymentIds } } });
+      backupPayload.data.paymentInvoices = await prisma.paymentInvoice.findMany({ where: { paymentId: { in: paymentIds } } });
     }
 
     fs.writeFileSync(outputPath, JSON.stringify(backupPayload, null, 2));

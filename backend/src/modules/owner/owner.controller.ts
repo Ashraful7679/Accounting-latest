@@ -457,6 +457,7 @@ export class OwnerController {
       where: { 
         companyId,
         user: {
+          isSystem: false,
           userRoles: { some: { role: { name: 'Owner' } } }
         }
       },
@@ -511,6 +512,12 @@ export class OwnerController {
 
     if (!targetOwner) {
       throw new NotFoundError('Owner not found in this company');
+    }
+
+    // Protection for System users
+    const targetUser = await prisma.user.findUnique({ where: { id: ownerId } });
+    if ((targetUser as any)?.isSystem) {
+      throw new ForbiddenError('System accounts cannot be modified by standard owners');
     }
 
     // Prevent non-main owners from editing the main owner
@@ -569,6 +576,10 @@ export class OwnerController {
       throw new NotFoundError('Employee not found');
     }
 
+    if ((employee as any).isSystem) {
+      throw new ForbiddenError('System accounts cannot be deleted by standard owners');
+    }
+
     // Verify requester has permission in at least one of the employee's companies
     const sharedCompanyIds = employee.userCompanies.map(uc => uc.companyId);
     const requesterAccess = await (prisma.userCompany as any).findFirst({
@@ -611,7 +622,7 @@ export class OwnerController {
         userRoles: {
           none: { role: { name: 'Owner' } } // Only show 'middlemen' (non-owner staff)
         }
-      },
+      } as any,
       include: {
         userRoles: { include: { role: true } },
         userCompanies: { include: { company: true } },
@@ -621,14 +632,14 @@ export class OwnerController {
 
     // Format all users (including owners)
     const formatted = employees
-      .map((e) => ({
+      .map((e: any) => ({
         id: e.id,
         firstName: e.firstName,
         lastName: e.lastName,
         email: e.email,
         isActive: e.isActive,
         role: e.userRoles[0]?.role.name || 'User',
-        companies: e.userCompanies.map((uc) => ({
+        companies: e.userCompanies.map((uc: any) => ({
           id: uc.company.id,
           name: uc.company.name,
           code: uc.company.code,
@@ -706,6 +717,10 @@ export class OwnerController {
 
     if (!employee) {
       throw new NotFoundError('Employee not found');
+    }
+
+    if ((employee as any).isSystem) {
+      throw new ForbiddenError('System accounts cannot be modified by standard owners');
     }
 
     // Get owner's companies to verify access

@@ -323,27 +323,33 @@ export class AdminController {
         }
       }
 
-      await (prisma.userCompany as any).upsert({
-        where: { userId_companyId: { userId: ownerId, companyId: company.id } },
-        update: { 
-          isDefault: true,
-          isMainOwner: true,
-          ownershipPercentage: 100,
-          canEditCompany: true,
-          canDeleteCompany: true,
-          canManageOwners: true
-        },
-        create: { 
-          userId: ownerId, 
-          companyId: company.id, 
-          isDefault: true,
-          isMainOwner: true,
-          ownershipPercentage: 100,
-          canEditCompany: true,
-          canDeleteCompany: true,
-          canManageOwners: true
-        },
+      const existingUC = await prisma.userCompany.findFirst({
+        where: { userId: ownerId, companyId: company.id }
       });
+
+      const ucData = {
+        isDefault: true,
+        isMainOwner: true,
+        ownershipPercentage: 100,
+        canEditCompany: true,
+        canDeleteCompany: true,
+        canManageOwners: true
+      };
+
+      if (existingUC) {
+        await prisma.userCompany.update({
+          where: { id: existingUC.id },
+          data: ucData
+        });
+      } else {
+        await prisma.userCompany.create({
+          data: { 
+            userId: ownerId, 
+            companyId: company.id, 
+            ...ucData 
+          }
+        });
+      }
     }
 
     // Create default Chart of Accounts (COA)
@@ -424,27 +430,33 @@ export class AdminController {
           }
         }
 
-        await (prisma.userCompany as any).upsert({
-          where: { userId_companyId: { userId: ownerId, companyId: id } },
-          update: { 
-            isDefault: true,
-            isMainOwner: true,
-            ownershipPercentage: 100,
-            canEditCompany: true,
-            canDeleteCompany: true,
-            canManageOwners: true
-          },
-          create: { 
-            userId: ownerId, 
-            companyId: id, 
-            isDefault: true,
-            isMainOwner: true,
-            ownershipPercentage: 100,
-            canEditCompany: true,
-            canDeleteCompany: true,
-            canManageOwners: true
-          },
+        const existingUC = await prisma.userCompany.findFirst({
+          where: { userId: ownerId, companyId: id }
         });
+
+        const ucData = {
+          isDefault: true,
+          isMainOwner: true,
+          ownershipPercentage: 100,
+          canEditCompany: true,
+          canDeleteCompany: true,
+          canManageOwners: true
+        };
+
+        if (existingUC) {
+          await prisma.userCompany.update({
+            where: { id: existingUC.id },
+            data: ucData
+          });
+        } else {
+          await prisma.userCompany.create({
+            data: { 
+              userId: ownerId, 
+              companyId: id, 
+              ...ucData 
+            }
+          });
+        }
 
         // Ensure COA exists now that an owner is linked
         await this.ensureCOA(id, company.code);
@@ -495,7 +507,7 @@ export class AdminController {
       where: {
         userRoles: { some: { roleId: ownerRole.id } },
         isSystem: false, // Don't return system accounts in owner lists
-      },
+      } as any,
       include: {
         userRoles: { include: { role: true } },
         userCompanies: { include: { company: true } },
@@ -509,7 +521,7 @@ export class AdminController {
       email: o.email,
       isActive: o.isActive,
       maxCompanies: o.maxCompanies,
-      companies: o.userCompanies.map((uc) => ({
+      companies: (o as any).userCompanies.map((uc: any) => ({
         id: uc.company.id,
         name: uc.company.name,
         code: uc.company.code,
@@ -631,7 +643,7 @@ export class AdminController {
       recentLogs
     ] = await Promise.all([
       prisma.company.count(),
-      prisma.user.count({ where: { isSystem: false } }),
+      prisma.user.count({ where: { isSystem: false } as any }),
       prisma.invoice.count(),
       prisma.journalEntry.count(),
       (prisma as any).systemAuditLog.findMany({
@@ -668,7 +680,7 @@ export class AdminController {
       data: {
         ...(isBlocked !== undefined && { isBlocked }),
         ...(blockedIps !== undefined && { blockedIps })
-      }
+      } as any
     });
 
     await this.createAuditLog(request, isBlocked ? 'BLOCK_USER' : 'UPDATE_USER_SECURITY', 'User', id, { isBlocked, blockedIps });
@@ -686,7 +698,7 @@ export class AdminController {
 
     const updated = await prisma.user.update({
       where: { id },
-      data: { isSystem }
+      data: { isSystem } as any
     });
 
     await this.createAuditLog(request, 'TOGGLE_SYSTEM_STATUS', 'User', id, { isSystem });

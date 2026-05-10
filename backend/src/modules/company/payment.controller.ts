@@ -20,13 +20,9 @@ export class PaymentController {
     const today = new Date();
     today.setHours(23, 59, 59, 999);
 
-    const userRecord = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { userRoles: { include: { role: true } } }
-    });
-    const isOwnerOrAdmin = userRecord?.userRoles.some((ur: any) => ['Owner', 'Admin'].includes(ur.role.name)) || false;
+    const isOwner = (request.user as any).roles.includes('Owner');
 
-    if (paymentDate > today && !isOwnerOrAdmin) {
+    if (paymentDate > today && !isOwner) {
       throw new ValidationError('Future payment dates are only allowed for owners');
     }
 

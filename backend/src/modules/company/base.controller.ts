@@ -34,7 +34,7 @@ export class BaseCompanyController {
     const editableStatuses = ['DRAFT', 'REJECTED'];
     if (!editableStatuses.includes(status)) return false;
     
-    if (role === 'Owner' || role === 'Admin' || role === 'Manager') return true;
+    if (role === 'Owner' || role === 'Manager') return true;
     if (userId && createdById && userId === createdById) return true;
     if (role === 'Accountant') return true;
     
@@ -43,13 +43,13 @@ export class BaseCompanyController {
 
   protected canDelete(status: string, role: string): boolean {
     if (status !== 'DRAFT') return false;
-    if (role === 'Owner' || role === 'Admin') return true;
+    if (role === 'Owner') return true;
     return false;
   }
 
   protected canVerify(status: string, role: string): boolean {
     // Role must have verify permission AND status must be pending verification
-    const allowedRoles = ['Owner', 'Admin', 'Manager', 'Controller'];
+    const allowedRoles = ['Owner', 'Manager', 'Controller'];
     if (allowedRoles.includes(role)) {
       return status === 'PENDING_VERIFICATION' || status === 'DRAFT' || status === 'OPEN';
     }
@@ -58,7 +58,7 @@ export class BaseCompanyController {
 
   protected canApprove(status: string, role: string): boolean {
     // Only Controller/Admin can approve verified documents
-    const allowedRoles = ['Owner', 'Admin', 'Manager', 'Controller'];
+    const allowedRoles = ['Owner', 'Manager', 'Controller'];
     if (allowedRoles.includes(role)) {
       return status === 'VERIFIED';
     }
@@ -67,11 +67,11 @@ export class BaseCompanyController {
 
   // Workflow: Draft → Pending Verification → Verified → Approved → Posted
   protected canSubmitForVerification(status: string, role: string): boolean {
-    return status === 'DRAFT' && ['Accountant', 'Sales Rep', 'Purchase Rep', 'Admin', 'Owner'].includes(role);
+    return status === 'DRAFT' && ['Accountant', 'Sales Rep', 'Purchase Rep', 'Owner'].includes(role);
   }
 
   protected canSubmitForApproval(status: string, role: string): boolean {
-    return status === 'VERIFIED' && ['Controller', 'Admin', 'Owner'].includes(role);
+    return status === 'VERIFIED' && ['Controller', 'Owner'].includes(role);
   }
 
   protected async generateDocumentNumber(

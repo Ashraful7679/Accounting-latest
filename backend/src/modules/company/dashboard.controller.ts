@@ -239,10 +239,9 @@ export class DashboardController {
         include: { userRoles: { include: { role: true } } }
       });
 
-      const isAdmin = user?.userRoles.some((ur: any) => ur.role.name === 'Admin');
       const isOwner = user?.userRoles.some((ur: any) => ur.role.name === 'Owner');
 
-      if (isAdmin || isOwner) {
+      if (isOwner) {
         // Mock a userCompany object for admins/owners to allow access
         const company = await prisma.company.findUnique({ where: { id: companyId } });
         if (!company) throw new NotFoundError('Company not found');
@@ -275,7 +274,7 @@ export class DashboardController {
         include: { userRoles: { include: { role: true } } }
       });
       const isGlobalOwner = user?.userRoles.some((ur: any) => ur.role.name === 'Owner');
-      roleName = isGlobalOwner ? 'Owner' : 'Admin';
+      roleName = isGlobalOwner ? 'Owner' : 'User';
     }
 
     if (!company) {
@@ -283,7 +282,7 @@ export class DashboardController {
     }
 
     const companyName = company.name;
-    console.log(`[DashboardStats] User Role: ${roleName} (Global Admin/Owner bypass: ${!userCompany})`);
+    console.log(`[DashboardStats] User Role: ${roleName} (Global Owner bypass: ${!userCompany})`);
     try {
       // 2. Fetch all necessary data in parallel where possible
       const now = new Date();
@@ -643,7 +642,7 @@ export class DashboardController {
       };
 
       // Role-based actions
-      if (roleName === 'Owner' || roleName === 'Admin') {
+      if (roleName === 'Owner') {
         dashboardData.actions = [
           { label: 'View Reports', href: `/company/${companyId}/reports`, icon: 'FileBarChart' },
           { label: 'Owner Profile', href: `/owner/owners`, icon: 'User' },

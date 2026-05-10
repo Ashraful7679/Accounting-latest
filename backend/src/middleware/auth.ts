@@ -125,7 +125,7 @@ export const requireOwner = async (request: FastifyRequest, reply: FastifyReply)
 
   const isOwner = user?.userRoles.some((ur) => ur.role.name === 'Owner');
   
-  if (!isOwner && !request.user.isAdmin) {
+  if (!isOwner) {
     return reply.status(403).send({
       success: false,
       error: { message: 'Owner access required', statusCode: 403 },

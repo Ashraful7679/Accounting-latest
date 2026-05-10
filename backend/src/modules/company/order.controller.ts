@@ -284,7 +284,7 @@ export class OrderController extends BaseCompanyController {
       'CLOSED': []
     };
 
-    const isCorrection = ['Owner', 'Admin'].includes(role);
+    const isCorrection = role === 'Owner';
     
     if (!isCorrection && (!allowedTransitions[po.status] || !allowedTransitions[po.status].includes(newStatus))) {
       throw new ForbiddenError(`Transition from ${po.status} to ${newStatus} is not allowed for your role.`);

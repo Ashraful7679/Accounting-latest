@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-10T14:00:32.465Z",
+  "lastUpdated": "2026-05-10T14:10:14.893Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -207,6 +207,31 @@
         "Added verification/approval workflow and audit logging for Fixed Assets and Branches"
       ],
       "lastChange": "2026-05-10T14:00:32.465Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\modules\\company\\rbac.service.ts": {
+      "modified": "2026-05-10T14:08:52.644Z",
+      "features": [
+        "Removed global Admin bypass and restricted Admin role to system-level modules"
+      ],
+      "lastChange": "2026-05-10T14:08:52.650Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\modules\\company\\dashboard.controller.ts": {
+      "modified": "2026-05-10T14:10:14.886Z",
+      "features": [
+        "Removed Admin bypass from company dashboard stats",
+        "Fixed missing isGlobalOwner definition and companiesData undefined error"
+      ],
+      "lastChange": "2026-05-10T14:10:14.892Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\modules\\company\\base.controller.ts": {
+      "modified": "2026-05-10T14:09:03.105Z",
+      "features": [
+        "Systematically removed Admin role from all company-level workflow and permission checks"
+      ],
+      "lastChange": "2026-05-10T14:09:03.106Z",
       "agent": "unknown"
     }
   },

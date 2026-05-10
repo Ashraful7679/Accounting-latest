@@ -26,7 +26,9 @@ export function registerSoftDelete(prisma: any) {
     const softDeleteModels = [
       'Account', 'JournalEntry', 'Invoice', 'Bill', 'PurchaseOrder', 
       'ProformaInvoice', 'Product', 'Vendor', 'Customer', 'Employee', 'Company',
-      'LC', 'Loan', 'Project', 'CostCenter', 'Payment', 'ActivityLog', 'PI'
+      'LC', 'Loan', 'Project', 'CostCenter', 'Payment', 'ActivityLog', 'PI',
+      'EmployeeAdvance', 'EmployeeLoan', 'EmployeeLoanRepayment', 'EmployeeExpense',
+      'PayrollRun', 'PayrollPayslip'
     ];
 
     if (softDeleteModels.includes(params.model || '')) {

@@ -1368,11 +1368,15 @@ model Employee {
   expenses EmployeeExpense[]
   payslips PayrollPayslip[]
 
+  // Soft Delete
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([companyId, employeeCode])
   @@index([companyId])
+  @@index([companyId, deletedAt])
 }
 
 model EmployeeAdvance {
@@ -1392,12 +1396,17 @@ model EmployeeAdvance {
   account      Account?      @relation(fields: [accountId], references: [id])
   journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id])
 
+  // Soft Delete
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
   @@index([employeeId])
+  @@index([companyId, deletedAt])
 }
+
 
 model EmployeeLoan {
   id              String   @id @default(uuid())
@@ -1416,11 +1425,15 @@ model EmployeeLoan {
   company    Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
   repayments EmployeeLoanRepayment[]
 
+  // Soft Delete
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
   @@index([employeeId])
+  @@index([companyId, deletedAt])
 }
 
 model EmployeeLoanRepayment {
@@ -1438,11 +1451,15 @@ model EmployeeLoanRepayment {
   company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id])
 
+  // Soft Delete
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
   @@index([loanId])
+  @@index([companyId, deletedAt])
 }
 
 model EmployeeExpense {
@@ -1456,6 +1473,9 @@ model EmployeeExpense {
 
   employee Employee @relation(fields: [employeeId], references: [id])
 
+  // Soft Delete
+  deletedAt DateTime?
+
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   Company        Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -1466,6 +1486,7 @@ model EmployeeExpense {
   journalEntryId String?
 
   @@index([employeeId])
+  @@index([companyId, deletedAt])
 }
 
 // ============================================
@@ -1586,11 +1607,15 @@ model PayrollRun {
   company  Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   payslips PayrollPayslip[]
 
+  // Soft Delete
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([companyId, period])
   @@index([companyId])
+  @@index([companyId, deletedAt])
 }
 
 model PayrollPayslip {
@@ -1610,12 +1635,16 @@ model PayrollPayslip {
   paymentMethod    String @default("BANK") // CASH, BANK
   status           String @default("PENDING") // PENDING, PROCESSED, PAID
 
-  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id])
+  // Soft Delete
+  deletedAt DateTime?
+
+  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
   employee   Employee   @relation(fields: [employeeId], references: [id])
 
   @@unique([payrollRunId, employeeId])
   @@index([payrollRunId])
   @@index([employeeId])
+  @@index([employeeId, deletedAt])
 }
 
 model CreditNote {

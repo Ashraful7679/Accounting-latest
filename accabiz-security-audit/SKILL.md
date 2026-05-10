@@ -13,7 +13,7 @@ This skill is designed for proactive security assessment and hardening of the Ac
 AccaBiz uses a module-aware RBAC system managed by `RBACService`.
 - **Resolution Path**: System Admin Bypass -> User-Specific Override -> Module Template.
 - **Audit Steps**: 
-    - Ensure `company.routes.ts` has the `authenticate` hook on all company-scoped routes.
+    - Ensure `company.routes.ts` has the `authenticate` hook on **ALL** company-scoped routes. This is a known issue - check if `fastify.addHook('preHandler', authenticate)` is present at the top of the routes file.
     - Verify that sensitive actions (Approve, Verify) require specific permission flags beyond simple 'create' or 'update'.
     - Check for "Insecure Direct Object Reference" (IDOR) by verifying that `companyId` in the URL matches the user's authorized company list.
 

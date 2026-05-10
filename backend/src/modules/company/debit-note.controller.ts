@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { DebitNoteRepository } from '../../repositories/DebitNoteRepository';
 import { SequenceService } from './sequence.service';
 import { ValidationError, NotFoundError } from '../../middleware/errorHandler';
+import { JournalService } from '../accounting/journal.service';
 import prisma from '../../config/database';
 import { SYSTEM_MODE } from '../../lib/systemMode';
 
@@ -146,6 +147,9 @@ export class DebitNoteController {
         }
       }
     }
+
+    // Auto-post journal entry (idempotent)
+    await JournalService.handleDocumentApproval('DEBIT_NOTE', debitNoteId, userId);
 
     const updated = await DebitNoteRepository.update(debitNoteId, {
       status: 'APPROVED',

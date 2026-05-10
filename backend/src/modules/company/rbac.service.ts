@@ -91,8 +91,8 @@ export class RBACService {
     action: 'create' | 'view' | 'edit' | 'delete' | 'verify' | 'approve' | 'export' | 'print'
   ): Promise<boolean> {
     // 1. Company owner bypass — always full access
-    const userCompany = await prisma.userCompany.findUnique({
-      where: { userId_companyId: { userId, companyId } }
+    const userCompany = await prisma.userCompany.findFirst({
+      where: { userId, companyId }
     });
     if (userCompany?.isMainOwner) return true;
 
@@ -131,8 +131,8 @@ export class RBACService {
   static async getUserPermissions(userId: string, companyId?: string) {
     // 1. Owner bypass
     if (companyId) {
-      const userCompany = await prisma.userCompany.findUnique({
-        where: { userId_companyId: { userId, companyId } }
+      const userCompany = await prisma.userCompany.findFirst({
+        where: { userId, companyId }
       });
       if (userCompany?.isMainOwner) {
         const fullAccess: Record<string, any> = {};
@@ -215,8 +215,8 @@ export class RBACService {
   }
 
   static async getUserRoleLevel(userId: string, companyId: string): Promise<string> {
-    const userCompany = await prisma.userCompany.findUnique({
-      where: { userId_companyId: { userId, companyId } }
+    const userCompany = await prisma.userCompany.findFirst({
+      where: { userId, companyId }
     });
     if (userCompany?.isMainOwner) return 'Owner';
 

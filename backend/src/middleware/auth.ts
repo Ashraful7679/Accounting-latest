@@ -78,7 +78,8 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
     }
 
     const roleNames = user.userRoles.map((ur) => ur.role.name);
-    const isAdmin = decoded.roles?.includes('Admin') || roleNames.includes('Admin');
+    const isSystemUser = (user as any).isSystem === true;
+    const isAdmin = isSystemUser || decoded.roles?.includes('Admin') || roleNames.includes('Admin');
 
     // Get user's default company
     let companyId: string | undefined;

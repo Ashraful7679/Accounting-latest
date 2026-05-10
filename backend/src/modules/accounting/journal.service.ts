@@ -9,7 +9,7 @@ export class JournalService {
    * ledger postings during retries or concurrent requests.
    */
   static async handleDocumentApproval(
-    type: 'INVOICE' | 'BILL' | 'PAYMENT' | 'DN' | 'GRN',
+    type: 'INVOICE' | 'BILL' | 'PAYMENT' | 'DN' | 'GRN' | 'CREDIT_NOTE' | 'DEBIT_NOTE',
     documentId: string,
     userId: string,
     tx?: any
@@ -40,6 +40,22 @@ export class JournalService {
         const doc = await currentTx.gRN.findUnique({ where: { id: documentId }, select: { isJournaled: true, status: true } });
         if (!doc) throw new Error('GRN not found');
         if (doc.isJournaled) return { alreadyJournaled: true };
+      } else if (type === 'CREDIT_NOTE') {
+        const doc = await currentTx.creditNote.findUnique({ where: { id: documentId }, select: { isJournaled: true, status: true } });
+        if (!doc) throw new Error('Credit Note not found');
+        if (doc.status !== 'APPROVED') throw new Error('Cannot generate journal for unapproved credit note');
+        if (doc.isJournaled) {
+          console.warn(`[JournalService] Credit Note ${documentId} is already journaled. Skipping.`);
+          return { alreadyJournaled: true };
+        }
+      } else if (type === 'DEBIT_NOTE') {
+        const doc = await currentTx.debitNote.findUnique({ where: { id: documentId }, select: { isJournaled: true, status: true } });
+        if (!doc) throw new Error('Debit Note not found');
+        if (doc.status !== 'APPROVED') throw new Error('Cannot generate journal for unapproved debit note');
+        if (doc.isJournaled) {
+          console.warn(`[JournalService] Debit Note ${documentId} is already journaled. Skipping.`);
+          return { alreadyJournaled: true };
+        }
       }
 
       // --- PROCESS JOURNAL ---
@@ -52,6 +68,10 @@ export class JournalService {
           return await this.generateDNJournal(currentTx, documentId, userId);
         case 'GRN':
           return await this.generateGRNJournal(currentTx, documentId, userId);
+        case 'CREDIT_NOTE':
+          return await this.generateCreditNoteJournal(currentTx, documentId, userId);
+        case 'DEBIT_NOTE':
+          return await this.generateDebitNoteJournal(currentTx, documentId, userId);
         default:
           throw new Error(`Unsupported document type for auto-journaling: ${type}`);
       }
@@ -461,6 +481,202 @@ export class JournalService {
 
     await tx.gRN.update({
       where: { id: grnId },
+      data: { isJournaled: true, journalId: journal.id }
+    });
+
+    return journal;
+  }
+
+  /**
+   * Credit Note Journal: Dr Revenue / Cr AR
+   * Reverses the original sale transaction
+   */
+  private static async generateCreditNoteJournal(tx: any, creditNoteId: string, userId: string) {
+    const creditNote = await tx.creditNote.findUnique({
+      where: { id: creditNoteId },
+      include: { customer: true, lines: true, invoice: true }
+    });
+
+    if (!creditNote) throw new Error('Credit Note not found');
+
+    const companyId = creditNote.companyId;
+    const totalAmount = Number(creditNote.totalBDT || creditNote.totalForeign);
+    const exchangeRate = Number(creditNote.exchangeRate || 1);
+    const subtotalBase = Number(creditNote.subtotal || 0) * exchangeRate;
+    const taxBase = Number(creditNote.taxAmount || 0) * exchangeRate;
+
+    // Resolve AR Account (customer account)
+    const arAccount = await TransactionRepository.ensureEntityAccount(
+      tx, companyId, creditNote.customerId,
+      creditNote.customer?.name || 'Accounts Receivable',
+      creditNote.customer?.code || 'AR',
+      'AR'
+    );
+
+    // Resolve Revenue Account
+    const revenueAccount = await tx.account.findFirst({
+      where: { companyId, category: 'REVENUE', deletedAt: null }
+    }) || await this.ensureGenericAccount(tx, companyId, 'REVENUE', 'Sales Revenue');
+
+    // Resolve VAT Account
+    const vatAccount = await tx.account.findFirst({
+      where: { companyId, category: 'TAX', deletedAt: null }
+    }) || await this.ensureGenericAccount(tx, companyId, 'TAX', 'VAT Control');
+
+    const entryNumber = await SequenceService.generateDocumentNumber(companyId, 'journal', tx);
+
+    const lines = [];
+
+    // Dr Revenue (Subtotal) - reverses the original sale
+    lines.push({
+      accountId: revenueAccount.id,
+      debit: subtotalBase, credit: 0,
+      debitBase: subtotalBase, creditBase: 0,
+      debitForeign: Number(creditNote.subtotal || 0), creditForeign: 0,
+      exchangeRate,
+      description: `CN Reversal - ${creditNote.creditNoteNumber}`
+    });
+
+    // Dr VAT (Tax) - reverses the VAT
+    if (taxBase > 0) {
+      lines.push({
+        accountId: vatAccount.id,
+        debit: taxBase, credit: 0,
+        debitBase: taxBase, creditBase: 0,
+        debitForeign: Number(creditNote.taxAmount || 0), creditForeign: 0,
+        exchangeRate,
+        description: `VAT Out CN - ${creditNote.creditNoteNumber}`
+      });
+    }
+
+    // Cr AR (Total)
+    lines.push({
+      accountId: arAccount.id,
+      debit: 0, credit: totalAmount,
+      debitBase: 0, creditBase: totalAmount,
+      debitForeign: 0, creditForeign: Number(creditNote.totalForeign || totalAmount),
+      exchangeRate,
+      customerId: creditNote.customerId,
+      description: `AR CN - ${creditNote.creditNoteNumber}`
+    });
+
+    const journal = await tx.journalEntry.create({
+      data: {
+        entryNumber,
+        companyId,
+        date: creditNote.creditNoteDate || new Date(),
+        description: `Auto-Journal: Credit Note ${creditNote.creditNoteNumber}`,
+        reference: creditNote.creditNoteNumber,
+        status: 'POSTED',
+        totalDebit: totalAmount,
+        totalCredit: totalAmount,
+        createdById: userId,
+        branchId: (creditNote as any).branchId,
+        lines: { create: lines }
+      }
+    });
+
+    // Mark credit note as journaled
+    await tx.creditNote.update({
+      where: { id: creditNoteId },
+      data: { isJournaled: true, journalId: journal.id }
+    });
+
+    return journal;
+  }
+
+  /**
+   * Debit Note Journal: Dr AP / Cr Expense
+   * Reverses the original purchase transaction
+   */
+  private static async generateDebitNoteJournal(tx: any, debitNoteId: string, userId: string) {
+    const debitNote = await tx.debitNote.findUnique({
+      where: { id: debitNoteId },
+      include: { vendor: true, lines: true }
+    });
+
+    if (!debitNote) throw new Error('Debit Note not found');
+
+    const companyId = debitNote.companyId;
+    const totalAmount = Number(debitNote.totalBDT || debitNote.totalForeign);
+    const exchangeRate = Number(debitNote.exchangeRate || 1);
+    const subtotalBase = Number(debitNote.subtotal || 0) * exchangeRate;
+    const taxBase = Number(debitNote.taxAmount || 0) * exchangeRate;
+
+    // Resolve AP Account (vendor account)
+    const apAccount = await TransactionRepository.ensureEntityAccount(
+      tx, companyId, debitNote.vendorId,
+      debitNote.vendor?.name || 'Accounts Payable',
+      debitNote.vendor?.code || 'AP',
+      'AP'
+    );
+
+    // Resolve Expense Account (general or specific)
+    const expenseAccount = await tx.account.findFirst({
+      where: { companyId, category: 'EXPENSE', deletedAt: null }
+    }) || await this.ensureGenericAccount(tx, companyId, 'EXPENSE', 'General Expenses');
+
+    // Resolve VAT Account
+    const vatAccount = await tx.account.findFirst({
+      where: { companyId, category: 'TAX', deletedAt: null }
+    }) || await this.ensureGenericAccount(tx, companyId, 'TAX', 'VAT Control');
+
+    const entryNumber = await SequenceService.generateDocumentNumber(companyId, 'journal', tx);
+
+    const lines = [];
+
+    // Dr AP (Total) - creates a credit to vendor (liability reduction)
+    lines.push({
+      accountId: apAccount.id,
+      debit: totalAmount, credit: 0,
+      debitBase: totalAmount, creditBase: 0,
+      debitForeign: Number(debitNote.totalForeign || totalAmount), creditForeign: 0,
+      exchangeRate,
+      vendorId: debitNote.vendorId,
+      description: `AP CN - ${debitNote.debitNoteNumber}`
+    });
+
+    // Cr Expense (Subtotal) - reverses the original expense
+    lines.push({
+      accountId: expenseAccount.id,
+      debit: 0, credit: subtotalBase,
+      debitBase: 0, creditBase: subtotalBase,
+      debitForeign: 0, creditForeign: Number(debitNote.subtotal || 0),
+      exchangeRate,
+      description: `Expense Reversal - ${debitNote.debitNoteNumber}`
+    });
+
+    // Cr VAT (Tax) - reverses the input VAT
+    if (taxBase > 0) {
+      lines.push({
+        accountId: vatAccount.id,
+        debit: 0, credit: taxBase,
+        debitBase: 0, creditBase: taxBase,
+        debitForeign: 0, creditForeign: Number(debitNote.taxAmount || 0),
+        exchangeRate,
+        description: `VAT In CN - ${debitNote.debitNoteNumber}`
+      });
+    }
+
+    const journal = await tx.journalEntry.create({
+      data: {
+        entryNumber,
+        companyId,
+        date: debitNote.debitNoteDate || new Date(),
+        description: `Auto-Journal: Debit Note ${debitNote.debitNoteNumber}`,
+        reference: debitNote.debitNoteNumber,
+        status: 'POSTED',
+        totalDebit: totalAmount,
+        totalCredit: totalAmount,
+        createdById: userId,
+        branchId: (debitNote as any).branchId,
+        lines: { create: lines }
+      }
+    });
+
+    // Mark debit note as journaled
+    await tx.debitNote.update({
+      where: { id: debitNoteId },
       data: { isJournaled: true, journalId: journal.id }
     });
 

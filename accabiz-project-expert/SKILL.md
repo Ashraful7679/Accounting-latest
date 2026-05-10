@@ -23,7 +23,7 @@ AccaBiz is a full-stack accounting ERP system.
 
 ## Known Issues & Fixes
 
-> Always check [TROUBLESHOOTING.md](file:///d:/BrainyFlavors/Accounting-Github/AccaBiz%20-%20Copy/TROUBLESHOOTING.md) for detailed solutions.
+> Always check `TROUBLESHOOTING.md` (repo root) for detailed solutions.
 
 1. **Missing authenticate hook**: Company routes (`company.routes.ts`) **must** have `fastify.addHook('preHandler', authenticate)` - other route files (admin, owner, system) already have this. If you get 401 errors on a company route, this is likely the cause.
 2. **Missing columns**: If Prisma throws "column does not exist", create migration to add missing columns:
@@ -64,6 +64,15 @@ npm run build    # Next.js production build
 - **RBAC**: Every company-scoped action must be gated via `this.requirePermission`.
 - **UX**: Use `DetailPanel` for side-sheet views to keep the user in the context of the list.
 - **Data**: All financial values should be stored as `Float` in the DB and formatted using `toLocaleString()` in the UI.
+
+## Agent Acceptance Checklist (Pass/Fail)
+
+Before considering a task complete, verify:
+
+- [ ] Route exists in controller and is registered in routes.
+- [ ] Company-scoped routes include `authenticate` hook.
+- [ ] Required env variables are documented for the touched area.
+- [ ] `npm run build` passes for each modified app (`backend`, `frontend` as applicable).
 
 ---
 *Created for the AccaBiz ERP Project*

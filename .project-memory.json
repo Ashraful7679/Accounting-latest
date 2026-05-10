@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-10T12:34:32.004Z",
+  "lastUpdated": "2026-05-10T12:56:14.547Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -118,11 +118,12 @@
       "agent": "unknown"
     },
     "backend\\src\\config\\prisma-middleware.ts": {
-      "modified": "2026-05-10T12:34:22.277Z",
+      "modified": "2026-05-10T12:44:25.124Z",
       "features": [
-        "Fixed undefined args error for empty prisma query parameters"
+        "Fixed undefined args error for empty prisma query parameters",
+        "Removed recursive deletedAt injection - was corrupting nested relation queries (e.g. role.is.name) on models without deletedAt (Role, UserRole). Root-level injection only is now safe."
       ],
-      "lastChange": "2026-05-10T12:34:22.283Z",
+      "lastChange": "2026-05-10T12:44:25.130Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\owner\\owner.controller.ts": {
@@ -131,6 +132,38 @@
         "Fixed Prisma relation query syntax (role: { is: { name: 'Owner' } }) to prevent Invalid prisma.user.count/findMany errors"
       ],
       "lastChange": "2026-05-10T12:34:32.004Z",
+      "agent": "unknown"
+    },
+    "backend\\prisma\\schema.prisma": {
+      "modified": "2026-05-10T12:56:01.587Z",
+      "features": [
+        "Added disallowFutureDates, lockPreviousMonths, approvalWorkflow to CompanySettings"
+      ],
+      "lastChange": "2026-05-10T12:56:01.592Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\modules\\company\\rbac.controller.ts": {
+      "modified": "2026-05-10T12:56:05.914Z",
+      "features": [
+        "Fixed updatePermission to support frontend role-level toggle payload"
+      ],
+      "lastChange": "2026-05-10T12:56:05.915Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\modules\\company\\company.controller.ts": {
+      "modified": "2026-05-10T12:56:10.264Z",
+      "features": [
+        "Implemented persistence for accounting control toggles in updateSettings"
+      ],
+      "lastChange": "2026-05-10T12:56:10.265Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\modules\\company\\company.routes.ts": {
+      "modified": "2026-05-10T12:56:14.546Z",
+      "features": [
+        "Registered PUT /company/:id/settings route"
+      ],
+      "lastChange": "2026-05-10T12:56:14.547Z",
       "agent": "unknown"
     }
   },

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-10T15:20:30.539Z",
+  "lastUpdated": "2026-05-10T17:37:17.545Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -257,6 +257,46 @@
         "Fixed permission matrix reactivity and Admin role hiding"
       ],
       "lastChange": "2026-05-10T14:25:12.646Z",
+      "agent": "unknown"
+    },
+    "accabiz-project-expert/SKILL.md": {
+      "modified": "2026-05-10T17:37:16.821Z",
+      "features": [
+        "Made paths portable and added pass/fail agent acceptance checklist"
+      ],
+      "lastChange": "2026-05-10T17:37:16.839Z",
+      "agent": "unknown"
+    },
+    "accabiz-accounting-pro/SKILL.md": {
+      "modified": "2026-05-10T17:37:17.029Z",
+      "features": [
+        "Added accounting pass/fail acceptance checklist for journal integrity and transactions"
+      ],
+      "lastChange": "2026-05-10T17:37:17.030Z",
+      "agent": "unknown"
+    },
+    "accabiz-security-audit/SKILL.md": {
+      "modified": "2026-05-10T17:37:17.212Z",
+      "features": [
+        "Added required security audit evidence outputs"
+      ],
+      "lastChange": "2026-05-10T17:37:17.214Z",
+      "agent": "unknown"
+    },
+    "accabiz-testing/SKILL.md": {
+      "modified": "2026-05-10T17:37:17.376Z",
+      "features": [
+        "Added minimum quality gate checklist for tests and regression coverage"
+      ],
+      "lastChange": "2026-05-10T17:37:17.377Z",
+      "agent": "unknown"
+    },
+    "accabiz-ui-ux/SKILL.md": {
+      "modified": "2026-05-10T17:37:17.544Z",
+      "features": [
+        "Added UI accessibility baseline checklist"
+      ],
+      "lastChange": "2026-05-10T17:37:17.545Z",
       "agent": "unknown"
     }
   },

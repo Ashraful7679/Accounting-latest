@@ -29,7 +29,10 @@ export class CompanyController extends BaseCompanyController {
 
   async updateSettings(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const { baseCurrency, lastUsedRate, multiBranchEnabled, defaultBranchId } = request.body as any;
+    const {
+      baseCurrency, lastUsedRate, multiBranchEnabled, defaultBranchId,
+      disallowFutureDates, lockPreviousMonths, approvalWorkflow,
+    } = request.body as any;
 
     // Update Company Base Currency if provided
     if (baseCurrency) {
@@ -40,18 +43,24 @@ export class CompanyController extends BaseCompanyController {
     }
 
     // Upsert Settings
-    const settings = await prisma.companySettings.upsert({
+    const settings = await (prisma.companySettings as any).upsert({
       where: { companyId },
       create: {
         companyId,
         lastUsedRate: lastUsedRate ?? 1,
         multiBranchEnabled: !!multiBranchEnabled,
         defaultBranchId: defaultBranchId || null,
+        disallowFutureDates: !!disallowFutureDates,
+        lockPreviousMonths: !!lockPreviousMonths,
+        approvalWorkflow: !!approvalWorkflow,
       },
       update: {
         ...(lastUsedRate !== undefined ? { lastUsedRate } : {}),
         ...(multiBranchEnabled !== undefined ? { multiBranchEnabled: !!multiBranchEnabled } : {}),
         ...(defaultBranchId !== undefined ? { defaultBranchId: defaultBranchId || null } : {}),
+        ...(disallowFutureDates !== undefined ? { disallowFutureDates: !!disallowFutureDates } : {}),
+        ...(lockPreviousMonths !== undefined ? { lockPreviousMonths: !!lockPreviousMonths } : {}),
+        ...(approvalWorkflow !== undefined ? { approvalWorkflow: !!approvalWorkflow } : {}),
       }
     });
 

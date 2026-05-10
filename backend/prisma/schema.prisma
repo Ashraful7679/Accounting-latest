@@ -1559,6 +1559,11 @@ model CompanySettings {
   multiBranchEnabled Boolean @default(false)
   defaultBranchId    String?
 
+  // Accounting controls
+  disallowFutureDates Boolean @default(false)
+  lockPreviousMonths  Boolean @default(false)
+  approvalWorkflow    Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

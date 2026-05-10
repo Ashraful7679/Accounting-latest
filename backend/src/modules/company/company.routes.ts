@@ -324,6 +324,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   // Company Details & Settings
   fastify.get('/:id', controller.getCompany.bind(controller));
   fastify.get('/:id/settings', controller.getCompany.bind(controller));
+  fastify.put('/:id/settings', controller.updateSettings.bind(controller));
 
   // Branches
   fastify.get('/:id/branches', branchController.getBranches.bind(branchController));

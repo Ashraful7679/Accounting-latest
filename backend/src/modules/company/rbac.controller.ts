@@ -127,14 +127,43 @@ export class RBACController extends BaseCompanyController {
   }
 
   async updatePermission(request: FastifyRequest, reply: FastifyReply) {
-    const { id: companyId } = request.params as { id: string; roleId: string };
+    const { id: companyId, roleId } = request.params as { id: string; roleId: string };
+    const body = request.body as any;
+
+    // Role-level toggle from Roles UI: { module, permission, value }
+    if (body.permission !== undefined && body.module !== undefined && body.userId === undefined) {
+      const { module, permission, value } = body;
+      const permKey = `role:${roleId}`;
+      const existing = await (prisma.userPermission as any).findFirst({
+        where: { userId: permKey, module }
+      });
+      const current: Record<string, boolean> = {
+        canCreate: existing?.canCreate ?? false,
+        canView: existing?.canView ?? true,
+        canEdit: existing?.canEdit ?? false,
+        canDelete: existing?.canDelete ?? false,
+        canVerify: existing?.canVerify ?? false,
+        canApprove: existing?.canApprove ?? false,
+        canExport: existing?.canExport ?? false,
+        canPrint: existing?.canPrint ?? false,
+      };
+      current[permission] = value;
+      const result = await (prisma.userPermission as any).upsert({
+        where: { userId_module: { userId: permKey, module } },
+        update: current,
+        create: { userId: permKey, module, ...current },
+      });
+      return reply.send({ success: true, data: result });
+    }
+
+    // User-level override (legacy): { userId, module, canCreate, ... }
     const {
       userId: targetUserId, module,
       canCreate = false, canView = true,
       canEdit = false, canDelete = false,
       canVerify = false, canApprove = false,
       canExport = false, canPrint = false,
-    } = request.body as any;
+    } = body;
 
     if (!targetUserId || !module) {
       return reply.status(400).send({ error: 'userId and module are required' });

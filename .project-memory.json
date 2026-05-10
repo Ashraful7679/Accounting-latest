@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-10T12:15:01.294Z",
+  "lastUpdated": "2026-05-10T12:24:29.091Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -107,6 +107,14 @@
         "Replaced native confirm/prompt/alert with ConfirmModal and toast notifications in backup page"
       ],
       "lastChange": "2026-05-10T12:15:01.294Z",
+      "agent": "unknown"
+    },
+    "backend\\prisma\\migrations\\20260515000001_add_user_security_columns\\migration.sql": {
+      "modified": "2026-05-10T12:24:29.090Z",
+      "features": [
+        "Added missing User security columns (isBlocked, blockedIps, isSystem) to Neon production DB"
+      ],
+      "lastChange": "2026-05-10T12:24:29.091Z",
       "agent": "unknown"
     }
   },

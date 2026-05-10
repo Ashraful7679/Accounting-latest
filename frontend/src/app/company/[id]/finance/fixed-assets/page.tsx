@@ -65,6 +65,16 @@ export default function FixedAssetsPage() {
   });
   const assets: FixedAsset[] = Array.isArray(assetsRaw) ? assetsRaw : [];
 
+  const runDepreciation = async () => {
+    try {
+      const response = await api.post(`/company/${companyId}/fixed-assets/run-depreciation`);
+      toast.success(`Depreciation completed: ${response.data.data?.depreciated?.length || 0} assets`);
+      queryClient.invalidateQueries({ queryKey: ['fixed-assets', companyId] });
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Failed to run depreciation');
+    }
+  };
+
   const createMutation = useMutation({
     mutationFn: (data: any) => api.post(`/company/${companyId}/fixed-assets`, data),
     onSuccess: () => {
@@ -138,16 +148,7 @@ export default function FixedAssetsPage() {
   ] : [];
 
   const actions: DetailAction[] = viewMode === 'view' ? [
-    { label: 'Run Depreciation', onClick: async () => {
-      if (!confirm('Run depreciation for all active assets? This will create journal entries.')) return;
-      try {
-        const response = await api.post(`/company/${companyId}/fixed-assets/run-depreciation`);
-        toast.success(`Depreciation completed: ${response.data.data?.depreciated?.length || 0} assets`);
-        queryClient.invalidateQueries({ queryKey: ['fixed-assets', companyId] });
-      } catch (e: any) {
-        toast.error(e.response?.data?.message || 'Failed to run depreciation');
-      }
-    }, variant: 'primary' as const },
+    { label: 'Run Depreciation', onClick: () => setShowDepreciateModal(true), variant: 'primary' as const },
     ...(selectedAsset?.status === 'ACTIVE' ? [
       { label: 'Dispose', onClick: () => {
         const saleValue = prompt('Enter sale value:');
@@ -245,6 +246,17 @@ export default function FixedAssetsPage() {
         tabs={viewMode === 'view' ? tabs : []}
         fields={fields}
         actions={actions}
+      />
+
+      <ConfirmModal
+        isOpen={showDepreciateModal}
+        title="Run Depreciation"
+        message="Run depreciation for all active assets? This will create journal entries."
+        confirmLabel="Run"
+        variant="warning"
+        isLoading={false}
+        onConfirm={() => { setShowDepreciateModal(false); runDepreciation(); }}
+        onCancel={() => setShowDepreciateModal(false)}
       />
     </div>
   );

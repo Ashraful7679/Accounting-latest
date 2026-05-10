@@ -17,6 +17,7 @@ import {
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { toast } from 'react-hot-toast';
 
 
 function cn(...inputs: ClassValue[]) {
@@ -43,6 +44,8 @@ export default function BackupRestorePage() {
   const [showRestoreConfirmModal, setShowRestoreConfirmModal] = useState(false);
   const [restoreConfirmText, setRestoreConfirmText] = useState('');
   const [selectedFileName, setSelectedFileName] = useState('');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isManualRestore, setIsManualRestore] = useState(false);
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -66,13 +69,13 @@ export default function BackupRestorePage() {
     try {
       const response = await api.post(`/company/${companyId}/backup/generate`);
       if (response.data.success) {
-        alert('Backup generated successfully!');
+        toast.success('Backup generated successfully!');
         fetchLogs();
       } else {
-        alert('Backup failed: ' + (response.data.error?.message || 'Unknown error'));
+        toast.error('Backup failed: ' + (response.data.error?.message || 'Unknown error'));
       }
     } catch (error) {
-      alert('Error triggering backup');
+      toast.error('Failed to generate backup');
     } finally {
       setIsGenerating(false);
     }
@@ -91,63 +94,56 @@ export default function BackupRestorePage() {
   };
 
   const handleRestore = async (fileName: string) => {
-    if (!confirm(`CAUTION: This will overwrite your current database with the data from ${fileName}. Are you absolutely sure?`)) {
-      return;
-    }
+    setSelectedFileName(fileName);
+    setShowRestoreModal(true);
+  };
 
-    const confirmText = prompt('Please type "RESTORE" to confirm this destructive action:');
-    if (confirmText !== 'RESTORE') {
-      alert('Restore cancelled.');
-      return;
-    }
-
-    setIsGenerating(true); // Re-use loading state
+  const executeRestore = async () => {
+    if (!selectedFileName) return;
+    setShowRestoreModal(false);
+    setIsRestoring(true);
     try {
-      const response = await api.post(`/company/${companyId}/backup/restore/${fileName}`);
+      const response = await api.post(`/company/${companyId}/backup/restore/${selectedFileName}`);
       if (response.data.success) {
-        alert('System restored successfully! The application will now reload.');
+        toast.success('System restored successfully! The application will now reload.');
         window.location.reload();
       } else {
-        alert('Restore failed: ' + (response.data.error?.message || 'Unknown error'));
+        toast.error('Restore failed: ' + (response.data.error?.message || 'Unknown error'));
       }
     } catch (error) {
-      alert('Error triggering restore');
+      toast.error('Error triggering restore');
     } finally {
-      setIsGenerating(false);
+      setIsRestoring(false);
     }
   };
 
-  const handleManualUpload = async (file: File) => {
-    if (!confirm(`CAUTION: This will overwrite your current database with the data from ${file.name}. Are you absolutely sure?`)) {
-      return;
-    }
+  const handleManualUpload = (file: File) => {
+    setSelectedFileName(file.name);
+    setUploadFile(file);
+    setIsManualRestore(true);
+    setShowRestoreModal(true);
+  };
 
-    const confirmText = prompt('Please type "RESTORE" to confirm this destructive action:');
-    if (confirmText !== 'RESTORE') {
-      alert('Restore cancelled.');
-      return;
-    }
-
-    setIsGenerating(true);
+  const executeManualRestore = async () => {
+    if (!selectedFileName || !uploadFile) return;
+    setShowRestoreModal(false);
+    setIsRestoring(true);
     try {
       const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await api.post(`/company/${companyId}/backup/restore/upload`, formData, {
+      formData.append('file', uploadFile);
+      const response = await api.post(`/company/${companyId}/backup/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      
       if (response.data.success) {
-        alert('System restored successfully! The application will now reload.');
+        toast.success('System restored successfully! The application will now reload.');
         window.location.reload();
       } else {
-        alert('Restore failed: ' + (response.data.error?.message || 'Unknown error'));
+        toast.error('Restore failed: ' + (response.data.error?.message || 'Unknown error'));
       }
     } catch (error) {
-      alert('Error uploading or restoring backup');
-      console.error(error);
+      toast.error('Error restoring from file');
     } finally {
-      setIsGenerating(false);
+      setIsRestoring(false);
     }
   };
 
@@ -389,8 +385,18 @@ export default function BackupRestorePage() {
           </div>
         </div>
 
-    </div>
-  );
-}
+        <ConfirmModal
+          isOpen={showRestoreModal}
+          title="Restore Database"
+          message={`CAUTION: This will overwrite your current database with the data from ${selectedFileName}. Are you absolutely sure?`}
+          confirmLabel="Restore"
+          variant="danger"
+          isLoading={isRestoring}
+          onConfirm={isManualRestore ? executeManualRestore : executeRestore}
+          onCancel={() => { setShowRestoreModal(false); setSelectedFileName(''); setUploadFile(null); setIsManualRestore(false); }}
+        />
+      </div>
+    );
+  }
 
 

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-10T12:02:23.136Z",
+  "lastUpdated": "2026-05-10T12:15:01.294Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -99,6 +99,14 @@
         "Rolled out ConfirmModal to all remaining pages: journals, admin owners/companies/backup, company settings backup, finance LC/PI, requisitions, fixed-assets, employees, owners, AttachmentManager"
       ],
       "lastChange": "2026-05-10T12:02:23.136Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\company\\[id]\\settings\\backup\\page.tsx": {
+      "modified": "2026-05-10T12:15:01.290Z",
+      "features": [
+        "Replaced native confirm/prompt/alert with ConfirmModal and toast notifications in backup page"
+      ],
+      "lastChange": "2026-05-10T12:15:01.294Z",
       "agent": "unknown"
     }
   },

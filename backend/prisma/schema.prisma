@@ -27,8 +27,11 @@ model User {
   address      String?
 
   // Security lifecycle controls
-  forcePasswordReset Boolean @default(false)
-  tokenVersion       Int     @default(0)
+  forcePasswordReset Boolean  @default(false)
+  tokenVersion       Int      @default(0)
+  isBlocked          Boolean  @default(false)
+  blockedIps         String?  // Comma-separated list of IPs
+  isSystem           Boolean  @default(false) // If true, hidden from company views
 
   // Reporting Hierarchy
   managerId    String?

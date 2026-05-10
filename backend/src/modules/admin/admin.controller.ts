@@ -494,6 +494,7 @@ export class AdminController {
     const owners = await prisma.user.findMany({
       where: {
         userRoles: { some: { roleId: ownerRole.id } },
+        isSystem: false, // Don't return system accounts in owner lists
       },
       include: {
         userRoles: { include: { role: true } },
@@ -618,5 +619,78 @@ export class AdminController {
     await this.createAuditLog(request, 'RESET_OWNER_PASSWORD', 'User', id, { email: user.email });
 
     return reply.send({ success: true, message: 'Password reset successfully' });
+  }
+
+  // Get system-wide activity summary
+  async getSystemActivity(request: FastifyRequest, reply: FastifyReply) {
+    const [
+      totalCompanies,
+      totalUsers,
+      totalInvoices,
+      totalJournals,
+      recentLogs
+    ] = await Promise.all([
+      prisma.company.count(),
+      prisma.user.count({ where: { isSystem: false } }),
+      prisma.invoice.count(),
+      prisma.journalEntry.count(),
+      (prisma as any).systemAuditLog.findMany({
+        take: 10,
+        orderBy: { timestamp: 'desc' },
+        include: { admin: { select: { firstName: true, email: true } } }
+      })
+    ]);
+
+    return reply.send({
+      success: true,
+      data: {
+        stats: {
+          totalCompanies,
+          totalUsers,
+          totalInvoices,
+          totalJournals
+        },
+        recentLogs
+      }
+    });
+  }
+
+  // Block/Unblock user and manage IPs
+  async blockUser(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as { id: string };
+    const { isBlocked, blockedIps } = request.body as { isBlocked?: boolean; blockedIps?: string };
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundError('User not found');
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: {
+        ...(isBlocked !== undefined && { isBlocked }),
+        ...(blockedIps !== undefined && { blockedIps })
+      }
+    });
+
+    await this.createAuditLog(request, isBlocked ? 'BLOCK_USER' : 'UPDATE_USER_SECURITY', 'User', id, { isBlocked, blockedIps });
+
+    return reply.send({ success: true, data: updated });
+  }
+
+  // Toggle system isolation (Developer/Superadmin flag)
+  async toggleSystemStatus(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = request.params as { id: string };
+    const { isSystem } = request.body as { isSystem: boolean };
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundError('User not found');
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { isSystem }
+    });
+
+    await this.createAuditLog(request, 'TOGGLE_SYSTEM_STATUS', 'User', id, { isSystem });
+
+    return reply.send({ success: true, data: updated });
   }
 }

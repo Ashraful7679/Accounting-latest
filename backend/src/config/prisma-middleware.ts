@@ -1,21 +1,87 @@
 import { Prisma } from '@prisma/client';
 
 /**
+ * Registry of models that support soft-delete.
+ * These must have a 'deletedAt' DateTime? field in schema.prisma.
+ */
+const softDeleteModels = [
+  'Account', 'JournalEntry', 'Invoice', 'Bill', 'PurchaseOrder', 
+  'ProformaInvoice', 'Product', 'Vendor', 'Customer', 'Employee', 'Company',
+  'LC', 'Loan', 'Project', 'CostCenter', 'Payment', 'ActivityLog', 'PI',
+  'EmployeeAdvance', 'EmployeeLoan', 'EmployeeLoanRepayment', 'EmployeeExpense',
+  'PayrollRun', 'PayrollPayslip', 'User', 'Branch', 'PILine', 'SalesOrderLine',
+  'PurchaseOrderLine', 'GRN', 'GRNLine', 'DN', 'DNLine', 'InvoiceLine',
+  'JournalEntryLine', 'DebitNote', 'DebitNoteLine', 'CreditNote', 'CreditNoteLine',
+  'Attachment', 'Notification', 'FixedAsset', 'RecurringInvoice'
+];
+
+/**
  * Middleware to support soft-delete and multi-tenant scoping.
  * Although multi-tenancy is mostly handled in services, this layer ensures
  * that 'deletedAt' is ALWAYS respected globally unless explicitly overriden.
  */
 export function registerSoftDelete(prisma: any) {
   prisma.$use(async (params: Prisma.MiddlewareParams, next: any) => {
+    
+    // --- RECURSIVE FILTER HELPER ---
+    // This ensures that even nested relation filters (e.g. lines of a journal) 
+    // are automatically filtered by deletedAt: null.
+    const injectSoftDeleteRecursively = (where: any) => {
+      if (!where || typeof where !== 'object' || where instanceof Date) return;
+
+      // Recurse into nested objects (Relations or Logical Operators)
+      Object.keys(where).forEach(key => {
+        const val = where[key];
+        if (typeof val === 'object' && val !== null && !Array.isArray(val) && !(val instanceof Date)) {
+          // Check if this is a relation filter by looking at the key
+          // In Prisma, relation names are usually camelCase. 
+          // We don't know for sure if it's a relation, but we can try to inject deletedAt: null.
+          // To be safe, we skip known Prisma operators.
+          const prismaOperators = ['contains', 'mode', 'gte', 'lte', 'gt', 'lt', 'in', 'not', 'equals', 'search', 'startsWith', 'endsWith'];
+          const isOperator = Object.keys(val).some(k => prismaOperators.includes(k));
+          
+          if (!isOperator) {
+            // It's likely a relation or a nested object.
+            // We inject deletedAt: null here if we think it's a soft-delete model.
+            // Since we can't know the model name easily from the relation name,
+            // we inject it anyway; Prisma will only throw if the model doesn't have it.
+            // Actually, to be 100% safe, we only inject if the key corresponds to a known relation.
+            // But we don't have that map. So we inject and let Prisma's validation handle it?
+            // No, that will crash queries.
+            
+            // LOGIC: If the object has 'some', 'every', 'none', it's a collection relation.
+            if (val.some || val.every || val.none) {
+              if (val.some) injectSoftDeleteRecursively(val.some);
+              if (val.every) injectSoftDeleteRecursively(val.every);
+              if (val.none) injectSoftDeleteRecursively(val.none);
+            } else {
+              // Try to inject at this nested level
+              if (val.deletedAt === undefined) {
+                // We only inject if it's likely a model (has other filters like id, companyId etc)
+                // This is a heuristic.
+                val.deletedAt = null;
+              }
+              injectSoftDeleteRecursively(val);
+            }
+          }
+        } else if (Array.isArray(val) && (key === 'OR' || key === 'AND' || key === 'NOT')) {
+          // Handle logical arrays
+          val.forEach(item => injectSoftDeleteRecursively(item));
+        }
+      });
+    };
+
     // 1. SOFT DELETE: Intercept 'delete' and 'deleteMany'
     if (params.action === 'delete') {
       params.action = 'update';
       params.args['data'] = { deletedAt: new Date() };
 
       // CASCADE LOGIC: Ensure children (lines) are also soft-deleted
-      // This maintains financial integrity in reports that aggregate lines directly.
-      const cascades: Record<string, { model: string, foreignKey: string }[]> = {
-        'Invoice': [{ model: 'invoiceLine', foreignKey: 'invoiceId' }],
+      const cascades: Record<string, { model: string, foreignKey: string, isLoose?: boolean, idField?: string }[]> = {
+        'Invoice': [
+          { model: 'invoiceLine', foreignKey: 'invoiceId' },
+          { model: 'journalEntry', foreignKey: 'id', isLoose: true, idField: 'journalId' } // Loose link
+        ],
         'JournalEntry': [{ model: 'journalEntryLine', foreignKey: 'journalEntryId' }],
         'PI': [{ model: 'pILine', foreignKey: 'piId' }],
         'SalesOrder': [{ model: 'salesOrderLine', foreignKey: 'salesOrderId' }],
@@ -31,13 +97,23 @@ export function registerSoftDelete(prisma: any) {
       if (targets && params.args.where?.id) {
         for (const target of targets) {
           try {
-            // We use the prisma instance passed to registerSoftDelete
-            await prisma[target.model].updateMany({
-              where: { [target.foreignKey]: params.args.where.id },
-              data: { deletedAt: new Date() }
-            });
+            if (target.isLoose) {
+              const parent = await prisma[params.model!].findUnique({ where: { id: params.args.where.id } });
+              const targetId = parent ? parent[target.idField!] : null;
+              if (targetId) {
+                await prisma[target.model].update({
+                  where: { id: targetId },
+                  data: { deletedAt: new Date() }
+                });
+              }
+            } else {
+              await prisma[target.model].updateMany({
+                where: { [target.foreignKey]: params.args.where.id },
+                data: { deletedAt: new Date() }
+              });
+            }
           } catch (e) {
-            console.error(`[SoftDelete Cascade Error] Failed to cascade for ${params.model} to ${target.model}:`, e);
+            console.error(`[SoftDelete Cascade Error] Failed for ${params.model} to ${target.model}:`, e);
           }
         }
       }
@@ -50,55 +126,23 @@ export function registerSoftDelete(prisma: any) {
       } else {
         params.args['data'] = { deletedAt: new Date() };
       }
-      // Note: Cascade for deleteMany is more complex and depends on retrieval of IDs first.
-      // For now, we prioritize single-item deletion which is standard in ERP UI.
     }
 
-    // 2. FILTERING: Intercept 'findFirst', 'findMany', 'count' to exclude deleted items
-    // Only apply if the model has a 'deletedAt' field
-    const softDeleteModels = [
-      'Account', 'JournalEntry', 'Invoice', 'Bill', 'PurchaseOrder', 
-      'ProformaInvoice', 'Product', 'Vendor', 'Customer', 'Employee', 'Company',
-      'LC', 'Loan', 'Project', 'CostCenter', 'Payment', 'ActivityLog', 'PI',
-      'EmployeeAdvance', 'EmployeeLoan', 'EmployeeLoanRepayment', 'EmployeeExpense',
-      'PayrollRun', 'PayrollPayslip', 'User', 'Branch', 'PILine', 'SalesOrderLine',
-      'PurchaseOrderLine', 'GRN', 'GRNLine', 'DN', 'DNLine', 'InvoiceLine',
-      'JournalEntryLine', 'DebitNote', 'DebitNoteLine', 'CreditNote', 'CreditNoteLine',
-      'Attachment', 'Notification', 'FixedAsset', 'RecurringInvoice'
-    ];
-
+    // 2. FILTERING: Intercept 'findFirst', 'findMany', 'count', etc.
     if (softDeleteModels.includes(params.model || '')) {
       if (params.action === 'findUnique' || params.action === 'findFirst') {
         params.action = 'findFirst';
-        
-        if (params.args.where) {
-          const prismaOperators = ['contains', 'mode', 'gte', 'lte', 'gt', 'lt', 'in', 'not', 'equals', 'search', 'startsWith', 'endsWith'];
-          const whereKeys = Object.keys(params.args.where);
-          for (const key of whereKeys) {
-            const value = params.args.where[key];
-            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-              const valueKeys = Object.keys(value);
-              const hasOperator = valueKeys.some(k => prismaOperators.includes(k));
-              
-              if (!hasOperator) {
-                delete params.args.where[key];
-                params.args.where = { ...params.args.where, ...value };
-              }
-            }
-          }
-        }
-        
-        params.args.where = { ...params.args.where, deletedAt: null };
       }
-      if (params.action === 'findMany' || params.action === 'count' || params.action === 'aggregate' || params.action === 'groupBy') {
-        if (params.args.where) {
-          if (params.args.where.deletedAt === undefined) {
-            params.args.where = { ...params.args.where, deletedAt: null };
-          }
-        } else {
-          params.args.where = { deletedAt: null };
-        }
+
+      if (!params.args.where) params.args.where = {};
+      
+      // Inject at root level
+      if (params.args.where.deletedAt === undefined) {
+        params.args.where.deletedAt = null;
       }
+
+      // Inject recursively into relations
+      injectSoftDeleteRecursively(params.args.where);
     }
 
     return next(params);

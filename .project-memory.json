@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-10T17:37:17.545Z",
+  "lastUpdated": "2026-05-10T17:45:52.207Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -297,6 +297,14 @@
         "Added UI accessibility baseline checklist"
       ],
       "lastChange": "2026-05-10T17:37:17.545Z",
+      "agent": "unknown"
+    },
+    "CHECKLIST.md": {
+      "modified": "2026-05-10T17:45:52.206Z",
+      "features": [
+        "Added comprehensive page inventory with elements, field types/effects, role-permission, UI/UX and validation checklists"
+      ],
+      "lastChange": "2026-05-10T17:45:52.207Z",
       "agent": "unknown"
     }
   },

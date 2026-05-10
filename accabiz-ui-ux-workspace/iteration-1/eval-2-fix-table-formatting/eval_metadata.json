@@ -1,0 +1,27 @@
+{
+  "eval_id": 2,
+  "eval_name": "fix-table-formatting",
+  "prompt": "The vendor list table on /vendors page has inconsistent column alignment - currency columns aren't right-aligned, and the table header styling looks off compared to other tables in the app. Fix it to match the design system table-hd pattern.",
+  "assertions": [
+    {
+      "text": "Proper table structure with thead and tbody",
+      "passed": true,
+      "evidence": "Uses semantic table structure with proper thead/tbody separation"
+    },
+    {
+      "text": "Currency columns are right-aligned",
+      "passed": true,
+      "evidence": "Opening Balance column uses text-right class and font-mono"
+    },
+    {
+      "text": "Table headers use consistent styling (bg-slate-50/50, uppercase, tracking-wider)",
+      "passed": true,
+      "evidence": "Headers have bg-slate-50/50, uppercase, tracking-wider, font-bold"
+    },
+    {
+      "text": "Proper border-collapse and padding",
+      "passed": true,
+      "evidence": "Uses border-collapse class and consistent px-6 py-4 padding"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "eval_id": 1,
+  "eval_name": "create-action-button",
+  "prompt": "Add an 'Export to PDF' action button to the invoice detail view. The button should follow the existing button patterns, handle loading state, and show a toast notification on success.",
+  "assertions": [
+    {
+      "text": "Uses standard button styling patterns",
+      "passed": true,
+      "evidence": "Button uses cn() utility and variant/size style objects"
+    },
+    {
+      "text": "Handles loading state with visual feedback",
+      "passed": true,
+      "evidence": "isExporting state with Loader2 spinner shown when loading"
+    },
+    {
+      "text": "Shows toast notification on success",
+      "passed": true,
+      "evidence": "toast.success() called after successful export"
+    },
+    {
+      "text": "Handles errors gracefully with toast",
+      "passed": true,
+      "evidence": "catch block uses toast.error() for error messages"
+    }
+  ]
+}

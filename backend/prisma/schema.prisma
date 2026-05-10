@@ -35,6 +35,9 @@ model User {
   manager      User?   @relation("ManagerSubordinates", fields: [managerId], references: [id])
   subordinates User[]  @relation("ManagerSubordinates")
 
+  // Soft Delete
+  deletedAt DateTime?
+
   // Relations
   userRoles     UserRole[]
   userCompanies UserCompany[]

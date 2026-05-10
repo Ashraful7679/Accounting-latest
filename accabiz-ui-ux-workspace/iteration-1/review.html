@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eval Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #faf9f5;
+      --surface: #ffffff;
+      --border: #e8e6dc;
+      --text: #141413;
+      --text-muted: #b0aea5;
+      --accent: #d97757;
+      --accent-hover: #c4613f;
+      --green: #788c5d;
+      --green-bg: #eef2e8;
+      --red: #c44;
+      --red-bg: #fceaea;
+      --header-bg: #141413;
+      --header-text: #faf9f5;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Lora', Georgia, serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .header h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    .header .instructions {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-top: 0.25rem;
+    }
+    .header .progress {
+      font-size: 0.875rem;
+      opacity: 0.8;
+      text-align: right;
+    }
+
+    /* ---- Main content ---- */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* ---- Sections ---- */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      flex-shrink: 0;
+    }
+    .section-header {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .section-body {
+      padding: 1rem;
+    }
+
+    /* ---- Config badge ---- */
+    .config-badge {
+      display: inline-block;
+      padding: 0.2rem 0.625rem;
+      border-radius: 9999px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-left: 0.75rem;
+      vertical-align: middle;
+    }
+    .config-badge.config-primary {
+      background: rgba(33, 150, 243, 0.12);
+      color: #1976d2;
+    }
+    .config-badge.config-baseline {
+      background: rgba(255, 193, 7, 0.15);
+      color: #f57f17;
+    }
+
+    /* ---- Prompt ---- */
+    .prompt-text {
+      white-space: pre-wrap;
+      font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+
+    /* ---- Outputs ---- */
+    .output-file {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .output-file + .output-file {
+      margin-top: 1rem;
+    }
+    .output-file-header {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .output-file-header .dl-btn {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+    .output-file-header .dl-btn:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+    .output-file-content {
+      padding: 0.75rem;
+      overflow-x: auto;
+    }
+    .output-file-content pre {
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    .output-file-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+    }
+    .output-file-content iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+    .output-file-content table {
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+      width: 100%;
+    }
+    .output-file-content table td,
+    .output-file-content table th {
+      border: 1px solid var(--border);
+      padding: 0.375rem 0.5rem;
+      text-align: left;
+    }
+    .output-file-content table th {
+      background: var(--bg);
+      font-weight: 600;
+    }
+    .output-file-content .download-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    .output-file-content .download-link:hover {
+      background: var(--border);
+    }
+    .empty-state {
+      color: var(--text-muted);
+      font-style: italic;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    /* ---- Feedback ---- */
+    .prev-feedback {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.625rem 0.75rem;
+      margin-top: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .prev-feedback-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+      color: var(--text-muted);
+    }
+    .feedback-textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+      resize: vertical;
+      color: var(--text);
+    }
+    .feedback-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .feedback-status {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      min-height: 1.1em;
+    }
+
+    /* ---- Grades (collapsible) ---- */
+    .grades-toggle {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .grades-toggle:hover {
+      color: var(--accent);
+    }
+    .grades-toggle .arrow {
+      margin-right: 0.5rem;
+      transition: transform 0.15s;
+      font-size: 0.75rem;
+    }
+    .grades-toggle .arrow.open {
+      transform: rotate(90deg);
+    }
+    .grades-content {
+      display: none;
+      margin-top: 0.75rem;
+    }
+    .grades-content.open {
+      display: block;
+    }
+    .grades-summary {
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .grade-badge {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .grade-pass { background: var(--green-bg); color: var(--green); }
+    .grade-fail { background: var(--red-bg); color: var(--red); }
+    .assertion-list {
+      list-style: none;
+    }
+    .assertion-item {
+      padding: 0.625rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8125rem;
+    }
+    .assertion-item:last-child { border-bottom: none; }
+    .assertion-status {
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .assertion-status.pass { color: var(--green); }
+    .assertion-status.fail { color: var(--red); }
+    .assertion-evidence {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      padding-left: 1.5rem;
+    }
+
+    /* ---- View tabs ---- */
+    .view-tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 2rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .view-tab {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .view-tab:hover { color: var(--text); }
+    .view-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .view-panel { display: none; }
+    .view-panel.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* ---- Benchmark view ---- */
+    .benchmark-view {
+      padding: 1.5rem 2rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .benchmark-table {
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.8125rem;
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+    .benchmark-table th, .benchmark-table td {
+      padding: 0.625rem 0.75rem;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    .benchmark-table th {
+      font-family: 'Poppins', sans-serif;
+      background: var(--header-bg);
+      color: var(--header-text);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .benchmark-table tr:hover { background: var(--bg); }
+    .benchmark-table tr.benchmark-row-with { background: rgba(33, 150, 243, 0.06); }
+    .benchmark-table tr.benchmark-row-without { background: rgba(255, 193, 7, 0.06); }
+    .benchmark-table tr.benchmark-row-with:hover { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-without:hover { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-table tr.benchmark-row-avg { font-weight: 600; border-top: 2px solid var(--border); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-with { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-without { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-delta-positive { color: var(--green); font-weight: 600; }
+    .benchmark-delta-negative { color: var(--red); font-weight: 600; }
+    .benchmark-notes {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .benchmark-notes h3 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+    .benchmark-notes ul {
+      list-style: disc;
+      padding-left: 1.25rem;
+    }
+    .benchmark-notes li {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      margin-bottom: 0.375rem;
+    }
+    .benchmark-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 3rem;
+    }
+
+    /* ---- Navigation ---- */
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .nav-btn:hover:not(:disabled) {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .done-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .done-btn:hover {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .done-btn.ready {
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
+    .done-btn.ready:hover {
+      background: var(--accent-hover);
+    }
+    /* ---- Done overlay ---- */
+    .done-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .done-overlay.visible {
+      display: flex;
+    }
+    .done-card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 2rem 3rem;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+    }
+    .done-card h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .done-card p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .done-card .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    .done-card button {
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .done-card button:hover {
+      background: var(--bg);
+    }
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed;
+      bottom: 5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 0.625rem 1.25rem;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 200;
+    }
+    .toast.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" style="height:100vh; display:flex; flex-direction:column;">
+    <div class="header">
+      <div>
+        <h1>Eval Review: <span id="skill-name"></span></h1>
+        <div class="instructions">Review each output and leave feedback below. Navigate with arrow keys or buttons. When done, copy feedback and paste into Claude Code.</div>
+      </div>
+      <div class="progress" id="progress"></div>
+    </div>
+
+    <!-- View tabs (only shown when benchmark data exists) -->
+    <div class="view-tabs" id="view-tabs" style="display:none;">
+      <button class="view-tab active" onclick="switchView('outputs')">Outputs</button>
+      <button class="view-tab" onclick="switchView('benchmark')">Benchmark</button>
+    </div>
+
+    <!-- Outputs panel (qualitative review) -->
+    <div class="view-panel active" id="panel-outputs">
+    <div class="main">
+      <!-- Prompt -->
+      <div class="section">
+        <div class="section-header">Prompt <span class="config-badge" id="config-badge" style="display:none;"></span></div>
+        <div class="section-body">
+          <div class="prompt-text" id="prompt-text"></div>
+        </div>
+      </div>
+
+      <!-- Outputs -->
+      <div class="section">
+        <div class="section-header">Output</div>
+        <div class="section-body" id="outputs-body">
+          <div class="empty-state">No output files found</div>
+        </div>
+      </div>
+
+      <!-- Previous Output (collapsible) -->
+      <div class="section" id="prev-outputs-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="togglePrevOutputs()">
+            <span class="arrow" id="prev-outputs-arrow">&#9654;</span>
+            Previous Output
+          </div>
+        </div>
+        <div class="grades-content" id="prev-outputs-content"></div>
+      </div>
+
+      <!-- Grades (collapsible) -->
+      <div class="section" id="grades-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="toggleGrades()">
+            <span class="arrow" id="grades-arrow">&#9654;</span>
+            Formal Grades
+          </div>
+        </div>
+        <div class="grades-content" id="grades-content"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="section">
+        <div class="section-header">Your Feedback</div>
+        <div class="section-body">
+          <textarea
+            class="feedback-textarea"
+            id="feedback"
+            placeholder="What do you think of this output? Any issues, suggestions, or things that look great?"
+          ></textarea>
+          <div class="feedback-status" id="feedback-status"></div>
+          <div class="prev-feedback" id="prev-feedback" style="display:none;">
+            <div class="prev-feedback-label">Previous feedback</div>
+            <div id="prev-feedback-text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav" id="outputs-nav">
+      <button class="nav-btn" id="prev-btn" onclick="navigate(-1)">&#8592; Previous</button>
+      <button class="done-btn" id="done-btn" onclick="showDoneDialog()">Submit All Reviews</button>
+      <button class="nav-btn" id="next-btn" onclick="navigate(1)">Next &#8594;</button>
+    </div>
+    </div><!-- end panel-outputs -->
+
+    <!-- Benchmark panel (quantitative stats) -->
+    <div class="view-panel" id="panel-benchmark">
+      <div class="benchmark-view" id="benchmark-content">
+        <div class="benchmark-empty">No benchmark data available. Run a benchmark to see quantitative results here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Done overlay -->
+  <div class="done-overlay" id="done-overlay">
+    <div class="done-card">
+      <h2>Review Complete</h2>
+      <p>Your feedback has been saved. Go back to your Claude Code session and tell Claude you're done reviewing.</p>
+      <div class="btn-row">
+        <button onclick="closeDoneDialog()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ---- Embedded data (injected by generate_review.py) ----
+    const EMBEDDED_DATA = {"skill_name": "accabiz-ui-ux", "runs": [{"id": "eval-0-create-new-form-page-with_skill", "prompt": "Create a new 'Vendor Credit' form page for the AccaBiz ERP. It should have fields for vendor selection, credit amount, date, reference number, notes, and line items table. Use the DetailPanel pattern for viewing/editing.", "eval_id": 0, "outputs": [{"name": "VendorCreditPage.tsx", "type": "text", "content": "'use client';\n\nimport { useEffect, useState } from 'react';\nimport { useRouter, useParams } from 'next/navigation';\nimport { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';\nimport api from '@/lib/api';\nimport {\n  CreditCard, Plus, Search, Eye, Trash2,\n  CheckCircle2, AlertCircle, XCircle, Package,\n  RotateCw, Loader2, FileText\n} from 'lucide-react';\nimport { toast } from 'react-hot-toast';\nimport { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';\nimport { cn } from '@/lib/utils';\nimport DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';\n\ninterface VendorCredit {\n  id: string;\n  vendorCreditNumber: string;\n  companyId: string;\n  vendorId: string;\n  vendor?: { name: string; code: string } | null;\n  billId: string | null;\n  purchaseOrderId: string | null;\n  creditDate: string;\n  dueDate: string | null;\n  currency: string;\n  exchangeRate: number;\n  subtotal: number;\n  taxAmount: number;\n  totalForeign: number;\n  totalBDT: number;\n  status: string;\n  referenceNumber: string | null;\n  reason: string | null;\n  notes: string | null;\n  returnToStock: boolean;\n  lines: VendorCreditLine[];\n  createdAt: string;\n}\n\ninterface VendorCreditLine {\n  id?: string;\n  itemDescription: string;\n  quantity: number;\n  unitPrice: number;\n  taxRate: number;\n  total: number;\n  productId?: string;\n}\n\nconst REASONS = [\n  'Damaged Goods',\n  'Wrong Item Delivered',\n  'Price Dispute',\n  'Quality Issues',\n  'Short Delivery',\n  'Other'\n];\n\nexport default function VendorCreditsPage() {\n  const router = useRouter();\n  const params = useParams();\n  const companyId = params.id as string;\n  const queryClient = useQueryClient();\n  const [searchTerm, setSearchTerm] = useState('');\n  const [mounted, setMounted] = useState(false);\n\n  const [showDetailPanel, setShowDetailPanel] = useState(false);\n  const [selectedVC, setSelectedVC] = useState<VendorCredit | null>(null);\n  const [viewMode, setViewMode] = useState<'view' | 'create' | 'edit'>('view');\n\n  const [formData, setFormData] = useState({\n    vendorId: '',\n    billId: '',\n    purchaseOrderId: '',\n    creditDate: new Date().toISOString().split('T')[0],\n    dueDate: '',\n    currency: 'BDT',\n    exchangeRate: 1,\n    referenceNumber: '',\n    reason: '',\n    notes: '',\n    returnToStock: true,\n    lines: [{ itemDescription: '', quantity: 1, unitPrice: 0, taxRate: 0, total: 0, productId: '' }]\n  });\n\n  useEffect(() => {\n    setMounted(true);\n    const token = localStorage.getItem('token');\n    if (!token) router.push('/login');\n  }, [router]);\n\n  const { data: vendorCredits, isLoading } = useQuery({\n    queryKey: ['vendor-credits', companyId],\n    queryFn: async () => {\n      const response = await api.get(`/company/${companyId}/vendor-credits`);\n      return response.data.data as VendorCredit[];\n    },\n    enabled: !!companyId,\n  });\n\n  const { data: vendors } = useQuery({\n    queryKey: ['vendors', companyId],\n    queryFn: async () => {\n      const response = await api.get(`/company/${companyId}/vendors`);\n      return response.data.data;\n    },\n    enabled: !!companyId,\n  });\n\n  const { data: bills } = useQuery({\n    queryKey: ['bills', companyId],\n    queryFn: async () => {\n      const response = await api.get(`/company/${companyId}/bills`);\n      return response.data.data;\n    },\n    enabled: !!companyId,\n  });\n\n  const { data: products } = useQuery({\n    queryKey: ['products', companyId],\n    queryFn: async () => {\n      const response = await api.get(`/company/${companyId}/products`);\n      return response.data.data;\n    },\n    enabled: !!companyId,\n  });\n\n  const { data: purchaseOrders } = useQuery({\n    queryKey: ['purchase-orders', companyId],\n    queryFn: async () => {\n      const response = await api.get(`/company/${companyId}/purchase-orders`);\n      return response.data.data;\n    },\n    enabled: !!companyId,\n  });\n\n  const createMutation = useMutation({\n    mutationFn: async (data: any) => {\n      const response = await api.post(`/company/${companyId}/vendor-credits`, data);\n      return response.data;\n    },\n    onSuccess: () => {\n      queryClient.invalidateQueries({ queryKey: ['vendor-credits', companyId] });\n      toast.success('Vendor Credit created');\n      setShowDetailPanel(false);\n      resetForm();\n    },\n    onError: (error: any) => {\n      toast.error(error.response?.data?.error?.message || 'Failed to create Vendor Credit');\n    },\n  });\n\n  const updateMutation = useMutation({\n    mutationFn: async ({ id, data }: { id: string; data: any }) => {\n      const response = await api.put(`/company/${companyId}/vendor-credits/${id}`, data);\n      return response.data;\n    },\n    onSuccess: () => {\n      queryClient.invalidateQueries({ queryKey: ['vendor-credits', companyId] });\n      toast.success('Vendor Credit updated');\n      setViewMode('view');\n    },\n    onError: (error: any) => {\n      toast.error(error.response?.data?.error?.message || 'Failed to update Vendor Credit');\n    },\n  });\n\n  const approveMutation = useMutation({\n    mutationFn: async (vcId: string) => {\n      const response = await api.post(`/company/${companyId}/vendor-credits/${vcId}/approve`);\n      return response.data;\n    },\n    onSuccess: () => {\n      queryClient.invalidateQueries({ queryKey: ['vendor-credits', companyId] });\n      toast.success('Vendor Credit approved');\n    },\n    onError: (error: any) => {\n      toast.error(error.response?.data?.error?.message || 'Failed to approve');\n    },\n  });\n\n  const deleteMutation = useMutation({\n    mutationFn: async (vcId: string) => {\n      const response = await api.delete(`/company/${companyId}/vendor-credits/${vcId}`);\n      return response.data;\n    },\n    onSuccess: () => {\n      queryClient.invalidateQueries({ queryKey: ['vendor-credits', companyId] });\n      toast.success('Vendor Credit deleted');\n      setShowDetailPanel(false);\n    },\n    onError: (error: any) => {\n      toast.error(error.response?.data?.error?.message || 'Failed to delete');\n    },\n  });\n\n  const resetForm = () => {\n    setFormData({\n      vendorId: '',\n      billId: '',\n      purchaseOrderId: '',\n      creditDate: new Date().toISOString().split('T')[0],\n      dueDate: '',\n      currency: 'BDT',\n      exchangeRate: 1,\n      referenceNumber: '',\n      reason: '',\n      notes: '',\n      returnToStock: true,\n      lines: [{ itemDescription: '', quantity: 1, unitPrice: 0, taxRate: 0, total: 0, productId: '' }]\n    });\n  };\n\n  const filteredVCs = (Array.isArray(vendorCredits) ? vendorCredits : []).filter(vc =>\n    !searchTerm ||\n    vc.vendorCreditNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||\n    vc.vendor?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||\n    (vc.referenceNumber && vc.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase()))\n  ) || [];\n\n  const handleLineChange = (index: number, field: string, value: any) => {\n    const newLines = [...formData.lines];\n    newLines[index] = { ...newLines[index], [field]: value };\n\n    if (field === 'itemDescription') {\n      const product = products?.find((p: any) => p.name === value);\n      if (product) {\n        newLines[index].unitPrice = product.unitPrice || 0;\n        newLines[index].productId = product.id;\n      }\n    }\n\n    const qty = field === 'quantity' ? parseFloat(value) || 0 : newLines[index].quantity;\n    const price = field === 'unitPrice' ? parseFloat(value) || 0 : newLines[index].unitPrice;\n    const taxRate = field === 'taxRate' ? parseFloat(value) || 0 : newLines[index].taxRate;\n\n    const subtotal = qty * price;\n    const taxAmt = subtotal * (taxRate / 100);\n    newLines[index].total = subtotal + taxAmt;\n\n    setFormData({ ...formData, lines: newLines });\n  };\n\n  const addLine = () => {\n    setFormData({\n      ...formData,\n      lines: [...formData.lines, { itemDescription: '', quantity: 1, unitPrice: 0, taxRate: 0, total: 0, productId: '' }]\n    });\n  };\n\n  const removeLine = (index: number) => {\n    if (formData.lines.length === 1) return;\n    setFormData({\n      ...formData,\n      lines: formData.lines.filter((_, i) => i !== index)\n    });\n  };\n\n  const calculateTotal = () => {\n    return formData.lines.reduce((sum, line) => sum + (line.total || 0), 0);\n  };\n\n  const getStatusBadge = (status: string) => {\n    const styles: any = {\n      DRAFT: { bg: 'bg-slate-50', text: 'text-slate-600', icon: FileText },\n      APPROVED: { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle2 },\n      PAID: { bg: 'bg-blue-50', text: 'text-blue-700', icon: Loader2 },\n      CANCELLED: { bg: 'bg-red-50', text: 'text-red-700', icon: XCircle },\n    };\n    const s = styles[status] || styles.DRAFT;\n    const Icon = s.icon;\n    return (\n      <span className={cn('inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border', s.bg, s.text, s.border)}>\n        <Icon className=\"w-3.5 h-3.5\" />\n        {status}\n      </span>\n    );\n  };\n\n  const handleRowClick = (vc: VendorCredit) => {\n    setSelectedVC(vc);\n    setViewMode('view');\n    setShowDetailPanel(true);\n  };\n\n  const handleEdit = () => {\n    setViewMode('edit');\n    setFormData({\n      vendorId: selectedVC?.vendorId || '',\n      billId: selectedVC?.billId || '',\n      purchaseOrderId: selectedVC?.purchaseOrderId || '',\n      creditDate: selectedVC?.creditDate?.split('T')[0] || new Date().toISOString().split('T')[0],\n      dueDate: selectedVC?.dueDate?.split('T')[0] || '',\n      currency: selectedVC?.currency || 'BDT',\n      exchangeRate: selectedVC?.exchangeRate || 1,\n      referenceNumber: selectedVC?.referenceNumber || '',\n      reason: selectedVC?.reason || '',\n      notes: selectedVC?.notes || '',\n      returnToStock: selectedVC?.returnToStock ?? true,\n      lines: selectedVC?.lines?.length > 0 ? selectedVC.lines : [{ itemDescription: '', quantity: 1, unitPrice: 0, taxRate: 0, total: 0, productId: '' }]\n    });\n  };\n\n  const handleClose = () => {\n    setShowDetailPanel(false);\n    setSelectedVC(null);\n    setViewMode('view');\n    resetForm();\n  };\n\n  const getDetailFields = (): DetailField[] => {\n    if (!selectedVC) return [];\n    return [\n      { label: 'Vendor', value: selectedVC.vendor?.name || '-' },\n      { label: 'Reference', value: selectedVC.referenceNumber || '-' },\n      { label: 'Credit Date', value: new Date(selectedVC.creditDate).toLocaleDateString() },\n      { label: 'Currency', value: selectedVC.currency },\n      { label: 'Exchange Rate', value: selectedVC.exchangeRate },\n      { label: 'Subtotal', value: `${getCurrencySymbol(selectedVC.currency)}${selectedVC.subtotal.toFixed(2)}`, type: 'currency' },\n      { label: 'Tax Amount', value: `${getCurrencySymbol(selectedVC.currency)}${selectedVC.taxAmount.toFixed(2)}`, type: 'currency' },\n      { label: 'Total', value: `${getCurrencySymbol(selectedVC.currency)}${selectedVC.totalBDT.toFixed(2)}`, type: 'currency' },\n      { label: 'Reason', value: selectedVC.reason || '-' },\n      { label: 'Notes', value: selectedVC.notes || '-' },\n    ];\n  };\n\n  const getDetailActions = (): DetailAction[] => {\n    if (!selectedVC) return [];\n    const actions: DetailAction[] = [];\n\n    if (viewMode === 'view') {\n      actions.push(\n        { label: 'Edit', icon: Trash2, onClick: handleEdit, variant: 'secondary' }\n      );\n      if (selectedVC.status === 'DRAFT') {\n        actions.push(\n          { label: 'Approve', icon: CheckCircle2, onClick: () => approveMutation.mutate(selectedVC.id), variant: 'success' }\n        );\n        actions.push(\n          { label: 'Delete', icon: Trash2, onClick: () => deleteMutation.mutate(selectedVC.id), variant: 'danger' }\n        );\n      }\n    } else if (viewMode === 'edit') {\n      actions.push(\n        { label: 'Cancel', icon: XCircle, onClick: () => { setViewMode('view'); resetForm(); }, variant: 'secondary' }\n      );\n      actions.push(\n        { label: 'Save', icon: CheckCircle2, onClick: () => updateMutation.mutate({ id: selectedVC.id, data: formData }), variant: 'primary', loading: updateMutation.isPending }\n      );\n    }\n\n    return actions;\n  };\n\n  const getEditTab = (): DetailTab | null => {\n    if (!selectedVC) return null;\n    return {\n      id: 'edit',\n      label: viewMode === 'edit' ? 'Edit' : 'Details',\n      content: viewMode === 'edit' ? getCreateForm() : getViewContent(),\n    };\n  };\n\n  const getCreateTab = (): DetailTab => {\n    return {\n      id: 'create',\n      label: 'New Vendor Credit',\n      content: getCreateForm(),\n    };\n  };\n\n  const getViewContent = () => {\n    if (!selectedVC) return null;\n    return (\n      <div className=\"space-y-6 p-4\">\n        <div className=\"grid grid-cols-2 gap-4\">\n          <div>\n            <h4 className=\"text-xs font-bold text-slate-400 uppercase mb-2\">Line Items</h4>\n            <div className=\"border rounded-lg overflow-hidden\">\n              <table className=\"w-full text-sm\">\n                <thead className=\"bg-slate-50\">\n                  <tr>\n                    <th className=\"px-3 py-2 text-left text-xs font-bold text-slate-500\">Description</th>\n                    <th className=\"px-3 py-2 text-right text-xs font-bold text-slate-500\">Qty</th>\n                    <th className=\"px-3 py-2 text-right text-xs font-bold text-slate-500\">Unit Price</th>\n                    <th className=\"px-3 py-2 text-right text-xs font-bold text-slate-500\">Tax %</th>\n                    <th className=\"px-3 py-2 text-right text-xs font-bold text-slate-500\">Total</th>\n                  </tr>\n                </thead>\n                <tbody>\n                  {selectedVC.lines?.map((line, idx) => (\n                    <tr key={idx} className=\"border-t\">\n                      <td className=\"px-3 py-2\">{line.itemDescription}</td>\n                      <td className=\"px-3 py-2 text-right\">{line.quantity}</td>\n                      <td className=\"px-3 py-2 text-right\">{line.unitPrice.toFixed(2)}</td>\n                      <td className=\"px-3 py-2 text-right\">{line.taxRate}%</td>\n                      <td className=\"px-3 py-2 text-right font-medium\">{line.total.toFixed(2)}</td>\n                    </tr>\n                  ))}\n                </tbody>\n              </table>\n            </div>\n          </div>\n        </div>\n        {selectedVC.notes && (\n          <div>\n            <h4 className=\"text-xs font-bold text-slate-400 uppercase mb-2\">Notes</h4>\n            <p className=\"text-sm text-slate-600\">{selectedVC.notes}</p>\n          </div>\n        )}\n      </div>\n    );\n  };\n\n  const getCreateForm = () => {\n    const filteredVendors = (Array.isArray(vendors) ? vendors : []).filter((v: any) =>\n      v.name.toLowerCase().includes(formData.vendorId.toLowerCase()) || !formData.vendorId\n    );\n\n    const selectedVendor = (Array.isArray(vendors) ? vendors : []).find((v: any) => v.id === formData.vendorId);\n    const vendorBills = (Array.isArray(bills) ? bills : []).filter((b: any) => b.vendorId === formData.vendorId && b.status === 'APPROVED') || [];\n    const vendorPOs = (Array.isArray(purchaseOrders) ? purchaseOrders : []).filter((po: any) => po.supplierId === formData.vendorId && (po.status === 'SENT' || po.status === 'APPROVED' || po.status === 'PARTIALLY_RECEIVED')) || [];\n\n    return (\n      <div className=\"space-y-6 p-4\">\n        <div className=\"grid grid-cols-2 gap-4\">\n          <div>\n            <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Vendor *</label>\n            <select\n              value={formData.vendorId}\n              onChange={(e) => setFormData({ ...formData, vendorId: e.target.value, billId: '', purchaseOrderId: '' })}\n              className=\"w-full px-3 py-2 border border-slate-200 rounded-lg text-sm\"\n            >\n              <option value=\"\">Select vendor...</option>\n              {(Array.isArray(vendors) ? vendors : []).map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}\n            </select>\n          </div>\n          <div>\n            <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Credit Date</label>\n            <input\n              type=\"date\"\n              value={formData.creditDate}\n              onChange={(e) => setFormData({ ...formData, creditDate: e.target.value })}\n              className=\"w-full px-3 py-2 border border-slate-200 rounded-lg text-sm\"\n            />\n          </div>\n          <div>\n            <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Reference Number</label>\n            <input\n              type=\"text\"\n              value={formData.referenceNumber}\n              onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}\n              placeholder=\"Enter reference number\"\n              className=\"w-full px-3 py-2 border border-slate-200 rounded-lg text-sm\"\n            />\n          </div>\n          <div>\n            <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Currency</label>\n            <select\n              value={formData.currency}\n              onChange={(e) => setFormData({ ...formData, currency: e.target.value })}\n              className=\"w-full px-3 py-2 border border-slate-200 rounded-lg text-sm\"\n            >\n              <option value=\"BDT\">BDT</option>\n              <option value=\"USD\">USD</option>\n              <option value=\"EUR\">EUR</option>\n              <option value=\"GBP\">GBP</option>\n            </select>\n          </div>\n          {formData.currency !== 'BDT' && (\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Exchange Rate</label>\n              <input\n                type=\"number\"\n                step=\"0.01\"\n                value={formData.exchangeRate}\n                onChange={(e) => setFormData({ ...formData, exchangeRate: parseFloat(e.target.value) || 1 })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg text-sm\"\n              />\n            </div>\n          )}\n          <div>\n            <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Link to Bill</label>\n            <select\n              value={formData.billId}\n              onChange={(e) => setFormData({ ...formData, billId: e.target.value })}\n              className=\"w-full px-3 py-2 border border-slate-200 rounded-lg text-sm\"\n            >\n              <option value=\"\">None</option>\n              {vendorBills.map((b: any) => <option key={b.id} value={b.id}>{b.billNumber}</option>)}\n            </select>\n          </div>\n          <div>\n            <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Link to PO</label>\n            <select\n              value={formData.purchaseOrderId}\n              onChange={(e) => setFormData({ ...formData, purchaseOrderId: e.target.value })}\n              className=\"w-full px-3 py-2 border border-slate-200 rounded-lg text-sm\"\n            >\n              <option value=\"\">None</option>\n              {vendorPOs.map((po: any) => <option key={po.id} value={po.id}>{po.poNumber}</option>)}\n            </select>\n          </div>\n          <div>\n            <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Reason</label>\n            <select\n              value={formData.reason}\n              onChange={(e) => setFormData({ ...formData, reason: e.target.value })}\n              className=\"w-full px-3 py-2 border border-slate-200 rounded-lg text-sm\"\n            >\n              <option value=\"\">Select reason...</option>\n              {REASONS.map(r => <option key={r} value={r}>{r}</option>)}\n            </select>\n          </div>\n        </div>\n\n        <div>\n          <label className=\"text-[10px] font-bold text-slate-400 uppercase flex justify-between\">\n            Line Items\n            <button type=\"button\" onClick={addLine} className=\"text-blue-600 text-xs font-bold\">+ Add Line</button>\n          </label>\n          <div className=\"space-y-2 mt-2\">\n            {formData.lines.map((line, idx) => (\n              <div key={idx} className=\"flex gap-2 items-center\">\n                <div className=\"flex-1\">\n                  <input\n                    type=\"text\"\n                    list=\"products-list\"\n                    value={line.itemDescription}\n                    onChange={(e) => handleLineChange(idx, 'itemDescription', e.target.value)}\n                    placeholder=\"Select product or enter description\"\n                    className=\"w-full px-2 py-2 border border-slate-200 rounded-lg text-sm\"\n                  />\n                  <datalist id=\"products-list\">\n                    {(Array.isArray(products) ? products : []).map((p: any) => <option key={p.id} value={p.name} />)}\n                  </datalist>\n                </div>\n                <input\n                  type=\"number\"\n                  value={line.quantity}\n                  onChange={(e) => handleLineChange(idx, 'quantity', e.target.value)}\n                  placeholder=\"Qty\"\n                  className=\"w-16 px-2 py-2 border border-slate-200 rounded-lg text-sm text-right\"\n                />\n                <input\n                  type=\"number\"\n                  value={line.unitPrice}\n                  onChange={(e) => handleLineChange(idx, 'unitPrice', e.target.value)}\n                  placeholder=\"Price\"\n                  className=\"w-20 px-2 py-2 border border-slate-200 rounded-lg text-sm text-right\"\n                />\n                <input\n                  type=\"number\"\n                  value={line.taxRate}\n                  onChange={(e) => handleLineChange(idx, 'taxRate', e.target.value)}\n                  placeholder=\"Tax %\"\n                  className=\"w-16 px-2 py-2 border border-slate-200 rounded-lg text-sm text-right\"\n                />\n                <span className=\"w-20 text-right font-medium text-sm\">{line.total.toFixed(2)}</span>\n                {formData.lines.length > 1 && (\n                  <button type=\"button\" onClick={() => removeLine(idx)} className=\"text-red-500 p-1\">\n                    <XCircle className=\"w-4 h-4\" />\n                  </button>\n                )}\n              </div>\n            ))}\n          </div>\n        </div>\n\n        <div className=\"flex justify-between pt-4 border-t\">\n          <span className=\"font-bold\">Total</span>\n          <span className=\"font-bold text-lg\">{getCurrencySymbol(formData.currency)}{calculateTotal().toFixed(2)}</span>\n        </div>\n\n        <div>\n          <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Notes</label>\n          <textarea\n            value={formData.notes}\n            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}\n            placeholder=\"Additional notes...\"\n            className=\"w-full px-3 py-2 border border-slate-200 rounded-lg min-h-[80px]\"\n          />\n        </div>\n\n        <button\n          onClick={() => createMutation.mutate(formData)}\n          disabled={createMutation.isPending || !formData.vendorId || formData.lines.some(l => !l.itemDescription || l.quantity <= 0)}\n          className=\"w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50\"\n        >\n          {createMutation.isPending ? 'Creating...' : 'Create Vendor Credit'}\n        </button>\n      </div>\n    );\n  };\n\n  if (!mounted) return null;\n\n  return (\n    <div className=\"min-h-screen bg-slate-50/50\">\n      <div className=\"p-8 max-w-[1600px] mx-auto\">\n        <div className=\"flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8\">\n          <div>\n            <h1 className=\"text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3\">\n              <CreditCard className=\"w-8 h-8 text-blue-600\" />\n              Vendor Credits\n            </h1>\n            <p className=\"text-slate-500 mt-1\">Manage vendor credit memos</p>\n          </div>\n          <button\n            onClick={() => {\n              setSelectedVC(null);\n              setShowDetailPanel(true);\n              setViewMode('create');\n              resetForm();\n            }}\n            className=\"px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-2\"\n          >\n            <Plus className=\"w-5 h-5\" /> New Vendor Credit\n          </button>\n        </div>\n\n        <div className=\"bg-white rounded-2xl shadow-sm border border-slate-100\">\n          <div className=\"p-4 border-b border-slate-100\">\n            <div className=\"relative\">\n              <Search className=\"absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400\" />\n              <input\n                type=\"text\"\n                placeholder=\"Search vendor credits...\"\n                value={searchTerm}\n                onChange={(e) => setSearchTerm(e.target.value)}\n                className=\"w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl\"\n              />\n            </div>\n          </div>\n\n          {isLoading ? (\n            <div className=\"p-20 text-center\">\n              <div className=\"w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto\" />\n            </div>\n          ) : filteredVCs.length === 0 ? (\n            <div className=\"p-20 text-center\">\n              <CreditCard className=\"w-12 h-12 text-slate-300 mx-auto mb-3\" />\n              <p className=\"text-slate-900 font-bold\">No vendor credits found</p>\n            </div>\n          ) : (\n            <div className=\"divide-y divide-slate-100\">\n              {filteredVCs.map((vc) => (\n                <div\n                  key={vc.id}\n                  onClick={() => handleRowClick(vc)}\n                  className=\"p-4 hover:bg-slate-50 cursor-pointer flex items-center justify-between\"\n                >\n                  <div className=\"flex items-center gap-4\">\n                    <div>\n                      <div className=\"font-bold text-slate-900\">{vc.vendorCreditNumber}</div>\n                      <div className=\"text-sm text-slate-500\">{vc.vendor?.name || 'No vendor'}</div>\n                    </div>\n                  </div>\n                  <div className=\"flex items-center gap-4\">\n                    {vc.referenceNumber && <span className=\"text-sm text-slate-500\">Ref: {vc.referenceNumber}</span>}\n                    <span className=\"text-sm text-slate-500\">{new Date(vc.creditDate).toLocaleDateString()}</span>\n                    <span className=\"font-bold text-slate-900\">{getCurrencySymbol(vc.currency)}{vc.totalBDT.toFixed(2)}</span>\n                    {getStatusBadge(vc.status)}\n                    <Eye className=\"w-4 h-4 text-slate-400\" />\n                  </div>\n                </div>\n              ))}\n            </div>\n          )}\n        </div>\n      </div>\n\n      <DetailPanel\n        isOpen={showDetailPanel}\n        onClose={handleClose}\n        title={viewMode === 'create' ? 'New Vendor Credit' : (selectedVC?.vendorCreditNumber || 'Vendor Credit')}\n        subtitle={selectedVC?.vendor?.name}\n        fields={getDetailFields()}\n        actions={getDetailActions()}\n        tabs={selectedVC ? [getEditTab()].filter(Boolean) as DetailTab[] : (showDetailPanel && !selectedVC) ? [getCreateTab()] : []}\n        status={selectedVC ? { value: selectedVC.status.toLowerCase(), type: selectedVC.status === 'APPROVED' ? 'approved' : selectedVC.status === 'DRAFT' ? 'draft' : 'pending' as any } : undefined}\n        metadata={selectedVC?.createdAt ? { createdAt: selectedVC.createdAt } : undefined}\n        size=\"lg\"\n      />\n    </div>\n  );\n}"}], "grading": null}, {"id": "eval-0-create-new-form-page-without_skill", "prompt": "Create a new 'Vendor Credit' form page for the AccaBiz ERP. It should have fields for vendor selection, credit amount, date, reference number, notes, and line items table. Use the DetailPanel pattern for viewing/editing.", "eval_id": 0, "outputs": [{"name": "VendorCreditPage.tsx", "type": "text", "content": "'use client';\n\nimport { useEffect, useState } from 'react';\nimport { useRouter, useParams } from 'next/navigation';\nimport { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';\nimport api from '@/lib/api';\nimport {\n  CreditCard, Plus, Search, Eye, Trash2,\n  CheckCircle2, XCircle, Package,\n  RotateCw, Loader2, FileText\n} from 'lucide-react';\nimport { toast } from 'react-hot-toast';\nimport { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';\nimport { cn } from '@/lib/utils';\nimport DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';\n\ninterface VendorCredit {\n  id: string;\n  vendorCreditNumber: string;\n  companyId: string;\n  vendorId: string;\n  vendor?: { name: string } | null;\n  billId: string | null;\n  purchaseOrderId: string | null;\n  vendorCreditDate: string;\n  dueDate: string | null;\n  referenceNumber: string;\n  currency: string;\n  exchangeRate: number;\n  subtotal: number;\n  taxAmount: number;\n  totalForeign: number;\n  totalBDT: number;\n  status: string;\n  reason: string | null;\n  notes: string | null;\n  returnToStock: boolean;\n  lines: VendorCreditLine[];\n  createdAt: string;\n}\n\ninterface VendorCreditLine {\n  id?: string;\n  description: string;\n  quantity: number;\n  unitPrice: number;\n  taxRate: number;\n  amount: number;\n  productId?: string;\n}\n\nconst REASONS = [\n  'Damaged Goods',\n  'Wrong Item Delivered',\n  'Price Dispute',\n  'Quality Issues',\n  'Short Delivery',\n  'Overpayment',\n  'Other'\n];\n\nexport default function VendorCreditsPage() {\n  const router = useRouter();\n  const params = useParams();\n  const companyId = params.id as string;\n  const queryClient = useQueryClient();\n  const [searchTerm, setSearchTerm] = useState('');\n  const [mounted, setMounted] = useState(false);\n\n  const [showDetailPanel, setShowDetailPanel] = useState(false);\n  const [selectedVC, setSelectedVC] = useState<VendorCredit | null>(null);\n  const [viewMode, setViewMode] = useState<'view' | 'create'>('view');\n\n  const [formData, setFormData] = useState({\n    vendorId: '',\n    billId: '',\n    purchaseOrderId: '',\n    vendorCreditDate: new Date().toISOString().split('T')[0],\n    dueDate: '',\n    referenceNumber: '',\n    currency: 'BDT',\n    exchangeRate: 1,\n    reason: '',\n    notes: '',\n    returnToStock: true,\n    lines: [{ description: '', quantity: 1, unitPrice: 0, taxRate: 0, amount: 0, productId: '' }] as VendorCreditLine[]\n  });\n\n  useEffect(() => {\n    setMounted(true);\n    const token = localStorage.getItem('token');\n    if (!token) router.push('/login');\n  }, [router]);\n\n  const { data: vendorCredits, isLoading } = useQuery({\n    queryKey: ['vendor-credits', companyId],\n    queryFn: async () => {\n      const response = await api.get(`/company/${companyId}/vendor-credits`);\n      return response.data.data as VendorCredit[];\n    },\n    enabled: !!companyId,\n  });\n\n  const { data: vendors } = useQuery({\n    queryKey: ['vendors', companyId],\n    queryFn: async () => {\n      const response = await api.get(`/company/${companyId}/vendors`);\n      return response.data.data;\n    },\n    enabled: !!companyId,\n  });\n\n  const { data: bills } = useQuery({\n    queryKey: ['bills', companyId],\n    queryFn: async () => {\n      const response = await api.get(`/company/${companyId}/bills`);\n      return response.data.data;\n    },\n    enabled: !!companyId,\n  });\n\n  const { data: products } = useQuery({\n    queryKey: ['products', companyId],\n    queryFn: async () => {\n      const response = await api.get(`/company/${companyId}/products`);\n      return response.data.data;\n    },\n    enabled: !!companyId,\n  });\n\n  const { data: purchaseOrders } = useQuery({\n    queryKey: ['purchase-orders', companyId],\n    queryFn: async () => {\n      const response = await api.get(`/company/${companyId}/purchase-orders`);\n      return response.data.data;\n    },\n    enabled: !!companyId,\n  });\n\n  const createMutation = useMutation({\n    mutationFn: async (data: any) => {\n      const response = await api.post(`/company/${companyId}/vendor-credits`, data);\n      return response.data;\n    },\n    onSuccess: () => {\n      queryClient.invalidateQueries({ queryKey: ['vendor-credits', companyId] });\n      toast.success('Vendor Credit created');\n      setShowDetailPanel(false);\n      setFormData({\n        vendorId: '',\n        billId: '',\n        purchaseOrderId: '',\n        vendorCreditDate: new Date().toISOString().split('T')[0],\n        dueDate: '',\n        referenceNumber: '',\n        currency: 'BDT',\n        exchangeRate: 1,\n        reason: '',\n        notes: '',\n        returnToStock: true,\n        lines: [{ description: '', quantity: 1, unitPrice: 0, taxRate: 0, amount: 0, productId: '' }]\n      });\n    },\n    onError: (error: any) => {\n      toast.error(error.response?.data?.error?.message || 'Failed to create Vendor Credit');\n    },\n  });\n\n  const approveMutation = useMutation({\n    mutationFn: async (vcId: string) => {\n      const response = await api.post(`/company/${companyId}/vendor-credits/${vcId}/approve`);\n      return response.data;\n    },\n    onSuccess: () => {\n      queryClient.invalidateQueries({ queryKey: ['vendor-credits', companyId] });\n      toast.success('Vendor Credit approved');\n    },\n    onError: (error: any) => {\n      toast.error(error.response?.data?.error?.message || 'Failed to approve');\n    },\n  });\n\n  const deleteMutation = useMutation({\n    mutationFn: async (vcId: string) => {\n      const response = await api.delete(`/company/${companyId}/vendor-credits/${vcId}`);\n      return response.data;\n    },\n    onSuccess: () => {\n      queryClient.invalidateQueries({ queryKey: ['vendor-credits', companyId] });\n      toast.success('Vendor Credit deleted');\n      setShowDetailPanel(false);\n    },\n    onError: (error: any) => {\n      toast.error(error.response?.data?.error?.message || 'Failed to delete');\n    },\n  });\n\n  const filteredVCs = (Array.isArray(vendorCredits) ? vendorCredits : []).filter(vc =>\n    !searchTerm ||\n    vc.vendorCreditNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||\n    vc.vendor?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||\n    vc.referenceNumber?.toLowerCase().includes(searchTerm.toLowerCase())\n  ) || [];\n\n  const handleLineChange = (index: number, field: keyof VendorCreditLine, value: any) => {\n    const newLines = [...formData.lines];\n    newLines[index] = { ...newLines[index], [field]: value };\n\n    if (field === 'description') {\n      const product = products?.find((p: any) => p.name === value);\n      if (product) {\n        newLines[index].unitPrice = product.unitPrice || 0;\n        newLines[index].productId = product.id;\n      }\n    }\n\n    const qty = field === 'quantity' ? parseFloat(value) || 0 : newLines[index].quantity;\n    const price = field === 'unitPrice' ? parseFloat(value) || 0 : newLines[index].unitPrice;\n    const taxRate = field === 'taxRate' ? parseFloat(value) || 0 : newLines[index].taxRate;\n\n    const subtotal = qty * price;\n    const taxAmt = subtotal * (taxRate / 100);\n    newLines[index].amount = subtotal + taxAmt;\n\n    setFormData({ ...formData, lines: newLines });\n  };\n\n  const addLine = () => {\n    setFormData({\n      ...formData,\n      lines: [...formData.lines, { description: '', quantity: 1, unitPrice: 0, taxRate: 0, amount: 0, productId: '' }]\n    });\n  };\n\n  const removeLine = (index: number) => {\n    if (formData.lines.length === 1) return;\n    setFormData({\n      ...formData,\n      lines: formData.lines.filter((_, i) => i !== index)\n    });\n  };\n\n  const calculateSubtotal = () => {\n    return formData.lines.reduce((sum, line) => sum + (line.quantity * line.unitPrice), 0);\n  };\n\n  const calculateTax = () => {\n    return formData.lines.reduce((sum, line) => {\n      const subtotal = line.quantity * line.unitPrice;\n      return sum + (subtotal * (line.taxRate / 100));\n    }, 0);\n  };\n\n  const calculateTotal = () => {\n    return calculateSubtotal() + calculateTax();\n  };\n\n  const getStatusBadge = (status: string) => {\n    const styles: Record<string, { bg: string; text: string; icon: React.ElementType }> = {\n      DRAFT: { bg: 'bg-slate-50', text: 'text-slate-600', icon: FileText },\n      APPROVED: { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle2 },\n      PAID: { bg: 'bg-blue-50', text: 'text-blue-700', icon: Loader2 },\n      CANCELLED: { bg: 'bg-red-50', text: 'text-red-700', icon: XCircle },\n    };\n    const s = styles[status] || styles.DRAFT;\n    const Icon = s.icon;\n    return (\n      <span className={cn('inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border', s.bg, s.text, s.border)}>\n        <Icon className=\"w-3.5 h-3.5\" />\n        {status}\n      </span>\n    );\n  };\n\n  const handleRowClick = (vc: VendorCredit) => {\n    setSelectedVC(vc);\n    setShowDetailPanel(true);\n    setViewMode('view');\n  };\n\n  const getDetailFields = (): DetailField[] => {\n    if (!selectedVC) return [];\n    const currencySymbol = getCurrencySymbol(selectedVC.currency);\n    return [\n      { label: 'Vendor Credit #', value: selectedVC.vendorCreditNumber },\n      { label: 'Reference #', value: selectedVC.referenceNumber || '-' },\n      { label: 'Vendor', value: selectedVC.vendor?.name || '-' },\n      { label: 'Date', value: new Date(selectedVC.vendorCreditDate).toLocaleDateString(), type: 'date' },\n      { label: 'Due Date', value: selectedVC.dueDate ? new Date(selectedVC.dueDate).toLocaleDateString() : '-', type: 'date' },\n      { label: 'Subtotal', value: `${currencySymbol}${formatCurrency(selectedVC.subtotal)}`, type: 'currency' },\n      { label: 'Tax', value: `${currencySymbol}${formatCurrency(selectedVC.taxAmount)}`, type: 'currency' },\n      { label: 'Total', value: `${currencySymbol}${formatCurrency(selectedVC.totalBDT)}`, type: 'currency' },\n      { label: 'Return to Stock', value: selectedVC.returnToStock ? 'Yes' : 'No' },\n      { label: 'Reason', value: selectedVC.reason || '-' },\n      { label: 'Status', value: getStatusBadge(selectedVC.status) },\n    ];\n  };\n\n  const getDetailActions = (): DetailAction[] => {\n    if (!selectedVC || viewMode === 'create') return [];\n\n    const actions: DetailAction[] = [];\n\n    if (selectedVC.status === 'DRAFT') {\n      actions.push({ label: 'Approve', icon: CheckCircle2, onClick: () => approveMutation.mutate(selectedVC.id), variant: 'success' });\n      actions.push({ label: 'Delete', icon: Trash2, onClick: () => {\n        if (confirm('Delete this Vendor Credit?')) deleteMutation.mutate(selectedVC.id);\n      }, variant: 'danger' });\n    }\n\n    return actions;\n  };\n\n  const getLinesTab = (): DetailTab => {\n    return {\n      id: 'lines',\n      label: `Lines (${selectedVC?.lines?.length || 0})`,\n      icon: Package,\n      content: (\n        <div className=\"p-4\">\n          <table className=\"w-full text-sm\">\n            <thead className=\"bg-slate-50\">\n              <tr>\n                <th className=\"px-3 py-2 text-left text-xs font-bold text-slate-500\">Description</th>\n                <th className=\"px-3 py-2 text-right text-xs font-bold text-slate-500\">Qty</th>\n                <th className=\"px-3 py-2 text-right text-xs font-bold text-slate-500\">Unit Price</th>\n                <th className=\"px-3 py-2 text-right text-xs font-bold text-slate-500\">Tax %</th>\n                <th className=\"px-3 py-2 text-right text-xs font-bold text-slate-500\">Amount</th>\n              </tr>\n            </thead>\n            <tbody className=\"divide-y divide-slate-100\">\n              {selectedVC?.lines?.map((line, idx) => (\n                <tr key={idx}>\n                  <td className=\"px-3 py-2\">{line.description}</td>\n                  <td className=\"px-3 py-2 text-right\">{line.quantity}</td>\n                  <td className=\"px-3 py-2 text-right\">{line.unitPrice}</td>\n                  <td className=\"px-3 py-2 text-right\">{line.taxRate}%</td>\n                  <td className=\"px-3 py-2 text-right font-medium\">{line.amount}</td>\n                </tr>\n              ))}\n            </tbody>\n          </table>\n        </div>\n      ),\n    };\n  };\n\n  const getNotesTab = (): DetailTab => {\n    return {\n      id: 'notes',\n      label: 'Notes',\n      content: (\n        <div className=\"p-4\">\n          <p className=\"text-sm text-slate-600 whitespace-pre-wrap\">\n            {selectedVC?.notes || 'No notes'}\n          </p>\n        </div>\n      ),\n    };\n  };\n\n  const getCreateTab = (): DetailTab => {\n    return {\n      id: 'create',\n      label: 'New Vendor Credit',\n      content: (\n        <div className=\"p-6 space-y-6\">\n          <div className=\"grid grid-cols-2 gap-4\">\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Vendor *</label>\n              <select\n                value={formData.vendorId}\n                onChange={(e) => setFormData({ ...formData, vendorId: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg mt-1\"\n                required\n              >\n                <option value=\"\">Select Vendor</option>\n                {(Array.isArray(vendors) ? vendors : []).map((v: any) => (\n                  <option key={v.id} value={v.id}>{v.name}</option>\n                ))}\n              </select>\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Reference Number</label>\n              <input\n                type=\"text\"\n                value={formData.referenceNumber}\n                onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}\n                placeholder=\"e.g., VC-001\"\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg mt-1\"\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Credit Date *</label>\n              <input\n                type=\"date\"\n                value={formData.vendorCreditDate}\n                onChange={(e) => setFormData({ ...formData, vendorCreditDate: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg mt-1\"\n                required\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Due Date</label>\n              <input\n                type=\"date\"\n                value={formData.dueDate}\n                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg mt-1\"\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Related Bill</label>\n              <select\n                value={formData.billId}\n                onChange={(e) => setFormData({ ...formData, billId: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg mt-1\"\n              >\n                <option value=\"\">None</option>\n                {(Array.isArray(bills) ? bills : []).filter((b: any) => b.status === 'APPROVED').map((b: any) => (\n                  <option key={b.id} value={b.id}>{b.billNumber}</option>\n                ))}\n              </select>\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Related PO</label>\n              <select\n                value={formData.purchaseOrderId}\n                onChange={(e) => setFormData({ ...formData, purchaseOrderId: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg mt-1\"\n              >\n                <option value=\"\">None</option>\n                {(Array.isArray(purchaseOrders) ? purchaseOrders : []).map((po: any) => (\n                  <option key={po.id} value={po.id}>{po.poNumber}</option>\n                ))}\n              </select>\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Reason</label>\n              <select\n                value={formData.reason}\n                onChange={(e) => setFormData({ ...formData, reason: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg mt-1\"\n              >\n                <option value=\"\">Select Reason</option>\n                {REASONS.map(r => <option key={r} value={r}>{r}</option>)}\n              </select>\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Return to Stock</label>\n              <label className=\"flex items-center gap-2 mt-2\">\n                <input\n                  type=\"checkbox\"\n                  checked={formData.returnToStock}\n                  onChange={(e) => setFormData({ ...formData, returnToStock: e.target.checked })}\n                  className=\"w-4 h-4\"\n                />\n                <span className=\"text-sm\">Yes - Add goods back to inventory</span>\n              </label>\n            </div>\n          </div>\n\n          <div>\n            <div className=\"flex justify-between items-center mb-2\">\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Line Items</label>\n              <button\n                type=\"button\"\n                onClick={addLine}\n                className=\"text-blue-600 text-xs font-bold hover:underline\"\n              >\n                + Add Line\n              </button>\n            </div>\n            <div className=\"border border-slate-200 rounded-lg overflow-hidden\">\n              <table className=\"w-full text-sm\">\n                <thead className=\"bg-slate-50\">\n                  <tr>\n                    <th className=\"px-3 py-2 text-left text-xs font-bold text-slate-500\">Description</th>\n                    <th className=\"px-3 py-2 text-right text-xs font-bold text-slate-500 w-20\">Qty</th>\n                    <th className=\"px-3 py-2 text-right text-xs font-bold text-slate-500 w-24\">Unit Price</th>\n                    <th className=\"px-3 py-2 text-right text-xs font-bold text-slate-500 w-20\">Tax %</th>\n                    <th className=\"px-3 py-2 text-right text-xs font-bold text-slate-500 w-24\">Amount</th>\n                    <th className=\"px-2 py-2 w-8\"></th>\n                  </tr>\n                </thead>\n                <tbody className=\"divide-y divide-slate-100\">\n                  {formData.lines.map((line, idx) => (\n                    <tr key={idx}>\n                      <td className=\"px-2 py-2\">\n                        <input\n                          type=\"text\"\n                          list=\"products-list\"\n                          value={line.description}\n                          onChange={(e) => handleLineChange(idx, 'description', e.target.value)}\n                          placeholder=\"Select product or enter description\"\n                          className=\"w-full px-2 py-1.5 border border-slate-200 rounded text-sm\"\n                        />\n                        <datalist id=\"products-list\">\n                          {(Array.isArray(products) ? products : []).map((p: any) => (\n                            <option key={p.id} value={p.name} />\n                          ))}\n                        </datalist>\n                      </td>\n                      <td className=\"px-2 py-2\">\n                        <input\n                          type=\"number\"\n                          value={line.quantity}\n                          onChange={(e) => handleLineChange(idx, 'quantity', e.target.value)}\n                          className=\"w-full px-2 py-1.5 border border-slate-200 rounded text-sm text-right\"\n                          min=\"0\"\n                          step=\"1\"\n                        />\n                      </td>\n                      <td className=\"px-2 py-2\">\n                        <input\n                          type=\"number\"\n                          value={line.unitPrice}\n                          onChange={(e) => handleLineChange(idx, 'unitPrice', e.target.value)}\n                          className=\"w-full px-2 py-1.5 border border-slate-200 rounded text-sm text-right\"\n                          min=\"0\"\n                          step=\"0.01\"\n                        />\n                      </td>\n                      <td className=\"px-2 py-2\">\n                        <input\n                          type=\"number\"\n                          value={line.taxRate}\n                          onChange={(e) => handleLineChange(idx, 'taxRate', e.target.value)}\n                          className=\"w-full px-2 py-1.5 border border-slate-200 rounded text-sm text-right\"\n                          min=\"0\"\n                          step=\"0.1\"\n                        />\n                      </td>\n                      <td className=\"px-2 py-2 text-right font-medium text-sm\">\n                        {line.amount.toFixed(2)}\n                      </td>\n                      <td className=\"px-1 py-2\">\n                        {formData.lines.length > 1 && (\n                          <button\n                            type=\"button\"\n                            onClick={() => removeLine(idx)}\n                            className=\"text-red-500 hover:text-red-700 p-1\"\n                          >\n                            <XCircle className=\"w-4 h-4\" />\n                          </button>\n                        )}\n                      </td>\n                    </tr>\n                  ))}\n                </tbody>\n              </table>\n            </div>\n          </div>\n\n          <div className=\"bg-slate-50 rounded-lg p-4 space-y-2\">\n            <div className=\"flex justify-between text-sm\">\n              <span className=\"text-slate-500\">Subtotal</span>\n              <span className=\"font-medium\">{getCurrencySymbol(formData.currency)}{calculateSubtotal().toFixed(2)}</span>\n            </div>\n            <div className=\"flex justify-between text-sm\">\n              <span className=\"text-slate-500\">Tax</span>\n              <span className=\"font-medium\">{getCurrencySymbol(formData.currency)}{calculateTax().toFixed(2)}</span>\n            </div>\n            <div className=\"flex justify-between pt-2 border-t border-slate-200\">\n              <span className=\"font-bold\">Total Credit</span>\n              <span className=\"font-bold text-lg\">{getCurrencySymbol(formData.currency)}{calculateTotal().toFixed(2)}</span>\n            </div>\n          </div>\n\n          <div>\n            <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Notes</label>\n            <textarea\n              value={formData.notes}\n              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}\n              placeholder=\"Additional notes for this vendor credit...\"\n              className=\"w-full px-3 py-2 border border-slate-200 rounded-lg mt-1 min-h-[80px]\"\n            />\n          </div>\n\n          <button\n            onClick={() => createMutation.mutate(formData)}\n            disabled={\n              createMutation.isPending ||\n              !formData.vendorId ||\n              !formData.vendorCreditDate ||\n              formData.lines.some(l => !l.description || l.quantity <= 0)\n            }\n            className=\"w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors\"\n          >\n            {createMutation.isPending ? (\n              <span className=\"flex items-center justify-center gap-2\">\n                <Loader2 className=\"w-4 h-4 animate-spin\" />\n                Creating...\n              </span>\n            ) : (\n              'Create Vendor Credit'\n            )}\n          </button>\n        </div>\n      ),\n    };\n  };\n\n  if (!mounted) return null;\n\n  return (\n    <div className=\"min-h-screen bg-slate-50/50\">\n      <div className=\"p-8 max-w-[1600px] mx-auto\">\n        <div className=\"flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8\">\n          <div>\n            <h1 className=\"text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3\">\n              <CreditCard className=\"w-8 h-8 text-blue-600\" />\n              Vendor Credits\n            </h1>\n            <p className=\"text-slate-500 mt-1\">Manage vendor credit memos and returns</p>\n          </div>\n          <button\n            onClick={() => {\n              setSelectedVC(null);\n              setShowDetailPanel(true);\n              setViewMode('create');\n            }}\n            className=\"px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-2 transition-colors\"\n          >\n            <Plus className=\"w-5 h-5\" /> New Vendor Credit\n          </button>\n        </div>\n\n        <div className=\"bg-white rounded-2xl shadow-sm border border-slate-100\">\n          <div className=\"p-4 border-b border-slate-100\">\n            <div className=\"relative\">\n              <Search className=\"absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400\" />\n              <input\n                type=\"text\"\n                placeholder=\"Search vendor credits...\"\n                value={searchTerm}\n                onChange={(e) => setSearchTerm(e.target.value)}\n                className=\"w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500\"\n              />\n            </div>\n          </div>\n\n          {isLoading ? (\n            <div className=\"p-20 text-center\">\n              <div className=\"w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto\" />\n            </div>\n          ) : filteredVCs.length === 0 ? (\n            <div className=\"p-20 text-center\">\n              <CreditCard className=\"w-12 h-12 text-slate-300 mx-auto mb-3\" />\n              <p className=\"text-slate-900 font-bold\">No vendor credits found</p>\n              <p className=\"text-slate-500 text-sm mt-1\">Create a new vendor credit to get started</p>\n            </div>\n          ) : (\n            <div className=\"divide-y divide-slate-100\">\n              {filteredVCs.map((vc) => (\n                <div\n                  key={vc.id}\n                  onClick={() => handleRowClick(vc)}\n                  className=\"p-4 hover:bg-slate-50 cursor-pointer flex items-center justify-between transition-colors\"\n                >\n                  <div className=\"flex items-center gap-4\">\n                    <div className=\"w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center\">\n                      <CreditCard className=\"w-5 h-5 text-blue-600\" />\n                    </div>\n                    <div>\n                      <div className=\"font-bold text-slate-900\">{vc.vendorCreditNumber}</div>\n                      <div className=\"text-sm text-slate-500\">\n                        {vc.vendor?.name || 'No vendor'}\n                        {vc.referenceNumber && ` \u00e2\u20ac\u00a2 ${vc.referenceNumber}`}\n                      </div>\n                    </div>\n                  </div>\n                  <div className=\"flex items-center gap-4\">\n                    <span className=\"text-sm text-slate-500\">\n                      {new Date(vc.vendorCreditDate).toLocaleDateString()}\n                    </span>\n                    <span className=\"font-bold text-slate-900\">\n                      {getCurrencySymbol(vc.currency)}{vc.totalBDT.toFixed(2)}\n                    </span>\n                    {getStatusBadge(vc.status)}\n                    <Eye className=\"w-4 h-4 text-slate-400\" />\n                  </div>\n                </div>\n              ))}\n            </div>\n          )}\n        </div>\n      </div>\n\n      <DetailPanel\n        isOpen={showDetailPanel}\n        onClose={() => {\n          setShowDetailPanel(false);\n          setSelectedVC(null);\n        }}\n        title={viewMode === 'create' ? 'New Vendor Credit' : (selectedVC?.vendorCreditNumber || '')}\n        subtitle={selectedVC?.vendor?.name}\n        fields={getDetailFields()}\n        actions={getDetailActions()}\n        tabs={\n          selectedVC\n            ? [getLinesTab(), getNotesTab()]\n            : (showDetailPanel && !selectedVC)\n            ? [getCreateTab()]\n            : []\n        }\n        status={\n          selectedVC\n            ? { value: selectedVC.status.toLowerCase() as 'draft' | 'approved' | 'paid' | 'cancelled', type: selectedVC.status.toLowerCase() as 'draft' | 'approved' | 'paid' | 'cancelled' }\n            : undefined\n        }\n        size=\"lg\"\n      />\n    </div>\n  );\n}"}], "grading": null}, {"id": "eval-1-create-action-button-with_skill", "prompt": "Add an 'Export to PDF' action button to the invoice detail view. The button should follow the existing button patterns, handle loading state, and show a toast notification on success.", "eval_id": 1, "outputs": [{"name": "ExportPDFButton.tsx", "type": "text", "content": "import { useState } from 'react';\nimport { FileDown, Loader2 } from 'lucide-react';\nimport { toast } from 'react-hot-toast';\nimport api from '@/lib/api';\nimport { cn } from '@/lib/utils';\n\ninterface ExportPDFButtonProps {\n  invoiceId: string;\n  invoiceNumber: string;\n  companyId: string;\n  className?: string;\n  variant?: 'primary' | 'secondary' | 'outline';\n  size?: 'sm' | 'md' | 'lg';\n  label?: string;\n  showIcon?: boolean;\n}\n\nconst variantStyles = {\n  primary: 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/20',\n  secondary: 'bg-slate-100 text-slate-700 hover:bg-slate-200',\n  outline: 'border-2 border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50',\n};\n\nconst sizeStyles = {\n  sm: 'px-3 py-1.5 text-xs gap-1.5',\n  md: 'px-4 py-2 text-sm gap-2',\n  lg: 'px-6 py-3 text-base gap-2.5',\n};\n\nexport function ExportPDFButton({\n  invoiceId,\n  invoiceNumber,\n  companyId,\n  className,\n  variant = 'primary',\n  size = 'md',\n  label = 'Export PDF',\n  showIcon = true,\n}: ExportPDFButtonProps) {\n  const [isExporting, setIsExporting] = useState(false);\n\n  const handleExportPDF = async () => {\n    if (isExporting) return;\n\n    setIsExporting(true);\n    try {\n      const response = await api.get(\n        `/company/${companyId}/invoices/${invoiceId}/pdf`,\n        { responseType: 'blob' }\n      );\n\n      const blob = new Blob([response.data], { type: 'application/pdf' });\n      const url = window.URL.createObjectURL(blob);\n      const link = document.createElement('a');\n      link.href = url;\n      link.download = `Invoice-${invoiceNumber}.pdf`;\n      document.body.appendChild(link);\n      link.click();\n      document.body.removeChild(link);\n      window.URL.revokeObjectURL(url);\n\n      toast.success(`Invoice ${invoiceNumber} exported successfully`);\n    } catch (error: any) {\n      const errorMessage = error.response?.data?.message || 'Failed to export PDF';\n      toast.error(errorMessage);\n    } finally {\n      setIsExporting(false);\n    }\n  };\n\n  return (\n    <button\n      onClick={handleExportPDF}\n      disabled={isExporting}\n      className={cn(\n        'rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center',\n        variantStyles[variant],\n        sizeStyles[size],\n        className\n      )}\n    >\n      {isExporting ? (\n        <Loader2 className=\"w-4 h-4 animate-spin\" />\n      ) : showIcon ? (\n        <FileDown className=\"w-4 h-4\" />\n      ) : null}\n      {isExporting ? 'Exporting...' : label}\n    </button>\n  );\n}\n"}], "grading": null}, {"id": "eval-1-create-action-button-without_skill", "prompt": "Add an 'Export to PDF' action button to the invoice detail view. The button should follow the existing button patterns, handle loading state, and show a toast notification on success.", "eval_id": 1, "outputs": [{"name": "ExportToPDFButton.tsx", "type": "text", "content": "'use client';\n\nimport { useState } from 'react';\nimport { useMutation } from '@tanstack/react-query';\nimport { FileDown, Loader2 } from 'lucide-react';\nimport { toast } from 'react-hot-toast';\nimport api from '@/lib/api';\n\ninterface ExportToPDFButtonProps {\n  invoiceId: string;\n  invoiceNumber: string;\n  companyId: string;\n  className?: string;\n  variant?: 'icon' | 'button';\n}\n\nexport function ExportToPDFButton({\n  invoiceId,\n  invoiceNumber,\n  companyId,\n  className = '',\n  variant = 'icon',\n}: ExportToPDFButtonProps) {\n  const [isExporting, setIsExporting] = useState(false);\n\n  const exportMutation = useMutation({\n    mutationFn: async () => {\n      setIsExporting(true);\n      try {\n        const response = await api.get(\n          `/company/${companyId}/invoices/${invoiceId}/export/pdf`,\n          { responseType: 'blob' }\n        );\n        const blob = new Blob([response.data], { type: 'application/pdf' });\n        const url = window.URL.createObjectURL(blob);\n        const link = document.createElement('a');\n        link.href = url;\n        link.download = `Invoice-${invoiceNumber}.pdf`;\n        document.body.appendChild(link);\n        link.click();\n        document.body.removeChild(link);\n        window.URL.revokeObjectURL(url);\n        return true;\n      } finally {\n        setIsExporting(false);\n      }\n    },\n    onSuccess: () => {\n      toast.success(`Invoice ${invoiceNumber} exported to PDF`);\n    },\n    onError: (error: unknown) => {\n      const err = error as { response?: { data?: { message?: string } } };\n      toast.error(err.response?.data?.message || 'Failed to export PDF');\n    },\n  });\n\n  if (variant === 'button') {\n    return (\n      <button\n        onClick={() => exportMutation.mutate()}\n        disabled={isExporting}\n        className={`px-4 py-2 bg-gray-900 text-white rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-700 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}\n      >\n        {isExporting ? (\n          <Loader2 className=\"w-4 h-4 animate-spin\" />\n        ) : (\n          <FileDown className=\"w-4 h-4\" />\n        )}\n        {isExporting ? 'Exporting...' : 'Export to PDF'}\n      </button>\n    );\n  }\n\n  return (\n    <button\n      onClick={() => exportMutation.mutate()}\n      disabled={isExporting}\n      className={`p-2 text-gray-400 hover:text-gray-900 rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${className}`}\n      title=\"Export to PDF\"\n    >\n      {isExporting ? (\n        <Loader2 className=\"w-4 h-4 animate-spin\" />\n      ) : (\n        <FileDown className=\"w-4 h-4\" />\n      )}\n    </button>\n  );\n}\n"}], "grading": null}, {"id": "eval-2-fix-table-formatting-with_skill", "prompt": "The vendor list table on /vendors page has inconsistent column alignment - currency columns aren't right-aligned, and the table header styling looks off compared to other tables in the app. Fix it to match the design system table-hd pattern.", "eval_id": 2, "outputs": [{"name": "vendor-table-fix.tsx", "type": "text", "content": "// Fixed vendor list table - matches design system table-hd pattern\n// Issues fixed:\n// 1. Added proper table structure with <thead> and <tbody>\n// 2. Currency column (opening balance) now right-aligned with font-mono\n// 3. Table header uses consistent styling: bg-slate-50/50, uppercase tracking-wider\n// 4. Proper border-collapse and consistent padding\n\nimport { Building2, Search, Eye } from 'lucide-react';\nimport { getCurrencySymbol } from '@/lib/decimalUtils';\nimport { cn } from '@/lib/utils';\n\ninterface Vendor {\n  id: string;\n  code: string;\n  name: string;\n  email: string | null;\n  phone: string | null;\n  isActive: boolean;\n  preferredCurrency?: string;\n  openingBalance?: number;\n}\n\n<div className=\"bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden\">\n  <div className=\"p-4 border-b border-slate-100\">\n    <div className=\"relative\">\n      <Search className=\"absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400\" />\n      <input\n        type=\"text\"\n        placeholder=\"Search vendors...\"\n        value={searchTerm}\n        onChange={(e) => setSearchTerm(e.target.value)}\n        className=\"w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl\"\n      />\n    </div>\n  </div>\n\n  <div className=\"overflow-x-auto\">\n    <table className=\"w-full text-left border-collapse\">\n      <thead>\n        <tr className=\"bg-slate-50/50 border-b border-slate-100\">\n          <th className=\"px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider\">Vendor</th>\n          <th className=\"px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider\">Email</th>\n          <th className=\"px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right\">Opening Balance</th>\n          <th className=\"px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider\">Status</th>\n          <th className=\"px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right\">Actions</th>\n        </tr>\n      </thead>\n      <tbody className=\"divide-y divide-slate-100\">\n        {filteredVendors.map((vendor) => (\n          <tr\n            key={vendor.id}\n            onClick={() => handleRowClick(vendor)}\n            className=\"hover:bg-slate-50 cursor-pointer transition-colors\"\n          >\n            <td className=\"px-6 py-4\">\n              <div className=\"font-bold text-slate-900\">{vendor.name}</div>\n              <div className=\"text-sm text-slate-500 font-mono\">{vendor.code}</div>\n            </td>\n            <td className=\"px-6 py-4 text-slate-600\">{vendor.email || '-'}</td>\n            <td className=\"px-6 py-4 text-right\">\n              <span className=\"font-mono font-bold text-slate-900\">\n                {getCurrencySymbol(vendor.preferredCurrency)}{vendor.openingBalance?.toLocaleString()}\n              </span>\n            </td>\n            <td className=\"px-6 py-4\">\n              <span className={cn(\n                \"inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold\",\n                vendor.isActive\n                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'\n                  : 'bg-slate-100 text-slate-500 border border-slate-200'\n              )}>\n                {vendor.isActive ? 'Active' : 'Inactive'}\n              </span>\n            </td>\n            <td className=\"px-6 py-4 text-right\">\n              <Eye className=\"w-4 h-4 text-slate-400 inline\" />\n            </td>\n          </tr>\n        ))}\n      </tbody>\n    </table>\n  </div>\n</div>\n"}], "grading": null}, {"id": "eval-2-fix-table-formatting-without_skill", "prompt": "The vendor list table on /vendors page has inconsistent column alignment - currency columns aren't right-aligned, and the table header styling looks off compared to other tables in the app. Fix it to match the design system table-hd pattern.", "eval_id": 2, "outputs": [{"name": "vendors-table-fix.tsx", "type": "text", "content": "'use client';\n\nimport { useEffect, useState } from 'react';\nimport { useRouter, useParams } from 'next/navigation';\nimport { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';\nimport api from '@/lib/api';\nimport toast from 'react-hot-toast';\nimport { getCurrencySymbol } from '@/lib/decimalUtils';\nimport { cn } from '@/lib/utils';\nimport DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';\nimport { Plus, Trash2, Edit, Search, Building2, Eye, Save, X } from 'lucide-react';\n\ninterface Vendor {\n  id: string;\n  code: string;\n  name: string;\n  email: string | null;\n  phone: string | null;\n  address: string | null;\n  city: string | null;\n  country: string | null;\n  isActive: boolean;\n  contactPerson?: string | null;\n  tinVat?: string | null;\n  openingBalance?: number;\n  balanceType?: string | null;\n  preferredCurrency?: string;\n  exchangeRate?: number;\n  createdAt?: string;\n}\n\nexport default function CompanyVendorsPage() {\n  const router = useRouter();\n  const params = useParams();\n  const companyId = params.id as string;\n  const queryClient = useQueryClient();\n  const [searchTerm, setSearchTerm] = useState('');\n  const [mounted, setMounted] = useState(false);\n\n  const [showDetailPanel, setShowDetailPanel] = useState(false);\n  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);\n  const [viewMode, setViewMode] = useState<'view' | 'create' | 'edit'>('view');\n\n  const [formData, setFormData] = useState({\n    name: '',\n    email: '',\n    phone: '',\n    address: '',\n    city: '',\n    country: '',\n    contactPerson: '',\n    tinVat: '',\n    openingBalance: 0,\n    balanceType: 'CR',\n    preferredCurrency: 'BDT',\n    exchangeRate: 1,\n    isActive: true,\n  });\n\n  useEffect(() => {\n    setMounted(true);\n    const token = localStorage.getItem('token');\n    if (!token) router.push('/login');\n  }, [router]);\n\n  const { data: vendors, isLoading } = useQuery({\n    queryKey: ['company-vendors', companyId],\n    queryFn: async () => {\n      const response = await api.get(`/company/${companyId}/vendors`);\n      return response.data.data as Vendor[];\n    },\n    enabled: !!companyId,\n  });\n\n  const createMutation = useMutation({\n    mutationFn: async (data: typeof formData) => {\n      const response = await api.post(`/company/${companyId}/vendors`, data);\n      return response.data;\n    },\n    onSuccess: () => {\n      queryClient.invalidateQueries({ queryKey: ['company-vendors', companyId] });\n      toast.success('Vendor created');\n      setShowDetailPanel(false);\n      setFormData({\n        name: '', email: '', phone: '', address: '', city: '', country: '',\n        contactPerson: '', tinVat: '', openingBalance: 0, balanceType: 'CR',\n        preferredCurrency: 'BDT', exchangeRate: 1, isActive: true\n      });\n    },\n    onError: (error: any) => {\n      toast.error(error.response?.data?.error?.message || 'Failed to create');\n    },\n  });\n\n  const updateMutation = useMutation({\n    mutationFn: async (data: typeof formData) => {\n      const response = await api.put(`/company/${companyId}/vendors/${selectedVendor?.id}`, data);\n      return response.data;\n    },\n    onSuccess: () => {\n      queryClient.invalidateQueries({ queryKey: ['company-vendors', companyId] });\n      toast.success('Vendor updated');\n      setViewMode('view');\n    },\n    onError: (error: any) => {\n      toast.error(error.response?.data?.error?.message || 'Failed to update');\n    },\n  });\n\n  const deleteMutation = useMutation({\n    mutationFn: async (id: string) => {\n      const response = await api.delete(`/company/${companyId}/vendors/${id}`);\n      return response.data;\n    },\n    onSuccess: () => {\n      queryClient.invalidateQueries({ queryKey: ['company-vendors', companyId] });\n      toast.success('Vendor deleted');\n      setShowDetailPanel(false);\n      setSelectedVendor(null);\n    },\n    onError: (error: any) => {\n      toast.error(error.response?.data?.error?.message || 'Failed to delete');\n    },\n  });\n\n  const filteredVendors = (Array.isArray(vendors) ? vendors : [])?.filter(v =>\n    !searchTerm || \n    v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||\n    v.code.toLowerCase().includes(searchTerm.toLowerCase())\n  ) || [];\n\n  const handleRowClick = (vendor: Vendor) => {\n    setSelectedVendor(vendor);\n    setFormData({\n      name: vendor.name,\n      email: vendor.email || '',\n      phone: vendor.phone || '',\n      address: vendor.address || '',\n      city: vendor.city || '',\n      country: vendor.country || '',\n      contactPerson: vendor.contactPerson || '',\n      tinVat: vendor.tinVat || '',\n      openingBalance: vendor.openingBalance || 0,\n      balanceType: vendor.balanceType || 'CR',\n      preferredCurrency: vendor.preferredCurrency || 'BDT',\n      exchangeRate: vendor.exchangeRate || 1,\n      isActive: vendor.isActive,\n    });\n    setShowDetailPanel(true);\n    setViewMode('view');\n  };\n\n  const handleEdit = () => setViewMode('edit');\n  const handleCancel = () => {\n    if (selectedVendor) {\n      setFormData({\n        name: selectedVendor.name,\n        email: selectedVendor.email || '',\n        phone: selectedVendor.phone || '',\n        address: selectedVendor.address || '',\n        city: selectedVendor.city || '',\n        country: selectedVendor.country || '',\n        contactPerson: selectedVendor.contactPerson || '',\n        tinVat: selectedVendor.tinVat || '',\n        openingBalance: selectedVendor.openingBalance || 0,\n        balanceType: selectedVendor.balanceType || 'CR',\n        preferredCurrency: selectedVendor.preferredCurrency || 'BDT',\n        exchangeRate: selectedVendor.exchangeRate || 1,\n        isActive: selectedVendor.isActive,\n      });\n    }\n    setViewMode('view');\n  };\n\n  const handleSave = () => updateMutation.mutate(formData);\n\n  const getDetailFields = (): DetailField[] => {\n    if (!selectedVendor) return [];\n    return [\n      { label: 'Vendor Code', value: selectedVendor.code },\n      { label: 'Vendor Name', value: selectedVendor.name },\n      { label: 'Contact Person', value: selectedVendor.contactPerson || '-' },\n      { label: 'Email', value: selectedVendor.email || '-' },\n      { label: 'Phone', value: selectedVendor.phone || '-' },\n      { label: 'Address', value: selectedVendor.address || '-' },\n      { label: 'City', value: selectedVendor.city || '-' },\n      { label: 'Country', value: selectedVendor.country || '-' },\n      { label: 'TIN/VAT', value: selectedVendor.tinVat || '-' },\n      { label: 'Opening Balance', value: `${selectedVendor.openingBalance || 0} ${selectedVendor.balanceType || 'CR'}`, type: 'text' },\n      { label: 'Currency', value: selectedVendor.preferredCurrency || 'BDT' },\n      { label: 'Status', value: selectedVendor.isActive ? 'Active' : 'Inactive', type: 'status' },\n    ];\n  };\n\n  const getDetailActions = (): DetailAction[] => {\n    if (!selectedVendor || viewMode === 'create') return [];\n    if (viewMode === 'edit') {\n      return [\n        { label: 'Save Changes', icon: Save, onClick: handleSave, variant: 'primary', loading: updateMutation.isPending },\n        { label: 'Cancel', icon: X, onClick: handleCancel, variant: 'secondary' },\n      ];\n    }\n    return [\n      { label: 'Edit Vendor', icon: Edit, onClick: handleEdit, variant: 'secondary' },\n      { label: 'Delete', icon: Trash2, onClick: () => {\n        if (confirm('Delete this vendor?')) deleteMutation.mutate(selectedVendor.id);\n      }, variant: 'danger' },\n    ];\n  };\n\n  const getEditTab = (): DetailTab | null => {\n    if (!selectedVendor || viewMode !== 'edit') return null;\n    return {\n      id: 'edit',\n      label: 'Edit Vendor',\n      content: (\n        <div className=\"p-6 space-y-4\">\n          <div className=\"grid grid-cols-2 gap-4\">\n            <div className=\"col-span-2\">\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Vendor Name *</label>\n              <input\n                type=\"text\"\n                value={formData.name}\n                onChange={(e) => setFormData({ ...formData, name: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n                required\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Contact Person</label>\n              <input\n                type=\"text\"\n                value={formData.contactPerson}\n                onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">TIN/VAT</label>\n              <input\n                type=\"text\"\n                value={formData.tinVat}\n                onChange={(e) => setFormData({ ...formData, tinVat: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Email</label>\n              <input\n                type=\"email\"\n                value={formData.email}\n                onChange={(e) => setFormData({ ...formData, email: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Phone</label>\n              <input\n                type=\"text\"\n                value={formData.phone}\n                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              />\n            </div>\n            <div className=\"col-span-2\">\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Address</label>\n              <textarea\n                value={formData.address}\n                onChange={(e) => setFormData({ ...formData, address: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg min-h-[80px]\"\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">City</label>\n              <input\n                type=\"text\"\n                value={formData.city}\n                onChange={(e) => setFormData({ ...formData, city: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Country</label>\n              <input\n                type=\"text\"\n                value={formData.country}\n                onChange={(e) => setFormData({ ...formData, country: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Currency</label>\n              <select\n                value={formData.preferredCurrency}\n                onChange={(e) => setFormData({ ...formData, preferredCurrency: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              >\n                <option value=\"BDT\">BDT</option>\n                <option value=\"USD\">USD</option>\n                <option value=\"EUR\">EUR</option>\n                <option value=\"GBP\">GBP</option>\n              </select>\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Balance Type</label>\n              <select\n                value={formData.balanceType}\n                onChange={(e) => setFormData({ ...formData, balanceType: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              >\n                <option value=\"CR\">Credit (Receivable)</option>\n                <option value=\"DR\">Debit (Payable)</option>\n              </select>\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Opening Balance</label>\n              <input\n                type=\"number\"\n                step=\"0.01\"\n                value={formData.openingBalance}\n                onChange={(e) => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) || 0 })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              />\n            </div>\n            <div>\n              <label className=\"flex items-center gap-2 mt-6\">\n                <input\n                  type=\"checkbox\"\n                  checked={formData.isActive}\n                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}\n                  className=\"w-4 h-4\"\n                />\n                <span className=\"text-sm font-medium\">Active Vendor</span>\n              </label>\n            </div>\n          </div>\n        </div>\n      ),\n    };\n  };\n\n  const getCreateTab = (): DetailTab => {\n    return {\n      id: 'create',\n      label: 'New Vendor',\n      content: (\n        <div className=\"p-6 space-y-4\">\n          <div className=\"grid grid-cols-2 gap-4\">\n            <div className=\"col-span-2\">\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Vendor Name *</label>\n              <input\n                type=\"text\"\n                value={formData.name}\n                onChange={(e) => setFormData({ ...formData, name: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n                placeholder=\"Enter vendor name\"\n                required\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Contact Person</label>\n              <input\n                type=\"text\"\n                value={formData.contactPerson}\n                onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">TIN/VAT</label>\n              <input\n                type=\"text\"\n                value={formData.tinVat}\n                onChange={(e) => setFormData({ ...formData, tinVat: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Email</label>\n              <input\n                type=\"email\"\n                value={formData.email}\n                onChange={(e) => setFormData({ ...formData, email: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Phone</label>\n              <input\n                type=\"text\"\n                value={formData.phone}\n                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              />\n            </div>\n            <div className=\"col-span-2\">\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Address</label>\n              <textarea\n                value={formData.address}\n                onChange={(e) => setFormData({ ...formData, address: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg min-h-[80px]\"\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">City</label>\n              <input\n                type=\"text\"\n                value={formData.city}\n                onChange={(e) => setFormData({ ...formData, city: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Country</label>\n              <input\n                type=\"text\"\n                value={formData.country}\n                onChange={(e) => setFormData({ ...formData, country: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              />\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Currency</label>\n              <select\n                value={formData.preferredCurrency}\n                onChange={(e) => setFormData({ ...formData, preferredCurrency: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              >\n                <option value=\"BDT\">BDT</option>\n                <option value=\"USD\">USD</option>\n                <option value=\"EUR\">EUR</option>\n                <option value=\"GBP\">GBP</option>\n              </select>\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Balance Type</label>\n              <select\n                value={formData.balanceType}\n                onChange={(e) => setFormData({ ...formData, balanceType: e.target.value })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              >\n                <option value=\"CR\">Credit (Receivable)</option>\n                <option value=\"DR\">Debit (Payable)</option>\n              </select>\n            </div>\n            <div>\n              <label className=\"text-[10px] font-bold text-slate-400 uppercase\">Opening Balance</label>\n              <input\n                type=\"number\"\n                step=\"0.01\"\n                value={formData.openingBalance}\n                onChange={(e) => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) || 0 })}\n                className=\"w-full px-3 py-2 border border-slate-200 rounded-lg\"\n              />\n            </div>\n            <div>\n              <label className=\"flex items-center gap-2 mt-6\">\n                <input\n                  type=\"checkbox\"\n                  checked={formData.isActive}\n                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}\n                  className=\"w-4 h-4\"\n                />\n                <span className=\"text-sm font-medium\">Active Vendor</span>\n              </label>\n            </div>\n          </div>\n          <button\n            onClick={() => createMutation.mutate(formData)}\n            disabled={createMutation.isPending || !formData.name}\n            className=\"w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50\"\n          >\n            {createMutation.isPending ? 'Creating...' : 'Create Vendor'}\n          </button>\n        </div>\n      ),\n    };\n  };\n\n  if (!mounted) return null;\n\n  return (\n    <div className=\"min-h-screen bg-slate-50/50\">\n      <div className=\"p-8 max-w-[1600px] mx-auto\">\n        <div className=\"flex justify-between items-center mb-8\">\n          <h1 className=\"text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3\">\n            <Building2 className=\"w-8 h-8 text-blue-600\" />\n            Vendor Master\n          </h1>\n          <button\n            onClick={() => {\n              setFormData({\n                name: '', email: '', phone: '', address: '', city: '', country: '',\n                contactPerson: '', tinVat: '', openingBalance: 0, balanceType: 'CR',\n                preferredCurrency: 'BDT', exchangeRate: 1, isActive: true\n              });\n              setSelectedVendor(null);\n              setShowDetailPanel(true);\n              setViewMode('create');\n            }}\n            className=\"bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700\"\n          >\n            <Plus className=\"w-5 h-5\" /> Add Vendor\n          </button>\n        </div>\n\n        <div className=\"bg-white rounded-2xl shadow-sm border border-slate-100\">\n          <div className=\"p-4 border-b border-slate-100\">\n            <div className=\"relative\">\n              <Search className=\"absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400\" />\n              <input\n                type=\"text\"\n                placeholder=\"Search vendors...\"\n                value={searchTerm}\n                onChange={(e) => setSearchTerm(e.target.value)}\n                className=\"w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl\"\n              />\n            </div>\n          </div>\n\n          {isLoading ? (\n            <div className=\"p-20 text-center\">\n              <div className=\"w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto\" />\n            </div>\n          ) : filteredVendors.length === 0 ? (\n            <div className=\"p-20 text-center\">\n              <Building2 className=\"w-12 h-12 text-slate-300 mx-auto mb-3\" />\n              <p className=\"text-slate-900 font-bold\">No vendors found</p>\n            </div>\n          ) : (\n            <div className=\"overflow-x-auto\">\n              <table className=\"w-full text-left border-collapse\">\n                <thead>\n                  <tr className=\"bg-slate-50/50\">\n                    <th className=\"px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider\">Vendor Info</th>\n                    <th className=\"px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider\">Email</th>\n                    <th className=\"px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right\">Opening Balance</th>\n                    <th className=\"px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider\">Status</th>\n                  </tr>\n                </thead>\n                <tbody className=\"divide-y divide-slate-100\">\n                  {filteredVendors.map((vendor) => (\n                    <tr \n                      key={vendor.id} \n                      onClick={() => handleRowClick(vendor)}\n                      className=\"hover:bg-slate-50/80 transition-colors cursor-pointer\"\n                    >\n                      <td className=\"px-6 py-4\">\n                        <div className=\"flex items-center gap-4\">\n                          <div>\n                            <div className=\"font-bold text-slate-900\">{vendor.name}</div>\n                            <div className=\"text-xs text-slate-500 font-mono uppercase tracking-tight\">{vendor.code}</div>\n                          </div>\n                        </div>\n                      </td>\n                      <td className=\"px-6 py-4\">\n                        <span className=\"text-sm text-slate-500\">{vendor.email || '-'}</span>\n                      </td>\n                      <td className=\"px-6 py-4 text-right\">\n                        <span className=\"font-black text-slate-900\">\n                          {getCurrencySymbol(vendor.preferredCurrency)}{vendor.openingBalance?.toLocaleString()}\n                        </span>\n                      </td>\n                      <td className=\"px-6 py-4\">\n                        <span className={cn(\n                          \"text-xs px-2 py-1 rounded\",\n                          vendor.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-50 text-slate-500'\n                        )}>\n                          {vendor.isActive ? 'Active' : 'Inactive'}\n                        </span>\n                      </td>\n                    </tr>\n                  ))}\n                </tbody>\n              </table>\n            </div>\n          )}\n        </div>\n      </div>\n\n      <DetailPanel\n        isOpen={showDetailPanel}\n        onClose={() => { setShowDetailPanel(false); setSelectedVendor(null); setViewMode('view'); }}\n        title={viewMode === 'edit' ? 'Edit Vendor' : (selectedVendor?.name || 'New Vendor')}\n        subtitle={selectedVendor?.code}\n        fields={getDetailFields()}\n        actions={getDetailActions()}\n        tabs={selectedVendor ? [getEditTab()].filter(Boolean) as DetailTab[] : (showDetailPanel && !selectedVendor) ? [getCreateTab()] : []}\n        status={selectedVendor ? { value: selectedVendor.isActive ? 'active' : 'inactive', type: selectedVendor.isActive ? 'active' : 'inactive' } : undefined}\n        metadata={selectedVendor?.createdAt ? { createdAt: selectedVendor.createdAt } : undefined}\n        size=\"lg\"\n      />\n    </div>\n  );\n}"}], "grading": null}], "previous_feedback": {}, "previous_outputs": {}, "benchmark": {"metadata": {"skill_name": "accabiz-ui-ux", "skill_path": "<path/to/skill>", "executor_model": "<model-name>", "analyzer_model": "<model-name>", "timestamp": "2026-05-10T10:05:17Z", "evals_run": [], "runs_per_configuration": 3}, "runs": [], "run_summary": {"delta": {"pass_rate": "+0.00", "time_seconds": "+0.0", "tokens": "+0"}}, "notes": []}};
+
+    // ---- State ----
+    let feedbackMap = {};  // run_id -> feedback text
+    let currentIndex = 0;
+    let visitedRuns = new Set();
+
+    // ---- Init ----
+    async function init() {
+      // Load saved feedback from server — but only if this isn't a fresh
+      // iteration (indicated by previous_feedback being present). When
+      // previous feedback exists, the feedback.json on disk is stale from
+      // the prior iteration and should not pre-fill the textareas.
+      const hasPrevious = Object.keys(EMBEDDED_DATA.previous_feedback || {}).length > 0
+        || Object.keys(EMBEDDED_DATA.previous_outputs || {}).length > 0;
+      if (!hasPrevious) {
+        try {
+          const resp = await fetch("/api/feedback");
+          const data = await resp.json();
+          if (data.reviews) {
+            for (const r of data.reviews) feedbackMap[r.run_id] = r.feedback;
+          }
+        } catch { /* first run, no feedback yet */ }
+      }
+
+      document.getElementById("skill-name").textContent = EMBEDDED_DATA.skill_name;
+      showRun(0);
+
+      // Wire up feedback auto-save
+      const textarea = document.getElementById("feedback");
+      let saveTimeout = null;
+      textarea.addEventListener("input", () => {
+        clearTimeout(saveTimeout);
+        document.getElementById("feedback-status").textContent = "";
+        saveTimeout = setTimeout(() => saveCurrentFeedback(), 800);
+      });
+    }
+
+    // ---- Navigation ----
+    function navigate(delta) {
+      const newIndex = currentIndex + delta;
+      if (newIndex >= 0 && newIndex < EMBEDDED_DATA.runs.length) {
+        saveCurrentFeedback();
+        showRun(newIndex);
+      }
+    }
+
+    function updateNavButtons() {
+      document.getElementById("prev-btn").disabled = currentIndex === 0;
+      document.getElementById("next-btn").disabled =
+        currentIndex === EMBEDDED_DATA.runs.length - 1;
+    }
+
+    // ---- Show a run ----
+    function showRun(index) {
+      currentIndex = index;
+      const run = EMBEDDED_DATA.runs[index];
+
+      // Progress
+      document.getElementById("progress").textContent =
+        `${index + 1} of ${EMBEDDED_DATA.runs.length}`;
+
+      // Prompt
+      document.getElementById("prompt-text").textContent = run.prompt;
+
+      // Config badge
+      const badge = document.getElementById("config-badge");
+      const configMatch = run.id.match(/(with_skill|without_skill|new_skill|old_skill)/);
+      if (configMatch) {
+        const config = configMatch[1];
+        const isBaseline = config === "without_skill" || config === "old_skill";
+        badge.textContent = config.replace(/_/g, " ");
+        badge.className = "config-badge " + (isBaseline ? "config-baseline" : "config-primary");
+        badge.style.display = "inline-block";
+      } else {
+        badge.style.display = "none";
+      }
+
+      // Outputs
+      renderOutputs(run);
+
+      // Previous outputs
+      renderPrevOutputs(run);
+
+      // Grades
+      renderGrades(run);
+
+      // Previous feedback
+      const prevFb = (EMBEDDED_DATA.previous_feedback || {})[run.id];
+      const prevEl = document.getElementById("prev-feedback");
+      if (prevFb) {
+        document.getElementById("prev-feedback-text").textContent = prevFb;
+        prevEl.style.display = "block";
+      } else {
+        prevEl.style.display = "none";
+      }
+
+      // Feedback
+      document.getElementById("feedback").value = feedbackMap[run.id] || "";
+      document.getElementById("feedback-status").textContent = "";
+
+      updateNavButtons();
+
+      // Track visited runs and promote done button when all visited
+      visitedRuns.add(index);
+      const doneBtn = document.getElementById("done-btn");
+      if (visitedRuns.size >= EMBEDDED_DATA.runs.length) {
+        doneBtn.classList.add("ready");
+      }
+
+      // Scroll main content to top
+      document.querySelector(".main").scrollTop = 0;
+    }
+
+    // ---- Render outputs ----
+    function renderOutputs(run) {
+      const container = document.getElementById("outputs-body");
+      container.innerHTML = "";
+
+      const outputs = run.outputs || [];
+      if (outputs.length === 0) {
+        container.innerHTML = '<div class="empty-state">No output files</div>';
+        return;
+      }
+
+      for (const file of outputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        // Always show file header with download link
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const content = document.createElement("div");
+        content.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          content.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          content.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          content.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(content, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          content.appendChild(a);
+        } else if (file.type === "error") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          pre.style.color = "var(--red)";
+          content.appendChild(pre);
+        }
+
+        fileDiv.appendChild(content);
+        container.appendChild(fileDiv);
+      }
+    }
+
+    // ---- XLSX rendering via SheetJS ----
+    function renderXlsx(container, b64Data) {
+      try {
+        const raw = Uint8Array.from(atob(b64Data), c => c.charCodeAt(0));
+        const wb = XLSX.read(raw, { type: "array" });
+
+        for (let i = 0; i < wb.SheetNames.length; i++) {
+          const sheetName = wb.SheetNames[i];
+          const ws = wb.Sheets[sheetName];
+
+          if (wb.SheetNames.length > 1) {
+            const sheetLabel = document.createElement("div");
+            sheetLabel.style.cssText =
+              "font-weight:600; font-size:0.8rem; color:#b0aea5; margin-top:0.5rem; margin-bottom:0.25rem;";
+            sheetLabel.textContent = "Sheet: " + sheetName;
+            container.appendChild(sheetLabel);
+          }
+
+          const htmlStr = XLSX.utils.sheet_to_html(ws, { editable: false });
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = htmlStr;
+          container.appendChild(wrapper);
+        }
+      } catch (err) {
+        container.textContent = "Error rendering spreadsheet: " + err.message;
+      }
+    }
+
+    // ---- Grades ----
+    function renderGrades(run) {
+      const section = document.getElementById("grades-section");
+      const content = document.getElementById("grades-content");
+
+      if (!run.grading) {
+        section.style.display = "none";
+        return;
+      }
+
+      const grading = run.grading;
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("grades-arrow").classList.remove("open");
+
+      const summary = grading.summary || {};
+      const expectations = grading.expectations || [];
+
+      let html = '<div style="padding: 1rem;">';
+
+      // Summary line
+      const passRate = summary.pass_rate != null
+        ? Math.round(summary.pass_rate * 100) + "%"
+        : "?";
+      const badgeClass = summary.pass_rate >= 0.8 ? "grade-pass" : summary.pass_rate >= 0.5 ? "" : "grade-fail";
+      html += '<div class="grades-summary">';
+      html += '<span class="grade-badge ' + badgeClass + '">' + passRate + '</span>';
+      html += '<span>' + (summary.passed || 0) + ' passed, ' + (summary.failed || 0) + ' failed of ' + (summary.total || 0) + '</span>';
+      html += '</div>';
+
+      // Assertions list
+      html += '<ul class="assertion-list">';
+      for (const exp of expectations) {
+        const statusClass = exp.passed ? "pass" : "fail";
+        const statusIcon = exp.passed ? "\u2713" : "\u2717";
+        html += '<li class="assertion-item">';
+        html += '<span class="assertion-status ' + statusClass + '">' + statusIcon + '</span>';
+        html += '<span>' + escapeHtml(exp.text) + '</span>';
+        if (exp.evidence) {
+          html += '<div class="assertion-evidence">' + escapeHtml(exp.evidence) + '</div>';
+        }
+        html += '</li>';
+      }
+      html += '</ul>';
+
+      html += '</div>';
+      content.innerHTML = html;
+    }
+
+    function toggleGrades() {
+      const content = document.getElementById("grades-content");
+      const arrow = document.getElementById("grades-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Previous outputs (collapsible) ----
+    function renderPrevOutputs(run) {
+      const section = document.getElementById("prev-outputs-section");
+      const content = document.getElementById("prev-outputs-content");
+      const prevOutputs = (EMBEDDED_DATA.previous_outputs || {})[run.id];
+
+      if (!prevOutputs || prevOutputs.length === 0) {
+        section.style.display = "none";
+        return;
+      }
+
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("prev-outputs-arrow").classList.remove("open");
+
+      // Render the files into the content area
+      content.innerHTML = "";
+      const wrapper = document.createElement("div");
+      wrapper.style.padding = "1rem";
+
+      for (const file of prevOutputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const fc = document.createElement("div");
+        fc.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          fc.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          fc.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          fc.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(fc, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          fc.appendChild(a);
+        }
+
+        fileDiv.appendChild(fc);
+        wrapper.appendChild(fileDiv);
+      }
+
+      content.appendChild(wrapper);
+    }
+
+    function togglePrevOutputs() {
+      const content = document.getElementById("prev-outputs-content");
+      const arrow = document.getElementById("prev-outputs-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Feedback (saved to server -> feedback.json) ----
+    function saveCurrentFeedback() {
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // Build reviews array from map
+      const reviews = [];
+      for (const [run_id, feedback] of Object.entries(feedbackMap)) {
+        if (feedback.trim()) {
+          reviews.push({ run_id, feedback, timestamp: new Date().toISOString() });
+        }
+      }
+
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviews, status: "in_progress" }),
+      }).then(() => {
+        document.getElementById("feedback-status").textContent = "Saved";
+      }).catch(() => {
+        // Static mode or server unavailable — no-op on auto-save,
+        // feedback will be downloaded on final submit
+        document.getElementById("feedback-status").textContent = "Will download on submit";
+      });
+    }
+
+    // ---- Done ----
+    function showDoneDialog() {
+      // Save current textarea to feedbackMap (but don't POST yet)
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // POST once with status: complete — include ALL runs so the model
+      // can distinguish "no feedback" (looks good) from "not reviewed"
+      const reviews = [];
+      const ts = new Date().toISOString();
+      for (const r of EMBEDDED_DATA.runs) {
+        reviews.push({ run_id: r.id, feedback: feedbackMap[r.id] || "", timestamp: ts });
+      }
+      const payload = JSON.stringify({ reviews, status: "complete" }, null, 2);
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      }).then(() => {
+        document.getElementById("done-overlay").classList.add("visible");
+      }).catch(() => {
+        // Server not available (static mode) — download as file
+        const blob = new Blob([payload], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "feedback.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        document.getElementById("done-overlay").classList.add("visible");
+      });
+    }
+
+    function closeDoneDialog() {
+      // Reset status back to in_progress
+      saveCurrentFeedback();
+      document.getElementById("done-overlay").classList.remove("visible");
+    }
+
+    // ---- Toast ----
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("visible");
+      setTimeout(() => toast.classList.remove("visible"), 2000);
+    }
+
+    // ---- Keyboard nav ----
+    document.addEventListener("keydown", (e) => {
+      // Don't capture when typing in textarea
+      if (e.target.tagName === "TEXTAREA") return;
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        navigate(-1);
+      } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        navigate(1);
+      }
+    });
+
+    // ---- Util ----
+    function getDownloadUri(file) {
+      if (file.data_uri) return file.data_uri;
+      if (file.data_b64) return "data:application/octet-stream;base64," + file.data_b64;
+      if (file.type === "text") return "data:text/plain;charset=utf-8," + encodeURIComponent(file.content);
+      return "#";
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ---- View switching ----
+    function switchView(view) {
+      document.querySelectorAll(".view-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+      document.querySelector(`[onclick="switchView('${view}')"]`).classList.add("active");
+      document.getElementById("panel-" + view).classList.add("active");
+    }
+
+    // ---- Benchmark rendering ----
+    function renderBenchmark() {
+      const data = EMBEDDED_DATA.benchmark;
+      if (!data) return;
+
+      // Show the tabs
+      document.getElementById("view-tabs").style.display = "flex";
+
+      const container = document.getElementById("benchmark-content");
+      const summary = data.run_summary || {};
+      const metadata = data.metadata || {};
+      const notes = data.notes || [];
+
+      let html = "";
+
+      // Header
+      html += "<h2 style='font-family: Poppins, sans-serif; margin-bottom: 0.5rem;'>Benchmark Results</h2>";
+      html += "<p style='color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem;'>";
+      if (metadata.skill_name) html += "<strong>" + escapeHtml(metadata.skill_name) + "</strong> &mdash; ";
+      if (metadata.timestamp) html += metadata.timestamp + " &mdash; ";
+      if (metadata.evals_run) html += "Evals: " + metadata.evals_run.join(", ") + " &mdash; ";
+      html += (metadata.runs_per_configuration || "?") + " runs per configuration";
+      html += "</p>";
+
+      // Summary table
+      html += '<table class="benchmark-table">';
+
+      function fmtStat(stat, pct) {
+        if (!stat) return "—";
+        const suffix = pct ? "%" : "";
+        const m = pct ? (stat.mean * 100).toFixed(0) : stat.mean.toFixed(1);
+        const s = pct ? (stat.stddev * 100).toFixed(0) : stat.stddev.toFixed(1);
+        return m + suffix + " ± " + s + suffix;
+      }
+
+      function deltaClass(val) {
+        if (!val) return "";
+        const n = parseFloat(val);
+        if (n > 0) return "benchmark-delta-positive";
+        if (n < 0) return "benchmark-delta-negative";
+        return "";
+      }
+
+      // Discover config names dynamically (everything except "delta")
+      const configs = Object.keys(summary).filter(k => k !== "delta");
+      const configA = configs[0] || "config_a";
+      const configB = configs[1] || "config_b";
+      const labelA = configA.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const labelB = configB.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const a = summary[configA] || {};
+      const b = summary[configB] || {};
+      const delta = summary.delta || {};
+
+      html += "<thead><tr><th>Metric</th><th>" + escapeHtml(labelA) + "</th><th>" + escapeHtml(labelB) + "</th><th>Delta</th></tr></thead>";
+      html += "<tbody>";
+
+      html += "<tr><td><strong>Pass Rate</strong></td>";
+      html += "<td>" + fmtStat(a.pass_rate, true) + "</td>";
+      html += "<td>" + fmtStat(b.pass_rate, true) + "</td>";
+      html += '<td class="' + deltaClass(delta.pass_rate) + '">' + (delta.pass_rate || "—") + "</td></tr>";
+
+      // Time (only show row if data exists)
+      if (a.time_seconds || b.time_seconds) {
+        html += "<tr><td><strong>Time (s)</strong></td>";
+        html += "<td>" + fmtStat(a.time_seconds, false) + "</td>";
+        html += "<td>" + fmtStat(b.time_seconds, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.time_seconds) + '">' + (delta.time_seconds ? delta.time_seconds + "s" : "—") + "</td></tr>";
+      }
+
+      // Tokens (only show row if data exists)
+      if (a.tokens || b.tokens) {
+        html += "<tr><td><strong>Tokens</strong></td>";
+        html += "<td>" + fmtStat(a.tokens, false) + "</td>";
+        html += "<td>" + fmtStat(b.tokens, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.tokens) + '">' + (delta.tokens || "—") + "</td></tr>";
+      }
+
+      html += "</tbody></table>";
+
+      // Per-eval breakdown (if runs data available)
+      const runs = data.runs || [];
+      if (runs.length > 0) {
+        const evalIds = [...new Set(runs.map(r => r.eval_id))].sort((a, b) => a - b);
+
+        html += "<h3 style='font-family: Poppins, sans-serif; margin-bottom: 0.75rem;'>Per-Eval Breakdown</h3>";
+
+        const hasTime = runs.some(r => r.result && r.result.time_seconds != null);
+        const hasErrors = runs.some(r => r.result && r.result.errors > 0);
+
+        for (const evalId of evalIds) {
+          const evalRuns = runs.filter(r => r.eval_id === evalId);
+          const evalName = evalRuns[0] && evalRuns[0].eval_name ? evalRuns[0].eval_name : "Eval " + evalId;
+
+          html += "<h4 style='font-family: Poppins, sans-serif; margin: 1rem 0 0.5rem; color: var(--text);'>" + escapeHtml(evalName) + "</h4>";
+          html += '<table class="benchmark-table">';
+          html += "<thead><tr><th>Config</th><th>Run</th><th>Pass Rate</th>";
+          if (hasTime) html += "<th>Time (s)</th>";
+          if (hasErrors) html += "<th>Crashes During Execution</th>";
+          html += "</tr></thead>";
+          html += "<tbody>";
+
+          // Group by config and render with average rows
+          const configGroups = [...new Set(evalRuns.map(r => r.configuration))];
+          for (let ci = 0; ci < configGroups.length; ci++) {
+            const config = configGroups[ci];
+            const configRuns = evalRuns.filter(r => r.configuration === config);
+            if (configRuns.length === 0) continue;
+
+            const rowClass = ci === 0 ? "benchmark-row-with" : "benchmark-row-without";
+            const configLabel = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+            for (const run of configRuns) {
+              const r = run.result || {};
+              const prClass = r.pass_rate >= 0.8 ? "benchmark-delta-positive" : r.pass_rate < 0.5 ? "benchmark-delta-negative" : "";
+              html += '<tr class="' + rowClass + '">';
+              html += "<td>" + configLabel + "</td>";
+              html += "<td>" + run.run_number + "</td>";
+              html += '<td class="' + prClass + '">' + ((r.pass_rate || 0) * 100).toFixed(0) + "% (" + (r.passed || 0) + "/" + (r.total || 0) + ")</td>";
+              if (hasTime) html += "<td>" + (r.time_seconds != null ? r.time_seconds.toFixed(1) : "—") + "</td>";
+              if (hasErrors) html += "<td>" + (r.errors || 0) + "</td>";
+              html += "</tr>";
+            }
+
+            // Average row
+            const rates = configRuns.map(r => (r.result || {}).pass_rate || 0);
+            const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
+            const avgPrClass = avgRate >= 0.8 ? "benchmark-delta-positive" : avgRate < 0.5 ? "benchmark-delta-negative" : "";
+            html += '<tr class="benchmark-row-avg ' + rowClass + '">';
+            html += "<td>" + configLabel + "</td>";
+            html += "<td>Avg</td>";
+            html += '<td class="' + avgPrClass + '">' + (avgRate * 100).toFixed(0) + "%</td>";
+            if (hasTime) {
+              const times = configRuns.map(r => (r.result || {}).time_seconds).filter(t => t != null);
+              html += "<td>" + (times.length ? (times.reduce((a, b) => a + b, 0) / times.length).toFixed(1) : "—") + "</td>";
+            }
+            if (hasErrors) html += "<td></td>";
+            html += "</tr>";
+          }
+          html += "</tbody></table>";
+
+          // Per-assertion detail for this eval
+          const runsWithExpectations = {};
+          for (const config of configGroups) {
+            runsWithExpectations[config] = evalRuns.filter(r => r.configuration === config && r.expectations && r.expectations.length > 0);
+          }
+          const hasAnyExpectations = Object.values(runsWithExpectations).some(runs => runs.length > 0);
+          if (hasAnyExpectations) {
+            // Collect all unique assertion texts across all configs
+            const allAssertions = [];
+            const seen = new Set();
+            for (const config of configGroups) {
+              for (const run of runsWithExpectations[config]) {
+                for (const exp of (run.expectations || [])) {
+                  if (!seen.has(exp.text)) {
+                    seen.add(exp.text);
+                    allAssertions.push(exp.text);
+                  }
+                }
+              }
+            }
+
+            html += '<table class="benchmark-table" style="margin-top: 0.5rem;">';
+            html += "<thead><tr><th>Assertion</th>";
+            for (const config of configGroups) {
+              const label = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              html += "<th>" + escapeHtml(label) + "</th>";
+            }
+            html += "</tr></thead><tbody>";
+
+            for (const assertionText of allAssertions) {
+              html += "<tr><td>" + escapeHtml(assertionText) + "</td>";
+
+              for (const config of configGroups) {
+                html += "<td>";
+                for (const run of runsWithExpectations[config]) {
+                  const exp = (run.expectations || []).find(e => e.text === assertionText);
+                  if (exp) {
+                    const cls = exp.passed ? "benchmark-delta-positive" : "benchmark-delta-negative";
+                    const icon = exp.passed ? "\u2713" : "\u2717";
+                    html += '<span class="' + cls + '" title="Run ' + run.run_number + ': ' + escapeHtml(exp.evidence || "") + '">' + icon + "</span> ";
+                  } else {
+                    html += "— ";
+                  }
+                }
+                html += "</td>";
+              }
+              html += "</tr>";
+            }
+            html += "</tbody></table>";
+          }
+        }
+      }
+
+      // Notes
+      if (notes.length > 0) {
+        html += '<div class="benchmark-notes">';
+        html += "<h3>Analysis Notes</h3>";
+        html += "<ul>";
+        for (const note of notes) {
+          html += "<li>" + escapeHtml(note) + "</li>";
+        }
+        html += "</ul></div>";
+      }
+
+      container.innerHTML = html;
+    }
+
+    // ---- Start ----
+    init();
+    renderBenchmark();
+  </script>
+</body>
+</html>

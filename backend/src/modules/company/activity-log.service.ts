@@ -1,5 +1,5 @@
-import prismaBase from '../config/database';
-import { SYSTEM_MODE } from '../lib/systemMode';
+import prismaBase from '../../config/database';
+import { SYSTEM_MODE } from '../../lib/systemMode';
 
 const prisma = prismaBase as any;
 

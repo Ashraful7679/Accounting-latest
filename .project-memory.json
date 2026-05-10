@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-10T17:45:52.207Z",
+  "lastUpdated": "2026-05-10T18:28:57.333Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -300,11 +300,22 @@
       "agent": "unknown"
     },
     "CHECKLIST.md": {
-      "modified": "2026-05-10T17:45:52.206Z",
+      "modified": "2026-05-10T18:28:57.333Z",
       "features": [
-        "Added comprehensive page inventory with elements, field types/effects, role-permission, UI/UX and validation checklists"
+        "Added comprehensive page inventory with elements, field types/effects, role-permission, UI/UX and validation checklists",
+        "Reduced documentation risk by replacing grouped route shorthand with explicit valid page paths"
       ],
-      "lastChange": "2026-05-10T17:45:52.207Z",
+      "lastChange": "2026-05-10T18:28:57.333Z",
+      "agent": "unknown"
+    },
+    "ISSUES_FOUND.md": {
+      "modified": "2026-05-10T18:23:57.754Z",
+      "features": [
+        "Added audit findings for checklist coverage gaps and documentation risks",
+        "Added missing/misapplied process trigger field form view page gap analysis",
+        "Validated prior issues, marked partial coverage, and added phased improvement plan"
+      ],
+      "lastChange": "2026-05-10T18:23:57.755Z",
       "agent": "unknown"
     }
   },

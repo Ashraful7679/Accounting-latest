@@ -32,8 +32,13 @@ export const adminRoutes = async (fastify: FastifyInstance) => {
   // Owner impersonation / support mode
   fastify.post('/owners/:userId/impersonate', controller.impersonateUser.bind(controller));
 
-  // Audit logs
+  // Audit logs & Activity
   fastify.get('/audit-logs', controller.getAuditLogs.bind(controller));
+  fastify.get('/activity', controller.getSystemActivity.bind(controller));
+
+  // Security & System Isolation
+  fastify.post('/users/:id/block', controller.blockUser.bind(controller));
+  fastify.post('/users/:id/system', controller.toggleSystemStatus.bind(controller));
 
   // Backups
   fastify.get('/backups', backupController.listBackups.bind(backupController));

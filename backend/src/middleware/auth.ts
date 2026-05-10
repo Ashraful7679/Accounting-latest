@@ -57,6 +57,26 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
       });
     }
 
+    // Check for suspended status
+    if ((user as any).isBlocked) {
+      return reply.status(403).send({
+        success: false,
+        error: { message: 'This account has been suspended by system administrator.', statusCode: 403 },
+      });
+    }
+
+    // Check for IP blocking
+    const ip = request.ip || (request.headers['x-forwarded-for'] as string)?.split(',')[0] || 'unknown';
+    if ((user as any).blockedIps) {
+      const blockedList = (user as any).blockedIps.split(',').map((i: string) => i.trim());
+      if (blockedList.includes(ip)) {
+        return reply.status(403).send({
+          success: false,
+          error: { message: `Access denied from IP: ${ip}`, statusCode: 403 },
+        });
+      }
+    }
+
     const roleNames = user.userRoles.map((ur) => ur.role.name);
     const isAdmin = decoded.roles?.includes('Admin') || roleNames.includes('Admin');
 

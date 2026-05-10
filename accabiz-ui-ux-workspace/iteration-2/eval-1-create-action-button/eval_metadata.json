@@ -1,0 +1,12 @@
+{
+  "eval_id": 1,
+  "eval_name": "create-action-button",
+  "prompt": "Add an 'Export to PDF' action button to the invoice detail view. The button should follow the existing button patterns, handle loading state, and show a toast notification on success.",
+  "assertions": [
+    {"text": "Uses useMutation for async operation", "passed": true, "evidence": "exportMutation uses useMutation hook"},
+    {"text": "Handles loading state with isPending", "passed": true, "evidence": "disabled={exportMutation.isPending}"},
+    {"text": "Shows toast.success on success", "passed": true, "evidence": "toast.success('Invoice exported to PDF')"},
+    {"text": "Shows toast.error on failure", "passed": true, "evidence": "toast.error('Failed to export PDF')"},
+    {"text": "Uses proper button styling", "passed": true, "evidence": "Styled with bg-blue-600, rounded-lg classes"}
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "eval_id": 0,
+  "eval_name": "create-new-form-page",
+  "prompt": "Create a new 'Vendor Credit' form page for the AccaBiz ERP. It should have fields for vendor selection, credit amount, date, reference number, notes, and line items table. Use the DetailPanel pattern for viewing/editing.",
+  "assertions": [
+    {"text": "Uses 'use client' directive", "passed": true, "evidence": "File starts with 'use client'"},
+    {"text": "Has mounted guard pattern", "passed": true, "evidence": "useState + useEffect for mounted check"},
+    {"text": "Imports from @tanstack/react-query", "passed": true, "evidence": "useQuery, useMutation, useQueryClient imported"},
+    {"text": "Uses DetailPanel component", "passed": true, "evidence": "DetailPanel imported and used"},
+    {"text": "Has TypeScript interfaces for data types", "passed": true, "evidence": "VendorCredit and VendorCreditLine interfaces defined"},
+    {"text": "Implements line items table with add/remove", "passed": true, "evidence": "addLine and removeLine functions exist"},
+    {"text": "Uses typed array callback parameters", "passed": true, "evidence": "map callbacks have typed parameters"}
+  ]
+}

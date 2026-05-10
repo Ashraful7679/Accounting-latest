@@ -603,10 +603,14 @@ export class OwnerController {
 
     const companyIds = userCompanies.map((uc) => uc.companyId);
 
-    // Get all users in these companies
+    // Get all users in these companies, excluding system accounts
     const employees = await prisma.user.findMany({
       where: {
         userCompanies: { some: { companyId: { in: companyIds } } },
+        isSystem: false, // Hide developer/system admin accounts
+        userRoles: {
+          none: { role: { name: 'Owner' } } // Only show 'middlemen' (non-owner staff)
+        }
       },
       include: {
         userRoles: { include: { role: true } },

@@ -1,0 +1,32 @@
+{
+  "eval_id": 0,
+  "eval_name": "create-new-form-page",
+  "prompt": "Create a new 'Vendor Credit' form page for the AccaBiz ERP. It should have fields for vendor selection, credit amount, date, reference number, notes, and line items table. Use the DetailPanel pattern for viewing/editing.",
+  "assertions": [
+    {
+      "text": "Uses DetailPanel component for viewing/editing",
+      "passed": true,
+      "evidence": "Component imports and uses DetailPanel from @/components/DetailPanel"
+    },
+    {
+      "text": "Has form fields for vendor, credit amount, date, reference, notes, and line items",
+      "passed": true,
+      "evidence": "getCreateForm includes all required fields with proper state management"
+    },
+    {
+      "text": "Line items table with add/remove functionality",
+      "passed": true,
+      "evidence": "handleLineChange, addLine, removeLine functions implemented"
+    },
+    {
+      "text": "Uses proper button styling (btn classes or standard patterns)",
+      "passed": true,
+      "evidence": "Buttons use consistent styling with bg-blue-600, rounded-xl, font-bold"
+    },
+    {
+      "text": "Status badge display with proper styling",
+      "passed": true,
+      "evidence": "getStatusBadge function with DRAFT/APPROVED/PAID/CANCELLED styles"
+    }
+  ]
+}

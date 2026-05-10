@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-10T18:28:57.333Z",
+  "lastUpdated": "2026-05-10T18:47:13.448Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -300,22 +300,40 @@
       "agent": "unknown"
     },
     "CHECKLIST.md": {
-      "modified": "2026-05-10T18:28:57.333Z",
+      "modified": "2026-05-10T18:47:13.108Z",
       "features": [
         "Added comprehensive page inventory with elements, field types/effects, role-permission, UI/UX and validation checklists",
-        "Reduced documentation risk by replacing grouped route shorthand with explicit valid page paths"
+        "Reduced documentation risk by replacing grouped route shorthand with explicit valid page paths",
+        "Added explicit frontend/src/app/page.tsx route entry for full checklist coverage"
       ],
-      "lastChange": "2026-05-10T18:28:57.333Z",
+      "lastChange": "2026-05-10T18:47:13.109Z",
       "agent": "unknown"
     },
     "ISSUES_FOUND.md": {
-      "modified": "2026-05-10T18:23:57.754Z",
+      "modified": "2026-05-10T18:47:13.447Z",
       "features": [
         "Added audit findings for checklist coverage gaps and documentation risks",
         "Added missing/misapplied process trigger field form view page gap analysis",
-        "Validated prior issues, marked partial coverage, and added phased improvement plan"
+        "Validated prior issues, marked partial coverage, and added phased improvement plan",
+        "Documented resolution status for checklist coverage and drift risks"
       ],
-      "lastChange": "2026-05-10T18:23:57.755Z",
+      "lastChange": "2026-05-10T18:47:13.448Z",
+      "agent": "unknown"
+    },
+    "hooks/check-checklist-page-coverage.js": {
+      "modified": "2026-05-10T18:47:13.222Z",
+      "features": [
+        "Added automated CHECKLIST.md vs Next.js page route coverage validator and root app/page.tsx parsing"
+      ],
+      "lastChange": "2026-05-10T18:47:13.223Z",
+      "agent": "unknown"
+    },
+    ".github/workflows/ci.yml": {
+      "modified": "2026-05-10T18:47:13.336Z",
+      "features": [
+        "Added CI step to validate CHECKLIST.md route coverage"
+      ],
+      "lastChange": "2026-05-10T18:47:13.337Z",
       "agent": "unknown"
     }
   },

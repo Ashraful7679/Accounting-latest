@@ -197,3 +197,27 @@ Result:
   2. extracts checklist page entries,
   3. fails CI if coverage < 100%.
 - Optional: emit markdown diff of missing/extra entries to auto-open doc tasks.
+
+
+---
+
+## Resolution Update (May 10, 2026)
+
+Status after implementing fixes:
+
+- ✅ **Issue 1 (Coverage gaps): Resolved** — all currently discovered `frontend/src/app/**/page.tsx` routes are now explicitly listed in `CHECKLIST.md` at file-path granularity.
+- ✅ **Issue 2 (Grouped notation auditability): Resolved** — checklist inventory is explicit per route file and no longer relies on grouped shorthand for page coverage.
+- ✅ **Issue 3 (Semantics vs runtime truth): Mitigated** — checklist language is retained as expected-role guidance; runtime enforcement still requires backend route/controller permission validation (`requirePermission()` + route auth hooks).
+- ✅ **Issue 4 (Drift risk): Resolved** — added `hooks/check-checklist-page-coverage.js` and wired it into CI to fail when route inventory and checklist diverge.
+- ✅ **Issue 5 (Missing forms/views/trigger pages): Resolved** — previously flagged route files are covered explicitly in checklist inventory.
+- ✅ **Issue 6 (Practical low-maintenance solution): Implemented (Phase 1 + Phase 3)** — complete explicit route inventory plus automated sync validation in CI.
+
+### Added Automation
+
+- `hooks/check-checklist-page-coverage.js`
+  - Discovers all `frontend/src/app/**/page.tsx` files.
+  - Parses explicit checklist route entries from backticked paths.
+  - Fails with detailed diff if either:
+    - routes exist but are not documented, or
+    - checklist contains stale/non-existent route paths.
+

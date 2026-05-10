@@ -1,0 +1,26 @@
+{
+  "skill_name": "accabiz-ui-ux",
+  "evals": [
+    {
+      "id": 0,
+      "eval_name": "create-new-form-page",
+      "prompt": "Create a new 'Vendor Credit' form page for the AccaBiz ERP. It should have fields for vendor selection, credit amount, date, reference number, notes, and line items table. Use the DetailPanel pattern for viewing/editing.",
+      "expected_output": "A complete form page with proper button classes, input styling, table structure, and DetailPanel integration following the design system.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "eval_name": "create-action-button",
+      "prompt": "Add an 'Export to PDF' action button to the invoice detail view. The button should follow the existing button patterns, handle loading state, and show a toast notification on success.",
+      "expected_output": "A button using standardized .btn classes, with loading state handling and toast feedback.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "eval_name": "fix-table-formatting",
+      "prompt": "The vendor list table on /vendors page has inconsistent column alignment - currency columns aren't right-aligned, and the table header styling looks off compared to other tables in the app. Fix it to match the design system table-hd pattern.",
+      "expected_output": "Table corrected with proper .table-hd classes, right-aligned currency columns, and consistent header styling.",
+      "files": []
+    }
+  ]
+}

@@ -52,5 +52,13 @@ Specific to import/export trade:
 - **Reports**: When building Trial Balance or Balance Sheet, always aggregate from `JournalEntryLine` for accuracy, rather than just relying on `Account.currentBalance` which can drift.
 - **Recalculation**: Use the `recalculate-balances` utility if a ledger imbalance is detected.
 
+## Agent Acceptance Checklist (Pass/Fail)
+
+- [ ] Every posting remains balanced: `SUM(Debits) === SUM(Credits)`.
+- [ ] Idempotency guard exists for auto-journal flows (e.g., `isJournaled`).
+- [ ] Multi-table posting operations are wrapped in `prisma.$transaction()`.
+- [ ] Exchange rate source and date are explicit for FX documents.
+- [ ] Approved documents are immutable; corrections use reversal/correction entries.
+
 ---
 *Created for the AccaBiz ERP Project*

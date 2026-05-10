@@ -38,5 +38,14 @@ AccaBiz uses a module-aware RBAC system managed by `RBACService`.
 3. **Data Leakage Check**: Ensure that `findMany` queries for Users or Staff don't return sensitive fields like `password` (hashed) or `JWT_SECRET` (if stored).
 4. **Log Analysis**: Check `SystemAuditLog` for unexpected permission escalations or unauthorized access attempts.
 
+## Security Evidence to Produce
+
+When performing an audit, include explicit evidence:
+
+- Missing/verified authenticated routes list.
+- Missing/verified `requirePermission` controller methods list.
+- Raw SQL usage review (`$queryRaw`/`$executeRaw`) with parameterization verdict.
+- Sensitive field exposure check for user-facing queries.
+
 ---
 *Created for the AccaBiz ERP Project*

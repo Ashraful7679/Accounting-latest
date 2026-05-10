@@ -14,6 +14,7 @@ import { toast } from 'react-hot-toast';
 import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
 import { cn } from '@/lib/utils';
 import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 
 interface Product {
@@ -63,6 +64,9 @@ export default function ProductsPage() {
   const [adjustAmount, setAdjustAmount] = useState<number>(0);
   const [adjustNotes, setAdjustNotes] = useState('');
   const [showAdjustModal, setShowAdjustModal] = useState(false);
+
+  // Delete confirmation modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -241,12 +245,7 @@ export default function ProductsPage() {
     return [
       { label: 'Adjust Stock', icon: RefreshCw, onClick: () => setShowAdjustModal(true), variant: 'secondary' },
       { label: 'Edit Product', icon: Edit2, onClick: handleEdit, variant: 'secondary' },
-      { label: 'Print Label', icon: Printer, onClick: () => toast.success('Print feature coming soon'), variant: 'secondary' },
-      { label: 'Delete', icon: Trash2, onClick: () => {
-        if (confirm('Are you sure you want to delete this product?')) {
-          deleteMutation.mutate(selectedProduct.id);
-        }
-      }, variant: 'danger' },
+      { label: 'Delete', icon: Trash2, onClick: () => setShowDeleteModal(true), variant: 'danger' },
     ];
   };
 
@@ -713,6 +712,21 @@ export default function ProductsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Product"
+        message={`Are you sure you want to delete "${selectedProduct?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (selectedProduct) {
+            deleteMutation.mutate(selectedProduct.id);
+          }
+        }}
+        onCancel={() => setShowDeleteModal(false)}
+      />
     </div>
   );
 }

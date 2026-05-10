@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { Building2, Plus, Trash2, Edit, ArrowLeft, LogOut } from 'lucide-react';
 
 interface Company {
@@ -36,6 +37,8 @@ export default function AdminCompaniesPage() {
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -193,9 +196,8 @@ export default function AdminCompaniesPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this company?')) {
-      deleteMutation.mutate(id);
-    }
+    setDeleteTarget(id);
+    setShowDeleteModal(true);
   };
 
   return (
@@ -423,6 +425,17 @@ export default function AdminCompaniesPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Company"
+        message="Are you sure you want to delete this company? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
+        onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+      />
     </div>
   );
 }

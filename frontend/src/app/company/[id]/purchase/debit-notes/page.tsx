@@ -13,6 +13,7 @@ import { toast } from 'react-hot-toast';
 import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
 import { cn } from '@/lib/utils';
 import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 interface DebitNote {
   id: string;
@@ -56,6 +57,7 @@ export default function DebitNotesPage() {
   const [mounted, setMounted] = useState(false);
 
   const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedDN, setSelectedDN] = useState<DebitNote | null>(null);
   const [viewMode, setViewMode] = useState<'view' | 'create'>('view');
 
@@ -277,9 +279,7 @@ export default function DebitNotesPage() {
 
     if (selectedDN.status === 'DRAFT') {
       actions.push({ label: 'Approve', icon: CheckCircle2, onClick: () => approveMutation.mutate(selectedDN.id), variant: 'success' });
-      actions.push({ label: 'Delete', icon: Trash2, onClick: () => {
-        if (confirm('Delete this Debit Note?')) deleteMutation.mutate(selectedDN.id);
-      }, variant: 'danger' });
+      actions.push({ label: 'Delete', icon: Trash2, onClick: () => setShowDeleteModal(true), variant: 'danger' });
     }
 
     return actions;
@@ -563,6 +563,17 @@ export default function DebitNotesPage() {
         tabs={selectedDN ? [getLinesTab()] : (showDetailPanel && !selectedDN) ? [getCreateTab()] : []}
         status={selectedDN ? { value: selectedDN.status.toLowerCase() as any, type: selectedDN.status.toLowerCase() as any } : undefined}
         size="lg"
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Debit Note"
+        message={`Are you sure you want to delete this debit note? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => selectedDN && deleteMutation.mutate(selectedDN.id)}
+        onCancel={() => setShowDeleteModal(false)}
       />
     </div>
   );

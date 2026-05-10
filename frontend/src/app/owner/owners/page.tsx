@@ -6,14 +6,15 @@ import Link from 'next/link';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { 
-  Building2, 
-  Users, 
-  LogOut, 
-  Settings, 
-  UserPlus, 
-  Trash2, 
-  Shield, 
+import { ConfirmModal } from '@/components/ConfirmModal';
+import {
+  Building2,
+  Users,
+  LogOut,
+  Settings,
+  UserPlus,
+  Trash2,
+  Shield,
   Percent,
   ChevronDown,
   LayoutDashboard,
@@ -62,6 +63,8 @@ export default function OwnerOwnersPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [activeEditTab, setActiveEditTab] = useState<'permissions' | 'profile'>('permissions');
   const [selectedOwner, setSelectedOwner] = useState<CoOwner | null>(null);
   const [formData, setFormData] = useState({
@@ -349,15 +352,14 @@ export default function OwnerOwnersPage() {
                           <Settings className="w-5 h-5" />
                         </button>
                         {!owner.isMainOwner && (
-                          <button
-                            onClick={() => {
-                              if (window.confirm('Are you sure you want to remove this co-owner?')) {
-                                deleteOwnerMutation.mutate(owner.userId);
-                              }
-                            }}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Remove Owner"
-                          >
+                        <button
+                          onClick={() => {
+                            setDeleteTarget(owner.userId);
+                            setShowDeleteModal(true);
+                          }}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Remove Owner"
+                        >
                             <Trash2 className="w-5 h-5" />
                           </button>
                         )}
@@ -785,6 +787,17 @@ export default function OwnerOwnersPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Remove Co-Owner"
+        message="Are you sure you want to remove this co-owner? They will lose access to this company."
+        confirmLabel="Remove"
+        variant="danger"
+        isLoading={deleteOwnerMutation.isPending}
+        onConfirm={() => deleteTarget && deleteOwnerMutation.mutate(deleteTarget)}
+        onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+      />
     </div>
   );
 }

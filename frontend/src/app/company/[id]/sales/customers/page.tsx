@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { getCurrencySymbol } from '@/lib/decimalUtils';
 import { cn } from '@/lib/utils';
 import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { Plus, Trash2, Edit, Search, Building2, Eye, Save, X, User } from 'lucide-react';
 
 interface Customer {
@@ -39,6 +40,7 @@ export default function CompanyCustomersPage() {
   const [mounted, setMounted] = useState(false);
 
   const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [viewMode, setViewMode] = useState<'view' | 'create' | 'edit'>('view');
 
@@ -207,9 +209,7 @@ export default function CompanyCustomersPage() {
     }
     return [
       { label: 'Edit', icon: Edit, onClick: handleEdit, variant: 'secondary' },
-      { label: 'Delete', icon: Trash2, onClick: () => {
-        if (confirm('Delete this customer?')) deleteMutation.mutate(selectedCustomer.id);
-      }, variant: 'danger' },
+      { label: 'Delete', icon: Trash2, onClick: () => setShowDeleteModal(true), variant: 'danger' },
     ];
   };
 
@@ -399,6 +399,17 @@ export default function CompanyCustomersPage() {
       </div>
 
       <DetailPanel isOpen={showDetailPanel} onClose={() => { setShowDetailPanel(false); setSelectedCustomer(null); setViewMode('view'); }} title={viewMode === 'edit' ? 'Edit Customer' : (selectedCustomer?.name || 'New Customer')} subtitle={selectedCustomer?.code} fields={getDetailFields()} actions={getDetailActions()} tabs={selectedCustomer ? [getEditTab()].filter(Boolean) as DetailTab[] : (showDetailPanel && !selectedCustomer) ? [getCreateTab()] : []} status={selectedCustomer ? { value: selectedCustomer.isActive ? 'active' : 'inactive', type: selectedCustomer.isActive ? 'active' : 'inactive' } : undefined} metadata={selectedCustomer?.createdAt ? { createdAt: selectedCustomer.createdAt } : undefined} size="lg" />
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Customer"
+        message={`Are you sure you want to delete "${selectedCustomer?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => selectedCustomer && deleteMutation.mutate(selectedCustomer.id)}
+        onCancel={() => setShowDeleteModal(false)}
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api, { BASE_URL } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { Users, Plus, Trash2, ArrowLeft, LogOut, Key, Shield, Edit, User } from 'lucide-react';
 
 interface Employee {
@@ -42,6 +43,8 @@ export default function OwnerEmployeesPage() {
   const [showManagerModal, setShowManagerModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [passwordData, setPasswordData] = useState({ password: '', confirmPassword: '' });
   const [managerId, setManagerId] = useState<string>('');
   const [formData, setFormData] = useState({
@@ -445,9 +448,8 @@ export default function OwnerEmployeesPage() {
                         </button>
                         <button
                           onClick={() => {
-                            if (window.confirm('Are you sure you want to delete this employee? This action cannot be undone.')) {
-                              deleteMutation.mutate(employee.id);
-                            }
+                            setDeleteTarget(employee.id);
+                            setShowDeleteModal(true);
                           }}
                           className="p-1 text-red-600 hover:text-red-800"
                           title="Delete Employee"
@@ -683,6 +685,17 @@ export default function OwnerEmployeesPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Employee"
+        message="Are you sure you want to delete this employee? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
+        onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+      />
     </div>
   );
 }

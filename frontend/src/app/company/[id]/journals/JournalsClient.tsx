@@ -20,6 +20,7 @@ import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
 import { InfoTooltip } from '@/components/InfoTooltip';
 import { journalFieldInfo } from '@/data/fieldDefinitions';
 import { useCompany } from '@/lib/CompanyContext';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 interface Account {
   id: string;
@@ -182,6 +183,8 @@ export default function JournalsClient() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedJournal, setSelectedJournal] = useState<JournalEntry | null>(null);
   const [editingJournalId, setEditingJournalId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     description: '',
@@ -527,7 +530,7 @@ export default function JournalsClient() {
                             </button>
                           )}
                           {canDelete(journal.status) && (
-                            <button onClick={() => { if (confirm('Delete this journal?')) deleteMutation.mutate(journal.id); }} className="p-1.5 text-rose-600 hover:text-rose-800 bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-all" title="Delete">
+                            <button onClick={() => { setDeleteTarget(journal.id); setShowDeleteModal(true); }} className="p-1.5 text-rose-600 hover:text-rose-800 bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-all" title="Delete">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
@@ -751,6 +754,17 @@ export default function JournalsClient() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Journal"
+        message="Are you sure you want to delete this journal entry? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
+        onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+      />
     </div>
   );
 }

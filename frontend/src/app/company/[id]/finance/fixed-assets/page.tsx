@@ -8,6 +8,7 @@ import { Plus, Search, Edit, Trash2, Loader2, TrendingDown, DollarSign } from 'l
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
 import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 const ASSET_CATEGORIES = [
   { value: 'BUILDING', label: 'Building' },
@@ -52,6 +53,8 @@ export default function FixedAssetsPage() {
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<FixedAsset | null>(null);
   const [viewMode, setViewMode] = useState<'view' | 'create' | 'edit'>('view');
+  const [showDepreciateModal, setShowDepreciateModal] = useState(false);
+  const [showDisposeModal, setShowDisposeModal] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 

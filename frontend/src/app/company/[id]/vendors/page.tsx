@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { getCurrencySymbol } from '@/lib/decimalUtils';
 import { cn } from '@/lib/utils';
 import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { Plus, Trash2, Edit, Search, Building2, Eye, Save, X } from 'lucide-react';
 
 interface Vendor {
@@ -38,6 +39,7 @@ export default function CompanyVendorsPage() {
   const [mounted, setMounted] = useState(false);
 
   const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [viewMode, setViewMode] = useState<'view' | 'create' | 'edit'>('view');
 
@@ -202,9 +204,7 @@ export default function CompanyVendorsPage() {
     }
     return [
       { label: 'Edit Vendor', icon: Edit, onClick: handleEdit, variant: 'secondary' },
-      { label: 'Delete', icon: Trash2, onClick: () => {
-        if (confirm('Delete this vendor?')) deleteMutation.mutate(selectedVendor.id);
-      }, variant: 'danger' },
+      { label: 'Delete', icon: Trash2, onClick: () => setShowDeleteModal(true), variant: 'danger' },
     ];
   };
 
@@ -582,6 +582,17 @@ export default function CompanyVendorsPage() {
         status={selectedVendor ? { value: selectedVendor.isActive ? 'active' : 'inactive', type: selectedVendor.isActive ? 'active' : 'inactive' } : undefined}
         metadata={selectedVendor?.createdAt ? { createdAt: selectedVendor.createdAt } : undefined}
         size="lg"
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Vendor"
+        message={`Are you sure you want to delete "${selectedVendor?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => selectedVendor && deleteMutation.mutate(selectedVendor.id)}
+        onCancel={() => setShowDeleteModal(false)}
       />
     </div>
   );

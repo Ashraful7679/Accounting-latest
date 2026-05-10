@@ -7,6 +7,7 @@ import {
   Plus, AlertCircle, HardDrive
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 interface Attachment {
   id: string;
@@ -30,6 +31,8 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ entityType
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [previewFile, setPreviewFile] = useState<Attachment | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [selectedDocType, setSelectedDocType] = useState('GENERAL');
 
   const fetchAttachments = async () => {
@@ -78,18 +81,8 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ entityType
   };
 
   const handleDelete = async (attachmentId: string) => {
-    if (!window.confirm('Are you sure you want to remove this attachment?')) return;
-
-    try {
-      const response = await api.delete(`/company/${companyId}/attachments/${attachmentId}`);
-      if (response.data.success || response.status === 200) {
-        toast.success('Attachment removed');
-        fetchAttachments();
-      }
-    } catch (error) {
-      console.error('Delete error:', error);
-      toast.error('Failed to delete attachment');
-    }
+    setDeleteTarget(attachmentId);
+    setShowDeleteModal(true);
   };
 
   const getSecureUrl = (id: string) => {
@@ -102,6 +95,23 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ entityType
     if (type.includes('pdf')) return <FileText className="w-5 h-5 text-rose-500" />;
     if (type.includes('zip') || type.includes('rar')) return <FileArchive className="w-5 h-5 text-amber-500" />;
     return <File className="w-5 h-5 text-slate-400" />;
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      const response = await api.delete(`/company/${companyId}/attachments/${deleteTarget}`);
+      if (response.data.success || response.status === 200) {
+        toast.success('Attachment removed');
+        fetchAttachments();
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete attachment');
+    } finally {
+      setShowDeleteModal(false);
+      setDeleteTarget(null);
+    }
   };
 
   return (
@@ -275,6 +285,16 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({ entityType
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Remove Attachment"
+        message="Are you sure you want to remove this attachment? This action cannot be undone."
+        confirmLabel="Remove"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+      />
     </div>
   );
 };

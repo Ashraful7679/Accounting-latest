@@ -4,7 +4,7 @@ This file captures issues found after auditing the current documentation-focused
 
 ---
 
-## 1) Incomplete Page Coverage in `CHECKLIST.md` (High)
+## 1) Incomplete Page Coverage in `CHECKLIST.md` (Validated: Partially Covered)
 
 The checklist claims to provide a comprehensive page inventory, but a path audit shows gaps.
 
@@ -34,13 +34,26 @@ Missing page paths:
 18. `frontend/src/app/owner/profile/page.tsx`
 19. `frontend/src/app/page.tsx`
 
+Validation update:
+- Some paths are indirectly represented via grouped notation (`+ /create`, grouped settings, grouped owner pages).
+- However, exact file-level traceability is still incomplete for several paths.
+
+Current classification of the 19 previously flagged paths:
+- **Exact coverage in checklist:** 4
+- **Grouped/indirect coverage:** 13
+- **Not covered at all:** 2
+
+Still not explicitly covered:
+1. `frontend/src/app/company/[id]/invoices/page.tsx`
+2. `frontend/src/app/company/[id]/products/[productId]/edit/page.tsx`
+
 Impact:
-- “Single source of truth” claim is currently inaccurate.
-- QA/review using checklist can miss pages and related permission or field checks.
+- “Single source of truth” is only partially true at file granularity.
+- Audit automation and reviewer confidence are reduced by grouped entries.
 
 ---
 
-## 2) Grouped Path Notation Reduces Auditability (Medium)
+## 2) Grouped Path Notation Reduces Auditability (Validated: Confirmed)
 
 Several checklist lines group multiple routes using shorthand (e.g., `+ /create` or `/settings/...`) instead of enumerating each file path.
 
@@ -50,7 +63,7 @@ Impact:
 
 ---
 
-## 3) Checklist Semantics vs. Runtime Truth (Medium)
+## 3) Checklist Semantics vs. Runtime Truth (Validated: Needs Runtime Verification)
 
 Some entries assign generalized role/permission expectations (e.g., “Sales/Accountant approve”) that may not match actual backend RBAC configuration.
 
@@ -58,13 +71,21 @@ Impact:
 - Readers may treat assumptions as actual enforced policy.
 - Potential mismatch between docs and `requirePermission()` implementation.
 
+What may already cover this:
+- The checklist does include broad role/permission expectations and RBAC reminders.
+- Security skill docs also instruct permission audits (`requirePermission`, auth hooks).
+
+Gap that remains:
+- No direct linkage from each page row to actual backend permission keys or controller method.
+
 Recommendation:
 - Add a “Doc assumption” tag where permissions are inferred.
-- Link each module section to the authoritative permission source.
+- Add `Controller/Route source` per page row (e.g., `company.routes.ts` + controller method).
+- Link each module section to authoritative RBAC data source.
 
 ---
 
-## 4) Potential Drift Risk Between `CHECKLIST.md` and Route Tree (Medium)
+## 4) Potential Drift Risk Between `CHECKLIST.md` and Route Tree (Validated: Confirmed)
 
 No process is documented to keep checklist inventory synced with `frontend/src/app/**/page.tsx`.
 
@@ -90,7 +111,7 @@ The coverage issue was found by comparing:
 
 Based on the same route-to-checklist audit, the following practical gaps exist:
 
-### A. Missing Forms (Create/Edit flows) — 8
+### A. Missing Forms (Create/Edit flows) — Revalidated
 
 These are high-risk because form screens are where field validation and business triggers are usually implemented.
 
@@ -103,11 +124,11 @@ These are high-risk because form screens are where field validation and business
 7. `frontend/src/app/company/[id]/sales/invoices/create/page.tsx`
 8. `frontend/src/app/company/[id]/sales/orders/create/page.tsx`
 
-Why this matters:
-- Field-type/effect rules in `CHECKLIST.md` cannot be fully applied if these forms are not explicitly mapped.
-- Validation and approval trigger expectations may be missed during QA.
+Revalidation result:
+- Most create-form paths are indirectly covered using grouped “+ `/create`” notation.
+- Explicit file-level coverage remains preferable for review and tooling.
 
-### B. Missing Views/Pages — 11
+### B. Missing Views/Pages — Revalidated
 
 1. `frontend/src/app/admin/settings/account/page.tsx`
 2. `frontend/src/app/admin/settings/backup/page.tsx`
@@ -121,9 +142,11 @@ Why this matters:
 10. `frontend/src/app/owner/profile/page.tsx`
 11. `frontend/src/app/page.tsx`
 
-Why this matters:
-- Read-only/detail views still carry role/permission and UX obligations (filters, export, visibility control).
-- Missing settings pages reduce coverage for sensitive operational controls.
+Revalidation result:
+- Several of these are indirectly covered via grouped settings/owner notation.
+- Two paths remain genuinely missing from explicit or grouped references:
+  - `frontend/src/app/company/[id]/invoices/page.tsx`
+  - `frontend/src/app/company/[id]/products/[productId]/edit/page.tsx`
 
 ### C. Missing Trigger-Sensitive Pages — 5
 
@@ -153,3 +176,24 @@ Result:
    - side effects,
    - required permissions.
 3. Add CI route-sync check to fail when page inventory and checklist diverge.
+
+## 6) Better Solution Proposal (Practical and Low-Maintenance)
+
+### Phase 1 (Immediate)
+- Add the 2 truly missing pages to `CHECKLIST.md`.
+- Keep grouped rows, but add explicit sub-bullets with file paths for each grouped route.
+
+### Phase 2 (Hardening)
+- Add columns to page inventory:
+  - `Route file`
+  - `Controller/endpoint`
+  - `Permission key(s)`
+  - `Trigger(s)` (approve/verify/close/reconcile/backup)
+  - `Primary side-effects` (journal/stock/status/audit log)
+
+### Phase 3 (Automation)
+- Add script that:
+  1. scans `frontend/src/app/**/page.tsx`,
+  2. extracts checklist page entries,
+  3. fails CI if coverage < 100%.
+- Optional: emit markdown diff of missing/extra entries to auto-open doc tasks.

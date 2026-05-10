@@ -19,8 +19,8 @@ interface PaginatedResult<T> {
 }
 
 export const demoCustomers = [
-  { id: "cus-1", code: "CUS-001", name: "Modern Garments Ltd", email: "info@moderngarments.com", phone: "+8801711223344", address: "Ghazipur, Dhaka", city: "Dhaka", country: "Bangladesh" },
-  { id: "cus-2", code: "CUS-002", name: "Elegant Textiles", email: "contact@elegant.com", phone: "+8801811998877", address: "Narayanganj", city: "Dhaka", country: "Bangladesh" },
+  { id: "cus-1", code: "CUS-001", name: "Modern Garments Ltd", email: "info@moderngarments.com", phone: "+8801711223344", address: "Ghazipur, Dhaka", city: "Dhaka", country: "Bangladesh", preferredCurrency: 'BDT', exchangeRate: 1 },
+  { id: "cus-2", code: "CUS-002", name: "Elegant Textiles", email: "contact@elegant.com", phone: "+8801811998877", address: "Narayanganj", city: "Dhaka", country: "Bangladesh", preferredCurrency: 'BDT', exchangeRate: 1 },
 ];
 
 export class CustomerRepository {
@@ -56,6 +56,8 @@ export class CustomerRepository {
               city: true,
               country: true,
               isActive: true,
+              preferredCurrency: true,
+              exchangeRate: true,
               updatedAt: true,
               createdAt: true,
             }

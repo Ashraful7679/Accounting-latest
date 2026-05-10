@@ -10,6 +10,9 @@ export class EntityController extends BaseCompanyController {
   // ============ CUSTOMERS ============
   async getCustomers(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'sales.customers', 'view');
+
     const { page, limit, search } = request.query as any;
     const customers = await CustomerRepository.findMany({ 
       companyId,
@@ -26,6 +29,9 @@ export class EntityController extends BaseCompanyController {
 
   async createCustomer(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'sales.customers', 'create');
+
     const { 
       name, email, phone, address, city, country,
       contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency, exchangeRate
@@ -76,7 +82,10 @@ export class EntityController extends BaseCompanyController {
   }
 
   async updateCustomer(request: FastifyRequest, reply: FastifyReply) {
-    const { customerId } = request.params as { customerId: string };
+    const { id: companyId, customerId } = request.params as { id: string, customerId: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'sales.customers', 'edit');
+
     const { exchangeRate, openingBalance, ...data } = request.body as any;
 
     let openingBalanceBDT = Number(openingBalance || 0);
@@ -107,21 +116,38 @@ export class EntityController extends BaseCompanyController {
   }
 
   async deleteCustomer(request: FastifyRequest, reply: FastifyReply) {
-    const { customerId } = request.params as { customerId: string };
+    const { id: companyId, customerId } = request.params as { id: string, customerId: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'sales.customers', 'delete');
 
     await prisma.customer.delete({ where: { id: customerId } });
     return reply.send({ success: true, message: 'Customer deleted' });
   }
 
-  // ============ VENDORS ============
   async getVendors(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
-    const vendors = await VendorRepository.findMany({ companyId });
-    return reply.send({ success: true, data: vendors });
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'purchase.vendors', 'view');
+
+    const { page, limit, search } = request.query as any;
+    const vendors = await VendorRepository.findMany({ 
+      companyId,
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      search
+    });
+    return reply.send({ 
+      success: true, 
+      data: vendors.data || vendors,
+      pagination: vendors.pagination 
+    });
   }
 
   async createVendor(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'purchase.vendors', 'create');
+
     const { 
       name, email, phone, address, city, country,
       contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency, exchangeRate
@@ -167,7 +193,10 @@ export class EntityController extends BaseCompanyController {
   }
 
   async updateVendor(request: FastifyRequest, reply: FastifyReply) {
-    const { vendorId } = request.params as { vendorId: string };
+    const { id: companyId, vendorId } = request.params as { id: string, vendorId: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'purchase.vendors', 'edit');
+
     const { exchangeRate, openingBalance, ...data } = request.body as any;
 
     let openingBalanceBDT = Number(openingBalance || 0);
@@ -198,7 +227,9 @@ export class EntityController extends BaseCompanyController {
   }
 
   async deleteVendor(request: FastifyRequest, reply: FastifyReply) {
-    const { vendorId } = request.params as { vendorId: string };
+    const { id: companyId, vendorId } = request.params as { id: string, vendorId: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'purchase.vendors', 'delete');
 
     await prisma.vendor.delete({ where: { id: vendorId } });
     return reply.send({ success: true, message: 'Vendor deleted' });

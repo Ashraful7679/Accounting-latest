@@ -13,6 +13,9 @@ export class OrderController extends BaseCompanyController {
   // ============ SALES ORDERS ============
   async getSalesOrders(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'sales.orders', 'view');
+
     const { page = '1', limit = '20', currency, search, status } = request.query as { 
       page?: string; 
       limit?: string; 
@@ -93,9 +96,10 @@ export class OrderController extends BaseCompanyController {
 
   async updateSalesOrder(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, soId } = request.params as { id: string, soId: string };
-    const updateData = request.body as any;
     const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'sales.orders', 'edit');
 
+    const updateData = request.body as any;
     // Check optimistic lock
     await checkOptimisticLock(request, reply, 'sales-order');
     if (reply.sent) return;

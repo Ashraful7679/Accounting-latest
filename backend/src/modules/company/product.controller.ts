@@ -1,12 +1,17 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
+import { BaseCompanyController } from './base.controller';
 import { ProductRepository } from '../../repositories/ProductRepository';
-import { NotificationController } from './notification.controller';
+import { NotFoundError, ValidationError } from '../../middleware/errorHandler';
 import { SequenceService } from './sequence.service';
-import { ValidationError, NotFoundError } from '../../middleware/errorHandler';
+import { NotificationController } from './notification.controller';
 
-export class ProductController {
+export class ProductController extends BaseCompanyController {
   async getProducts(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+    
+    await this.requirePermission(userId, companyId, 'inventory.products', 'view');
+
     const { page, limit, search } = request.query as any;
     const products = await ProductRepository.findMany({ 
       companyId,
@@ -22,7 +27,10 @@ export class ProductController {
   }
 
   async getProduct(request: FastifyRequest, reply: FastifyReply) {
-    const { productId } = request.params as { productId: string };
+    const { id: companyId, productId } = request.params as { id: string, productId: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'inventory.products', 'view');
+
     const product = await ProductRepository.findById(productId);
     if (!product) throw new NotFoundError('Product not found');
     return reply.send({ success: true, data: product });
@@ -31,6 +39,8 @@ export class ProductController {
   async createProduct(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
     const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'inventory.products', 'create');
+
     const { name, sku, description, unitType, unitPrice, currency, stockAmount, isActive, type } = request.body as any;
 
     if (!name) throw new ValidationError('Product name is required');
@@ -64,9 +74,10 @@ export class ProductController {
   }
 
   async updateProduct(request: FastifyRequest, reply: FastifyReply) {
-    const { productId } = request.params as { productId: string };
-    const { id: companyId } = request.params as { id: string };
+    const { id: companyId, productId } = request.params as { id: string, productId: string };
     const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'inventory.products', 'edit');
+
     const data = request.body as any;
 
     const existing = await ProductRepository.findById(productId);
@@ -98,9 +109,9 @@ export class ProductController {
 
 
   async deleteProduct(request: FastifyRequest, reply: FastifyReply) {
-    const { productId } = request.params as { productId: string };
-    const { id: companyId } = request.params as { id: string };
+    const { id: companyId, productId } = request.params as { id: string, productId: string };
     const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'inventory.products', 'delete');
 
     const product = await ProductRepository.findById(productId);
     if (!product) throw new NotFoundError('Product not found');
@@ -120,9 +131,10 @@ export class ProductController {
   }
 
   async adjustStock(request: FastifyRequest, reply: FastifyReply) {
-    const { productId } = request.params as { productId: string };
-    const { id: companyId } = request.params as { id: string };
+    const { id: companyId, productId } = request.params as { id: string, productId: string };
     const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'inventory.products', 'edit');
+
     const { adjustmentAmount, notes } = request.body as any;
 
     if (adjustmentAmount === undefined) throw new ValidationError('Adjustment amount is required');

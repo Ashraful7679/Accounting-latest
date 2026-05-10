@@ -139,8 +139,8 @@ export class PIController {
           purchaseApplicationDate: data.purchaseApplicationDate ? new Date(data.purchaseApplicationDate) : null,
           purchaseAmount: data.purchaseAmount ? Number(data.purchaseAmount) : null,
           idbpNumber: data.idbpNumber,
-          customerId: data.customerId,
-          vendorId: data.vendorId,
+          customerId: data.customerId || null,
+          vendorId: data.vendorId || null,
           lines: {
             create: (data.lines || []).map((line: any) => ({
               productId: line.productId || null,
@@ -249,7 +249,7 @@ export class PIController {
           totalBDT: data.totalBDT ? Number(data.totalBDT) : (data.amount && data.exchangeRate ? Number(data.amount) * Number(data.exchangeRate) : undefined),
           status: data.status,
           lcId: data.lcId,
-          vendorId: data.vendorId,
+          vendorId: data.vendorId || null,
           invoiceNumber: data.invoiceNumber,
           submissionToBuyerDate: data.submissionToBuyerDate ? new Date(data.submissionToBuyerDate) : undefined,
           submissionToBankDate: data.submissionToBankDate ? new Date(data.submissionToBankDate) : undefined,
@@ -258,7 +258,7 @@ export class PIController {
           purchaseApplicationDate: data.purchaseApplicationDate ? new Date(data.purchaseApplicationDate) : undefined,
           purchaseAmount: data.purchaseAmount ? Number(data.purchaseAmount) : undefined,
           idbpNumber: data.idbpNumber,
-          customerId: data.customerId,
+          customerId: data.customerId || null,
           lines: data.lines ? {
             create: data.lines.map((line: any) => ({
               productId: line.productId || null,

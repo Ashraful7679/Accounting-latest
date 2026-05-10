@@ -86,6 +86,19 @@ export async function errorHandler(
     });
   }
 
+  if (error.code === 'P2003') {
+    return reply.status(400).send({
+      success: false,
+      error: {
+        message: 'A required linked record was not found (Foreign key constraint failed)',
+        remedy: 'Ensure that the selected Customer, Vendor, LC, or Account exists and is valid.',
+        code: 'FOREIGN_KEY_VIOLATION',
+        statusCode: 400,
+        meta: error.meta
+      },
+    });
+  }
+
   // Handle custom errors
   if (error instanceof AppError) {
     return reply.status(error.statusCode).send({

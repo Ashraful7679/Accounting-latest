@@ -51,6 +51,10 @@ export class OrderController extends BaseCompanyController {
     // Check permission to create sales orders
     await this.requirePermission(userId, companyId, 'sales.orders', 'create');
 
+    if (!customerId || customerId === "") {
+      throw new ValidationError('Customer selection is required to create a Sales Order');
+    }
+
     const soNumber = await this.generateDocumentNumber(companyId, 'so');
     
     const so = await SalesOrderRepository.create({
@@ -186,6 +190,10 @@ export class OrderController extends BaseCompanyController {
       currency, exchangeRate, totalForeign, totalBDT, 
       status, lines, createdById 
     } = request.body as any;
+
+    if (!supplierId || supplierId === "") {
+      throw new ValidationError('Supplier selection is required to create a Purchase Order');
+    }
 
     const poNumber = await this.generateDocumentNumber(companyId, 'po');
     

@@ -56,8 +56,8 @@ export default function AdminBackupsPage() {
   });
 
   const createBackupMutation = useMutation({
-    mutationFn: async (companyId?: string) => {
-      const response = await api.post('/admin/backups', { companyId });
+    mutationFn: async (companyId?: string | undefined) => {
+      const response = await api.post('/admin/backups', { companyId: companyId ?? null });
       return response.data;
     },
     onSuccess: () => {
@@ -155,7 +155,7 @@ export default function AdminBackupsPage() {
                       <h3 className="text-xl font-black mb-2">Master Dump</h3>
                       <p className="text-slate-400 text-sm font-medium mb-8 leading-relaxed">Extract the entire PostgreSQL database state into a portable SQL container.</p>
                       <button 
-                        onClick={() => createBackupMutation.mutate()}
+                        onClick={() => createBackupMutation.mutate(undefined)}
                         disabled={createBackupMutation.isPending}
                         className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-[20px] font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/40"
                       >

@@ -1,0 +1,411 @@
+{
+  "schemaVersion": "2.0",
+  "projectName": "AccaBiz ERP",
+  "lastUpdated": "2026-05-10T11:27:02.972Z",
+  "lastAgent": "minimax-m2.5-free",
+  "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
+  "architecture": {
+    "backend": {
+      "framework": "Fastify (Node.js)",
+      "orm": "Prisma",
+      "database": "PostgreSQL (Neon)",
+      "deploy": "Render.com (auto-deploy from 'okay' branch)"
+    },
+    "frontend": {
+      "framework": "Next.js (App Router)",
+      "styling": "Tailwind CSS",
+      "state": "TanStack Query",
+      "deploy": "Render.com (auto-deploy from 'okay' branch)"
+    }
+  },
+  "directoryStructure": {
+    "backend": {
+      "modules": "backend/src/modules/company - Core feature controllers",
+      "accounting": "backend/src/modules/accounting - Journal service, trade service",
+      "repositories": "backend/src/repositories - Data access layer",
+      "middleware": "backend/src/middleware - Auth, error handling",
+      "prisma": "backend/prisma - Schema and migrations",
+      "lib": "backend/src/lib - Utilities"
+    },
+    "frontend": {
+      "app": "frontend/src/app/company/[id] - Multi-tenant company pages",
+      "components": "frontend/src/components - Shared UI (DetailPanel, Sidebar, etc.)",
+      "lib": "frontend/src/lib - API client, utilities",
+      "data": "frontend/src/data - Static data, field definitions"
+    }
+  },
+  "files": {
+    "backend/src/modules/accounting/journal.service.ts": {
+      "modified": "2026-05-10T11:11:12.479Z",
+      "features": [
+        "Auto-journal for CREDIT_NOTE and DEBIT_NOTE on approval"
+      ],
+      "lastChange": "2026-05-10T11:11:12.480Z",
+      "agent": "minimax-m2.5-free"
+    },
+    "backend/src/modules/company/payment.controller.ts": {
+      "modified": "2026-05-10T11:11:14.093Z",
+      "features": [
+        "Auto-allocation FIFO and advance payment auto-apply"
+      ],
+      "lastChange": "2026-05-10T11:11:14.094Z",
+      "agent": "minimax-m2.5-free"
+    },
+    "backend/src/modules/company/invoice.controller.ts": {
+      "modified": "2026-05-10T11:11:15.683Z",
+      "features": [
+        "Auto DN/GRN generation with sequence numbers and auto-journal on invoice approval"
+      ],
+      "lastChange": "2026-05-10T11:11:15.684Z",
+      "agent": "minimax-m2.5-free"
+    },
+    "backend/src/modules/company/credit-note.controller.ts": {
+      "modified": "2026-05-10T11:11:15.715Z",
+      "features": [
+        "Auto-journal call on approveCreditNote"
+      ],
+      "lastChange": "2026-05-10T11:11:15.715Z",
+      "agent": "minimax-m2.5-free"
+    },
+    "backend/src/modules/company/debit-note.controller.ts": {
+      "modified": "2026-05-10T11:11:15.764Z",
+      "features": [
+        "Auto-journal call on approveDebitNote"
+      ],
+      "lastChange": "2026-05-10T11:11:15.765Z",
+      "agent": "minimax-m2.5-free"
+    },
+    "frontend\\src\\app\\admin\\backups\\page.tsx": {
+      "modified": "2026-05-10T11:18:21.286Z",
+      "features": [
+        "Fixed useMutation type - explicit undefined handling for optional parameters"
+      ],
+      "lastChange": "2026-05-10T11:18:21.291Z",
+      "agent": "minimax-m2.5-free"
+    }
+  },
+  "implementations": {
+    "credit-note-auto-journal": {
+      "date": "2026-05-10",
+      "description": "Auto-post journal on Credit Note approval - Dr Revenue / Dr VAT / Cr AR",
+      "files": [
+        "backend/src/modules/accounting/journal.service.ts",
+        "backend/src/modules/company/credit-note.controller.ts"
+      ],
+      "status": "complete"
+    },
+    "debit-note-auto-journal": {
+      "date": "2026-05-10",
+      "description": "Auto-post journal on Debit Note approval - Dr AP / Cr Expense / Cr VAT",
+      "files": [
+        "backend/src/modules/accounting/journal.service.ts",
+        "backend/src/modules/company/debit-note.controller.ts"
+      ],
+      "status": "complete"
+    },
+    "payment-auto-allocation": {
+      "date": "2026-05-10",
+      "description": "Auto-allocate payments to invoices/bills with FIFO ordering",
+      "files": [
+        "backend/src/modules/company/payment.controller.ts"
+      ],
+      "status": "complete"
+    },
+    "dn-grn-auto-generation": {
+      "date": "2026-05-10",
+      "description": "Auto-generate DN/GRN with proper sequence on invoice approval, including auto-journal",
+      "files": [
+        "backend/src/modules/company/invoice.controller.ts"
+      ],
+      "status": "complete"
+    },
+    "testing-infrastructure": {
+      "date": "2026-05-10",
+      "description": "Jest testing setup with unit/integration test patterns, CI/CD pipeline",
+      "files": [
+        "backend/package.json",
+        "backend/jest.config.js",
+        "backend/src/__tests__/",
+        "backend/src/__tests__/setup.ts",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "complete",
+      "updatedAt": "2026-05-10T11:27:02.972Z"
+    }
+  },
+  "workflows": {
+    "minimalEntry": {
+      "description": "Minimum manual entry accounting workflow",
+      "manualSteps": 2,
+      "autoSteps": [
+        "DN/GRN generation on invoice approval",
+        "Journal posting on approve (Invoice, Bill, Credit Note, Debit Note)",
+        "Stock update on GRN/DN (inventory +/-)",
+        "Payment auto-allocation (FIFO)",
+        "Payment journal posting"
+      ],
+      "flow": "Invoice (enter) → Approve → Auto: DN/GRN + Journal + Stock + Status → Payment (create) → Auto: Allocate + Journal + Status"
+    }
+  },
+  "knownIssues": [
+    {
+      "issue": "Missing authenticate hook",
+      "file": "backend/src/modules/company/company.routes.ts",
+      "description": "Must have fastify.addHook('preHandler', authenticate) - causes 401 errors",
+      "fix": "Add authenticate hook to all company routes"
+    },
+    {
+      "issue": "Missing columns",
+      "file": "backend/prisma/schema.prisma",
+      "description": "LC.deletedAt, Account.referenceId may be missing",
+      "fix": "Create migration to add columns"
+    }
+  ],
+  "buildCommands": {
+    "backend": "cd backend && npm run build",
+    "frontend": "cd frontend && npm run build"
+  },
+  "environment": {
+    "backend": "backend/.env - DATABASE_URL, JWT_SECRET, SYSTEM_MODE",
+    "frontend": "frontend/.env.local - NEXT_PUBLIC_API_URL"
+  },
+  "apiEndpoints": {
+    "production": "https://accabiz-backend.onrender.com/api",
+    "productionFrontend": "https://accabiz-frontend.onrender.com"
+  },
+  "errorPrevention": {
+    "doubleEntryValidation": {
+      "rule": "SUM(Debits) === SUM(Credits) for every JournalEntry",
+      "enforcement": "JournalService and TransactionRepository must validate before approval",
+      "files": [
+        "backend/src/modules/accounting/journal.service.ts",
+        "backend/src/repositories/TransactionRepository.ts"
+      ]
+    },
+    "idempotency": {
+      "rule": "All auto-journal operations must be idempotent using isJournaled flag",
+      "enforcement": "Check isJournaled before creating journals in handleDocumentApproval",
+      "pattern": "if (doc.isJournaled) return { alreadyJournaled: true }"
+    },
+    "transactionSafety": {
+      "rule": "Multi-step operations must use Prisma transactions",
+      "enforcement": "All controller operations that modify multiple tables must wrap in $transaction",
+      "pattern": "await prisma.$transaction(async (tx) => { ... })"
+    },
+    "nullSafety": {
+      "rule": "Empty strings from client must be converted to null for optional relations",
+      "enforcement": "Controllers must sanitize inputs before Prisma operations",
+      "files": "All company controllers"
+    },
+    "balanceSignEnforcement": {
+      "rule": "Account balance updates must respect account type (DEBIT vs CREDIT normal balance)",
+      "enforcement": "ASSET/EXPENSE: increase with DEBIT, decrease with CREDIT. LIABILITY/EQUITY/INCOME: opposite",
+      "files": [
+        "backend/src/repositories/TransactionRepository.ts",
+        "backend/src/modules/accounting/journal.service.ts"
+      ]
+    }
+  },
+  "validationRules": {
+    "invoice": {
+      "required": [
+        "companyId",
+        "customerId/vendorId",
+        "lines",
+        "currency"
+      ],
+      "amounts": "subtotal + taxAmount must equal total",
+      "dates": "invoiceDate cannot be in closed period",
+      "lines": "At least one line with quantity > 0 and unitPrice >= 0",
+      "status": "DRAFT -> PENDING_VERIFICATION -> VERIFIED -> APPROVED (or back to DRAFT)"
+    },
+    "payment": {
+      "required": [
+        "companyId",
+        "accountId",
+        "amount"
+      ],
+      "amounts": "amount must be > 0, payment cannot exceed outstanding",
+      "allocation": "Sum of allocations cannot exceed payment amount",
+      "dates": "Future dates only allowed for Owner/Admin"
+    },
+    "journal": {
+      "balance": "totalDebit must equal totalCredit",
+      "lines": "At least 2 lines (debit and credit)",
+      "accounts": "All accountIds must exist and be active",
+      "period": "Journal date cannot be in closed period"
+    }
+  },
+  "concurrencyControl": {
+    "optimisticLocking": {
+      "description": "Use version or updatedAt for concurrent status changes",
+      "files": [
+        "backend/src/lib/optimisticLock.ts"
+      ],
+      "usage": "checkOptimisticLock(tx, 'invoice', invoiceId)"
+    },
+    "avoidRaceConditions": {
+      "patterns": [
+        "Always fetch fresh data inside transactions",
+        "Use SELECT FOR UPDATE when modifying same row concurrently",
+        "Avoid read-modify-write patterns without locking"
+      ]
+    }
+  },
+  "auditTrail": {
+    "required": {
+      "create": "userId, timestamp, entityId",
+      "update": "userId, timestamp, entityId, oldValue, newValue",
+      "approve": "userId, timestamp, previousStatus, newStatus",
+      "delete": "Never hard delete - use soft delete (deletedAt)"
+    },
+    "models": [
+      "ActivityLog",
+      "SystemAuditLog"
+    ],
+    "tracked": [
+      "Invoice",
+      "Bill",
+      "Payment",
+      "JournalEntry",
+      "CreditNote",
+      "DebitNote",
+      "LC",
+      "Account"
+    ]
+  },
+  "securityChecklist": {
+    "rbac": {
+      "pattern": "this.requirePermission() at start of every controller method",
+      "audit": "Verify all company routes have authenticate hook",
+      "files": [
+        "backend/src/modules/company/company.routes.ts"
+      ]
+    },
+    "dataProtection": {
+      "neverReturn": [
+        "password",
+        "JWT_SECRET",
+        "apiKeys"
+      ],
+      "validateCompanyAccess": "companyId in URL must match user's authorized companies",
+      "sqlInjection": "Prisma handles parameterization - avoid $queryRaw with string interpolation"
+    },
+    "inputValidation": {
+      "required": "All request bodies validated with JSON Schema or explicit checks",
+      "sanitize": "Empty strings converted to null for optional fields",
+      "types": "Validate numeric fields are numbers, dates are valid"
+    }
+  },
+  "performanceOptimizations": {
+    "database": {
+      "indexes": "Check all foreign keys and frequently queried fields have indexes",
+      "N+1": "Use include() for related data, avoid individual queries in loops",
+      "pagination": "All list endpoints must support limit/offset or cursor pagination"
+    },
+    "api": {
+      "response": "Return only necessary fields, use select() in Prisma",
+      "caching": "TanStack Query handles client-side caching, consider Redis for server"
+    }
+  },
+  "edgeCases": {
+    "currency": {
+      "multiCurrency": "Always calculate both amount (FCY) and amountBase (BDT)",
+      "exchangeRate": "Rate at document date, never at payment date",
+      "rounding": "Use Math.round() for BDT to avoid floating point errors"
+    },
+    "partialOperations": {
+      "partialPayment": "Track outstanding amount, update status to PARTIALLY_PAID",
+      "partialDelivery": "Track delivered vs invoiced quantities separately"
+    },
+    "reversals": {
+      "invoiceRevert": "Must delete associated journals and revert stock changes",
+      "paymentRevert": "Must reverse allocations and journal entries"
+    }
+  },
+  "futureAutomations": {
+    "recommended": [
+      {
+        "feature": "LC margin auto-release",
+        "status": "partial",
+        "files": [
+          "backend/src/modules/company/payment.controller.ts"
+        ],
+        "notes": "Currently releases on LC closure, could be enhanced with scheduled job"
+      },
+      {
+        "feature": "Auto-overdue reminders",
+        "status": "notImplemented",
+        "suggestion": "Cron job to check overdue invoices and send notifications"
+      },
+      {
+        "feature": "Bank statement auto-reconciliation",
+        "status": "partial",
+        "files": [
+          "backend/src/modules/company/bank-reconcile.service.ts"
+        ],
+        "notes": "Has CSV import with basic matching, could enhance with fuzzy matching"
+      },
+      {
+        "feature": "Recurring invoice generation",
+        "status": "notImplemented",
+        "suggestion": "Scheduler for generating invoices from recurring templates"
+      },
+      {
+        "feature": "Monthly depreciation posting",
+        "status": "notImplemented",
+        "suggestion": "Scheduled journal entries for fixed asset depreciation"
+      }
+    ]
+  },
+  "testingStrategy": {
+    "unitTests": {
+      "priority": "JournalService (double-entry validation), TransactionRepository (balance updates)",
+      "coverage": "All validation rules, edge cases, error paths"
+    },
+    "integrationTests": {
+      "priority": "Full workflow: Invoice -> DN -> Journal -> Payment -> Allocation",
+      "tools": "Supertest for API, Prisma test instance"
+    },
+    "regressionTests": {
+      "critical": "Auto-journal idempotency, concurrent approval handling"
+    }
+  },
+  "monitoring": {
+    "errorTracking": "Log all exceptions with context (userId, companyId, documentId)",
+    "performance": "Track slow queries (>1s), log all journal generation times",
+    "health": "Database connection pool, API response times, memory usage"
+  },
+  "deploymentSafety": {
+    "preDeploy": [
+      "Run TypeScript check: npx tsc --noEmit",
+      "Run lint: npm run lint",
+      "Test migrations locally",
+      "Verify all controllers have error handling"
+    ],
+    "postDeploy": [
+      "Check /api/health endpoint",
+      "Verify database migrations applied",
+      "Test critical flows (create invoice, approve, payment)"
+    ],
+    "rollback": "git revert + Render dashboard manual rollback"
+  },
+  "codingStandards": {
+    "typescript": {
+      "noImplicitAny": "All function parameters must be typed",
+      "nullChecks": "Use optional chaining (?.) and nullish coalescing (??)",
+      "async": "Always use async/await, never mixing with .then()"
+    },
+    "prisma": {
+      "transactions": "Wrap multi-table operations in $transaction",
+      "selects": "Use select() to return only needed fields",
+      "bulk": "Use updateMany instead of loops when possible"
+    },
+    "naming": {
+      "files": "kebab-case (invoice.controller.ts)",
+      "classes": "PascalCase (InvoiceController)",
+      "methods": "camelCase (getInvoice)",
+      "constants": "UPPER_SNAKE_CASE (MAX_RETRY_ATTEMPTS)"
+    }
+  }
+}

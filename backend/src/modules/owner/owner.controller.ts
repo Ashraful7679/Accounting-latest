@@ -9,12 +9,14 @@ import { promisify } from 'util';
 
 const pump = promisify(pipeline);
 import { EquityService } from '../accounting/equity.service';
+import { CoaController } from '../company/coa.controller';
 
 const PERMISSION_MODULES = [
   'journals', 'invoices', 'bills', 'payments', 'purchase_orders',
   'customers', 'vendors', 'accounts', 'reports', 'employees',
   'lc', 'pi', 'loans', 'products', 'attachments',
   'employee_advances', 'employee_loans', 'employee_expenses',
+  'debit_notes', 'credit_notes', 'fixed_assets', 'grn', 'dn', 'payroll',
 ];
 
 const ROLE_PERMISSIONS: Record<string, {
@@ -24,22 +26,52 @@ const ROLE_PERMISSIONS: Record<string, {
   //            create  view   edit   delete verify approve export print
   User:       { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
   Accountant: { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: false, canApprove: false, canExport: true,  canPrint: true  },
-  Controller: { canCreate: true,  canView: true,  canEdit: false, canDelete: false, canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
+  Controller: { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
   Manager:    { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: false, canExport: true,  canPrint: true  },
   Owner:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
   Admin:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
 };
 
 async function seedDefaultPermissions(userId: string, roleName: string): Promise<void> {
-  const perms = ROLE_PERMISSIONS[roleName];
-  if (!perms) return; // Unknown role — skip
+  // 1. Try to find existing role templates in database
+  const templates = await (prisma as any).rolePermission.findMany({
+    where: { role: { name: roleName } }
+  });
 
+  const modulesToSeed = templates.length > 0 
+    ? templates.map(t => ({
+        module: t.module,
+        canCreate: t.canCreate,
+        canView: t.canView,
+        canEdit: t.canEdit,
+        canDelete: t.canDelete,
+        canVerify: t.canVerify,
+        canApprove: t.canApprove,
+        canExport: t.canExport,
+        canPrint: t.canPrint
+      }))
+    : PERMISSION_MODULES.map(module => {
+        const defaults = ROLE_PERMISSIONS[roleName as keyof typeof ROLE_PERMISSIONS] || ROLE_PERMISSIONS.Employee;
+        return {
+          module,
+          canView: true,
+          canCreate: defaults.canCreate,
+          canEdit: defaults.canEdit,
+          canDelete: defaults.canDelete,
+          canVerify: defaults.canVerify,
+          canApprove: defaults.canApprove,
+          canExport: defaults.canExport,
+          canPrint: defaults.canPrint
+        };
+      });
+
+  // 2. Upsert permissions for user
   await Promise.all(
-    PERMISSION_MODULES.map((module) =>
+    modulesToSeed.map((perm) =>
       (prisma.userPermission as any).upsert({
-        where: { userId_module: { userId, module } },
-        update: perms,
-        create: { userId, module, ...perms },
+        where: { userId_module: { userId, module: perm.module } },
+        update: perm,
+        create: { userId, ...perm },
       })
     )
   );
@@ -195,8 +227,8 @@ export class OwnerController {
     }
 
     // Find or create user
-    let owner = await prisma.user.findUnique({
-      where: { email: targetEmail },
+    let owner = await (prisma.user as any).findFirst({
+      where: { email: targetEmail, deletedAt: null },
       include: { userRoles: { include: { role: true } } }
     });
 
@@ -321,52 +353,6 @@ export class OwnerController {
     return reply.send({ success: true, message: 'Owner removed from company' });
   }
 
-  // Seed default Chart of Accounts for a new company
-  private async seedDefaultCOA(companyId: string) {
-    const accountTypes = await prisma.accountType.findMany();
-    const typeMap = accountTypes.reduce((acc: any, at) => {
-      acc[at.name] = at.id;
-      return acc;
-    }, {});
-
-    const defaultAccounts = [
-      // Assets
-      { code: '1010', name: 'Cash in Hand', accountTypeId: typeMap['ASSET'], category: 'CASH', cashFlowType: 'OPERATING' },
-      { code: '1020', name: 'Bank Account', accountTypeId: typeMap['ASSET'], category: 'BANK', cashFlowType: 'OPERATING' },
-      { code: '1100', name: 'Accounts Receivable', accountTypeId: typeMap['ASSET'], category: 'AR', cashFlowType: 'OPERATING' },
-      { code: '1200', name: 'Inventory', accountTypeId: typeMap['ASSET'], category: 'NONE', cashFlowType: 'OPERATING' },
-      
-      // Liabilities
-      { code: '2100', name: 'Accounts Payable', accountTypeId: typeMap['LIABILITY'], category: 'AP', cashFlowType: 'OPERATING' },
-      
-      // Equity
-      { code: '3100', name: "Owner's Capital", accountTypeId: typeMap['EQUITY'], category: 'NONE', cashFlowType: 'FINANCING' },
-      { code: '3200', name: 'Retained Earnings', accountTypeId: typeMap['EQUITY'], category: 'NONE', cashFlowType: 'FINANCING' },
-      
-      // Income
-      { code: '4100', name: 'Sales Revenue', accountTypeId: typeMap['INCOME'], category: 'REVENUE', cashFlowType: 'OPERATING' },
-      
-      // Expenses
-      { code: '5100', name: 'Cost of Goods Sold', accountTypeId: typeMap['EXPENSE'], category: 'NONE', cashFlowType: 'OPERATING' },
-      { code: '5200', name: 'Salaries & Wages', accountTypeId: typeMap['EXPENSE'], category: 'NONE', cashFlowType: 'OPERATING' },
-    ];
-
-    // Filter out rows where type ID is missing (safety)
-    const validAccounts = defaultAccounts.filter(a => a.accountTypeId).map(a => ({
-      ...a,
-      companyId,
-      openingBalance: 0,
-      currentBalance: 0,
-      isActive: true,
-    }));
-
-    if (validAccounts.length > 0) {
-      await prisma.account.createMany({
-        data: validAccounts,
-      });
-      console.log(`✅ Seeded ${validAccounts.length} default accounts for company ${companyId}`);
-    }
-  }
 
   // Create a new company
   async createCompany(request: FastifyRequest, reply: FastifyReply) {
@@ -428,8 +414,8 @@ export class OwnerController {
       }
     });
 
-    // Seed default COA
-    await this.seedDefaultCOA(company.id);
+    // Seed default COA based on category
+    await CoaController.initializeCompanyCOA(company.id, data.category || 'GENERAL');
 
     // --- AUTOMATION: Handle Equity & Journal ---
     if (Number(data.openingCapital || 0) > 0) {
@@ -618,9 +604,9 @@ export class OwnerController {
     const employees = await prisma.user.findMany({
       where: {
         userCompanies: { some: { companyId: { in: companyIds } } },
-        isSystem: false, // Hide developer/system admin accounts
+        isSystem: false,
         userRoles: {
-          none: { role: { is: { name: 'Owner' } } } // Only show 'middlemen' (non-owner staff)
+          none: { role: { name: 'Owner' } } // Exclude Owners from employee list
         }
       } as any,
       include: {
@@ -668,8 +654,19 @@ export class OwnerController {
     // Verify companies belong to owner
     const validCompanies = companyIds?.filter((cId: string) => ownerCompanyIds.includes(cId)) || [];
 
+    if (validCompanies.length === 0) {
+      throw new ValidationError('At least one valid company must be assigned to the employee');
+    }
+
+    if (!roleId) {
+      throw new ValidationError('A role must be assigned to the employee');
+    }
+
     // Check if email exists
-    const existing = await prisma.user.findUnique({ where: { email } });
+    // Check if email exists (active accounts only)
+    const existing = await (prisma.user as any).findFirst({ 
+      where: { email, deletedAt: null } 
+    });
     if (existing) {
       throw new ConflictError('Email already exists');
     }
@@ -811,13 +808,24 @@ export class OwnerController {
   // Update employee permissions
   async updateEmployeePermissions(request: FastifyRequest, reply: FastifyReply) {
     const { id } = request.params as { id: string };
-    const { module, canCreate, canView, canVerify, canApprove } = request.body as any;
+    const { 
+      module, 
+      canCreate, canView, canEdit, canDelete,
+      canVerify, canApprove, canExport, canPrint 
+    } = request.body as any;
 
     // Upsert permission
     const permission = await (prisma.userPermission as any).upsert({
       where: { userId_module: { userId: id, module } },
-      update: { canCreate, canView, canVerify, canApprove },
-      create: { userId: id, module, canCreate, canView, canVerify, canApprove },
+      update: { 
+        canCreate, canView, canEdit, canDelete,
+        canVerify, canApprove, canExport, canPrint 
+      },
+      create: { 
+        userId: id, module, 
+        canCreate, canView, canEdit, canDelete,
+        canVerify, canApprove, canExport, canPrint 
+      },
     });
 
     return reply.send({ success: true, data: permission });

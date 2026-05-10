@@ -1,5 +1,13 @@
 # AccaBiz - Accounting System
 
+## Session Startup
+
+> [!IMPORTANT]
+> At the beginning of every session, you MUST:
+> 1. Read **[TASK_CHECKLIST.md](file:///d:/BrainyFlavors/Accounting-Github/AccaBiz%20-%20Copy/TASK_CHECKLIST.md)** to see active issues.
+> 2. Run `backend/src/config/prisma-middleware.ts` check if any recent schema changes happened.
+> 3. Check recent logs for any new 404/400/500 errors.
+
 ## Project Memory
 
 > [!IMPORTANT]
@@ -129,7 +137,15 @@ Before committing any code, verify:
 - [ ] **Concurrency**: Optimistic locking for status changes
 - [ ] **Audit**: Activity logs with userId and timestamp
 
-See [CHECKLIST.md](file:///d:/BrainyFlavors/Accounting-Github/AccaBiz%20-%20Copy/CHECKLIST.md) for complete checklist.
+See [CHECKLIST.md](file:///d:/BrainyFlavors/Accounting-Github/AccaBiz%20-%20Copy/CHECKLIST.md) for best practices and [TASK_CHECKLIST.md](file:///d:/BrainyFlavors/Accounting-Github/AccaBiz%20-%20Copy/TASK_CHECKLIST.md) for active production issues.
+
+## Task Management
+
+> [!IMPORTANT]
+> To track and resolve production issues systematically:
+> 1. **Check** [TASK_CHECKLIST.md](file:///d:/BrainyFlavors/Accounting-Github/AccaBiz%20-%20Copy/TASK_CHECKLIST.md) at the start of every session.
+> 2. **Add** any new errors found in logs or reported by the user to the `## Active Issues` section.
+> 3. **Update** the status [x] when an issue is resolved.
 
 ### Important File Mappings
 

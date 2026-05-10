@@ -17,7 +17,7 @@ datasource db {
 
 model User {
   id           String  @id @default(uuid())
-  email        String  @unique
+  email        String
   password     String
   firstName    String
   lastName     String
@@ -74,8 +74,16 @@ model User {
 
   systemAuditLogs SystemAuditLog[] @relation("SystemAuditLogAdmin")
 
+  // Hardening verification trail
+  verifiedAssets   FixedAsset[] @relation("VerifiedAssets")
+  approvedAssets   FixedAsset[] @relation("ApprovedAssets")
+  verifiedBranches Branch[]     @relation("VerifiedBranches")
+  approvedBranches Branch[]     @relation("ApprovedBranches")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([email])
 }
 
 model SystemAuditLog {
@@ -97,9 +105,27 @@ model Role {
   description String?
   isSystem    Boolean    @default(false)
   isActive    Boolean    @default(true)
-  userRoles   UserRole[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model RolePermission {
+  id         String   @id @default(uuid())
+  roleId     String
+  module     String
+  canCreate  Boolean  @default(false)
+  canView    Boolean  @default(true)
+  canEdit    Boolean  @default(false)
+  canDelete  Boolean  @default(false)
+  canVerify  Boolean  @default(false)
+  canApprove Boolean  @default(false)
+  canExport  Boolean  @default(false)
+  canPrint   Boolean  @default(false)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, module])
 }
 
 model UserRole {
@@ -188,6 +214,8 @@ model Company {
   DebitNote  DebitNote[]
   PayrollRun PayrollRun[]
   CreditNote CreditNote[]
+
+  category String? @default("GENERAL")
 }
 
 model Branch {
@@ -201,8 +229,18 @@ model Branch {
   isActive  Boolean @default(true)
   isMain    Boolean @default(false)
 
+  // Status: ACTIVE, PENDING_VERIFICATION, VERIFIED, APPROVED, INACTIVE
+  status String @default("ACTIVE")
+
+  verifiedById String?
+  verifiedAt   DateTime?
+  approvedById String?
+  approvedAt   DateTime?
+
   // Relations
   company     Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  verifiedBy  User?          @relation("VerifiedBranches", fields: [verifiedById], references: [id])
+  approvedBy  User?          @relation("ApprovedBranches", fields: [approvedById], references: [id])
   invoices    Invoice[]
   journals    JournalEntry[]
   bills       Bill[]
@@ -1861,7 +1899,12 @@ model FixedAsset {
   isDepreciated           Boolean   @default(false)
 
   // Status
-  status String @default("ACTIVE") // ACTIVE, DISPOSED, FULLY_DEPRECATED
+  status String @default("DRAFT") // DRAFT, PENDING_VERIFICATION, VERIFIED, APPROVED, ACTIVE, DISPOSED, FULLY_DEPRECATED
+
+  verifiedById String?
+  verifiedAt   DateTime?
+  approvedById String?
+  approvedAt   DateTime?
 
   createdById String?
 
@@ -1871,6 +1914,8 @@ model FixedAsset {
   company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   depreciationAccount Account? @relation("DepreciationAccount", fields: [depreciationAccountId], references: [id])
   accumulatedAccount  Account? @relation("AccumulatedDepreciation", fields: [accumulatedDepreciationAccountId], references: [id])
+  verifiedBy          User?    @relation("VerifiedAssets", fields: [verifiedById], references: [id])
+  approvedBy          User?    @relation("ApprovedAssets", fields: [approvedById], references: [id])
 
   // Soft Delete
   deletedAt DateTime?

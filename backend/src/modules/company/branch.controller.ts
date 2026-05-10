@@ -128,7 +128,7 @@ export class BranchController extends BaseCompanyController {
 
     await this.requirePermission(userId, companyId, 'branches', 'delete');
 
-    const branch = await prisma.branch.findUnique({ where: { id: branchId } });
+    const branch = await (prisma as any).branch.findUnique({ where: { id: branchId } });
     if (!branch || branch.deletedAt) throw new NotFoundError('Branch not found');
 
     if (branch.isMain) {
@@ -151,5 +151,41 @@ export class BranchController extends BaseCompanyController {
     }
 
     return reply.send({ success: true, message: 'Branch deleted successfully' });
+  }
+
+  async verifyBranch(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, branchId } = request.params as { id: string; branchId: string };
+    const userId = (request.user as any).id;
+
+    await this.requirePermission(userId, companyId, 'branches', 'verify');
+
+    const branch = await (prisma.branch as any).update({
+      where: { id: branchId },
+      data: {
+        status: 'VERIFIED',
+        verifiedById: userId,
+        verifiedAt: new Date()
+      }
+    });
+
+    return reply.send({ success: true, data: branch });
+  }
+
+  async approveBranch(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, branchId } = request.params as { id: string; branchId: string };
+    const userId = (request.user as any).id;
+
+    await this.requirePermission(userId, companyId, 'branches', 'approve');
+
+    const branch = await (prisma.branch as any).update({
+      where: { id: branchId },
+      data: {
+        status: 'APPROVED',
+        approvedById: userId,
+        approvedAt: new Date()
+      }
+    });
+
+    return reply.send({ success: true, data: branch });
   }
 }

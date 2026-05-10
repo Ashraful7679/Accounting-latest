@@ -18,7 +18,11 @@ interface Employee {
   role: string;
   companies: { id: string; name: string; code: string }[];
   manager: { id: string; name: string } | null;
-  permissions: { module: string; canCreate: boolean; canView: boolean; canVerify: boolean; canApprove: boolean }[];
+  permissions: { 
+    module: string; 
+    canCreate: boolean; canView: boolean; canEdit: boolean; canDelete: boolean;
+    canVerify: boolean; canApprove: boolean; canExport: boolean; canPrint: boolean;
+  }[];
 }
 
 interface Company {
@@ -32,7 +36,22 @@ interface Role {
   name: string;
 }
 
-const MODULES = ['invoices', 'journals', 'customers', 'vendors', 'accounts', 'reports'];
+const ROLE_PERMISSIONS_DEFAULTS: Record<string, any> = {
+  User:       { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
+  Accountant: { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: false, canApprove: false, canExport: true,  canPrint: true  },
+  Controller: { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
+  Manager:    { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: false, canExport: true,  canPrint: true  },
+  Owner:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
+  Admin:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
+};
+
+const MODULES = [
+  'journals', 'invoices', 'bills', 'payments', 'purchase_orders',
+  'customers', 'vendors', 'accounts', 'reports', 'employees',
+  'lc', 'pi', 'loans', 'products', 'attachments',
+  'employee_advances', 'employee_loans', 'employee_expenses',
+  'debit_notes', 'credit_notes', 'fixed_assets', 'grn', 'dn', 'payroll',
+];
 
 export default function OwnerEmployeesPage() {
   const router = useRouter();
@@ -55,7 +74,12 @@ export default function OwnerEmployeesPage() {
     roleId: '',
     companyIds: [] as string[],
   });
-  const [permissions, setPermissions] = useState<{ [key: string]: { canCreate: boolean; canView: boolean; canVerify: boolean; canApprove: boolean } }>({});
+  const [permissions, setPermissions] = useState<{ 
+    [key: string]: { 
+      canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean;
+      canVerify: boolean; canApprove: boolean; canExport: boolean; canPrint: boolean;
+    } 
+  }>({});
 
   const { data: employeesData, isLoading } = useQuery({
     queryKey: ['owner-employees'],
@@ -126,15 +150,9 @@ export default function OwnerEmployeesPage() {
   });
 
   const updatePermissionsMutation = useMutation({
-    mutationFn: async ({ id, permissions: perms }: { id: string; permissions: { module: string; canCreate: boolean; canView: boolean; canVerify: boolean; canApprove: boolean }[] }) => {
+    mutationFn: async ({ id, permissions: perms }: { id: string; permissions: any[] }) => {
       const promises = perms.map((p) =>
-        api.put(`/owner/employees/${id}/permissions`, {
-          module: p.module,
-          canCreate: p.canCreate,
-          canView: p.canView,
-          canVerify: p.canVerify,
-          canApprove: p.canApprove,
-        })
+        api.put(`/owner/employees/${id}/permissions`, p)
       );
       await Promise.all(promises);
     },
@@ -231,15 +249,15 @@ export default function OwnerEmployeesPage() {
     
     // Set default permissions when creating new employee
     if (!isEditing) {
-      const roleName = rolesData?.find(r => r.id === roleId)?.name;
+      const roleName = rolesData?.find(r => r.id === roleId)?.name || 'User';
+      const defaults = ROLE_PERMISSIONS_DEFAULTS[roleName] || ROLE_PERMISSIONS_DEFAULTS.User;
+      
       const newPermissions: typeof permissions = {};
       
       MODULES.forEach(module => {
         newPermissions[module] = {
-          canView: true, // "Show" is default true
-          canCreate: roleName === 'Accountant',
-          canVerify: roleName === 'Manager',
-          canApprove: false,
+          canView: true,
+          ...defaults
         };
       });
       setPermissions(newPermissions);
@@ -249,12 +267,16 @@ export default function OwnerEmployeesPage() {
     setSelectedEmployee(employee);
     const perms: typeof permissions = {};
     MODULES.forEach((module) => {
-      const existing = employee.permissions.find((p) => p.module === module);
+      const existing = (employee.permissions as any[] || []).find((p) => p.module === module);
       perms[module] = {
-        canCreate: existing?.canCreate || false,
         canView: existing?.canView ?? true,
+        canCreate: existing?.canCreate || false,
+        canEdit: existing?.canEdit || false,
+        canDelete: existing?.canDelete || false,
         canVerify: existing?.canVerify || false,
         canApprove: existing?.canApprove || false,
+        canExport: existing?.canExport || false,
+        canPrint: existing?.canPrint || false,
       };
     });
     setPermissions(perms);
@@ -269,19 +291,26 @@ export default function OwnerEmployeesPage() {
 
   const handlePermissionChange = (module: string, field: string, value: boolean) => {
     setPermissions(prev => {
-      const current = prev[module] || { canView: true, canCreate: false, canVerify: false, canApprove: false };
+      const current = prev[module] || { 
+        canView: true, canCreate: false, canEdit: false, canDelete: false,
+        canVerify: false, canApprove: false, canExport: false, canPrint: false 
+      };
       let updated = { ...current, [field]: value };
       
       // Dependency Logic:
-      // 1. If 'Show' (canView) is deselected, auto-deselect others
+      // 1. If 'View' is deselected, auto-deselect others
       if (field === 'canView' && value === false) {
         updated.canCreate = false;
+        updated.canEdit = false;
+        updated.canDelete = false;
         updated.canVerify = false;
         updated.canApprove = false;
+        updated.canExport = false;
+        updated.canPrint = false;
       }
       
-      // 2. If 'Create', 'Verify', or 'Approve' is selected, auto-select 'Show'
-      if ((field === 'canCreate' || field === 'canVerify' || field === 'canApprove') && value === true) {
+      // 2. If any action is selected, auto-select 'View'
+      if (field !== 'canView' && value === true) {
         updated.canView = true;
       }
       
@@ -579,44 +608,33 @@ export default function OwnerEmployeesPage() {
             <form onSubmit={handlePermissionsSubmit} className="space-y-4">
               {MODULES.map((module) => (
                 <div key={module} className="border rounded-lg p-4">
-                  <h4 className="font-medium mb-2 capitalize">{module}</h4>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={permissions[module]?.canView ?? true}
-                        onChange={(e) => handlePermissionChange(module, 'canView', e.target.checked)}
-                        className="rounded"
-                      />
-                      <span className="text-sm font-medium text-gray-900">Show</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={permissions[module]?.canCreate || false}
-                        onChange={(e) => handlePermissionChange(module, 'canCreate', e.target.checked)}
-                        className="rounded"
-                      />
-                      <span className="text-sm font-medium text-gray-900">Create</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={permissions[module]?.canVerify || false}
-                        onChange={(e) => handlePermissionChange(module, 'canVerify', e.target.checked)}
-                        className="rounded"
-                      />
-                      <span className="text-sm font-medium text-gray-900">Verify</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={permissions[module]?.canApprove || false}
-                        onChange={(e) => handlePermissionChange(module, 'canApprove', e.target.checked)}
-                        className="rounded"
-                      />
-                      <span className="text-sm font-medium text-gray-900">Approve</span>
-                    </label>
+                  <h4 className="font-medium mb-3 capitalize flex items-center justify-between">
+                    {module.replace('_', ' ')}
+                    <span className="text-xs text-gray-500 font-normal">Module Settings</span>
+                  </h4>
+                  <div className="grid grid-cols-4 gap-y-3 gap-x-2">
+                    {[
+                      { key: 'canView', label: 'View' },
+                      { key: 'canCreate', label: 'Create' },
+                      { key: 'canEdit', label: 'Edit' },
+                      { key: 'canDelete', label: 'Delete' },
+                      { key: 'canVerify', label: 'Verify' },
+                      { key: 'canApprove', label: 'Approve' },
+                      { key: 'canExport', label: 'Export' },
+                      { key: 'canPrint', label: 'Print' },
+                    ].map((opt) => (
+                      <label key={opt.key} className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={(permissions[module] as any)?.[opt.key] || false}
+                          onChange={(e) => handlePermissionChange(module, opt.key, e.target.checked)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700 group-hover:text-blue-600 transition-colors">
+                          {opt.label}
+                        </span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               ))}

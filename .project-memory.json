@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-10T12:56:14.547Z",
+  "lastUpdated": "2026-05-10T13:29:53.998Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -127,11 +127,12 @@
       "agent": "unknown"
     },
     "backend\\src\\modules\\owner\\owner.controller.ts": {
-      "modified": "2026-05-10T12:34:32.003Z",
+      "modified": "2026-05-10T13:29:53.874Z",
       "features": [
-        "Fixed Prisma relation query syntax (role: { is: { name: 'Owner' } }) to prevent Invalid prisma.user.count/findMany errors"
+        "Fixed Prisma relation query syntax (role: { is: { name: 'Owner' } }) to prevent Invalid prisma.user.count/findMany errors",
+        "Fixed email findUnique errors and synchronized permissions"
       ],
-      "lastChange": "2026-05-10T12:34:32.004Z",
+      "lastChange": "2026-05-10T13:29:53.882Z",
       "agent": "unknown"
     },
     "backend\\prisma\\schema.prisma": {
@@ -159,11 +160,44 @@
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\company.routes.ts": {
-      "modified": "2026-05-10T12:56:14.546Z",
+      "modified": "2026-05-10T13:25:14.086Z",
       "features": [
-        "Registered PUT /company/:id/settings route"
+        "Registered PUT /company/:id/settings route",
+        "Registered verification and approval routes for Fixed Assets and Branches"
       ],
-      "lastChange": "2026-05-10T12:56:14.547Z",
+      "lastChange": "2026-05-10T13:25:14.087Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\repositories\\FixedAssetRepository.ts": {
+      "modified": "2026-05-10T13:25:06.664Z",
+      "features": [
+        "Added verification/approval logic and auto-journaling for depreciation"
+      ],
+      "lastChange": "2026-05-10T13:25:06.665Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\modules\\company\\coa.controller.ts": {
+      "modified": "2026-05-10T13:25:10.401Z",
+      "features": [
+        "Implemented auto-COA generation based on company category"
+      ],
+      "lastChange": "2026-05-10T13:25:10.401Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\owner\\employees\\page.tsx": {
+      "modified": "2026-05-10T13:29:53.940Z",
+      "features": [
+        "Updated permission matrix UI with 8 toggles and logical role defaults"
+      ],
+      "lastChange": "2026-05-10T13:29:53.941Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\lib\\coaTemplates.ts": {
+      "modified": "2026-05-10T13:29:53.997Z",
+      "features": [
+        "Expanded COA templates with granular accounts for trade and manufacturing"
+      ],
+      "lastChange": "2026-05-10T13:29:53.998Z",
       "agent": "unknown"
     }
   },

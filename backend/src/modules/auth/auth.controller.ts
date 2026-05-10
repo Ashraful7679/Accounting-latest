@@ -38,8 +38,8 @@ export class AuthController {
 
     console.log(`[${new Date().toISOString()}] Proceeding with LIVE database login for ${email}`);
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const user = await prisma.user.findFirst({
+      where: { email, deletedAt: null },
       include: {
         userRoles: { include: { role: true } },
         userCompanies: { include: { company: true } },
@@ -107,7 +107,10 @@ export class AuthController {
     };
 
     // Check if user exists
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    // Check if active user exists
+    const existingUser = await prisma.user.findFirst({ 
+      where: { email, deletedAt: null } 
+    });
     if (existingUser) {
       return reply.status(409).send({
         success: false,

@@ -3,6 +3,7 @@ import prisma from '../../config/database';
 import { AccountRepository } from '../../repositories/AccountRepository';
 import { NotFoundError, ValidationError } from '../../middleware/errorHandler';
 import { BaseCompanyController } from './base.controller';
+import { COA_TEMPLATES, CoaAccountTemplate } from '../../lib/coaTemplates';
 
 export class CoaController extends BaseCompanyController {
   // ============ ACCOUNTS ============
@@ -160,5 +161,41 @@ export class CoaController extends BaseCompanyController {
     });
 
     return reply.send({ success: true, message: 'All account balances have been synchronized with the ledger.' });
+  }
+
+  static async initializeCompanyCOA(companyId: string, category: string = 'GENERAL') {
+    const template = COA_TEMPLATES[category] || COA_TEMPLATES.GENERAL;
+    const accountTypes = await prisma.accountType.findMany();
+    
+    const typeIdMap: Record<string, string> = {};
+    accountTypes.forEach(t => { typeIdMap[t.name] = t.id; });
+
+    const createFromTemplate = async (items: CoaAccountTemplate[], parentId: string | null = null) => {
+      for (const item of items) {
+        const typeId = typeIdMap[item.type];
+        if (!typeId) continue;
+
+        const account = await prisma.account.create({
+          data: {
+            companyId,
+            code: item.code,
+            name: item.name,
+            accountTypeId: typeId,
+            parentId,
+            category: item.category || 'NONE',
+            cashFlowType: item.cashFlowType || 'OPERATING',
+            openingBalance: 0,
+            currentBalance: 0,
+            isActive: true
+          }
+        });
+
+        if (item.children && item.children.length > 0) {
+          await createFromTemplate(item.children, account.id);
+        }
+      }
+    };
+
+    await createFromTemplate(template);
   }
 }

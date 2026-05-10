@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { SYSTEM_MODE } from '../lib/systemMode';
+import { TransactionRepository } from './TransactionRepository';
 
 interface FindManyOptions {
   companyId: string;
@@ -94,6 +95,33 @@ export class FixedAssetRepository {
     } catch {}
   }
 
+  static async verifyAsset(id: string, userId: string): Promise<any> {
+    if (SYSTEM_MODE !== 'LIVE') return { id, status: 'VERIFIED' };
+    const p = prisma as any;
+    return await p.fixedAsset.update({
+      where: { id },
+      data: {
+        status: 'VERIFIED',
+        verifiedById: userId,
+        verifiedAt: new Date()
+      }
+    });
+  }
+
+  static async approveAsset(id: string, userId: string): Promise<any> {
+    if (SYSTEM_MODE !== 'LIVE') return { id, status: 'APPROVED' };
+    const p = prisma as any;
+    return await p.fixedAsset.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        approvedById: userId,
+        approvedAt: new Date(),
+        depreciationStartDate: new Date()
+      }
+    });
+  }
+
   static async runDepreciation(companyId: string): Promise<any[]> {
     if (SYSTEM_MODE !== 'LIVE') return [];
     try {
@@ -108,26 +136,73 @@ export class FixedAssetRepository {
       const now = new Date();
 
       for (const asset of assets) {
+        // Only depreciate if approved and active
+        if (asset.status !== 'APPROVED' && asset.status !== 'ACTIVE') continue;
+
         let depreciationAmount = 0;
         if (asset.depreciationMethod === 'STRAIGHT_LINE') {
-          depreciationAmount = (asset.purchaseValue - asset.salvageValue) / asset.usefulLife / 12;
+          depreciationAmount = (asset.purchaseValue - asset.salvageValue) / (asset.usefulLife || 1) / 12;
         } else if (asset.depreciationMethod === 'DECLINING_BALANCE') {
           depreciationAmount = (asset.currentValue * (asset.depreciationRate || 0.2)) / 12;
         }
 
+        if (depreciationAmount <= 0) continue;
+
         const newAccumulated = asset.accumulatedDepreciation + depreciationAmount;
         const newCurrentValue = asset.purchaseValue - newAccumulated;
-        const newStatus = newCurrentValue <= asset.salvageValue ? 'FULLY_DEPRECATED' : 'ACTIVE';
         const isDepreciated = newCurrentValue <= asset.salvageValue;
+        const newStatus = isDepreciated ? 'FULLY_DEPRECATED' : 'ACTIVE';
 
-        await p.fixedAsset.update({
-          where: { id: asset.id },
-          data: {
-            accumulatedDepreciation: newAccumulated,
-            currentValue: Math.max(newCurrentValue, asset.salvageValue),
-            status: newStatus,
-            isDepreciated,
-            lastDepreciationDate: now
+        await prisma.$transaction(async (tx: any) => {
+          // 1. Update Asset
+          await tx.fixedAsset.update({
+            where: { id: asset.id },
+            data: {
+              accumulatedDepreciation: newAccumulated,
+              currentValue: Math.max(newCurrentValue, asset.salvageValue),
+              status: newStatus,
+              isDepreciated,
+              lastDepreciationDate: now
+            }
+          });
+
+          // 2. Create Journal Entry
+          if (asset.depreciationAccountId && asset.accumulatedDepreciationAccountId) {
+            const entryNumber = `DEP-${asset.assetNumber}-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+            
+            await tx.journalEntry.create({
+              data: {
+                entryNumber,
+                companyId,
+                date: now,
+                description: `Monthly Depreciation - ${asset.assetName} (${asset.assetNumber})`,
+                reference: asset.assetNumber,
+                totalDebit: depreciationAmount,
+                totalCredit: depreciationAmount,
+                status: 'APPROVED',
+                approvedAt: now,
+                lines: {
+                  create: [
+                    {
+                      accountId: asset.depreciationAccountId,
+                      debit: depreciationAmount,
+                      credit: 0,
+                      debitBase: depreciationAmount,
+                      creditBase: 0,
+                      description: `Depreciation Expense - ${asset.assetName}`
+                    },
+                    {
+                      accountId: asset.accumulatedDepreciationAccountId,
+                      debit: 0,
+                      credit: depreciationAmount,
+                      debitBase: 0,
+                      creditBase: depreciationAmount,
+                      description: `Accumulated Depreciation - ${asset.assetName}`
+                    }
+                  ]
+                }
+              }
+            });
           }
         });
 

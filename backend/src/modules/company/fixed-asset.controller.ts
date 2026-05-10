@@ -65,6 +65,28 @@ export class FixedAssetController {
     }
   }
 
+  static async verifyAsset(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { assetId } = request.params as { assetId: string };
+      const { userId } = (request as any).user;
+      const asset = await FixedAssetRepository.verifyAsset(assetId, userId);
+      return reply.send({ success: true, data: asset });
+    } catch (error: any) {
+      return reply.status(400).send({ error: error.message });
+    }
+  }
+
+  static async approveAsset(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { assetId } = request.params as { assetId: string };
+      const { userId } = (request as any).user;
+      const asset = await FixedAssetRepository.approveAsset(assetId, userId);
+      return reply.send({ success: true, data: asset });
+    } catch (error: any) {
+      return reply.status(400).send({ error: error.message });
+    }
+  }
+
   static async runDepreciation(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id: companyId } = request.params as { id: string };

@@ -10,17 +10,23 @@ const MODULES = [
   { key: 'sales.orders', label: 'Sales Orders' },
   { key: 'sales.invoices', label: 'Sales Invoices' },
   { key: 'sales.customers', label: 'Customers' },
+  { key: 'sales.credit-notes', label: 'Credit Notes' },
+  { key: 'sales.challans', label: 'Delivery Challans' },
   { key: 'purchase.orders', label: 'Purchase Orders' },
   { key: 'purchase.invoices', label: 'Purchase Invoices' },
   { key: 'purchase.vendors', label: 'Vendors' },
+  { key: 'purchase.debit-notes', label: 'Debit Notes' },
+  { key: 'purchase.grn', label: 'GRN' },
   { key: 'finance.journals', label: 'Journals' },
   { key: 'finance.accounts', label: 'Chart of Accounts' },
   { key: 'finance.reports', label: 'Reports' },
-  { key: 'inventory.warehouses', label: 'Warehouses' },
-  { key: 'inventory.transfers', label: 'Stock Transfers' },
-  { key: 'products', label: 'Products' },
+  { key: 'finance.bank-reconciliation', label: 'Bank Reconciliation' },
+  { key: 'finance.fixed-assets', label: 'Fixed Assets' },
+  { key: 'inventory.products', label: 'Products' },
   { key: 'hr.employees', label: 'Employees' },
   { key: 'hr.payroll', label: 'Payroll' },
+  { key: 'company.settings', label: 'Settings' },
+  { key: 'company.branches', label: 'Branches' },
 ];
 
 const PERMISSIONS = [
@@ -64,11 +70,14 @@ export default function RolesPage() {
 
   const handleTogglePermission = (module: string, permission: string) => {
     if (!selectedRole) return;
+    const currentRole = roles.find((r: Role) => r.id === selectedRole.id);
+    const currentValue = !!currentRole?.permissions?.[module]?.[permission];
+    
     updatePermissionMutation.mutate({
       roleId: selectedRole.id,
       module,
       permission,
-      value: !(selectedRole as any).permissions?.[module]?.[permission]
+      value: !currentValue
     });
   };
 
@@ -94,7 +103,7 @@ export default function RolesPage() {
             <h2 className="font-bold text-sm">Roles</h2>
           </div>
           <div className="divide-y">
-            {roles.map((role: Role) => (
+            {roles.filter((r: Role) => r.name !== 'Admin').map((role: Role) => (
               <button
                 key={role.id}
                 onClick={() => setSelectedRole(role)}
@@ -142,20 +151,24 @@ export default function RolesPage() {
                   </thead>
                   <tbody className="divide-y">
                     {MODULES.map(module => {
-                      const modulePerms = (selectedRole as any).permissions?.[module.key] || {};
+                      const currentRole = roles.find((r: Role) => r.id === selectedRole.id);
+                      const modulePerms = currentRole?.permissions?.[module.key] || {};
+                      // Allow editing all visible roles
+                      const canEdit = true;
+                      
                       return (
                         <tr key={module.key} className="hover:bg-slate-50">
                           <td className="px-4 py-3 font-medium">{module.label}</td>
                           {PERMISSIONS.map(perm => (
                             <td key={perm.key} className="px-2 py-3 text-center">
                               <button
-                                onClick={() => !selectedRole.isSystem && handleTogglePermission(module.key, perm.key)}
-                                disabled={selectedRole.isSystem}
+                                onClick={() => canEdit && handleTogglePermission(module.key, perm.key)}
+                                disabled={!canEdit}
                                 className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${
                                   modulePerms[perm.key]
                                     ? 'bg-blue-500 text-white'
                                     : 'bg-gray-100 text-gray-300'
-                                } ${!selectedRole.isSystem ? 'hover:bg-blue-600 cursor-pointer' : ''}`}
+                                } ${canEdit ? 'hover:bg-blue-600 cursor-pointer' : ''}`}
                               >
                                 {modulePerms[perm.key] && <Check className="w-4 h-4" />}
                               </button>

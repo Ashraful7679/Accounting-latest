@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-10T14:14:16.672Z",
+  "lastUpdated": "2026-05-10T15:20:30.539Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -210,11 +210,12 @@
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\rbac.service.ts": {
-      "modified": "2026-05-10T14:08:52.644Z",
+      "modified": "2026-05-10T14:25:04.784Z",
       "features": [
-        "Removed global Admin bypass and restricted Admin role to system-level modules"
+        "Removed global Admin bypass and restricted Admin role to system-level modules",
+        "Strict Admin isolation and RolePermission table integration"
       ],
-      "lastChange": "2026-05-10T14:08:52.650Z",
+      "lastChange": "2026-05-10T14:25:04.791Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\dashboard.controller.ts": {
@@ -240,6 +241,22 @@
         "Fixed incorrect relative import paths for database and systemMode"
       ],
       "lastChange": "2026-05-10T14:14:16.671Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\repositories\\CustomerRepository.ts": {
+      "modified": "2026-05-10T14:25:08.731Z",
+      "features": [
+        "Fixed Sales Order filtering and unified mock mode"
+      ],
+      "lastChange": "2026-05-10T14:25:08.731Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\company\\[id]\\settings\\roles\\page.tsx": {
+      "modified": "2026-05-10T14:25:12.646Z",
+      "features": [
+        "Fixed permission matrix reactivity and Admin role hiding"
+      ],
+      "lastChange": "2026-05-10T14:25:12.646Z",
       "agent": "unknown"
     }
   },
@@ -290,6 +307,19 @@
       ],
       "status": "complete",
       "updatedAt": "2026-05-10T11:27:02.972Z"
+    },
+    "RBAC Finalization": {
+      "date": "2026-05-10",
+      "description": "Finalized RBAC logic. Fixed TypeScript errors in product and entity controllers. Synced frontend RolePermission structure with backend constants. Verified production build.",
+      "files": [
+        "backend/src/modules/company/product.controller.ts",
+        "backend/src/modules/company/entity.controller.ts",
+        "backend/src/repositories/VendorRepository.ts",
+        "backend/src/modules/company/rbac.service.ts",
+        "backend/src/modules/company/rbac.controller.ts"
+      ],
+      "status": "complete",
+      "updatedAt": "2026-05-10T15:20:30.539Z"
     }
   },
   "workflows": {

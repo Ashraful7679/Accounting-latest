@@ -23,16 +23,13 @@ export const PERMISSIONS = {
   'finance.fixed-assets': { label: 'Fixed Assets', create: true, view: true, edit: true, delete: false, verify: true, approve: true },
 
   // Products & Settings
-  'products': { label: 'Products', create: true, view: true, edit: true, delete: false, verify: false, approve: false, export: true },
-  'settings': { label: 'Settings', create: false, view: true, edit: true, delete: false, verify: false, approve: false },
+  'inventory.products': { label: 'Products', create: true, view: true, edit: true, delete: false, verify: false, approve: false, export: true },
+  'company.settings': { label: 'Settings', create: false, view: true, edit: true, delete: false, verify: false, approve: false },
+  'company.branches': { label: 'Branches', create: true, view: true, edit: true, delete: false, verify: true, approve: true },
 
   // HR Module
   'hr.employees': { label: 'Employees', create: true, view: true, edit: true, delete: false, verify: false, approve: false, export: true },
   'hr.payroll': { label: 'Payroll', create: true, view: true, edit: true, delete: false, verify: true, approve: true },
-
-  // Admin
-  'admin.users': { label: 'User Management', create: true, view: true, edit: true, delete: false, verify: false, approve: false },
-  'admin.roles': { label: 'Role Management', create: true, view: true, edit: true, delete: false, verify: false, approve: false },
 };
 
 export const ROLE_TEMPLATES = {
@@ -97,32 +94,52 @@ export class RBACService {
     });
     if (userCompany?.isMainOwner) return true;
 
-    // 2. Check user-specific permission overrides first (highest priority)
-    const userPerm = await prisma.userPermission.findFirst({
-      where: { userId, module }
-    });
-    if (userPerm) {
-      const field = `can${action.charAt(0).toUpperCase()}${action.slice(1)}`;
-      return !!(userPerm as any)[field];
+    // 1. System-level Admin check (Strict isolation)
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (user?.isAdmin) {
+      // Admin only has access to admin modules or system tasks
+      if (module.startsWith('admin.') || module === 'security' || module === 'backup') {
+        return true;
+      }
+      return false; // Strict privacy: no access to company modules
     }
 
-    // 3. Fall back to role-level policy (module-aware)
+    // 2. Company Context Bypass
+    if (companyId) {
+      const userCompany = await prisma.userCompany.findFirst({
+        where: { userId, companyId }
+      });
+      
+      // Main owner gets full access to everything in their company
+      if (userCompany?.isMainOwner) {
+        return true;
+      }
+    }
+
+    // 2. Check Role-based permissions (Modern)
     const userRoles = await prisma.userRole.findMany({
       where: { userId },
-      include: { role: true }
+      include: { 
+        role: {
+          include: { rolePermissions: { where: { module } } }
+        } 
+      }
     });
 
     const actionField = `can${action.charAt(0).toUpperCase()}${action.slice(1)}`;
 
     for (const ur of userRoles) {
+      // Owner role always gets full access
+      if (ur.role.name === 'Owner') return true;
+
+      // Check specific role permissions
+      const rp = ur.role.rolePermissions[0];
+      if (rp && (rp as any)[actionField]) return true;
+
+      // Fallback to hardcoded templates if no DB record exists yet
       const template = (ROLE_TEMPLATES as any)[ur.role.name];
       if (template?.permissions && template.permissions[module]) {
         if (template.permissions[module][actionField]) return true;
-      }
-      
-      // Special case for Owner role (global within context)
-      if (ur.role.name === 'Owner') {
-        return true;
       }
     }
 
@@ -130,7 +147,22 @@ export class RBACService {
   }
 
   static async getUserPermissions(userId: string, companyId?: string) {
-    // 1. Owner bypass
+    // 1. Admin bypass (System-level)
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (user?.isAdmin) {
+      const adminAccess: Record<string, any> = {};
+      Object.keys(PERMISSIONS).forEach(mod => {
+        // Admin only gets access to system-level modules
+        const isSystem = mod.startsWith('admin.') || mod === 'company.settings' || mod === 'company.branches' || mod === 'security' || mod === 'backup';
+        adminAccess[mod] = {
+          canCreate: isSystem, canView: isSystem, canEdit: isSystem, canDelete: isSystem,
+          canVerify: isSystem, canApprove: isSystem, canExport: isSystem, canPrint: isSystem
+        };
+      });
+      return adminAccess;
+    }
+
+    // 2. Main Owner bypass
     if (companyId) {
       const userCompany = await prisma.userCompany.findFirst({
         where: { userId, companyId }
@@ -147,13 +179,19 @@ export class RBACService {
       }
     }
 
+    if (!companyId) return {};
+
     const userRoles = await prisma.userRole.findMany({
       where: { userId },
-      include: { role: true }
+      include: { 
+        role: {
+          include: { rolePermissions: true }
+        } 
+      }
     });
 
-    // 2. Owner bypass
-    if (userRoles.some(ur => ur.role.name === 'Owner')) {
+    // 3. Owner role bypass (Company level)
+    if (userRoles.some(ur => (ur as any).role.name === 'Owner')) {
       const fullAccess: Record<string, any> = {};
       Object.keys(PERMISSIONS).forEach(mod => {
         fullAccess[mod] = {
@@ -165,43 +203,55 @@ export class RBACService {
     }
 
     const permissions: Record<string, any> = {};
+    // Pre-initialize all modules to false to ensure consistent return format
+    Object.keys(PERMISSIONS).forEach(mod => {
+      permissions[mod] = {
+        canCreate: false, canView: false, canEdit: false, canDelete: false,
+        canVerify: false, canApprove: false, canExport: false, canPrint: false
+      };
+    });
 
+    // 4. Role-based permissions aggregation
     for (const ur of userRoles) {
-      const template = (ROLE_TEMPLATES as any)[ur.role.name];
-      if (!template?.permissions) continue;
-      for (const [mod, perms] of Object.entries(template.permissions)) {
-        if (!permissions[mod]) {
-          permissions[mod] = {
+      // Aggregate from RolePermission records in DB
+      (ur as any).role.rolePermissions.forEach((rp: any) => {
+        if (!permissions[rp.module]) {
+          permissions[rp.module] = {
             canCreate: false, canView: false, canEdit: false, canDelete: false,
             canVerify: false, canApprove: false, canExport: false, canPrint: false
           };
         }
-        const p = perms as Record<string, boolean>;
-        permissions[mod].canCreate ||= p.canCreate;
-        permissions[mod].canView ||= p.canView;
-        permissions[mod].canEdit ||= p.canEdit;
-        permissions[mod].canDelete ||= p.canDelete;
-        permissions[mod].canVerify ||= p.canVerify;
-        permissions[mod].canApprove ||= p.canApprove;
-        permissions[mod].canExport ||= p.canExport;
-        permissions[mod].canPrint ||= p.canPrint;
-      }
-    }
-
-    const userPerms = await prisma.userPermission.findMany({ where: { userId } });
-    for (const up of userPerms) {
-      if (!permissions[up.module]) {
-        permissions[up.module] = {
-          canCreate: false, canView: false, canEdit: false, canDelete: false,
-          canVerify: false, canApprove: false, canExport: false, canPrint: false
-        };
-      }
-      Object.keys(permissions[up.module]).forEach(key => {
-        const v = (up as any)[key];
-        if (typeof v === 'boolean') {
-          permissions[up.module][key] = v;
-        }
+        permissions[rp.module].canCreate ||= rp.canCreate;
+        permissions[rp.module].canView ||= rp.canView;
+        permissions[rp.module].canEdit ||= rp.canEdit;
+        permissions[rp.module].canDelete ||= rp.canDelete;
+        permissions[rp.module].canVerify ||= rp.canVerify;
+        permissions[rp.module].canApprove ||= rp.canApprove;
+        permissions[rp.module].canExport ||= rp.canExport;
+        permissions[rp.module].canPrint ||= rp.canPrint;
       });
+
+      // Fallback to hardcoded templates
+      const template = (ROLE_TEMPLATES as any)[(ur as any).role.name];
+      if (template?.permissions) {
+        for (const [mod, perms] of Object.entries(template.permissions)) {
+          if (!permissions[mod]) {
+            permissions[mod] = {
+              canCreate: false, canView: false, canEdit: false, canDelete: false,
+              canVerify: false, canApprove: false, canExport: false, canPrint: false
+            };
+          }
+          const p = perms as Record<string, boolean>;
+          permissions[mod].canCreate ||= p.canCreate;
+          permissions[mod].canView ||= p.canView;
+          permissions[mod].canEdit ||= p.canEdit;
+          permissions[mod].canDelete ||= p.canDelete;
+          permissions[mod].canVerify ||= p.canVerify;
+          permissions[mod].canApprove ||= p.canApprove;
+          permissions[mod].canExport ||= p.canExport;
+          permissions[mod].canPrint ||= p.canPrint;
+        }
+      }
     }
 
     return permissions;
@@ -212,7 +262,7 @@ export class RBACService {
       where: { userId },
       include: { role: true }
     });
-    return userRoles.some(ur => roles.includes(ur.role.name));
+    return userRoles.some(ur => roles.includes((ur as any).role.name));
   }
 
   static async getUserRoleLevel(userId: string, companyId: string): Promise<string> {
@@ -226,9 +276,9 @@ export class RBACService {
       include: { role: true }
     });
 
-    if (userRoles.some(ur => ur.role.isSystem)) return 'System';
-    if (userRoles.some(ur => ur.role.name === 'Controller')) return 'Controller';
-    if (userRoles.some(ur => ur.role.name === 'Accountant')) return 'Accountant';
+    if (userRoles.some(ur => (ur as any).role.isSystem)) return 'System';
+    if (userRoles.some(ur => (ur as any).role.name === 'Controller')) return 'Controller';
+    if (userRoles.some(ur => (ur as any).role.name === 'Accountant')) return 'Accountant';
 
     return 'User';
   }

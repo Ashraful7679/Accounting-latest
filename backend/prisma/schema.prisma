@@ -32,6 +32,7 @@ model User {
   isBlocked          Boolean  @default(false)
   blockedIps         String?  // Comma-separated list of IPs
   isSystem           Boolean  @default(false) // If true, hidden from company views
+  isAdmin            Boolean  @default(false) // Global administrative flag
 
   // Reporting Hierarchy
   managerId    String?

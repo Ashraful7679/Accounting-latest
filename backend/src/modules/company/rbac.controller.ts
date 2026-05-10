@@ -2,26 +2,55 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
 import { NotFoundError, ForbiddenError } from '../../middleware/errorHandler';
 import { BaseCompanyController } from './base.controller';
-import { RBACService } from './rbac.service';
+import { RBACService, PERMISSIONS } from './rbac.service';
 
 export class RBACController extends BaseCompanyController {
   async getRoles(request: FastifyRequest, reply: FastifyReply) {
     const roles = await prisma.role.findMany({
       orderBy: { name: 'asc' },
       include: {
-        _count: { select: { userRoles: true } }
+        _count: { select: { userRoles: true } },
+        rolePermissions: true
       }
     });
 
-    const formattedRoles = roles.map(role => ({
-      id: role.id,
-      name: role.name,
-      description: role.description,
-      isSystem: role.isSystem,
-      isActive: role.isActive,
-      permissions: {},
-      userCount: role._count.userRoles
-    }));
+    const formattedRoles = roles.map(role => {
+      const permissions: Record<string, any> = {};
+      
+      // Initialize all modules from PERMISSIONS with default false
+      Object.keys(PERMISSIONS).forEach(m => {
+        permissions[m] = {
+          canView: false, canCreate: false, canEdit: false, canDelete: false,
+          canVerify: false, canApprove: false, canExport: false, canPrint: false
+        };
+      });
+
+      // Fill from existing role permissions in DB
+      (role as any).rolePermissions?.forEach((rp: any) => {
+        if (permissions[rp.module]) {
+          permissions[rp.module] = {
+            canView: rp.canView,
+            canCreate: rp.canCreate,
+            canEdit: rp.canEdit,
+            canDelete: rp.canDelete,
+            canVerify: rp.canVerify,
+            canApprove: rp.canApprove,
+            canExport: rp.canExport,
+            canPrint: rp.canPrint
+          };
+        }
+      });
+
+      return {
+        id: role.id,
+        name: role.name,
+        description: role.description,
+        isSystem: role.isSystem,
+        isActive: role.isActive,
+        permissions,
+        userCount: role._count.userRoles
+      };
+    });
 
     return reply.send({ success: true, data: formattedRoles });
   }
@@ -32,6 +61,7 @@ export class RBACController extends BaseCompanyController {
     const role = await prisma.role.findUnique({
       where: { id: roleId },
       include: {
+        rolePermissions: true,
         userRoles: {
           include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } }
         }
@@ -39,6 +69,20 @@ export class RBACController extends BaseCompanyController {
     });
 
     if (!role) throw new NotFoundError('Role not found');
+
+    const permissions: Record<string, any> = {};
+    (role as any).rolePermissions.forEach((rp: any) => {
+      permissions[rp.module] = {
+        canCreate: rp.canCreate,
+        canView: rp.canView,
+        canEdit: rp.canEdit,
+        canDelete: rp.canDelete,
+        canVerify: rp.canVerify,
+        canApprove: rp.canApprove,
+        canExport: rp.canExport,
+        canPrint: rp.canPrint,
+      };
+    });
 
     return reply.send({
       success: true,
@@ -48,7 +92,7 @@ export class RBACController extends BaseCompanyController {
         description: role.description,
         isSystem: role.isSystem,
         isActive: role.isActive,
-        permissions: {},
+        permissions,
         users: role.userRoles.map(ur => ({
           id: ur.user.id,
           name: `${ur.user.firstName} ${ur.user.lastName}`,
@@ -130,13 +174,20 @@ export class RBACController extends BaseCompanyController {
     const { id: companyId, roleId } = request.params as { id: string; roleId: string };
     const body = request.body as any;
 
-    // Role-level toggle from Roles UI: { module, permission, value }
-    if (body.permission !== undefined && body.module !== undefined && body.userId === undefined) {
-      const { module, permission, value } = body;
-      const permKey = `role:${roleId}`;
-      const existing = await (prisma.userPermission as any).findFirst({
-        where: { userId: permKey, module }
+    // Role-level toggle from Roles UI: { module, action/permission, can/value }
+    if (body.module !== undefined && body.userId === undefined) {
+      const { module } = body;
+      const action = body.action || body.permission;
+      const can = body.can !== undefined ? body.can : body.value;
+
+      if (action === undefined || can === undefined) {
+        return reply.status(400).send({ success: false, message: 'Missing action or can value' });
+      }
+      
+      const existing = await prisma.rolePermission.findUnique({
+        where: { roleId_module: { roleId, module } }
       });
+
       const current: Record<string, boolean> = {
         canCreate: existing?.canCreate ?? false,
         canView: existing?.canView ?? true,
@@ -147,40 +198,26 @@ export class RBACController extends BaseCompanyController {
         canExport: existing?.canExport ?? false,
         canPrint: existing?.canPrint ?? false,
       };
-      current[permission] = value;
-      const result = await (prisma.userPermission as any).upsert({
-        where: { userId_module: { userId: permKey, module } },
+
+      // action might be 'canCreate' or 'create'
+      const fieldName = action.startsWith('can') ? action : `can${action.charAt(0).toUpperCase()}${action.slice(1)}`;
+      
+      if (fieldName in current) {
+        current[fieldName] = can;
+      } else {
+        return reply.status(400).send({ success: false, message: `Invalid permission field: ${fieldName}` });
+      }
+
+      const result = await prisma.rolePermission.upsert({
+        where: { roleId_module: { roleId, module } },
         update: current,
-        create: { userId: permKey, module, ...current },
+        create: { roleId, module, ...current },
       });
+
       return reply.send({ success: true, data: result });
     }
 
-    // User-level override (legacy): { userId, module, canCreate, ... }
-    const {
-      userId: targetUserId, module,
-      canCreate = false, canView = true,
-      canEdit = false, canDelete = false,
-      canVerify = false, canApprove = false,
-      canExport = false, canPrint = false,
-    } = body;
-
-    if (!targetUserId || !module) {
-      return reply.status(400).send({ error: 'userId and module are required' });
-    }
-
-    const targetUser = await prisma.user.findFirst({
-      where: { id: targetUserId, userCompanies: { some: { companyId } } }
-    });
-    if (!targetUser) throw new NotFoundError('User not found in this company');
-
-    const permission = await (prisma.userPermission as any).upsert({
-      where: { userId_module: { userId: targetUserId, module } },
-      update: { canCreate, canView, canEdit, canDelete, canVerify, canApprove, canExport, canPrint },
-      create: { userId: targetUserId, module, canCreate, canView, canEdit, canDelete, canVerify, canApprove, canExport, canPrint },
-    });
-
-    return reply.send({ success: true, data: permission });
+    return reply.status(400).send({ error: 'Invalid permission update request' });
   }
 
   async assignRoleToUser(request: FastifyRequest, reply: FastifyReply) {

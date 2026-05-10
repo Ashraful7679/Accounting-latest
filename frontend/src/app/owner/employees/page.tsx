@@ -43,15 +43,13 @@ const ROLE_PERMISSIONS_DEFAULTS: Record<string, any> = {
   Controller: { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
   Manager:    { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
   Owner:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
-  Admin:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
 };
 
 const MODULES = [
-  'journals', 'invoices', 'bills', 'payments', 'purchase_orders',
-  'customers', 'vendors', 'accounts', 'reports', 'employees',
-  'lc', 'pi', 'loans', 'products', 'attachments',
-  'employee_advances', 'employee_loans', 'employee_expenses',
-  'debit_notes', 'credit_notes', 'fixed_assets', 'grn', 'dn', 'payroll',
+  'sales.orders', 'sales.invoices', 'sales.customers', 'sales.credit-notes', 'sales.challans',
+  'purchase.orders', 'purchase.invoices', 'purchase.vendors', 'purchase.debit-notes', 'purchase.grn',
+  'finance.journals', 'finance.accounts', 'finance.reports', 'finance.bank-reconciliation', 'finance.fixed-assets',
+  'inventory.products', 'hr.employees', 'hr.payroll', 'company.settings', 'company.branches',
 ];
 
 export default function OwnerEmployeesPage() {
@@ -554,7 +552,7 @@ export default function OwnerEmployeesPage() {
                   className="input"
                 >
                   <option value="">Select Role</option>
-                  {rolesData?.map((role) => (
+                  {rolesData?.filter(r => r.name !== 'Admin').map((role) => (
                     <option key={role.id} value={role.id}>
                       {role.name}
                     </option>

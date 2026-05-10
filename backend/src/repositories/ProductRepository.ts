@@ -19,6 +19,13 @@ interface PaginatedResult<T> {
   };
 }
 
+const SYSTEM_MODE = process.env.SYSTEM_MODE || 'LIVE';
+
+export const demoProducts = [
+  { id: "prod-1", code: "PRD-001", name: "Premium Cotton T-Shirt", sku: "TSH-PRM-CTN", unitType: "Pcs", unitPrice: 25.00, currency: "BDT", stockAmount: 1500, isActive: true },
+  { id: "prod-2", code: "PRD-002", name: "Organic Denim Jeans", sku: "JNS-ORG-DNM", unitType: "Pcs", unitPrice: 45.00, currency: "BDT", stockAmount: 800, isActive: true },
+];
+
 export class ProductRepository {
   static async findMany(options: FindManyOptions): Promise<PaginatedResult<any>> {
     const { companyId, page = 1, limit = 20, search, isActive } = options;
@@ -35,34 +42,47 @@ export class ProductRepository {
 
     const skip = (page - 1) * limit;
 
-    const [data, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-        select: {
-          id: true,
-          code: true,
-          name: true,
-          sku: true,
-          description: true,
-          unitType: true,
-          unitPrice: true,
-          stockAmount: true,
-          isActive: true,
-          currency: true,
-          type: true,
-          updatedAt: true,
-          createdAt: true,
-        }
-      }),
-      prisma.product.count({ where })
-    ]);
+    if (SYSTEM_MODE === "LIVE") {
+      try {
+        const [data, total] = await Promise.all([
+          prisma.product.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit,
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              sku: true,
+              description: true,
+              unitType: true,
+              unitPrice: true,
+              stockAmount: true,
+              isActive: true,
+              currency: true,
+              type: true,
+              updatedAt: true,
+              createdAt: true,
+            }
+          }),
+          prisma.product.count({ where })
+        ]);
 
+        return {
+          data,
+          pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+        };
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+      }
+    }
+
+    // Mock Mode
     return {
-      data,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+      data: demoProducts,
+      pagination: { page, limit, total: demoProducts.length, totalPages: 1 }
     };
   }
 

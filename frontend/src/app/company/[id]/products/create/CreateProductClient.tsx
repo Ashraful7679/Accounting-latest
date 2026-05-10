@@ -20,6 +20,7 @@ export default function CreateProductClient() {
   const [mounted, setMounted] = useState(false);
 
   const [formData, setFormData] = useState({
+    code: '',
     name: '',
     sku: '',
     description: '',
@@ -114,6 +115,19 @@ export default function CreateProductClient() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                      Product Code
+                      <InfoTooltip fieldInfo={productFieldInfo.code} />
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.code}
+                      onChange={(e) => setFormData({...formData, code: e.target.value})}
+                      placeholder="Auto-generated if blank"
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
                       Product Name <span className="text-red-500">*</span>
                       <InfoTooltip fieldInfo={productFieldInfo.name} />
                     </label>
@@ -126,6 +140,8 @@ export default function CreateProductClient() {
                       required
                     />
                   </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-bold text-slate-700 mb-1.5">Product/Service Type</label>
                     <div className="flex gap-2">
@@ -133,8 +149,8 @@ export default function CreateProductClient() {
                         type="button"
                         onClick={() => setFormData({...formData, isService: false})}
                         className={`flex-1 py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
-                          !formData.isService 
-                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+                          !formData.isService
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                       >
@@ -145,8 +161,8 @@ export default function CreateProductClient() {
                         type="button"
                         onClick={() => setFormData({...formData, isService: true})}
                         className={`flex-1 py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
-                          formData.isService 
-                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+                          formData.isService
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                       >

@@ -10,10 +10,13 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 export default function BackupDashboard() {
   const queryClient = useQueryClient();
   const [isRestoring, setIsRestoring] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState<string | null>(null);
   const [backupScope, setBackupScope] = useState<'system' | 'company'>('system');
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
 
@@ -56,9 +59,8 @@ export default function BackupDashboard() {
   });
 
   const handleRestore = (fileName: string) => {
-    if (confirm('Are you absolutely sure? This will overwrite the current database. A pre-restore backup will be created automatically.')) {
-      restoreMutation.mutate(fileName);
-    }
+    setRestoreTarget(fileName);
+    setShowRestoreModal(true);
   };
 
   const formatSize = (bytes: number) => {
@@ -225,6 +227,17 @@ export default function BackupDashboard() {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showRestoreModal}
+        title="Restore Backup"
+        message="Are you absolutely sure? This will overwrite the current database. A pre-restore backup will be created automatically."
+        confirmLabel="Restore"
+        variant="danger"
+        isLoading={restoreMutation.isPending}
+        onConfirm={() => restoreTarget && restoreMutation.mutate(restoreTarget)}
+        onCancel={() => { setShowRestoreModal(false); setRestoreTarget(null); }}
+      />
     </div>
   );
 }

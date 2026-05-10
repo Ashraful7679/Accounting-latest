@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 
 function cn(...inputs: ClassValue[]) {
@@ -36,6 +37,12 @@ export default function BackupRestorePage() {
   const [logs, setLogs] = useState<BackupLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState<string | null>(null);
+  const [showRestoreConfirmModal, setShowRestoreConfirmModal] = useState(false);
+  const [restoreConfirmText, setRestoreConfirmText] = useState('');
+  const [selectedFileName, setSelectedFileName] = useState('');
 
   const fetchLogs = useCallback(async () => {
     try {

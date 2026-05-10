@@ -9,6 +9,7 @@ import {
   Trash2, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 interface Product {
   id: string;
@@ -30,7 +31,9 @@ export default function EditProductPage() {
   const productId = params.productId as string;
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [formData, setFormData] = useState({
+    code: '',
     name: '',
     sku: '',
     description: '',
@@ -59,6 +62,7 @@ export default function EditProductPage() {
   useEffect(() => {
     if (product) {
       setFormData({
+        code: product.code || '',
         name: product.name,
         sku: product.sku || '',
         description: product.description || '',
@@ -111,9 +115,7 @@ export default function EditProductPage() {
   };
 
   const handleDelete = () => {
-    if (confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
-      deleteMutation.mutate();
-    }
+    setShowDeleteModal(true);
   };
 
   if (!mounted) return null;
@@ -177,7 +179,18 @@ export default function EditProductPage() {
               </div>
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <div className="md:col-span-2">
+                  <div>
+                    <label className="text-sm font-bold text-slate-700 mb-1.5">Product Code</label>
+                    <input
+                      type="text"
+                      value={formData.code}
+                      onChange={(e) => setFormData({...formData, code: e.target.value})}
+                      placeholder="Auto-generated if blank"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-medium text-slate-600"
+                      disabled
+                    />
+                  </div>
+                  <div>
                     <label className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
                       Product Name <span className="text-red-500">*</span>
                     </label>
@@ -190,7 +203,7 @@ export default function EditProductPage() {
                       required
                     />
                   </div>
-                   <div>
+                  <div>
                     <label className="text-sm font-bold text-slate-700 mb-1.5 text-blue-600">Unit Type</label>
                     <select
                       value={formData.unitType}
@@ -368,6 +381,17 @@ export default function EditProductPage() {
           </button>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Product"
+        message="Are you sure you want to delete this product? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => deleteMutation.mutate()}
+        onCancel={() => setShowDeleteModal(false)}
+      />
     </div>
   );
 }

@@ -120,8 +120,21 @@ export function PaymentModal({ isOpen, onClose, invoiceId, lcId, defaultAmount, 
           </div>
 
           <div className="space-y-2">
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Payment Method</label>
+            <select
+              value={formData.method}
+              onChange={(e) => setFormData({ ...formData, method: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-200 rounded-sm text-xs font-bold uppercase tracking-tight focus:border-gray-900 outline-none transition-colors bg-white"
+            >
+              <option value="CASH">Cash</option>
+              <option value="BANK">Bank</option>
+              <option value="CHEQUE">Cheque</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Account / Bank</label>
-            <select 
+            <select
               required
               value={formData.accountId}
               onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}

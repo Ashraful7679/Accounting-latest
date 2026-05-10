@@ -13,6 +13,7 @@ import { toast } from 'react-hot-toast';
 import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
 import { cn } from '@/lib/utils';
 import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 interface PurchaseRequisition {
   id: string;
@@ -42,6 +43,8 @@ export default function PurchaseRequisitionsPage() {
   const [mounted, setMounted] = useState(false);
 
   const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
   const [selectedPR, setSelectedPR] = useState<PurchaseRequisition | null>(null);
   const [viewMode, setViewMode] = useState<'view' | 'create' | 'edit'>('view');
 
@@ -247,9 +250,7 @@ export default function PurchaseRequisitionsPage() {
 
     if (selectedPR.status === 'DRAFT') {
       actions.push({ label: 'Submit', icon: Send, onClick: () => submitMutation.mutate(selectedPR.id), variant: 'primary' });
-      actions.push({ label: 'Delete', icon: Trash2, onClick: () => {
-        if (confirm('Delete this requisition?')) deleteMutation.mutate(selectedPR.id);
-      }, variant: 'danger' });
+      actions.push({ label: 'Delete', icon: Trash2, onClick: () => setShowDeleteModal(true), variant: 'danger' });
     }
     if (selectedPR.status === 'PENDING') {
       actions.push({ label: 'Approve', icon: CheckCircle2, onClick: () => approveMutation.mutate(selectedPR.id), variant: 'success' });
@@ -495,6 +496,17 @@ export default function PurchaseRequisitionsPage() {
         tabs={selectedPR ? [getLinesTab()] : (showDetailPanel && !selectedPR) ? [getCreateTab()] : []}
         status={selectedPR ? { value: selectedPR.status.toLowerCase() as any, type: selectedPR.status.toLowerCase() as any } : undefined}
         size="lg"
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Requisition"
+        message="Are you sure you want to delete this requisition? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => selectedPR && deleteMutation.mutate(selectedPR.id)}
+        onCancel={() => { setShowDeleteModal(false); }}
       />
     </div>
   );

@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { useCompany } from '@/lib/CompanyContext';
 import { formatCurrency } from '@/lib/decimalUtils';
 import { PaymentModal } from '@/components/PaymentModal';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import React from 'react';
 
 interface Invoice {
@@ -44,6 +45,8 @@ export default function SalesInvoicesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [paymentTarget, setPaymentTarget] = useState<Invoice | null>(null);
+  const [showRevertModal, setShowRevertModal] = useState(false);
+  const [revertTarget, setRevertTarget] = useState<Invoice | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -220,12 +223,8 @@ export default function SalesInvoicesPage() {
 
                       <button className="p-2 text-gray-400 hover:text-gray-900 rounded-sm transition-colors"><Eye className="w-4 h-4" /></button>
                       {(inv.status === 'VERIFIED' || inv.status === 'APPROVED') && (
-                        <button 
-                          onClick={() => {
-                            if (confirm('Reverting will delete associated journal entries and reset stock movements. Continue?')) {
-                              revertMutation.mutate(inv.id);
-                            }
-                          }}
+                        <button
+                          onClick={() => { setRevertTarget(inv); setShowRevertModal(true); }}
                           className="p-2 text-amber-600 hover:bg-amber-50 rounded-sm transition-colors flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest"
                           title="Revert to Draft"
                         >
@@ -250,7 +249,7 @@ export default function SalesInvoicesPage() {
       </div>
 
       {paymentTarget && (
-        <PaymentModal 
+        <PaymentModal
           isOpen={!!paymentTarget}
           onClose={() => setPaymentTarget(null)}
           invoiceId={paymentTarget.id}
@@ -259,6 +258,17 @@ export default function SalesInvoicesPage() {
           defaultAmount={paymentTarget.total}
         />
       )}
+
+      <ConfirmModal
+        isOpen={showRevertModal}
+        title="Revert Invoice"
+        message="Reverting will delete associated journal entries and reset stock movements. Continue?"
+        confirmLabel="Revert"
+        variant="warning"
+        isLoading={revertMutation.isPending}
+        onConfirm={() => revertTarget && revertMutation.mutate(revertTarget.id)}
+        onCancel={() => { setShowRevertModal(false); setRevertTarget(null); }}
+      />
     </div>
   );
 }

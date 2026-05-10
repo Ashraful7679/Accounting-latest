@@ -9,6 +9,7 @@ import { Plus, Edit2, Trash2, Search, Building2, Eye, Save, X, ChevronDown, Chev
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -46,6 +47,7 @@ export default function CompanyAccountsPage() {
 
   // Detail panel state
   const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [viewMode, setViewMode] = useState<'view' | 'edit'>('view');
 
@@ -270,11 +272,7 @@ export default function CompanyAccountsPage() {
 
     return [
       { label: 'Edit Account', icon: Edit2, onClick: handleEdit, variant: 'secondary' },
-      { label: 'Delete', icon: Trash2, onClick: () => {
-        if (confirm('Are you sure you want to delete this account?')) {
-          deleteMutation.mutate(selectedAccount.id);
-        }
-      }, variant: 'danger' },
+      { label: 'Delete', icon: Trash2, onClick: () => setShowDeleteModal(true), variant: 'danger' },
     ];
   };
 
@@ -627,6 +625,17 @@ export default function CompanyAccountsPage() {
         status={selectedAccount ? { value: selectedAccount.isActive ? 'active' : 'inactive', type: selectedAccount.isActive ? 'active' : 'inactive' } : undefined}
         metadata={selectedAccount?.createdAt ? { createdAt: selectedAccount.createdAt } : undefined}
         size="lg"
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Account"
+        message={`Are you sure you want to delete "${selectedAccount?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => selectedAccount && deleteMutation.mutate(selectedAccount.id)}
+        onCancel={() => setShowDeleteModal(false)}
       />
     </div>
   );

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { buildPrintDocument, openPrintWindow } from '@/lib/printUtils';
 import { AttachmentManager } from '@/components/AttachmentManager';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { handleError } from '@/lib/error-handler';
 import toast from 'react-hot-toast';
 import { clsx, type ClassValue } from 'clsx';
@@ -70,7 +71,10 @@ export default function FinancePage() {
   const [formData, setFormData] = useState<any>({});
 
 
-  
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+
+
   const [showPIModal, setShowPIModal] = useState(false);
   const [piFormData, setPIFormData] = useState({ 
     piNumber: '', 
@@ -418,8 +422,8 @@ export default function FinancePage() {
                 <button onClick={() => handleOpenModal(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
                   <Edit2 className="w-5 h-5" />
                 </button>
-                <button 
-                  onClick={() => confirm('Delete this item?') && deleteMutation.mutate(item.id)}
+                <button
+                  onClick={() => { setDeleteTarget(item); setShowDeleteModal(true); }}
                   className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                 >
                   <Trash2 className="w-5 h-5" />
@@ -504,12 +508,11 @@ export default function FinancePage() {
                       <span className="text-[10px] font-bold text-slate-300 italic uppercase bg-slate-50 px-2 py-1 rounded-lg">Standalone PI</span>
                     )}
 
-                    <button 
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (confirm('Are you sure you want to delete this PI?')) {
-                          deleteMutation.mutate(pi.id);
-                        }
+                        setDeleteTarget(pi);
+                        setShowDeleteModal(true);
                       }}
                       className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all ml-2"
                       title="Delete PI"
@@ -925,7 +928,18 @@ export default function FinancePage() {
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+        </AnimatePresence>
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Item"
+        message="Are you sure you want to delete this item? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+      />
     </div>
   );
 }

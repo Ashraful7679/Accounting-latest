@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { Users, Plus, Trash2, Edit, ArrowLeft, LogOut, Key, UserCheck, ShieldAlert, ShieldCheck, Ban, Unlock, Settings2 } from 'lucide-react';
 
 interface Owner {
@@ -29,6 +30,8 @@ export default function AdminOwnersPage() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingOwner, setEditingOwner] = useState<Owner | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [passwordData, setPasswordData] = useState({ password: '', confirmPassword: '' });
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>('');
   const [formData, setFormData] = useState({
@@ -257,9 +260,8 @@ export default function AdminOwnersPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this owner? All related company data will be preserved but access will be removed.')) {
-      deleteMutation.mutate(id);
-    }
+    setDeleteTarget(id);
+    setShowDeleteModal(true);
   };
 
   return (
@@ -621,6 +623,17 @@ export default function AdminOwnersPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Owner"
+        message="Are you sure you want to delete this owner? All related company data will be preserved but access will be removed."
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
+        onCancel={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+      />
     </div>
   );
 }

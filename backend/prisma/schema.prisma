@@ -713,6 +713,13 @@ model SalesOrderLine {
 
   salesOrder SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
   product    Product?   @relation(fields: [productId], references: [id])
+
+  // Soft Delete
+  deletedAt DateTime?
+
+  @@index([salesOrderId])
+  @@index([productId])
+  @@index([deletedAt])
 }
 
 model PurchaseOrderLine {
@@ -733,6 +740,13 @@ model PurchaseOrderLine {
 
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   product       Product?      @relation(fields: [productId], references: [id])
+
+  // Soft Delete
+  deletedAt DateTime?
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -759,12 +773,16 @@ model GRN {
   branchId    String?
   branch      Branch? @relation(fields: [branchId], references: [id])
 
+  // Soft Delete
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([companyId, grnNumber])
   @@index([companyId])
   @@index([branchId])
+  @@index([deletedAt])
 }
 
 model GRNLine {
@@ -776,6 +794,13 @@ model GRNLine {
 
   grn     GRN      @relation(fields: [grnId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id])
+
+  // Soft Delete
+  deletedAt DateTime?
+
+  @@index([grnId])
+  @@index([productId])
+  @@index([deletedAt])
 }
 
 model DN {
@@ -798,12 +823,16 @@ model DN {
   branchId    String?
   branch      Branch? @relation(fields: [branchId], references: [id])
 
+  // Soft Delete
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([companyId, dnNumber])
   @@index([companyId])
   @@index([branchId])
+  @@index([deletedAt])
 }
 
 model DNLine {
@@ -814,6 +843,13 @@ model DNLine {
 
   dn      DN       @relation(fields: [dnId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id])
+
+  // Soft Delete
+  deletedAt DateTime?
+
+  @@index([dnId])
+  @@index([productId])
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -955,6 +991,13 @@ model InvoiceLine {
 
   invoice Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id])
+
+  // Soft Delete
+  deletedAt DateTime?
+
+  @@index([invoiceId])
+  @@index([productId])
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1150,7 +1193,11 @@ model Attachment {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Soft Delete
+  deletedAt DateTime?
+
   @@index([entityType, entityId])
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1252,8 +1299,12 @@ model Notification {
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
+  // Soft Delete
+  deletedAt DateTime?
+
   @@index([companyId])
   @@index([companyId, isRead])
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1584,11 +1635,15 @@ model DebitNoteLine {
   debitNote DebitNote @relation(fields: [debitNoteId], references: [id], onDelete: Cascade)
   product   Product?  @relation(fields: [productId], references: [id])
 
+  // Soft Delete
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([debitNoteId])
   @@index([productId])
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1725,11 +1780,15 @@ model CreditNoteLine {
   creditNote CreditNote @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
   product    Product?   @relation(fields: [productId], references: [id])
 
+  // Soft Delete
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([creditNoteId])
   @@index([productId])
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -1805,7 +1864,11 @@ model FixedAsset {
   depreciationAccount Account? @relation("DepreciationAccount", fields: [depreciationAccountId], references: [id])
   accumulatedAccount  Account? @relation("AccumulatedDepreciation", fields: [accumulatedDepreciationAccountId], references: [id])
 
+  // Soft Delete
+  deletedAt DateTime?
+
   @@unique([companyId, assetNumber])
   @@index([companyId])
   @@index([status])
+  @@index([deletedAt])
 }

@@ -127,23 +127,31 @@ export class RBACController extends BaseCompanyController {
   }
 
   async updatePermission(request: FastifyRequest, reply: FastifyReply) {
-    const { roleId } = request.params as { id: string; roleId: string };
-    const { module, permission, value } = request.body as { module: string; permission: string; value: boolean };
+    const { id: companyId } = request.params as { id: string; roleId: string };
+    const {
+      userId: targetUserId, module,
+      canCreate = false, canView = true,
+      canEdit = false, canDelete = false,
+      canVerify = false, canApprove = false,
+      canExport = false, canPrint = false,
+    } = request.body as any;
 
-    const role = await prisma.role.findUnique({ where: { id: roleId } });
-    if (!role) throw new NotFoundError('Role not found');
-    if (role.isSystem) throw new ForbiddenError('Cannot modify system role permissions');
+    if (!targetUserId || !module) {
+      return reply.status(400).send({ error: 'userId and module are required' });
+    }
 
-    const currentPermissions = (role.permissions as Record<string, Record<string, boolean>>) || {};
-    if (!currentPermissions[module]) currentPermissions[module] = {};
-    currentPermissions[module][permission] = value;
+    const targetUser = await prisma.user.findFirst({
+      where: { id: targetUserId, userCompanies: { some: { companyId } } }
+    });
+    if (!targetUser) throw new NotFoundError('User not found in this company');
 
-    await prisma.role.update({
-      where: { id: roleId },
-      data: { permissions: currentPermissions }
+    const permission = await (prisma.userPermission as any).upsert({
+      where: { userId_module: { userId: targetUserId, module } },
+      update: { canCreate, canView, canEdit, canDelete, canVerify, canApprove, canExport, canPrint },
+      create: { userId: targetUserId, module, canCreate, canView, canEdit, canDelete, canVerify, canApprove, canExport, canPrint },
     });
 
-    return reply.send({ success: true, message: 'Permission updated successfully' });
+    return reply.send({ success: true, data: permission });
   }
 
   async assignRoleToUser(request: FastifyRequest, reply: FastifyReply) {

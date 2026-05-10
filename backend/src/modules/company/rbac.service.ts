@@ -90,33 +90,39 @@ export class RBACService {
     module: string,
     action: 'create' | 'view' | 'edit' | 'delete' | 'verify' | 'approve' | 'export' | 'print'
   ): Promise<boolean> {
+    // 1. Company owner bypass — always full access
     const userCompany = await prisma.userCompany.findUnique({
       where: { userId_companyId: { userId, companyId } }
     });
     if (userCompany?.isMainOwner) return true;
 
-    const userPerm = await prisma.userPermission.findUnique({
-      where: { userId_module: { userId, module } }
+    // 2. Check user-specific permission overrides first (highest priority)
+    const userPerm = await prisma.userPermission.findFirst({
+      where: { userId, module }
     });
-
     if (userPerm) {
-      const field = `can${action.charAt(0).toUpperCase()}${action.slice(1)}` as keyof typeof userPerm;
-      if (typeof userPerm[field] === 'boolean') {
-        return userPerm[field];
-      }
+      const field = `can${action.charAt(0).toUpperCase()}${action.slice(1)}`;
+      return !!(userPerm as any)[field];
     }
 
+    // 3. Fall back to role-level policy
     const userRoles = await prisma.userRole.findMany({
       where: { userId },
       include: { role: true }
     });
 
+    const ROLE_POLICY: Record<string, Record<string, boolean>> = {
+      Admin:      { create: true, view: true, edit: true, delete: true, verify: true, approve: true, export: true, print: true },
+      Owner:      { create: true, view: true, edit: true, delete: true, verify: true, approve: true, export: true, print: true },
+      Controller: { create: true, view: true, edit: false, delete: false, verify: true, approve: true, export: true, print: true },
+      Manager:    { create: true, view: true, edit: true, delete: false, verify: true, approve: false, export: true, print: true },
+      Accountant: { create: true, view: true, edit: true, delete: false, verify: false, approve: false, export: true, print: true },
+      User:       { create: false, view: true, edit: false, delete: false, verify: false, approve: false, export: false, print: false },
+    };
+
     for (const ur of userRoles) {
-      const template = (ROLE_TEMPLATES as any)[ur.role.name];
-      if (template?.permissions?.[module]) {
-        const actionKey = `can${action.charAt(0).toUpperCase()}${action.slice(1)}`;
-        if ((template.permissions[module] as any)[actionKey]) return true;
-      }
+      const policy = ROLE_POLICY[ur.role.name];
+      if (policy && policy[action]) return true;
     }
 
     return false;

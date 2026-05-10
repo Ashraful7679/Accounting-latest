@@ -43,7 +43,6 @@ export class AuthController {
       include: {
         userRoles: { include: { role: true } },
         userCompanies: { include: { company: true } },
-        permissions: true,
       },
     });
 

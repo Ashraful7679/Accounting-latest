@@ -17,12 +17,17 @@ const PERMISSION_MODULES = [
   'employee_advances', 'employee_loans', 'employee_expenses',
 ];
 
-const ROLE_PERMISSIONS: Record<string, { canCreate: boolean; canView: boolean; canVerify: boolean; canApprove: boolean }> = {
-  User:       { canCreate: false, canView: true,  canVerify: false, canApprove: false },
-  Accountant: { canCreate: true,  canView: true,  canVerify: false, canApprove: false },
-  Manager:    { canCreate: true,  canView: true,  canVerify: true,  canApprove: false },
-  Owner:      { canCreate: true,  canView: true,  canVerify: true,  canApprove: true  },
-  Admin:      { canCreate: true,  canView: true,  canVerify: true,  canApprove: true  },
+const ROLE_PERMISSIONS: Record<string, {
+  canCreate: boolean; canView: boolean; canEdit: boolean; canDelete: boolean;
+  canVerify: boolean; canApprove: boolean; canExport: boolean; canPrint: boolean;
+}> = {
+  //            create  view   edit   delete verify approve export print
+  User:       { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
+  Accountant: { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: false, canApprove: false, canExport: true,  canPrint: true  },
+  Controller: { canCreate: true,  canView: true,  canEdit: false, canDelete: false, canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
+  Manager:    { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: false, canExport: true,  canPrint: true  },
+  Owner:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
+  Admin:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
 };
 
 async function seedDefaultPermissions(userId: string, roleName: string): Promise<void> {
@@ -606,7 +611,6 @@ export class OwnerController {
       include: {
         userRoles: { include: { role: true } },
         userCompanies: { include: { company: true } },
-        permissions: true,
         manager: { select: { id: true, firstName: true, lastName: true } },
       },
     });
@@ -628,7 +632,7 @@ export class OwnerController {
         manager: e.manager
           ? { id: e.manager.id, name: `${e.manager.firstName} ${e.manager.lastName}` }
           : null,
-        permissions: e.permissions,
+        permissions: [],
       }));
 
     return reply.send({ success: true, data: formatted });

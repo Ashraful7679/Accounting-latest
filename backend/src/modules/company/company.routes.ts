@@ -316,5 +316,6 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.put('/:id/roles/:roleId/permissions', rbacController.updatePermission.bind(rbacController));
   fastify.post('/:id/roles/:roleId/assign', rbacController.assignRoleToUser.bind(rbacController));
   fastify.delete('/:id/roles/:roleId/assign/:userId', rbacController.removeRoleFromUser.bind(rbacController));
+  // Current user's resolved permissions (role defaults + overrides)
   fastify.get('/:id/my-permissions', rbacController.getMyPermissions.bind(rbacController));
 };

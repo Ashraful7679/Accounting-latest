@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-10T14:10:14.893Z",
+  "lastUpdated": "2026-05-10T14:14:16.672Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -232,6 +232,14 @@
         "Systematically removed Admin role from all company-level workflow and permission checks"
       ],
       "lastChange": "2026-05-10T14:09:03.106Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\modules\\company\\activity-log.service.ts": {
+      "modified": "2026-05-10T14:14:16.665Z",
+      "features": [
+        "Fixed incorrect relative import paths for database and systemMode"
+      ],
+      "lastChange": "2026-05-10T14:14:16.671Z",
       "agent": "unknown"
     }
   },

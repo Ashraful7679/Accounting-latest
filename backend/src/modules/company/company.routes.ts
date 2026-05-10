@@ -262,11 +262,45 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/:id/lcs', lcController.getLCs.bind(lcController));
   fastify.get('/:id/lcs/:lcId', lcController.getLCDetail.bind(lcController));
   fastify.post('/:id/lcs', lcController.createLC.bind(lcController));
+  fastify.put('/:id/lcs/:lcId', lcController.updateLC.bind(lcController));
+  fastify.delete('/:id/lcs/:lcId', lcController.deleteLC.bind(lcController));
+  fastify.post('/:id/lcs/:lcId/approve', lcController.approveLC.bind(lcController));
+  fastify.post('/:id/lcs/:lcId/settle', lcController.settleLC.bind(lcController));
+  fastify.post('/:id/lcs/:lcId/assign-so', lcController.assignSO.bind(lcController));
+  fastify.post('/:id/lcs/:lcId/assign-po', lcController.assignPO.bind(lcController));
 
   // PI (Proforma Invoices)
   fastify.get('/:id/pis', piController.getAllPIs.bind(piController));
   fastify.get('/:id/pis/:piId', piController.getPIDetail.bind(piController));
   fastify.post('/:id/pis', piController.createPI.bind(piController));
+  fastify.put('/:id/pis/:piId', piController.updatePI.bind(piController));
+  fastify.post('/:id/pis/:piId/verify', piController.verifyPI.bind(piController));
+  fastify.post('/:id/pis/:piId/approve', piController.approvePI.bind(piController));
+  fastify.post('/:id/pis/:piId/reject', piController.rejectPI.bind(piController));
+  fastify.delete('/:id/pis/:piId', piController.deletePI.bind(piController));
+
+  // Loans
+  fastify.get('/:id/loans', loanController.getLoans.bind(loanController));
+  fastify.post('/:id/loans', loanController.createLoan.bind(loanController));
+  fastify.put('/:id/loans/:loanId', loanController.updateLoan.bind(loanController));
+  fastify.delete('/:id/loans/:loanId', loanController.deleteLoan.bind(loanController));
+
+  // Payroll
+  fastify.get('/:id/payroll', PayrollController.findAll.bind(PayrollController));
+  fastify.post('/:id/payroll', PayrollController.create.bind(PayrollController));
+  fastify.get('/:id/payroll/:runId', PayrollController.findById.bind(PayrollController));
+  fastify.put('/:id/payroll/:runId', PayrollController.update.bind(PayrollController));
+  fastify.delete('/:id/payroll/:runId', PayrollController.delete.bind(PayrollController));
+  fastify.post('/:id/payroll/process', PayrollController.process.bind(PayrollController));
+  fastify.post('/:id/payroll/:runId/approve', PayrollController.approve.bind(PayrollController));
+  fastify.post('/:id/payslips/:payslipId/pay', PayrollController.markPaid.bind(PayrollController));
+
+  // Bank Reconciliation
+  fastify.get('/:id/reconcile', reconcileController.getReconcileLines.bind(reconcileController));
+  fastify.post('/:id/reconcile/mark', reconcileController.markAsReconciled.bind(reconcileController));
+  fastify.post('/:id/reconcile/unmark', reconcileController.unmarkReconciled.bind(reconcileController));
+  fastify.post('/:id/reconcile/entry', reconcileController.createReconcileEntry.bind(reconcileController));
+  fastify.post('/:id/reconcile/import', reconcileController.importStatement.bind(reconcileController));
 
   // Dimensions
   fastify.get('/:id/projects', dimensionController.getProjects.bind(dimensionController));

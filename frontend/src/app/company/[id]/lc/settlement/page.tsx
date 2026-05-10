@@ -78,7 +78,7 @@ export default function LCSettlementPage() {
   });
 
   const getLCPITotal = (lcId: string): PISummary => {
-    const lcpis = pisData?.filter((pi: any) => pi.lc?.id === lcId) || [];
+    const lcpis = Array.isArray(pisData) ? pisData.filter((pi: any) => pi.lc?.id === lcId) : [];
     const totalPI = lcpis.reduce((sum: number, pi: any) => sum + (pi.amount || 0), 0);
     const totalPaid = lcpis.reduce((sum: number, pi: any) => {
       if (pi.status === 'PAID') return sum + (pi.amount || 0);
@@ -93,7 +93,7 @@ export default function LCSettlementPage() {
   };
 
   const getLCLoanTotal = (lcId: string): LoanSummary => {
-    const lcloans = loansData?.filter((loan: any) => loan.lc?.id === lcId) || [];
+    const lcloans = Array.isArray(loansData) ? loansData.filter((loan: any) => loan.lc?.id === lcId) : [];
     const totalLoan = lcloans.reduce((sum: number, loan: any) => sum + (loan.principalAmount || 0), 0);
     const totalPaid = lcloans.reduce((sum: number, loan: any) => sum + ((loan.principalAmount || 0) - (loan.outstandingBalance || 0)), 0);
     return {
@@ -114,11 +114,11 @@ export default function LCSettlementPage() {
     return styles[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const filteredLCs = lcsData?.filter((lc: LC) => {
+  const filteredLCs = Array.isArray(lcsData) ? lcsData.filter((lc: LC) => {
     return !searchTerm || 
       lc.lcNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lc.bankName?.toLowerCase().includes(searchTerm.toLowerCase());
-  }) || [];
+  }) : [];
 
   if (!mounted) return null;
 

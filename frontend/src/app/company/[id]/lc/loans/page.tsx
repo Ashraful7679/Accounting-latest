@@ -146,13 +146,13 @@ export default function LCLoansPage() {
     return styles[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const filteredLoans = loansData?.filter((loan: LCLoan) => {
+  const filteredLoans = Array.isArray(loansData) ? loansData.filter((loan: LCLoan) => {
     const matchesSearch = !searchTerm || 
       loan.loanNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       loan.bankName?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || loan.status === filterStatus;
     return matchesSearch && matchesStatus;
-  }) || [];
+  }) : [];
 
   if (!mounted) return null;
 

@@ -105,34 +105,63 @@ export class RBACService {
       return !!(userPerm as any)[field];
     }
 
-    // 3. Fall back to role-level policy
+    // 3. Fall back to role-level policy (module-aware)
     const userRoles = await prisma.userRole.findMany({
       where: { userId },
       include: { role: true }
     });
 
-    const ROLE_POLICY: Record<string, Record<string, boolean>> = {
-      Admin:      { create: true, view: true, edit: true, delete: true, verify: true, approve: true, export: true, print: true },
-      Owner:      { create: true, view: true, edit: true, delete: true, verify: true, approve: true, export: true, print: true },
-      Controller: { create: true, view: true, edit: false, delete: false, verify: true, approve: true, export: true, print: true },
-      Manager:    { create: true, view: true, edit: true, delete: false, verify: true, approve: false, export: true, print: true },
-      Accountant: { create: true, view: true, edit: true, delete: false, verify: false, approve: false, export: true, print: true },
-      User:       { create: false, view: true, edit: false, delete: false, verify: false, approve: false, export: false, print: false },
-    };
+    const actionField = `can${action.charAt(0).toUpperCase()}${action.slice(1)}`;
 
     for (const ur of userRoles) {
-      const policy = ROLE_POLICY[ur.role.name];
-      if (policy && policy[action]) return true;
+      const template = (ROLE_TEMPLATES as any)[ur.role.name];
+      if (template?.permissions && template.permissions[module]) {
+        if (template.permissions[module][actionField]) return true;
+      }
+      
+      // Special case for global roles like Admin/Owner
+      if (ur.role.name === 'Admin' || ur.role.name === 'Owner') {
+        return true;
+      }
     }
 
     return false;
   }
 
-  static async getUserPermissions(userId: string, _companyId?: string) {
+  static async getUserPermissions(userId: string, companyId?: string) {
+    // 1. Owner bypass
+    if (companyId) {
+      const userCompany = await prisma.userCompany.findUnique({
+        where: { userId_companyId: { userId, companyId } }
+      });
+      if (userCompany?.isMainOwner) {
+        const fullAccess: Record<string, any> = {};
+        Object.keys(PERMISSIONS).forEach(mod => {
+          fullAccess[mod] = {
+            canCreate: true, canView: true, canEdit: true, canDelete: true,
+            canVerify: true, canApprove: true, canExport: true, canPrint: true
+          };
+        });
+        return fullAccess;
+      }
+    }
+
     const userRoles = await prisma.userRole.findMany({
       where: { userId },
       include: { role: true }
     });
+
+    // 2. Admin bypass (if they have the Admin role)
+    if (userRoles.some(ur => ur.role.name === 'Admin' || ur.role.name === 'Owner')) {
+      const fullAccess: Record<string, any> = {};
+      Object.keys(PERMISSIONS).forEach(mod => {
+        fullAccess[mod] = {
+          canCreate: true, canView: true, canEdit: true, canDelete: true,
+          canVerify: true, canApprove: true, canExport: true, canPrint: true
+        };
+      });
+      return fullAccess;
+    }
 
     const permissions: Record<string, any> = {};
 

@@ -18,8 +18,8 @@ interface Employee {
   role: string;
   companies: { id: string; name: string; code: string }[];
   manager: { id: string; name: string } | null;
-  permissions: { 
-    module: string; 
+  permissions: {
+    module: string;
     canCreate: boolean; canView: boolean; canEdit: boolean; canDelete: boolean;
     canVerify: boolean; canApprove: boolean; canExport: boolean; canPrint: boolean;
   }[];
@@ -37,12 +37,12 @@ interface Role {
 }
 
 const ROLE_PERMISSIONS_DEFAULTS: Record<string, any> = {
-  User:       { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
-  DataEntry:  { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: true  },
-  Accountant: { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: false, canExport: true,  canPrint: true  },
-  Controller: { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
-  Manager:    { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
-  Owner:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
+  User: { canCreate: false, canView: true, canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
+  DataEntry: { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: true },
+  Accountant: { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: true, canApprove: false, canExport: true, canPrint: true },
+  Controller: { canCreate: false, canView: true, canEdit: false, canDelete: false, canVerify: true, canApprove: true, canExport: true, canPrint: true },
+  Manager: { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: true, canApprove: true, canExport: true, canPrint: true },
+  Owner: { canCreate: true, canView: true, canEdit: true, canDelete: true, canVerify: true, canApprove: true, canExport: true, canPrint: true },
 };
 
 const MODULES = [
@@ -73,11 +73,11 @@ export default function OwnerEmployeesPage() {
     roleId: '',
     companyIds: [] as string[],
   });
-  const [permissions, setPermissions] = useState<{ 
-    [key: string]: { 
+  const [permissions, setPermissions] = useState<{
+    [key: string]: {
       canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean;
       canVerify: boolean; canApprove: boolean; canExport: boolean; canPrint: boolean;
-    } 
+    }
   }>({});
 
   const { data: employeesData, isLoading } = useQuery({
@@ -102,11 +102,15 @@ export default function OwnerEmployeesPage() {
       const response = await api.get('/auth/roles');
       return response.data.data as Role[];
     },
+    staleTime: 300000,
   });
 
-  if (rolesError) {
-    console.error('Roles fetch error:', rolesError);
-  }
+  useEffect(() => {
+    if (rolesError) {
+      console.error('Roles fetch error:', rolesError);
+      toast.error('Failed to load roles');
+    }
+  }, [rolesError]);
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -230,7 +234,7 @@ export default function OwnerEmployeesPage() {
     } else {
       setSelectedEmployee(null);
       setIsEditing(false);
-      
+
       // Default permissions based on role might be set during role selection
       setFormData({
         email: '',
@@ -246,14 +250,14 @@ export default function OwnerEmployeesPage() {
 
   const handleRoleChange = (roleId: string) => {
     setFormData({ ...formData, roleId });
-    
+
     // Set default permissions when creating new employee
     if (!isEditing) {
       const roleName = rolesData?.find(r => r.id === roleId)?.name || 'User';
       const defaults = ROLE_PERMISSIONS_DEFAULTS[roleName] || ROLE_PERMISSIONS_DEFAULTS.User;
-      
+
       const newPermissions: typeof permissions = {};
-      
+
       MODULES.forEach(module => {
         newPermissions[module] = {
           canView: true,
@@ -291,12 +295,12 @@ export default function OwnerEmployeesPage() {
 
   const handlePermissionChange = (module: string, field: string, value: boolean) => {
     setPermissions(prev => {
-      const current = prev[module] || { 
+      const current = prev[module] || {
         canView: true, canCreate: false, canEdit: false, canDelete: false,
-        canVerify: false, canApprove: false, canExport: false, canPrint: false 
+        canVerify: false, canApprove: false, canExport: false, canPrint: false
       };
       let updated = { ...current, [field]: value };
-      
+
       // Dependency Logic:
       // 1. If 'View' is deselected, auto-deselect others
       if (field === 'canView' && value === false) {
@@ -308,12 +312,12 @@ export default function OwnerEmployeesPage() {
         updated.canExport = false;
         updated.canPrint = false;
       }
-      
+
       // 2. If any action is selected, auto-select 'View'
       if (field !== 'canView' && value === true) {
         updated.canView = true;
       }
-      
+
       return { ...prev, [module]: updated };
     });
   };
@@ -557,18 +561,16 @@ export default function OwnerEmployeesPage() {
                 >
                   <option value="">Select Role</option>
                   {rolesData && rolesData.length > 0 ? (
-                    rolesData.filter(r => ['Manager', 'Accountant', 'DataEntry', 'User'].includes(r.name)).map((role) => (
+                    rolesData.filter(r => ['manager', 'accountant', 'dataentry', 'user'].includes(r.name.toLowerCase())).map((role) => (
                       <option key={role.id} value={role.id}>
                         {role.name}
                       </option>
                     ))
-                  ) : (
-                    rolesData?.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
-                    ))
-                  )}
+                  ) : rolesData?.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.name}
+                    </option>
+                  ))}
                 </select>
                 {!rolesData && <div className="text-xs text-gray-400 mt-1">Loading roles...</div>}
                 {rolesData && rolesData.length === 0 && <div className="text-xs text-red-500 mt-1">No roles found. Check console.</div>}
@@ -697,7 +699,7 @@ export default function OwnerEmployeesPage() {
                     if (emp.id === selectedEmployee.id) return false;
 
                     // Check shared companies
-                    const hasSharedCompany = emp.companies.some(c => 
+                    const hasSharedCompany = emp.companies.some(c =>
                       selectedEmployee.companies.some(sc => sc.id === c.id)
                     );
                     if (!hasSharedCompany) return false;
@@ -709,7 +711,7 @@ export default function OwnerEmployeesPage() {
                     if (targetRole === 'Manager') {
                       return emp.role === 'Manager' || emp.role === 'Owner';
                     }
-                    
+
                     // Default behavior for other roles
                     return emp.role === 'Manager' || emp.role === 'Owner';
                   }).map((emp) => (

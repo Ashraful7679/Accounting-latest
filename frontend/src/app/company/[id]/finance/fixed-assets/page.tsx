@@ -74,7 +74,10 @@ export default function FixedAssetsPage() {
 
   const { data: assetsRaw, isLoading } = useQuery({
     queryKey: ['fixed-assets', companyId],
-    queryFn: () => api.get(`/company/${companyId}/fixed-assets`).then(r => r.data.data),
+    queryFn: () => api.get(`/company/${companyId}/fixed-assets`).then(r => {
+      const response = r.data.data;
+      return Array.isArray(response) ? response : (response?.data || []);
+    }),
     enabled: !!companyId
   });
   const assets: FixedAsset[] = Array.isArray(assetsRaw) ? assetsRaw : [];

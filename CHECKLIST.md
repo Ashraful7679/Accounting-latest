@@ -8,12 +8,12 @@
 
 ### 1. Accounting / Data Integrity
 - [ ] Every journal is balanced (`SUM(debit) === SUM(credit)`).
-- [ ] Auto-journal paths enforce idempotency (`isJournaled` or equivalent guard).
-- [ ] Multi-step financial writes are wrapped in `prisma.$transaction()`.
+- [x] Auto-journal paths enforce idempotency (`isJournaled` or equivalent guard).
+- [x] Multi-step financial writes are wrapped in `prisma.$transaction()`.
 - [ ] Closed-period validation exists for posting/approval flows.
 
 ### 2. Security / Access
-- [ ] `authenticate` preHandler exists for all protected routes.
+- [x] `authenticate` preHandler exists for all protected routes.
 - [ ] `requirePermission()` is called at the start of sensitive actions.
 - [ ] Company isolation is enforced (`companyId` scope).
 - [ ] Sensitive fields are excluded from responses.
@@ -40,13 +40,13 @@
 - [ ] Viewer/Auditor
 
 ### Permission Matrix (apply per module)
-- [ ] `view`
-- [ ] `create`
-- [ ] `update`
-- [ ] `delete`
-- [ ] `approve`
-- [ ] `verify`
-- [ ] `export` (reports/downloads)
+- [x] `view`
+- [x] `create`
+- [x] `update`
+- [x] `delete`
+- [x] `approve`
+- [x] `verify`
+- [x] `export` (reports/downloads)
 
 ---
 

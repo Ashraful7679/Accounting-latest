@@ -13,6 +13,7 @@ async function main() {
     { name: 'Manager', description: 'Manager - can verify', isSystem: true },
     { name: 'Accountant', description: 'Accountant - can create entries', isSystem: true },
     { name: 'User', description: 'Basic user', isSystem: true },
+    { name: 'DataEntry', description: 'Data Entry Operator', isSystem: true },
   ];
 
   for (const role of roles) {
@@ -29,6 +30,7 @@ async function main() {
     Owner: { canCreate: true, canView: true, canEdit: true, canDelete: true, canVerify: true, canApprove: true, canExport: true, canPrint: true },
     Manager: { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: true, canApprove: true, canExport: true, canPrint: true },
     Accountant: { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: false, canApprove: false, canExport: true, canPrint: true },
+    DataEntry: { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: true },
     User: { canCreate: false, canView: true, canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
   };
 

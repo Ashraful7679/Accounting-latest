@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-10T17:45:52.207Z",
+  "lastUpdated": "2026-05-13T04:41:18.532Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -186,11 +186,12 @@
       "agent": "unknown"
     },
     "frontend\\src\\app\\owner\\employees\\page.tsx": {
-      "modified": "2026-05-10T13:29:53.940Z",
+      "modified": "2026-05-13T04:41:18.162Z",
       "features": [
-        "Updated permission matrix UI with 8 toggles and logical role defaults"
+        "Updated permission matrix UI with 8 toggles and logical role defaults",
+        "Restricted role dropdown to Manager, Accountant, DataEntry, User only"
       ],
-      "lastChange": "2026-05-10T13:29:53.941Z",
+      "lastChange": "2026-05-13T04:41:18.162Z",
       "agent": "unknown"
     },
     "backend\\src\\lib\\coaTemplates.ts": {
@@ -300,11 +301,28 @@
       "agent": "unknown"
     },
     "CHECKLIST.md": {
-      "modified": "2026-05-10T17:45:52.206Z",
+      "modified": "2026-05-13T04:35:09.798Z",
       "features": [
-        "Added comprehensive page inventory with elements, field types/effects, role-permission, UI/UX and validation checklists"
+        "Added comprehensive page inventory with elements, field types/effects, role-permission, UI/UX and validation checklists",
+        "Marked completed items: idempotency, transactions, auth hooks, permission matrix"
       ],
-      "lastChange": "2026-05-10T17:45:52.207Z",
+      "lastChange": "2026-05-13T04:35:09.799Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\company\\[id]\\finance\\fixed-assets\\page.tsx": {
+      "modified": "2026-05-13T04:41:17.719Z",
+      "features": [
+        "Added create/edit form with all asset fields (name, category, purchase date, value, salvage, useful life, depreciation)"
+      ],
+      "lastChange": "2026-05-13T04:41:17.719Z",
+      "agent": "unknown"
+    },
+    "backend\\prisma\\seed.ts": {
+      "modified": "2026-05-13T04:41:18.532Z",
+      "features": [
+        "Added DataEntry role to seed roles and templates"
+      ],
+      "lastChange": "2026-05-13T04:41:18.532Z",
       "agent": "unknown"
     }
   },

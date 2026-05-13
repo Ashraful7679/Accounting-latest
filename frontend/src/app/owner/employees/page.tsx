@@ -552,7 +552,7 @@ export default function OwnerEmployeesPage() {
                   className="input"
                 >
                   <option value="">Select Role</option>
-                  {rolesData?.filter(r => r.name !== 'Admin').map((role) => (
+                  {rolesData?.filter(r => ['Manager', 'Accountant', 'DataEntry', 'User'].includes(r.name)).map((role) => (
                     <option key={role.id} value={role.id}>
                       {role.name}
                     </option>

@@ -96,24 +96,34 @@ export default function OwnerEmployeesPage() {
     },
   });
 
+  const DEFAULT_ROLES: Role[] = [
+    { id: 'role-manager', name: 'Manager' },
+    { id: 'role-accountant', name: 'Accountant' },
+    { id: 'role-dataentry', name: 'DataEntry' },
+    { id: 'role-user', name: 'User' },
+  ];
+
   const { data: rolesData, error: rolesError } = useQuery({
     queryKey: ['roles'],
     queryFn: async () => {
       try {
         const response = await api.get('/auth/roles');
-        return response.data.data as Role[];
+        if (response.data.data?.length > 0) return response.data.data as Role[];
       } catch (err) {
         console.error('Failed to fetch auth roles:', err);
-        if (companiesData && companiesData.length > 0) {
+      }
+      if (companiesData && companiesData.length > 0) {
+        try {
           const companyId = companiesData[0].id;
           const companyResponse = await api.get(`/company/${companyId}/roles`);
-          return companyResponse.data.data as Role[];
+          if (companyResponse.data.data?.length > 0) return companyResponse.data.data as Role[];
+        } catch (err) {
+          console.error('Failed to fetch company roles:', err);
         }
-        throw err;
       }
+      return DEFAULT_ROLES;
     },
     staleTime: 300000,
-    enabled: !!companiesData,
   });
 
   useEffect(() => {

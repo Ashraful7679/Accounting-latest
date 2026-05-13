@@ -570,20 +570,13 @@ export default function OwnerEmployeesPage() {
                   className="input"
                 >
                   <option value="">Select Role</option>
-                  {rolesData && rolesData.length > 0 ? (
-                    rolesData.filter(r => ['manager', 'accountant', 'dataentry', 'user'].includes(r.name.toLowerCase())).map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
-                    ))
-                  ) : rolesData?.map((role) => (
+                  {rolesData?.map((role) => (
                     <option key={role.id} value={role.id}>
                       {role.name}
                     </option>
                   ))}
                 </select>
                 {!rolesData && <div className="text-xs text-gray-400 mt-1">Loading roles...</div>}
-                {rolesData && rolesData.length === 0 && <div className="text-xs text-red-500 mt-1">No roles found. Check console.</div>}
               </div>
               <div>
                 <div className="flex justify-between items-center mb-2">

@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  X, Edit2, Trash2, Printer, Link2, FileText, 
+import {
+  X, Edit2, Trash2, Printer, Link2, FileText,
   Clock, CheckCircle2, AlertCircle, ChevronRight, MoreVertical,
   Save, RefreshCw, Download, Send, Copy, Eye, ChevronLeft
 } from 'lucide-react';
@@ -85,7 +85,7 @@ const sizeClasses = {
 function formatValue(value: unknown, type?: string): React.ReactNode {
   if (value === null || value === undefined || value === '') return '-';
   if (React.isValidElement(value)) return value;
-  
+
   switch (type) {
     case 'currency':
       return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'BDT' }).format(Number(value));
@@ -212,7 +212,7 @@ export default function DetailPanel({
             const currentTab = displayTabs.find(t => t.id === activeTab);
             const hasContent = currentTab?.content !== null && currentTab?.content !== undefined;
             const hasFields = displayFields.length > 0;
-            
+
             if (hasContent) {
               return currentTab?.content;
             } else if (hasFields) {

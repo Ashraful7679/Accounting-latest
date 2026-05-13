@@ -208,18 +208,27 @@ export default function DetailPanel({
         )}
 
         <div className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'details' || displayTabs.length === 0 ? (
-            <div className="space-y-4">
-              {(Array.isArray(displayFields) ? displayFields : []).map((field, idx) => (
-                <div key={idx} className="flex justify-between">
-                  <span className="text-sm font-bold text-slate-500">{field.label}</span>
-                  <span className="text-sm font-medium text-slate-900 text-right">{formatValue(field.value, field.type)}</span>
+          {(() => {
+            const currentTab = displayTabs.find(t => t.id === activeTab);
+            const hasContent = currentTab?.content !== null && currentTab?.content !== undefined;
+            const hasFields = displayFields.length > 0;
+            
+            if (hasContent) {
+              return currentTab?.content;
+            } else if (hasFields) {
+              return (
+                <div className="space-y-4">
+                  {displayFields.map((field, idx) => (
+                    <div key={idx} className="flex justify-between">
+                      <span className="text-sm font-bold text-slate-500">{field.label}</span>
+                      <span className="text-sm font-medium text-slate-900 text-right">{formatValue(field.value, field.type)}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : (
-            displayTabs.find(t => t.id === activeTab)?.content
-          )}
+              );
+            }
+            return null;
+          })()}
         </div>
 
         {displayActions.length > 0 && (

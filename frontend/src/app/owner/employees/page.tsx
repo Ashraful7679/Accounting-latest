@@ -96,13 +96,17 @@ export default function OwnerEmployeesPage() {
     },
   });
 
-  const { data: rolesData } = useQuery({
+  const { data: rolesData, error: rolesError } = useQuery({
     queryKey: ['roles'],
     queryFn: async () => {
       const response = await api.get('/auth/roles');
       return response.data.data as Role[];
     },
   });
+
+  if (rolesError) {
+    console.error('Roles fetch error:', rolesError);
+  }
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -552,12 +556,22 @@ export default function OwnerEmployeesPage() {
                   className="input"
                 >
                   <option value="">Select Role</option>
-                  {rolesData?.filter(r => ['Manager', 'Accountant', 'DataEntry', 'User'].includes(r.name)).map((role) => (
-                    <option key={role.id} value={role.id}>
-                      {role.name}
-                    </option>
-                  ))}
+                  {rolesData && rolesData.length > 0 ? (
+                    rolesData.filter(r => ['Manager', 'Accountant', 'DataEntry', 'User'].includes(r.name)).map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                      </option>
+                    ))
+                  ) : (
+                    rolesData?.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                      </option>
+                    ))
+                  )}
                 </select>
+                {!rolesData && <div className="text-xs text-gray-400 mt-1">Loading roles...</div>}
+                {rolesData && rolesData.length === 0 && <div className="text-xs text-red-500 mt-1">No roles found. Check console.</div>}
               </div>
               <div>
                 <div className="flex justify-between items-center mb-2">

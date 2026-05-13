@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-13T04:41:18.532Z",
+  "lastUpdated": "2026-05-13T04:58:40.736Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -186,12 +186,13 @@
       "agent": "unknown"
     },
     "frontend\\src\\app\\owner\\employees\\page.tsx": {
-      "modified": "2026-05-13T04:41:18.162Z",
+      "modified": "2026-05-13T04:58:40.735Z",
       "features": [
         "Updated permission matrix UI with 8 toggles and logical role defaults",
-        "Restricted role dropdown to Manager, Accountant, DataEntry, User only"
+        "Restricted role dropdown to Manager, Accountant, DataEntry, User only",
+        "Added fallback to show all roles if filtered roles empty, added error handling and debug indicators"
       ],
-      "lastChange": "2026-05-13T04:41:18.162Z",
+      "lastChange": "2026-05-13T04:58:40.736Z",
       "agent": "unknown"
     },
     "backend\\src\\lib\\coaTemplates.ts": {
@@ -323,6 +324,14 @@
         "Added DataEntry role to seed roles and templates"
       ],
       "lastChange": "2026-05-13T04:41:18.532Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\components\\DetailPanel.tsx": {
+      "modified": "2026-05-13T04:58:34.254Z",
+      "features": [
+        "Fixed tab content not rendering - now shows content when available"
+      ],
+      "lastChange": "2026-05-13T04:58:34.255Z",
       "agent": "unknown"
     }
   },

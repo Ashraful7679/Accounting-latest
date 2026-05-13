@@ -154,7 +154,7 @@ export default function OwnerCompaniesPage() {
               Companies
             </Link>
             <Link href="/owner/employees" className="flex items-center gap-2 py-4 border-b-2 border-transparent hover:border-gray-300">
-              Employees
+              Users
             </Link>
             <Link href="/owner/owners" className="flex items-center gap-2 py-4 border-b-2 border-transparent hover:border-gray-300">
               Owners

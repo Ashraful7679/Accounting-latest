@@ -190,7 +190,7 @@ export default function OwnerDashboard() {
             </Link>
             <Link href="/owner/employees" className="flex items-center gap-2 py-4 border-b-2 border-transparent text-gray-900 hover:border-gray-300 font-medium">
               <Users className="w-5 h-5" />
-              Employees
+              Users
             </Link>
             <Link href="/owner/owners" className="flex items-center gap-2 py-4 border-b-2 border-transparent text-gray-900 hover:border-gray-300 font-medium">
               <Settings className="w-5 h-5" />

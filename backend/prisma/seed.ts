@@ -76,18 +76,19 @@ async function main() {
 
   // Create admin user
   const adminPassword = await bcrypt.hash('admin123', 10);
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@accounting.com' },
-    update: {},
-    create: {
-      email: 'admin@accounting.com',
-      password: adminPassword,
-      firstName: 'Admin',
-      lastName: 'User',
-      isActive: true,
-      maxCompanies: 100,
-    },
-  });
+  let admin = await prisma.user.findFirst({ where: { email: 'admin@accounting.com' } });
+  if (!admin) {
+    admin = await prisma.user.create({
+      data: {
+        email: 'admin@accounting.com',
+        password: adminPassword,
+        firstName: 'Admin',
+        lastName: 'User',
+        isActive: true,
+        maxCompanies: 100,
+      },
+    });
+  }
 
   // Assign Admin role
   const adminRole = await prisma.role.findFirst({ where: { name: 'Admin' } });

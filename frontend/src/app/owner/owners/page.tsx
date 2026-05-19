@@ -226,7 +226,7 @@ export default function OwnerOwnersPage() {
               <Building2 className="w-5 h-5" />
               Companies
             </Link>
-            <Link href="/owner/employees" className="flex items-center gap-2 py-4 border-b-2 border-transparent text-gray-900 hover:border-gray-300 font-medium">
+            <Link href="/owner/users" className="flex items-center gap-2 py-4 border-b-2 border-transparent text-gray-900 hover:border-gray-300 font-medium">
               <Users className="w-5 h-5" />
               Users
             </Link>

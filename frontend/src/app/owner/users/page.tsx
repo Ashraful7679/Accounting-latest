@@ -36,14 +36,14 @@ interface Role {
   name: string;
 }
 
-const ROLE_PERMISSIONS_DEFAULTS: Record<string, any> = {
-  'Normal User': { canCreate: false, canView: true, canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
-  'Data Entry': { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: true },
-  Accountant: { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: true, canApprove: false, canExport: true, canPrint: true },
-  'Co-Owner': { canCreate: true, canView: true, canEdit: true, canDelete: true, canVerify: true, canApprove: true, canExport: true, canPrint: true },
-  Manager: { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: true, canApprove: true, canExport: true, canPrint: true },
-  Owner: { canCreate: true, canView: true, canEdit: true, canDelete: true, canVerify: true, canApprove: true, canExport: true, canPrint: true },
-};
+  const ROLE_PERMISSIONS_DEFAULTS: Record<string, any> = {
+    'User': { canCreate: false, canView: true, canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
+    'DataEntry': { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: true },
+    'Accountant': { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: true, canApprove: false, canExport: true, canPrint: true },
+    'Co-Owner': { canCreate: true, canView: true, canEdit: true, canDelete: true, canVerify: true, canApprove: true, canExport: true, canPrint: true },
+    'Manager': { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: true, canApprove: true, canExport: true, canPrint: true },
+    'Owner': { canCreate: true, canView: true, canEdit: true, canDelete: true, canVerify: true, canApprove: true, canExport: true, canPrint: true },
+  };
 
 const MODULES = [
   'sales.orders', 'sales.invoices', 'sales.customers', 'sales.credit-notes', 'sales.challans',
@@ -277,8 +277,8 @@ export default function OwnerUsersPage() {
     setFormData({ ...formData, roleId });
 
     if (!isEditing) {
-      const roleName = rolesData?.find(r => r.id === roleId)?.name || 'Normal User';
-      const defaults = ROLE_PERMISSIONS_DEFAULTS[roleName] || ROLE_PERMISSIONS_DEFAULTS['Normal User'];
+      const roleName = rolesData?.find(r => r.id === roleId)?.name || 'User';
+      const defaults = ROLE_PERMISSIONS_DEFAULTS[roleName] || ROLE_PERMISSIONS_DEFAULTS['User'];
 
       const newPermissions: typeof permissions = {};
 

@@ -12,11 +12,11 @@ import { EquityService } from '../accounting/equity.service';
 import { CoaController } from '../company/coa.controller';
 
 const PERMISSION_MODULES = [
-  'journals', 'invoices', 'bills', 'payments', 'purchase_orders',
-  'customers', 'vendors', 'accounts', 'reports', 'employees',
-  'lc', 'pi', 'loans', 'products', 'attachments',
-  'employee_advances', 'employee_loans', 'employee_expenses',
-  'debit_notes', 'credit_notes', 'fixed_assets', 'grn', 'dn', 'payroll',
+  'sales.orders', 'sales.invoices', 'sales.customers', 'sales.credit-notes', 'sales.challans',
+  'purchase.orders', 'purchase.invoices', 'purchase.vendors', 'purchase.debit-notes', 'purchase.grn',
+  'finance.journals', 'finance.accounts', 'finance.reports', 'finance.bank-reconciliation', 'finance.fixed-assets',
+  'inventory.products', 'inventory.warehouses', 'inventory.transfers',
+  'hr.employees', 'hr.payroll', 'company.settings', 'company.branches',
 ];
 
 const ROLE_PERMISSIONS: Record<string, {
@@ -27,7 +27,7 @@ const ROLE_PERMISSIONS: Record<string, {
   User:       { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
   DataEntry:  { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: true  },
   Accountant: { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: false, canExport: true,  canPrint: true  },
-  Controller: { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
+  'Co-Owner': { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
   Manager:    { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
   Owner:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
   Admin:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },

@@ -423,13 +423,13 @@ export default function JournalsClient() {
     return styles[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const canVerify = (status: string) => 
+  const canVerifyStatus = (status: string) => 
     status === 'PENDING_VERIFICATION' && (userRole === 'Manager' || userRole === 'Owner' || userRole === 'Admin');
   
-  const canApprove = (status: string) => 
+  const canApproveStatus = (status: string) => 
     (status === 'VERIFIED' || status === 'PENDING_APPROVAL') && (userRole === 'Owner' || userRole === 'Admin');
   
-  const canDelete = (status: string) => status === 'DRAFT';
+  const canDeleteStatus = (status: string) => status === 'DRAFT';
 
   useEffect(() => {
     const role = localStorage.getItem('userRole') || JSON.parse(localStorage.getItem('roles') || '[]')[0] || '';
@@ -521,17 +521,17 @@ export default function JournalsClient() {
                               <Send className="w-4 h-4" />
                             </button>
                           )}
-                          {canVerify(journal.status) && (
+                          {canVerifyStatus(journal.status) && (
                             <button onClick={() => verifyMutation.mutate(journal.id)} className="p-1.5 text-emerald-600 hover:text-emerald-800 bg-emerald-50 border border-transparent hover:border-emerald-100 rounded-lg transition-all" title="Verify">
                               <CheckCheck className="w-4 h-4" />
                             </button>
                           )}
-                          {canApprove(journal.status) && (
+                          {canApproveStatus(journal.status) && (
                             <button onClick={() => approveMutation.mutate(journal.id)} className="p-1.5 text-indigo-600 hover:text-indigo-800 bg-indigo-50 border border-transparent hover:border-indigo-100 rounded-lg transition-all" title="Approve">
                               <Check className="w-4 h-4" />
                             </button>
                           )}
-                          {canDelete(journal.status) && (
+                          {canDeleteStatus(journal.status) && (
                             <button onClick={() => { setDeleteTarget(journal.id); setShowDeleteModal(true); }} className="p-1.5 text-rose-600 hover:text-rose-800 bg-rose-50 border border-transparent hover:border-rose-100 rounded-lg transition-all" title="Delete">
                               <Trash2 className="w-4 h-4" />
                             </button>

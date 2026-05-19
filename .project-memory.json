@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-19T04:28:24.400Z",
+  "lastUpdated": "2026-05-19T05:07:11.179Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -348,6 +348,14 @@
         "Fixed session redirect - if user is already logged in, redirect to their appropriate dashboard based on role (Admin, Owner, or Company)"
       ],
       "lastChange": "2026-05-19T04:07:55.776Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\company\\[id]\\journals\\JournalsClient.tsx": {
+      "modified": "2026-05-19T05:07:11.176Z",
+      "features": [
+        "Fixed duplicate identifier error - renamed local status functions canVerify, canApprove, canDelete to canVerifyStatus, canApproveStatus, canDeleteStatus"
+      ],
+      "lastChange": "2026-05-19T05:07:11.179Z",
       "agent": "unknown"
     }
   },

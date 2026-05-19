@@ -101,8 +101,8 @@ export default function OwnerUsersPage() {
     { id: 'role-manager', name: 'Manager' },
     { id: 'role-co-owner', name: 'Co-Owner' },
     { id: 'role-accountant', name: 'Accountant' },
-    { id: 'role-data-entry', name: 'Data Entry' },
-    { id: 'role-normal-user', name: 'Normal User' },
+    { id: 'role-data-entry', name: 'DataEntry' },
+    { id: 'role-normal-user', name: 'User' },
   ];
 
   const { data: rolesData, error: rolesError } = useQuery({
@@ -110,6 +110,7 @@ export default function OwnerUsersPage() {
     queryFn: async () => {
       try {
         const response = await api.get('/auth/roles');
+        console.log('Roles API response:', response.data);
         if (response.data.data?.length > 0) return response.data.data as Role[];
       } catch (err) {
         console.error('Failed to fetch auth roles:', err);
@@ -578,13 +579,14 @@ export default function OwnerUsersPage() {
                   className="input"
                 >
                   <option value="">Select Role</option>
-                  {rolesData?.filter(r => !['admin', 'owner'].includes(r.name.toLowerCase())).map((role) => (
-                    <option key={role.id} value={role.id}>
-                      {role.name}
-                    </option>
-                  ))}
+                  {(rolesData && rolesData.length > 0 ? rolesData : DEFAULT_ROLES)
+                    .filter(r => !['admin', 'owner'].includes(r.name.toLowerCase()))
+                    .map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                      </option>
+                    ))}
                 </select>
-                {!rolesData && <div className="text-xs text-gray-400 mt-1">Loading roles...</div>}
               </div>
               <div>
                 <div className="flex justify-between items-center mb-2">

@@ -110,8 +110,9 @@ export default function OwnerUsersPage() {
     queryFn: async () => {
       try {
         const response = await api.get('/auth/roles');
-        console.log('Roles API response:', response.data);
-        if (response.data.data?.length > 0) return response.data.data as Role[];
+        const apiRoles = response.data.data as Role[] | undefined;
+        const usableRoles = apiRoles?.filter(r => !['admin', 'owner'].includes(r.name.toLowerCase())) || [];
+        if (usableRoles.length > 0) return apiRoles;
       } catch (err) {
         console.error('Failed to fetch auth roles:', err);
       }
@@ -119,7 +120,9 @@ export default function OwnerUsersPage() {
         try {
           const companyId = companiesData[0].id;
           const companyResponse = await api.get(`/company/${companyId}/roles`);
-          if (companyResponse.data.data?.length > 0) return companyResponse.data.data as Role[];
+          const companyRoles = companyResponse.data.data as Role[] | undefined;
+          const usableCompanyRoles = companyRoles?.filter(r => !['admin', 'owner'].includes(r.name.toLowerCase())) || [];
+          if (usableCompanyRoles.length > 0) return companyRoles;
         } catch (err) {
           console.error('Failed to fetch company roles:', err);
         }

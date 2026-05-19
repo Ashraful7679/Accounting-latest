@@ -392,51 +392,53 @@ export default function OwnerUsersPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/owner/dashboard" className="text-gray-900 hover:text-blue-600 transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link href="/owner/profile" className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors">
-              <User className="w-5 h-5" />
-              Profile
-            </Link>
-            <button onClick={handleLogout} className="flex items-center gap-2 text-gray-700 hover:text-red-600 transition-colors">
-              <LogOut className="w-5 h-5" />
-              Logout
-            </button>
+        <div className="max-w-7xl mx-auto px-4 py-3 sm:py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Link href="/owner/dashboard" className="text-gray-900 hover:text-blue-600 transition-colors">
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+              <h1 className="text-lg sm:text-2xl font-bold text-gray-900">Users</h1>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Link href="/owner/profile" className="flex items-center gap-1 sm:gap-2 text-gray-700 hover:text-blue-600 transition-colors">
+                <User className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">Profile</span>
+              </Link>
+              <button onClick={handleLogout} className="flex items-center gap-1 sm:gap-2 text-gray-700 hover:text-red-600 transition-colors">
+                <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       <nav className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-8">
-            <Link href="/owner/dashboard" className="flex items-center gap-2 py-4 border-b-2 border-transparent hover:border-gray-300">
+          <div className="flex gap-4 sm:gap-8 overflow-x-auto no-scrollbar">
+            <Link href="/owner/dashboard" className="flex items-center gap-1 sm:gap-2 py-3 sm:py-4 border-b-2 border-transparent hover:border-gray-300 whitespace-nowrap text-sm sm:text-base">
               Dashboard
             </Link>
-            <Link href="/owner/companies" className="flex items-center gap-2 py-4 border-b-2 border-transparent hover:border-gray-300">
+            <Link href="/owner/companies" className="flex items-center gap-1 sm:gap-2 py-3 sm:py-4 border-b-2 border-transparent hover:border-gray-300 whitespace-nowrap text-sm sm:text-base">
               Companies
             </Link>
-            <Link href="/owner/users" className="flex items-center gap-2 py-4 border-b-2 border-blue-500 text-blue-600">
-              <Users className="w-5 h-5" />
+            <Link href="/owner/users" className="flex items-center gap-1 sm:gap-2 py-3 sm:py-4 border-b-2 border-blue-500 text-blue-600 whitespace-nowrap text-sm sm:text-base">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5" />
               Users
             </Link>
-            <Link href="/owner/owners" className="flex items-center gap-2 py-4 border-b-2 border-transparent hover:border-gray-300">
+            <Link href="/owner/owners" className="flex items-center gap-1 sm:gap-2 py-3 sm:py-4 border-b-2 border-transparent hover:border-gray-300 whitespace-nowrap text-sm sm:text-base">
               Owners
             </Link>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">All Users</h2>
-          <button onClick={() => openCreateModal()} className="btn btn-primary flex items-center gap-2">
-            <Plus className="w-5 h-5" />
+      <main className="max-w-7xl mx-auto px-4 py-4 sm:py-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 sm:mb-6">
+          <h2 className="text-lg sm:text-xl font-semibold">All Users</h2>
+          <button onClick={() => openCreateModal()} className="w-full sm:w-auto btn btn-primary flex items-center justify-center gap-2">
+            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
             Add User
           </button>
         </div>
@@ -445,61 +447,62 @@ export default function OwnerUsersPage() {
           <div className="text-center py-8">Loading...</div>
         ) : (
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Name</th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Email</th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Role</th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Companies</th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Manager</th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Status</th>
-                  <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {(Array.isArray(employeesData) ? employeesData : [])?.filter(e => e.role !== 'Owner').map((employee) => (
-                  <tr key={employee.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      {employee.firstName} {employee.lastName}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{employee.email}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{employee.role}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {employee.companies.map((c) => c.name).join(', ')}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {employee.manager?.name || '-'}
-                    </td>
-                    <td className="px-6 py-4">
-                      {!employee.isActive && (
-                        <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-900 border border-red-200 font-medium">
-                          Inactive
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => openPermissionsModal(employee)}
-                          className="p-1 text-purple-600 hover:text-purple-800"
-                          title="Permissions"
-                        >
-                          <Shield className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => openManagerModal(employee)}
-                          className="p-1 text-blue-600 hover:text-blue-800"
-                          title="Set Manager"
-                        >
-                          <Users className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => openCreateModal(employee)}
-                          className="p-1 text-yellow-600 hover:text-yellow-800"
-                          title="Edit User"
-                        >
-                          <Edit className="w-4 h-4" />
+            <div className="table-scroll">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 whitespace-nowrap">Name</th>
+                    <th className="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 whitespace-nowrap">Email</th>
+                    <th className="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 whitespace-nowrap">Role</th>
+                    <th className="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 whitespace-nowrap">Companies</th>
+                    <th className="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 whitespace-nowrap">Manager</th>
+                    <th className="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 whitespace-nowrap">Status</th>
+                    <th className="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {(Array.isArray(employeesData) ? employeesData : [])?.filter(e => e.role !== 'Owner').map((employee) => (
+                    <tr key={employee.id} className="hover:bg-gray-50">
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium text-gray-900 whitespace-nowrap">
+                        {employee.firstName} {employee.lastName}
+                      </td>
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-500">{employee.email}</td>
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-500 whitespace-nowrap">
+                        <span className="inline-flex px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 font-medium">{employee.role}</span>
+                      </td>
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-500 max-w-[150px] truncate">
+                        {employee.companies.map((c) => c.name).join(', ')}
+                      </td>
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-500">{employee.manager?.name || '-'}</td>
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                        {employee.isActive ? (
+                          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-900 font-medium">Active</span>
+                        ) : (
+                          <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-900 border border-red-200 font-medium">Inactive</span>
+                        )}
+                      </td>
+                      <td className="px-4 sm:px-6 py-3 sm:py-4">
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <button
+                            onClick={() => openPermissionsModal(employee)}
+                            className="p-1.5 text-purple-600 hover:text-purple-800 touch-target"
+                            title="Permissions"
+                          >
+                            <Shield className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => openManagerModal(employee)}
+                            className="p-1.5 text-blue-600 hover:text-blue-800 touch-target"
+                            title="Set Manager"
+                          >
+                            <Users className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => openCreateModal(employee)}
+                            className="p-1.5 text-yellow-600 hover:text-yellow-800 touch-target"
+                            title="Edit User"
+                          >
+                            <Edit className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => {
@@ -517,6 +520,7 @@ export default function OwnerUsersPage() {
                 ))}
               </tbody>
             </table>
+            </div>
             {employeesData?.length === 0 && (
               <div className="text-center py-8 text-gray-500">No users found</div>
             )}
@@ -525,11 +529,16 @@ export default function OwnerUsersPage() {
       </main>
 
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-4">{isEditing ? 'Edit User' : 'Create User'}</h3>
-            <form onSubmit={handleCreateSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white rounded-t-xl sm:rounded-xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between rounded-t-xl">
+              <h3 className="text-lg sm:text-xl font-semibold">{isEditing ? 'Edit User' : 'Create User'}</h3>
+              <button onClick={closeCreateModal} className="p-2 text-gray-400 hover:text-gray-600 touch-target">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <form onSubmit={handleCreateSubmit} className="p-4 sm:p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
                   <input

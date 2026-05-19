@@ -57,6 +57,53 @@ body {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Mobile-friendly touch targets */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Mobile horizontal scroll for tables */
+  .table-scroll {
+    @apply overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0;
+  }
+
+  .table-scroll table {
+    @apply min-w-[640px];
+  }
+
+  /* Mobile card layout for small screens */
+  .mobile-cards table {
+    @apply block;
+  }
+
+  .mobile-cards thead {
+    @apply hidden sm:table-header-group;
+  }
+
+  .mobile-cards tbody {
+    @apply block sm:table-row-group;
+  }
+
+  .mobile-cards tr {
+    @apply block sm:table-row mb-3 p-3 border border-gray-200 rounded-lg bg-white shadow-sm;
+  }
+
+  .mobile-cards td {
+    @apply block sm:table-cell px-2 py-1 sm:px-2 sm:py-1 border-0 sm:border border-gray-200;
+  }
+
+  .mobile-cards td::before {
+    content: attr(data-label);
+    @apply block text-xs font-semibold text-gray-500 uppercase tracking-wider sm:hidden mb-1;
+  }
+}
+
+/* Mobile viewport fix */
+@supports (-webkit-touch-callout: none) {
+  .min-h-screen {
+    min-height: -webkit-fill-available;
+  }
 }
 
 @media print {

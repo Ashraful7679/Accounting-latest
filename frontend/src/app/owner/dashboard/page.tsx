@@ -159,59 +159,64 @@ export default function OwnerDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Owner Dashboard</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-900 font-semibold">
-              Welcome, {user.firstName} {user.lastName}
-            </span>
-            <div className="h-6 w-px bg-gray-200"></div>
-            <Link href="/owner/profile" className="flex items-center gap-2 text-gray-900 hover:text-blue-600 transition-colors font-medium">
-              <User className="w-5 h-5" />
-              Profile
-            </Link>
-            <button onClick={handleLogout} className="flex items-center gap-2 text-gray-900 hover:text-red-600 transition-colors font-medium">
-              <LogOut className="w-5 h-5" />
-              Logout
-            </button>
+        <div className="max-w-7xl mx-auto px-4 py-3 sm:py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg sm:text-2xl font-bold text-gray-900">Owner Dashboard</h1>
+            <div className="flex items-center gap-2 sm:gap-4">
+              <span className="hidden sm:inline text-gray-900 font-semibold">
+                Welcome, {user.firstName} {user.lastName}
+              </span>
+              <div className="hidden sm:block h-6 w-px bg-gray-200"></div>
+              <Link href="/owner/profile" className="flex items-center gap-1 sm:gap-2 text-gray-900 hover:text-blue-600 transition-colors font-medium text-sm sm:text-base">
+                <User className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">Profile</span>
+              </Link>
+              <button onClick={handleLogout} className="flex items-center gap-1 sm:gap-2 text-gray-900 hover:text-red-600 transition-colors font-medium text-sm sm:text-base">
+                <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </div>
+          </div>
+          <div className="sm:hidden mt-2 text-sm text-gray-600">
+            Welcome, {user.firstName} {user.lastName}
           </div>
         </div>
       </header>
 
       <nav className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-8">
-            <Link href="/owner/dashboard" className="flex items-center gap-2 py-4 border-b-2 border-blue-500 text-blue-600 font-semibold">
+          <div className="flex gap-4 sm:gap-8 overflow-x-auto no-scrollbar">
+            <Link href="/owner/dashboard" className="flex items-center gap-1 sm:gap-2 py-3 sm:py-4 border-b-2 border-blue-500 text-blue-600 font-semibold whitespace-nowrap text-sm sm:text-base">
               Dashboard
             </Link>
-            <Link href="/owner/companies" className="flex items-center gap-2 py-4 border-b-2 border-transparent text-gray-900 hover:border-gray-300 font-medium">
-              <Building2 className="w-5 h-5" />
+            <Link href="/owner/companies" className="flex items-center gap-1 sm:gap-2 py-3 sm:py-4 border-b-2 border-transparent text-gray-900 hover:border-gray-300 font-medium whitespace-nowrap text-sm sm:text-base">
+              <Building2 className="w-4 h-4 sm:w-5 sm:h-5" />
               Companies
             </Link>
-            <Link href="/owner/users" className="flex items-center gap-2 py-4 border-b-2 border-transparent text-gray-900 hover:border-gray-300 font-medium">
-              <Users className="w-5 h-5" />
+            <Link href="/owner/users" className="flex items-center gap-1 sm:gap-2 py-3 sm:py-4 border-b-2 border-transparent text-gray-900 hover:border-gray-300 font-medium whitespace-nowrap text-sm sm:text-base">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5" />
               Users
             </Link>
-            <Link href="/owner/owners" className="flex items-center gap-2 py-4 border-b-2 border-transparent text-gray-900 hover:border-gray-300 font-medium">
-              <Settings className="w-5 h-5" />
+            <Link href="/owner/owners" className="flex items-center gap-1 sm:gap-2 py-3 sm:py-4 border-b-2 border-transparent text-gray-900 hover:border-gray-300 font-medium whitespace-nowrap text-sm sm:text-base">
+              <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
               Owners
             </Link>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">Dashboard Overview</h2>
+      <main className="max-w-7xl mx-auto px-4 py-4 sm:py-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 sm:mb-6">
+          <h2 className="text-lg sm:text-xl font-semibold">Dashboard Overview</h2>
           <button 
              onClick={() => setShowCreateModal(true)}
-             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+             className="w-full sm:w-auto px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
           >
             <Building2 className="w-4 h-4" />
             Create New Company
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">

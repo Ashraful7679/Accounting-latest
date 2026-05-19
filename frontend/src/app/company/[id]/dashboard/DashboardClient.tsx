@@ -138,17 +138,17 @@ export default function DashboardClient() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Top Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">
+          <h1 className="text-lg sm:text-xl font-bold text-slate-800">
             {data?.companyName || 'Command Center'}
           </h1>
-          <p className="text-sm text-slate-400 mt-0.5">Dashboard overview</p>
+          <p className="text-xs sm:text-sm text-slate-400 mt-0.5 hidden sm:block">Dashboard overview</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 sm:gap-3">
           <button
             onClick={() => router.push(`/company/${companyId}/audit`)}
-            className="relative p-2 rounded-xl hover:bg-slate-100 transition-colors"
+            className="relative p-2 rounded-xl hover:bg-slate-100 transition-colors touch-target"
           >
             <Bell className="w-5 h-5 text-slate-500" />
             {unreadCount > 0 && (
@@ -159,20 +159,20 @@ export default function DashboardClient() {
           </button>
           <button
             onClick={() => router.push(`/company/${companyId}/settings`)}
-            className="p-2 rounded-xl hover:bg-slate-100 transition-colors"
+            className="p-2 rounded-xl hover:bg-slate-100 transition-colors touch-target"
           >
             <Settings className="w-5 h-5 text-slate-500" />
           </button>
           <button
             onClick={() => { localStorage.clear(); router.push('/login'); }}
-            className="p-2 rounded-xl hover:bg-red-50 hover:text-red-500 transition-colors"
+            className="p-2 rounded-xl hover:bg-red-50 hover:text-red-500 transition-colors touch-target"
           >
             <LogOut className="w-5 h-5 text-slate-500" />
           </button>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8 space-y-6 sm:space-y-8">
 
         {/* Loading State */}
         {isLoading && (

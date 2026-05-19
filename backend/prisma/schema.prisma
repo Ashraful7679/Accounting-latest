@@ -217,6 +217,7 @@ model Company {
   debitNotes DebitNote[]
   payrollRuns PayrollRun[]
   creditNotes CreditNote[]
+  recurringInvoices RecurringInvoice[]
 
   category String? @default("GENERAL")
 }

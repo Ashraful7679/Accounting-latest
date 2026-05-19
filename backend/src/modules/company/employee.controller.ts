@@ -584,7 +584,7 @@ export class EmployeeController extends BaseCompanyController {
     const { id: companyId } = request.params as { id: string };
     const expenses = await prisma.employeeExpense.findMany({
       where: { companyId },
-      include: { employee: true, Account: true },
+      include: { employee: true, account: true },
       orderBy: { date: 'desc' },
     });
     return reply.send({ success: true, data: expenses });

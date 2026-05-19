@@ -64,12 +64,12 @@ export default function PayrollPage() {
 
   const { data: runs = [], isLoading } = useQuery({
     queryKey: ['payroll-runs', companyId],
-    queryFn: () => api.get(`/company/${companyId}/payroll-runs`).then(r => r.data.data),
+    queryFn: () => api.get(`/company/${companyId}/payroll`).then(r => r.data.data),
     enabled: !!companyId
   });
 
   const processMutation = useMutation({
-    mutationFn: (data: any) => api.post(`/company/${companyId}/payroll-runs/process`, data),
+    mutationFn: (data: any) => api.post(`/company/${companyId}/payroll/process`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payroll-runs', companyId] });
       toast.success('Payroll processed');
@@ -79,7 +79,7 @@ export default function PayrollPage() {
   });
 
   const approveMutation = useMutation({
-    mutationFn: (id: string) => api.post(`/company/${companyId}/payroll-runs/${id}/approve`),
+    mutationFn: (id: string) => api.post(`/company/${companyId}/payroll/${id}/approve`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payroll-runs', companyId] });
       toast.success('Approved');
@@ -89,7 +89,7 @@ export default function PayrollPage() {
 
   const markPaidMutation = useMutation({
     mutationFn: ({ runId, payslipId }: { runId: string; payslipId: string }) => 
-      api.post(`/company/${companyId}/payroll-runs/${runId}/payslip/${payslipId}/mark-paid`),
+      api.post(`/company/${companyId}/payslips/${payslipId}/pay`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payroll-runs', companyId] });
       toast.success('Marked as paid');
@@ -98,7 +98,7 @@ export default function PayrollPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/company/${companyId}/payroll-runs/${id}`),
+    mutationFn: (id: string) => api.delete(`/company/${companyId}/payroll/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payroll-runs', companyId] });
       toast.success('Deleted');

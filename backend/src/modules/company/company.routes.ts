@@ -28,12 +28,11 @@ import { EmployeeController } from './employee.controller';
 import { PeriodController } from './period.controller';
 import { DebitNoteController } from './debit-note.controller';
 import { CreditNoteController } from './credit-note.controller';
-import { BankReconciliationController } from './bank-reconciliation.controller';
 import { FixedAssetController } from './fixed-asset.controller';
-import { ExchangeRateController } from './exchange-rate.controller';
 import { PayrollController } from './payroll.controller';
 import { RBACController } from './rbac.controller';
 import { BranchController } from './branch.controller';
+import { InventoryController } from './inventory.controller';
 
 import { authenticate } from '../../middleware/auth';
 
@@ -73,10 +72,10 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   const periodController = new PeriodController();
   const debitNoteController = new DebitNoteController();
   const creditNoteController = new CreditNoteController();
-  const bankReconciliationController = new BankReconciliationController();
   const payrollController = new PayrollController();
   const rbacController = new RBACController();
   const branchController = new BranchController();
+  const inventoryController = new InventoryController();
 
   // Products
   fastify.get('/:id/products', productController.getProducts.bind(productController));
@@ -345,6 +344,44 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/bills/:billId/verify', billsController.verifyBill.bind(billsController));
   fastify.post('/:id/bills/:billId/approve', billsController.approveBill.bind(billsController));
   fastify.post('/:id/bills/:billId/reject', billsController.rejectBill.bind(billsController));
+
+  // Credit Notes
+  fastify.get('/:id/credit-notes', creditNoteController.getCreditNotes.bind(creditNoteController));
+  fastify.post('/:id/credit-notes', creditNoteController.createCreditNote.bind(creditNoteController));
+  fastify.get('/:id/credit-notes/:cnId', creditNoteController.getCreditNote.bind(creditNoteController));
+  fastify.put('/:id/credit-notes/:cnId', creditNoteController.updateCreditNote.bind(creditNoteController));
+  fastify.delete('/:id/credit-notes/:cnId', creditNoteController.deleteCreditNote.bind(creditNoteController));
+  fastify.post('/:id/credit-notes/:cnId/approve', creditNoteController.approveCreditNote.bind(creditNoteController));
+  fastify.post('/:id/credit-notes/:cnId/cancel', creditNoteController.cancelCreditNote.bind(creditNoteController));
+
+  // Debit Notes
+  fastify.get('/:id/debit-notes', debitNoteController.getDebitNotes.bind(debitNoteController));
+  fastify.post('/:id/debit-notes', debitNoteController.createDebitNote.bind(debitNoteController));
+  fastify.get('/:id/debit-notes/:dnId', debitNoteController.getDebitNote.bind(debitNoteController));
+  fastify.put('/:id/debit-notes/:dnId', debitNoteController.updateDebitNote.bind(debitNoteController));
+  fastify.delete('/:id/debit-notes/:dnId', debitNoteController.deleteDebitNote.bind(debitNoteController));
+  fastify.post('/:id/debit-notes/:dnId/approve', debitNoteController.approveDebitNote.bind(debitNoteController));
+  fastify.post('/:id/debit-notes/:dnId/cancel', debitNoteController.cancelDebitNote.bind(debitNoteController));
+
+  // Notifications / Activities
+  fastify.get('/:id/notifications', notificationController.list.bind(notificationController));
+  fastify.get('/:id/activities', notificationController.listActivities.bind(notificationController));
+  fastify.put('/:id/notifications/:notificationId/read', notificationController.markRead.bind(notificationController));
+  fastify.post('/:id/notifications/mark-all-read', notificationController.markAllRead.bind(notificationController));
+  fastify.delete('/:id/notifications/:notificationId', notificationController.delete.bind(notificationController));
+
+  // Warehouses
+  fastify.get('/:id/warehouses', inventoryController.getWarehouses.bind(inventoryController));
+  fastify.post('/:id/warehouses', inventoryController.createWarehouse.bind(inventoryController));
+  fastify.put('/:id/warehouses/:warehouseId', inventoryController.updateWarehouse.bind(inventoryController));
+  fastify.delete('/:id/warehouses/:warehouseId', inventoryController.deleteWarehouse.bind(inventoryController));
+
+  // Stock Transfers
+  fastify.get('/:id/stock-transfers', inventoryController.getStockTransfers.bind(inventoryController));
+  fastify.post('/:id/stock-transfers', inventoryController.createStockTransfer.bind(inventoryController));
+  fastify.get('/:id/stock-transfers/:transferId', inventoryController.getStockTransfer.bind(inventoryController));
+  fastify.post('/:id/stock-transfers/:transferId/approve', inventoryController.approveStockTransfer.bind(inventoryController));
+  fastify.delete('/:id/stock-transfers/:transferId', inventoryController.deleteStockTransfer.bind(inventoryController));
 
   // Role-Based Access Control (RBAC)
   fastify.get('/:id/roles', rbacController.getRoles.bind(rbacController));

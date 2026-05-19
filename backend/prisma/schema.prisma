@@ -214,9 +214,9 @@ model Company {
   deletedAt  DateTime?
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
-  DebitNote  DebitNote[]
-  PayrollRun PayrollRun[]
-  CreditNote CreditNote[]
+  debitNotes DebitNote[]
+  payrollRuns PayrollRun[]
+  creditNotes CreditNote[]
 
   category String? @default("GENERAL")
 }
@@ -592,6 +592,7 @@ model Customer {
   piLines      PILine[]            @relation("CustomerPILines")
   salesOrders  SalesOrder[]
   creditNotes  CreditNote[]        @relation("CustomerCreditNotes")
+  recurringInvoices RecurringInvoice[]
 
   // Portal Access
   portalEnabled Boolean @default(false)
@@ -647,7 +648,7 @@ model Vendor {
 
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
-  DebitNote DebitNote[]
+  debitNotes DebitNote[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -928,6 +929,7 @@ model Product {
   DebitNoteLine   DebitNoteLine[]
   CreditNoteLine  CreditNoteLine[]
   stockTransferLines StockTransferLine[]
+  recurringInvoices  RecurringInvoice[]
 
   @@unique([companyId, code], name: "companyId_code")
   @@index([companyId])
@@ -1654,11 +1656,11 @@ model EmployeeExpense {
 
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
-  Company        Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company        Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyId      String?
-  Account        Account?      @relation(fields: [accountId], references: [id])
+  account        Account?      @relation(fields: [accountId], references: [id])
   accountId      String?
-  JournalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
   journalEntryId String?
 
   @@index([employeeId])
@@ -1938,6 +1940,10 @@ model RecurringInvoice {
   isActive     Boolean   @default(true)
 
   createdById String?
+
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  product    Product?  @relation(fields: [productId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -131,7 +131,7 @@ export default function BackupRestorePage() {
     try {
       const formData = new FormData();
       formData.append('file', uploadFile);
-      const response = await api.post(`/company/${companyId}/backup/upload`, formData, {
+      const response = await api.post(`/company/${companyId}/backup/restore/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       if (response.data.success) {

@@ -30,7 +30,7 @@ function FinancePeriodClosePage() {
   const [closeDate, setCloseDate] = useState('');
   const [description, setDescription] = useState('');
   
-  const { canCreate, canEdit } = usePermissions('finance', companyId);
+  const { canCreate, canEdit } = usePermissions('finance.journals', companyId);
 
   useEffect(() => { setMounted(true); }, []);
 

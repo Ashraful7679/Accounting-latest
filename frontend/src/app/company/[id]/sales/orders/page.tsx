@@ -57,7 +57,7 @@ function SalesOrdersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [mounted, setMounted] = useState(false);
 
-  const { canCreate, canEdit, canDelete } = usePermissions('salesOrders', companyId);
+  const { canCreate, canEdit, canDelete } = usePermissions('sales.orders', companyId);
 
   useEffect(() => { setMounted(true); }, []);
 

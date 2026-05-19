@@ -52,14 +52,14 @@ export default function BankReconcilePage() {
         accountId: selectedAccountId,
         ...filters 
       }).toString();
-      return api.get(`/company/${companyId}/bank/reconcile-lines?${queryParams}`).then(res => res.data.data.lines);
+      return api.get(`/company/${companyId}/reconcile?${queryParams}`).then(res => res.data.data.lines);
     },
     enabled: !!selectedAccountId
   });
 
   const reconcileMutation = useMutation({
     mutationFn: (lineIds: string[]) => 
-      api.post(`/company/${companyId}/bank/mark-reconciled`, { lineIds }),
+      api.post(`/company/${companyId}/reconcile/mark`, { lineIds }),
     onSuccess: () => {
       toast.success('Transactions reconciled successfully');
       setSelectedLines([]);

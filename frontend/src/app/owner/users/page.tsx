@@ -37,10 +37,10 @@ interface Role {
 }
 
 const ROLE_PERMISSIONS_DEFAULTS: Record<string, any> = {
-  User: { canCreate: false, canView: true, canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
-  DataEntry: { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: true },
+  'Normal User': { canCreate: false, canView: true, canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
+  'Data Entry': { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: true },
   Accountant: { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: true, canApprove: false, canExport: true, canPrint: true },
-  Controller: { canCreate: false, canView: true, canEdit: false, canDelete: false, canVerify: true, canApprove: true, canExport: true, canPrint: true },
+  'Co-Owner': { canCreate: true, canView: true, canEdit: true, canDelete: true, canVerify: true, canApprove: true, canExport: true, canPrint: true },
   Manager: { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: true, canApprove: true, canExport: true, canPrint: true },
   Owner: { canCreate: true, canView: true, canEdit: true, canDelete: true, canVerify: true, canApprove: true, canExport: true, canPrint: true },
 };
@@ -49,10 +49,11 @@ const MODULES = [
   'sales.orders', 'sales.invoices', 'sales.customers', 'sales.credit-notes', 'sales.challans',
   'purchase.orders', 'purchase.invoices', 'purchase.vendors', 'purchase.debit-notes', 'purchase.grn',
   'finance.journals', 'finance.accounts', 'finance.reports', 'finance.bank-reconciliation', 'finance.fixed-assets',
-  'inventory.products', 'hr.employees', 'hr.payroll', 'company.settings', 'company.branches',
+  'inventory.products', 'inventory.warehouses', 'inventory.transfers',
+  'hr.employees', 'hr.payroll', 'company.settings', 'company.branches',
 ];
 
-export default function OwnerEmployeesPage() {
+export default function OwnerUsersPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
@@ -98,9 +99,10 @@ export default function OwnerEmployeesPage() {
 
   const DEFAULT_ROLES: Role[] = [
     { id: 'role-manager', name: 'Manager' },
+    { id: 'role-co-owner', name: 'Co-Owner' },
     { id: 'role-accountant', name: 'Accountant' },
-    { id: 'role-dataentry', name: 'DataEntry' },
-    { id: 'role-user', name: 'User' },
+    { id: 'role-data-entry', name: 'Data Entry' },
+    { id: 'role-normal-user', name: 'Normal User' },
   ];
 
   const { data: rolesData, error: rolesError } = useQuery({
@@ -139,11 +141,11 @@ export default function OwnerEmployeesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['owner-employees'] });
-      toast.success('Employee created successfully');
+      toast.success('User created successfully');
       closeCreateModal();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to create employee');
+      toast.error(error.response?.data?.error?.message || 'Failed to create user');
     },
   });
 
@@ -154,11 +156,11 @@ export default function OwnerEmployeesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['owner-employees'] });
-      toast.success('Employee updated successfully');
+      toast.success('User updated successfully');
       closeCreateModal();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to update employee');
+      toast.error(error.response?.data?.error?.message || 'Failed to update user');
     },
   });
 
@@ -169,7 +171,7 @@ export default function OwnerEmployeesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['owner-employees'] });
-      toast.success('Employee status updated');
+      toast.success('User status updated');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error?.message || 'Failed to update status');
@@ -212,10 +214,10 @@ export default function OwnerEmployeesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['owner-employees'] });
-      toast.success('Employee deleted successfully');
+      toast.success('User deleted successfully');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error?.message || 'Failed to delete employee');
+      toast.error(error.response?.data?.error?.message || 'Failed to delete user');
     },
   });
 
@@ -255,7 +257,6 @@ export default function OwnerEmployeesPage() {
       setSelectedEmployee(null);
       setIsEditing(false);
 
-      // Default permissions based on role might be set during role selection
       setFormData({
         email: '',
         password: '',
@@ -271,10 +272,9 @@ export default function OwnerEmployeesPage() {
   const handleRoleChange = (roleId: string) => {
     setFormData({ ...formData, roleId });
 
-    // Set default permissions when creating new employee
     if (!isEditing) {
-      const roleName = rolesData?.find(r => r.id === roleId)?.name || 'User';
-      const defaults = ROLE_PERMISSIONS_DEFAULTS[roleName] || ROLE_PERMISSIONS_DEFAULTS.User;
+      const roleName = rolesData?.find(r => r.id === roleId)?.name || 'Normal User';
+      const defaults = ROLE_PERMISSIONS_DEFAULTS[roleName] || ROLE_PERMISSIONS_DEFAULTS['Normal User'];
 
       const newPermissions: typeof permissions = {};
 
@@ -287,6 +287,7 @@ export default function OwnerEmployeesPage() {
       setPermissions(newPermissions);
     }
   };
+
   const openPermissionsModal = (employee: Employee) => {
     setSelectedEmployee(employee);
     const perms: typeof permissions = {};
@@ -321,8 +322,6 @@ export default function OwnerEmployeesPage() {
       };
       let updated = { ...current, [field]: value };
 
-      // Dependency Logic:
-      // 1. If 'View' is deselected, auto-deselect others
       if (field === 'canView' && value === false) {
         updated.canCreate = false;
         updated.canEdit = false;
@@ -333,7 +332,6 @@ export default function OwnerEmployeesPage() {
         updated.canPrint = false;
       }
 
-      // 2. If any action is selected, auto-select 'View'
       if (field !== 'canView' && value === true) {
         updated.canView = true;
       }
@@ -395,7 +393,7 @@ export default function OwnerEmployeesPage() {
             <Link href="/owner/dashboard" className="text-gray-900 hover:text-blue-600 transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Users</h1>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/owner/profile" className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors">
@@ -419,9 +417,9 @@ export default function OwnerEmployeesPage() {
             <Link href="/owner/companies" className="flex items-center gap-2 py-4 border-b-2 border-transparent hover:border-gray-300">
               Companies
             </Link>
-            <Link href="/owner/employees" className="flex items-center gap-2 py-4 border-b-2 border-blue-500 text-blue-600">
+            <Link href="/owner/users" className="flex items-center gap-2 py-4 border-b-2 border-blue-500 text-blue-600">
               <Users className="w-5 h-5" />
-              Employees
+              Users
             </Link>
             <Link href="/owner/owners" className="flex items-center gap-2 py-4 border-b-2 border-transparent hover:border-gray-300">
               Owners
@@ -432,10 +430,10 @@ export default function OwnerEmployeesPage() {
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">All Employees</h2>
+          <h2 className="text-xl font-semibold">All Users</h2>
           <button onClick={() => openCreateModal()} className="btn btn-primary flex items-center gap-2">
             <Plus className="w-5 h-5" />
-            Add Employee
+            Add User
           </button>
         </div>
 
@@ -495,7 +493,7 @@ export default function OwnerEmployeesPage() {
                         <button
                           onClick={() => openCreateModal(employee)}
                           className="p-1 text-yellow-600 hover:text-yellow-800"
-                          title="Edit Employee"
+                          title="Edit User"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
@@ -505,7 +503,7 @@ export default function OwnerEmployeesPage() {
                             setShowDeleteModal(true);
                           }}
                           className="p-1 text-red-600 hover:text-red-800"
-                          title="Delete Employee"
+                          title="Delete User"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -516,7 +514,7 @@ export default function OwnerEmployeesPage() {
               </tbody>
             </table>
             {employeesData?.length === 0 && (
-              <div className="text-center py-8 text-gray-500">No employees found</div>
+              <div className="text-center py-8 text-gray-500">No users found</div>
             )}
           </div>
         )}
@@ -525,7 +523,7 @@ export default function OwnerEmployeesPage() {
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-4">{isEditing ? 'Edit Employee' : 'Create Employee'}</h3>
+            <h3 className="text-xl font-semibold mb-4">{isEditing ? 'Edit User' : 'Create User'}</h3>
             <form onSubmit={handleCreateSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -636,7 +634,7 @@ export default function OwnerEmployeesPage() {
                   Cancel
                 </button>
                 <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="btn btn-primary flex-1">
-                  {createMutation.isPending || updateMutation.isPending ? 'Saving...' : (isEditing ? 'Update Employee' : 'Create Employee')}
+                  {createMutation.isPending || updateMutation.isPending ? 'Saving...' : (isEditing ? 'Update User' : 'Create User')}
                 </button>
               </div>
             </form>
@@ -652,7 +650,7 @@ export default function OwnerEmployeesPage() {
               {MODULES.map((module) => (
                 <div key={module} className="border rounded-lg p-4">
                   <h4 className="font-medium mb-3 capitalize flex items-center justify-between">
-                    {module.replace('_', ' ')}
+                    {module.replace('_', ' ').replace('.', ' - ')}
                     <span className="text-xs text-gray-500 font-normal">Module Settings</span>
                   </h4>
                   <div className="grid grid-cols-4 gap-y-3 gap-x-2">
@@ -711,7 +709,6 @@ export default function OwnerEmployeesPage() {
                     if (!selectedEmployee) return false;
                     if (emp.id === selectedEmployee.id) return false;
 
-                    // Check shared companies
                     const hasSharedCompany = emp.companies.some(c =>
                       selectedEmployee.companies.some(sc => sc.id === c.id)
                     );
@@ -719,14 +716,13 @@ export default function OwnerEmployeesPage() {
 
                     const targetRole = selectedEmployee.role;
                     if (targetRole === 'Accountant') {
-                      return emp.role === 'Manager' || emp.role === 'Accountant';
+                      return emp.role === 'Manager' || emp.role === 'Accountant' || emp.role === 'Co-Owner';
                     }
                     if (targetRole === 'Manager') {
-                      return emp.role === 'Manager' || emp.role === 'Owner';
+                      return emp.role === 'Manager' || emp.role === 'Co-Owner' || emp.role === 'Owner';
                     }
 
-                    // Default behavior for other roles
-                    return emp.role === 'Manager' || emp.role === 'Owner';
+                    return emp.role === 'Manager' || emp.role === 'Co-Owner' || emp.role === 'Owner';
                   }).map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.firstName} {emp.lastName} ({emp.role})
@@ -749,8 +745,8 @@ export default function OwnerEmployeesPage() {
 
       <ConfirmModal
         isOpen={showDeleteModal}
-        title="Delete Employee"
-        message="Are you sure you want to delete this employee? This action cannot be undone."
+        title="Delete User"
+        message="Are you sure you want to delete this user? This action cannot be undone."
         confirmLabel="Delete"
         variant="danger"
         isLoading={deleteMutation.isPending}

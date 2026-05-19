@@ -4,7 +4,7 @@
 
 > [!IMPORTANT]
 > At the beginning of every session, you MUST:
-> 1. Read **[TASK_CHECKLIST.md](file:///d:/BrainyFlavors/Accounting-Github/AccaBiz%20-%20Copy/TASK_CHECKLIST.md)** to see active issues.
+> 1. Read **[TASK_CHECKLIST.md](file:///d:/BrainyFlavors/Accounting-Github/AccaBiz%20-%20Copy/CHECKLIST.md)** to see active issues.
 > 2. Run `backend/src/config/prisma-middleware.ts` check if any recent schema changes happened.
 > 3. Check recent logs for any new 404/400/500 errors.
 
@@ -58,6 +58,7 @@ npm run build    # next build
 1. **Missing authenticate hook**: Company routes (`company.routes.ts`) must have `fastify.addHook('preHandler', authenticate)` - other route files (admin, owner, system) already have this
 2. **Missing columns**: If Prisma throws "column does not exist", create migration to add missing columns (e.g., `LC.deletedAt`, `Account.referenceId`)
 3. **Route 404**: Check if route exists in controller AND is registered in routes file
+4. **Prisma relation validation**: When adding new models with relations, you MUST add the inverse relation on the related model (e.g., if Warehouse has `company Company`, Company must have `warehouses Warehouse[]`)
 
 ## Environment
 
@@ -93,6 +94,7 @@ frontend/
 - **API**: Axios with baseURL `/api`, token in Authorization header
 - **Forms**: InfoTooltip component in `components/InfoTooltip.tsx` with field definitions in `data/fieldDefinitions.ts`
 - **Company context**: Dynamic company ID from URL params (`[id]`)
+- **Session redirect**: Root page (`/`) checks localStorage token and redirects to appropriate dashboard based on role (Admin → /admin/dashboard, Owner → /owner/dashboard, Company user → /company/{id}/dashboard)
 
 ## Rollback
 
@@ -156,6 +158,12 @@ See [CHECKLIST.md](file:///d:/BrainyFlavors/Accounting-Github/AccaBiz%20-%20Copy
 | `backend/src/modules/company/invoice.controller.ts` | Auto DN/GRN generation with journals |
 | `backend/src/modules/company/credit-note.controller.ts` | Auto-journal on approve |
 | `backend/src/modules/company/debit-note.controller.ts` | Auto-journal on approve |
+| `frontend/src/components/Sidebar.tsx` | Added missing sidebar items (Credit Notes, Purchase PIs, Debit Notes, Payroll, Inventory) |
+| `frontend/src/app/owner/users/page.tsx` | Renamed from employees, updated roles to Manager, Co-Owner, Accountant, Data Entry, Normal User |
+| `frontend/src/app/company/[id]/employees/page.tsx` | Added permission checks (usePermissions hook) |
+| `frontend/src/app/company/[id]/hr/payroll/page.tsx` | Added permission checks (usePermissions hook) |
+| `frontend/src/app/company/[id]/accounts/page.tsx` | Added permission checks (usePermissions hook) |
+| `backend/prisma/schema.prisma` | Added Warehouse and StockTransfer models |
 
 ### Skills Available
 
@@ -166,6 +174,57 @@ See [CHECKLIST.md](file:///d:/BrainyFlavors/Accounting-Github/AccaBiz%20-%20Copy
 | `accabiz-security-audit` | RBAC, Prisma integrity, API security |
 | `accabiz-ui-ux` | UI patterns, button styles, DetailPanel |
 | `accabiz-testing` | Unit tests, integration tests, CI/CD |
+
+### Permission System
+
+**IMPORTANT**: Company pages MUST use the `usePermissions` hook for RBAC. Only 4 of 60+ pages currently implement this.
+
+```tsx
+// Required import
+import { usePermissions } from '@/hooks/usePermissions';
+
+// In component
+const { canCreate, canEdit, canDelete, canVerify, canApprove } = usePermissions('module.name', companyId);
+```
+
+**Permission Modules** (add to each page):
+- `finance.accounts` - Chart of Accounts
+- `finance.journals` - Journal Entries
+- `sales.customers` - Customers
+- `sales.invoices` - Sales Invoices
+- `sales.orders` - Sales Orders
+- `sales.credit-notes` - Credit Notes
+- `purchase.vendors` - Vendors
+- `purchase.invoices` - Purchase Invoices
+- `purchase.orders` - Purchase Orders
+- `purchase.debit-notes` - Debit Notes
+- `hr.employees` - Employee Management
+- `hr.payroll` - Payroll
+- `inventory.products` - Products
+- `inventory.warehouses` - Warehouses (NEW)
+- `lc.*` - LC Management
+- `payments.*` - Payment pages
+- `company.settings` - Settings
+- `company.branches` - Branches
+
+### Warehouse & Stock Transfer (NEW)
+
+Added to schema.prisma:
+- `Warehouse` model - physical warehouse locations
+- `StockTransfer` model - transfer stock between warehouses
+- Routes needed: `/company/{id}/warehouses`, `/company/{id}/stock-transfers`
+
+### Owner Users Page
+
+- Path changed: `/owner/employees` → `/owner/users`
+- Button: "Add Employee" → "Add User"
+- Roles: Manager, Co-Owner, Accountant, Data Entry, Normal User
+
+### Critical Issues to Fix
+
+1. **50+ pages missing permission checks** - most company pages can be accessed without RBAC
+2. **Missing Inventory API** - warehouse and stock transfer endpoints don't exist
+3. **Unused RecurringInvoice model** - exists in schema but no frontend/backend
 
 ### Testing
 

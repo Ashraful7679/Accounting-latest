@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { Plus, Edit2, Trash2, Search, Building2, Eye, Save, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { usePermissions } from '@/hooks/usePermissions';
 import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
 import { ConfirmModal } from '@/components/ConfirmModal';
 
@@ -44,6 +45,8 @@ export default function CompanyAccountsPage() {
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const { canCreate, canEdit, canDelete, canView } = usePermissions('finance.accounts', companyId);
 
   // Detail panel state
   const [showDetailPanel, setShowDetailPanel] = useState(false);
@@ -270,10 +273,10 @@ export default function CompanyAccountsPage() {
       ];
     }
 
-    return [
-      { label: 'Edit Account', icon: Edit2, onClick: handleEdit, variant: 'secondary' },
-      { label: 'Delete', icon: Trash2, onClick: () => setShowDeleteModal(true), variant: 'danger' },
-    ];
+const actions: DetailAction[] = [];
+    if (canEdit) actions.push({ label: 'Edit Account', icon: Edit2, onClick: handleEdit, variant: 'secondary' });
+    if (canDelete) actions.push({ label: 'Delete', icon: Trash2, onClick: () => setShowDeleteModal(true), variant: 'danger' });
+    return actions;
   };
 
   const getEditTab = (): DetailTab | null => {
@@ -531,16 +534,18 @@ export default function CompanyAccountsPage() {
             >
               {syncMutation.isPending ? 'Syncing...' : 'Sync Balances'}
             </button>
-            <button
-              onClick={() => {
-                resetForm();
-                setShowDetailPanel(true);
-              }}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all duration-300 hover:shadow-lg hover:shadow-blue-200 active:scale-95 flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              Add Account
-            </button>
+            {canCreate && (
+              <button
+                onClick={() => {
+                  resetForm();
+                  setShowDetailPanel(true);
+                }}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all duration-300 hover:shadow-lg hover:shadow-blue-200 active:scale-95 flex items-center gap-2"
+              >
+                <Plus className="w-5 h-5" />
+                Add Account
+              </button>
+            )}
           </div>
         </div>
 

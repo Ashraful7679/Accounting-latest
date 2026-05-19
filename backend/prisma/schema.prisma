@@ -185,6 +185,8 @@ model Company {
   projects       Project[]
   costCenters    CostCenter[]
   products       Product[]
+  warehouses    Warehouse[]
+  stockTransfers StockTransfer[]
   bills          Bill[]
   lcs            LC[]
   loans          Loan[]
@@ -929,6 +931,83 @@ model Product {
   @@unique([companyId, code], name: "companyId_code")
   @@index([companyId])
   @@index([companyId, deletedAt])
+}
+
+// ============================================
+// WAREHOUSE MODEL
+// ============================================
+
+model Warehouse {
+  id        String   @id @default(uuid())
+  companyId String
+  name      String
+  code      String?
+  address   String?
+  phone     String?
+  email     String?
+  isActive  Boolean  @default(true)
+  isDefault Boolean  @default(false)
+
+  company        Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  stockTransfersFrom StockTransfer[] @relation("TransferFromWarehouse")
+  stockTransfersTo   StockTransfer[] @relation("TransferToWarehouse")
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@index([companyId, deletedAt])
+}
+
+// ============================================
+// STOCK TRANSFER MODEL
+// ============================================
+
+model StockTransfer {
+  id              String   @id @default(uuid())
+  companyId       String
+  transferNumber  String
+  fromWarehouseId String
+  toWarehouseId   String
+  transferDate    DateTime @default(now())
+  status          String   @default("PENDING") // PENDING, APPROVED, RECEIVED, REJECTED, CANCELLED
+  notes           String?
+
+  company       Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  fromWarehouse Warehouse  @relation("TransferFromWarehouse", fields: [fromWarehouseId], references: [id])
+  toWarehouse   Warehouse  @relation("TransferToWarehouse", fields: [toWarehouseId], references: [id])
+
+  lines         StockTransferLine[]
+
+  approvedById  String?
+  approvedAt    DateTime?
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([companyId, transferNumber])
+  @@index([companyId])
+  @@index([fromWarehouseId])
+  @@index([toWarehouseId])
+  @@index([status])
+}
+
+model StockTransferLine {
+  id              String  @id @default(uuid())
+  stockTransferId String
+  productId       String
+  quantity        Float
+
+  stockTransfer StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id])
+
+  deletedAt DateTime?
+
+  @@index([stockTransferId])
+  @@index([productId])
 }
 
 // ============================================

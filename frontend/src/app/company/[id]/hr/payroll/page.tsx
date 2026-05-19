@@ -7,6 +7,7 @@ import api from '@/lib/api';
 import { Plus, Search, Edit, Trash2, Loader2, CheckCircle2, DollarSign, Users } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
+import { usePermissions } from '@/hooks/usePermissions';
 import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
 
 interface PayrollRun {
@@ -47,6 +48,8 @@ export default function PayrollPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [mounted, setMounted] = useState(false);
+
+  const { canCreate, canEdit, canDelete, canApprove, isLoading: permsLoading } = usePermissions('hr.payroll', companyId);
 
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [selectedRun, setSelectedRun] = useState<PayrollRun | null>(null);
@@ -134,7 +137,7 @@ export default function PayrollPage() {
   ];
 
   const actions: DetailAction[] = viewMode === 'view' ? [
-    ...(selectedRun?.status === 'PROCESSED' ? [
+    ...(selectedRun?.status === 'PROCESSED' && canApprove ? [
       { label: 'Approve', onClick: () => selectedRun && approveMutation.mutate(selectedRun.id), variant: 'primary' as const },
     ] : []),
     ...(selectedRun?.status === 'APPROVED' ? [
@@ -144,7 +147,9 @@ export default function PayrollPage() {
         variant: 'secondary' as const
       }))
     ] : []),
-    { label: 'Delete', onClick: () => selectedRun && deleteMutation.mutate(selectedRun.id), variant: 'danger' as const }
+    ...(canDelete ? [
+      { label: 'Delete', onClick: () => selectedRun && deleteMutation.mutate(selectedRun.id), variant: 'danger' as const }
+    ] : [])
   ] : [];
 
   if (!mounted) return null;
@@ -153,9 +158,11 @@ export default function PayrollPage() {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b">
         <h1 className="text-xl font-semibold">Payroll</h1>
-        <button onClick={() => setProcessModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-          <DollarSign className="w-4 h-4" /> Process Payroll
-        </button>
+        {canCreate && (
+          <button onClick={() => setProcessModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <DollarSign className="w-4 h-4" /> Process Payroll
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-auto">

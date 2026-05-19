@@ -300,7 +300,7 @@ export class AdminController {
     await CoaController.initializeCompanyCOA(company.id, category || 'GENERAL');
 
     // Create default roles for the company
-    const roles = ['Manager', 'Accountant', 'DataEntryOperator'];
+    const roles = ['Manager', 'Co-Owner', 'Accountant', 'Data Entry', 'Normal User'];
     for (const roleName of roles) {
       const existingRole = await prisma.role.findFirst({ where: { name: roleName } });
       if (!existingRole) {

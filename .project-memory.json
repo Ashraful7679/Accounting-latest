@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-19T04:07:55.776Z",
+  "lastUpdated": "2026-05-19T04:28:24.400Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -422,6 +422,26 @@
       ],
       "status": "complete",
       "updatedAt": "2026-05-19T04:01:08.116Z"
+    },
+    "users-management": {
+      "date": "2026-05-19",
+      "description": "Renamed owner/employees to owner/users, updated roles to: Manager, Co-Owner, Accountant, Data Entry, Normal User, updated predefined permissions for each role type",
+      "files": [
+        "frontend/src/app/owner/users/page.tsx",
+        "backend/src/modules/admin/admin.controller.ts"
+      ],
+      "status": "complete",
+      "updatedAt": "2026-05-19T04:22:31.987Z"
+    },
+    "permission-checks-company-hr": {
+      "date": "2026-05-19",
+      "description": "Added permission checks to company HR pages - employees page and payroll page now use usePermissions hook to control access based on role permissions",
+      "files": [
+        "frontend/src/app/company/[id]/employees/page.tsx",
+        "frontend/src/app/company/[id]/hr/payroll/page.tsx"
+      ],
+      "status": "complete",
+      "updatedAt": "2026-05-19T04:28:24.400Z"
     }
   },
   "workflows": {

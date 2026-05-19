@@ -20,6 +20,7 @@ import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
 import { InfoTooltip } from '@/components/InfoTooltip';
 import { journalFieldInfo } from '@/data/fieldDefinitions';
 import { useCompany } from '@/lib/CompanyContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { ConfirmModal } from '@/components/ConfirmModal';
 
 interface Account {
@@ -58,6 +59,7 @@ export default function JournalsClient() {
   const queryClient = useQueryClient();
 
   const { multiBranchEnabled, defaultBranchId } = useCompany();
+  const { canCreate, canEdit, canDelete, canVerify, canApprove } = usePermissions('finance.journals', companyId);
   const [userRole, setUserRole] = useState<string>('');
   const [notifOpen, setNotifOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);

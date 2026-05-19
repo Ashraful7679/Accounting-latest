@@ -31,22 +31,30 @@
 ### User Roles (minimum expected)
 - [ ] System Admin
 - [ ] Owner
-- [ ] Company Admin
-- [ ] Accountant
+- [x] Co-Owner (new - has same permissions as Owner within company)
+- [x] Manager (new - can verify/approve but not delete)
+- [x] Accountant (new - can create/view/edit, verify, export/print)
+- [x] Data Entry (new - can create/view/edit, limited)
+- [x] Normal User (new - view only by default)
 - [ ] Sales
 - [ ] Purchase
 - [ ] Inventory
 - [ ] HR/Payroll
 - [ ] Viewer/Auditor
 
+> **NOTE**: Owner page users renamed from `/owner/employees` to `/owner/users` with roles: Manager, Co-Owner, Accountant, Data Entry, Normal User
+
 ### Permission Matrix (apply per module)
 - [x] `view`
 - [x] `create`
-- [x] `update`
+- [x] `edit` (formerly update)
 - [x] `delete`
 - [x] `approve`
 - [x] `verify`
 - [x] `export` (reports/downloads)
+- [x] `print`
+
+> **IMPORTANT**: Company pages MUST use `usePermissions('module.name', companyId)` hook. 50+ pages currently missing this!
 
 ---
 
@@ -79,7 +87,7 @@
 > Format: **Page** → Core Elements | Field Types | Field Effects | Roles/Permissions.
 
 ### Public / Authentication
-- [ ] `frontend/src/app/page.tsx` → Landing content, navigation CTA | N/A | Route to login/dashboard | Public.
+- [x] `frontend/src/app/page.tsx` → Session-aware redirect | token check | Routes to Admin/Owner/Company dashboard based on role | Public.
 - [ ] `frontend/src/app/login/page.tsx` → Login form | email/text, password | session token issuance, redirect | Public (no auth required).
 
 ### Portal Pages
@@ -95,7 +103,7 @@
 - [ ] `frontend/src/app/admin/settings/page.tsx` + `/settings/account` + `/settings/backup` → settings forms | text/toggle/select | platform config effects | System Admin (`view/update`).
 - [ ] `frontend/src/app/owner/dashboard/page.tsx` → owner KPI/dashboard | filters | aggregate visibility | Owner (`view`).
 - [ ] `frontend/src/app/owner/companies/page.tsx` → owner company list | search/filter | scoped company access | Owner (`view`).
-- [ ] `frontend/src/app/owner/owners/page.tsx` / `/owner/employees` / `/owner/profile` → people/profile CRUD | text/email/select/status | account/profile updates | Owner (`view/update`, limited create/delete).
+- [ ] `frontend/src/app/owner/owners/page.tsx` / `/owner/users` (RENAMED from `/owner/employees`) / `/owner/profile` → user CRUD | text/email/role/status | user management with role-based permissions | Owner (`view/create/update/delete`).
 
 ### Company Core
 - [ ] `frontend/src/app/company/[id]/dashboard/page.tsx` → KPI cards/charts/activity | date/range filters | no transactional write by default | Company roles (`view`).
@@ -107,9 +115,10 @@
 ### Accounting / Finance
 - [ ] `frontend/src/app/company/[id]/accounts/page.tsx` → chart of accounts list/form | code/name/category/status | account structure changes; posting impact | Accountant/Admin (`view/create/update`).
 - [ ] `frontend/src/app/company/[id]/journals/page.tsx` + `/journals/create` → journal list + entry form | date/account/select/amount/line items | GL posting, balances affected | Accountant (`view/create/approve`).
-- [ ] `frontend/src/app/company/[id]/finance/page.tsx` → finance hub | N/A | navigation only | Finance roles (`view`).
-- [ ] `frontend/src/app/company/[id]/finance/period-close/page.tsx` + `/closing/page.tsx` → period lock controls | period/date/status | blocks posting in closed periods | Finance Admin (`view/approve/update`).
-- [ ] `frontend/src/app/company/[id]/finance/bank-reconciliation/page.tsx` + `/bank/reconcile/page.tsx` → statement match UI | date/amount/reference/status | reconciliation state + clearing effects | Accountant (`view/update/approve`).
+- [x] `frontend/src/app/company/[id]/finance/page.tsx` → REMOVED (empty placeholder, not used)
+- [ ] `frontend/src/app/company/[id]/finance/period-close/page.tsx` → period lock controls | period/date/status | blocks posting in closed periods | Finance Admin (`view/approve/update`).
+- [x] `frontend/src/app/company/[id]/finance/bank-reconciliation/page.tsx` → REMOVED (use `/bank/reconcile/page.tsx` instead)
+- [ ] `frontend/src/app/company/[id]/bank/reconcile/page.tsx` → statement match UI | date/amount/reference/status | reconciliation state + clearing effects | Accountant (`view/update/approve`).
 - [ ] `frontend/src/app/company/[id]/finance/fixed-assets/page.tsx` → asset register/depreciation controls | text/date/currency/status | depreciation journal and asset lifecycle effects | Finance/Admin (`view/create/update/approve`).
 - [ ] `frontend/src/app/company/[id]/receivables-search/page.tsx` → receivables lookup/filter | text/date/status | inquiry only unless collection action exists | Accountant/Sales (`view`).
 
@@ -138,9 +147,11 @@
 
 ### Inventory / Products
 - [ ] `frontend/src/app/company/[id]/products/page.tsx` + `/products/create` + `/products/[productId]/edit` → item master CRUD | SKU, name, UOM, price, tax, status | stock valuation/reporting basis | Inventory/Admin (`view/create/update`).
-- [ ] `frontend/src/app/company/[id]/inventory/warehouses/page.tsx` → warehouse master | name/location/status | stock location structure changes | Inventory/Admin (`view/create/update`).
-- [ ] `frontend/src/app/company/[id]/inventory/transfers/page.tsx` → transfer form/list | from/to warehouse, item, qty, date | inter-warehouse stock movement | Inventory (`view/create/approve`).
-- [ ] `frontend/src/app/company/[id]/inventory/reconciliation/page.tsx` → stock adjustment/reconciliation | item, counted qty, variance reason | inventory adjustment + accounting impact | Inventory/Accountant (`create/approve`).
+- [ ] `frontend/src/app/company/[id]/inventory/warehouses/page.tsx` → warehouse master | name/location/status | stock location structure | Inventory/Admin (`view/create/update`) - **API NEEDED**: `/company/{id}/warehouses`
+- [ ] `frontend/src/app/company/[id]/inventory/transfers/page.tsx` → transfer form/list | from/to warehouse, item, qty, date | inter-warehouse stock movement | Inventory (`view/create/approve`) - **API NEEDED**: `/company/{id}/stock-transfers`
+- [ ] `frontend/src/app/company/[id]/inventory/reconciliation/page.tsx` → stock adjustment/reconciliation | item, counted qty, variance reason | inventory adjustment + accounting impact | Inventory/Accountant (`create/approve`) - **API NEEDED**
+
+> **NOTE**: Warehouse and StockTransfer models added to schema.prisma - backend controller/routes need to be created.
 
 ### HR / Employees / Payroll
 - [ ] `frontend/src/app/company/[id]/employees/page.tsx` → employee master CRUD | bio, role, payroll fields, status | payroll + payable mappings | HR/Admin (`view/create/update`).
@@ -169,10 +180,13 @@ cd backend && npm run build
 # Frontend
 cd frontend && npm run build
 
-# Security spot-check
+# Security spot-check - permissions on company pages
+rg "usePermissions" frontend/src/app/company
+
+# Old - auth hook check
 rg "requirePermission\\(|addHook\\('preHandler', authenticate\\)" backend/src
 
 # Update project memory after checklist/doc updates
-node hooks/memory-update.js --update --file="CHECKLIST.md" --feature="Added page inventory with elements, fields, effects, roles, permissions, UI/UX checklists"
+node hooks/memory-update.js --update --file="CHECKLIST.md" --feature="Updated page inventory, roles, permission system, removed deprecated pages"
 ```
 

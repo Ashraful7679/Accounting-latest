@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { handleError } from '@/lib/error-handler';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Plus, Trash2, Edit2, Check, X, User, DollarSign, Wallet, CreditCard, FileText, ChevronRight } from 'lucide-react';
 import { InfoTooltip } from '@/components/InfoTooltip';
 import { employeeFieldInfo } from '@/data/fieldDefinitions';
@@ -75,6 +76,8 @@ export default function EmployeesPage() {
   const [modalType, setModalType] = useState<'employee' | 'advance' | 'loan' | 'expense'>('employee');
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
+
+  const { canCreate, canEdit, canDelete, canVerify, canApprove, isLoading: permsLoading } = usePermissions('hr.employees', companyId);
 
   useEffect(() => {
     setMounted(true);
@@ -324,13 +327,15 @@ export default function EmployeesPage() {
           <div className="bg-white rounded-xl shadow-sm border border-slate-100">
             <div className="p-4 border-b flex justify-between items-center">
               <h3 className="font-semibold text-slate-900">{tabs.find(t => t.id === activeTab)?.label}</h3>
-              <button
-                onClick={() => openModal(getModalType(activeTab))}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700"
-              >
-                <Plus className="w-4 h-4" />
-                Add {activeTab === 'employees' ? 'Employee' : activeTab === 'advances' ? 'Advance' : activeTab === 'loans' ? 'Loan' : 'Expense'}
-              </button>
+              {canCreate && (
+                <button
+                  onClick={() => openModal(getModalType(activeTab))}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add {activeTab === 'employees' ? 'Employee' : activeTab === 'advances' ? 'Advance' : activeTab === 'loans' ? 'Loan' : 'Expense'}
+                </button>
+              )}
             </div>
 
             {activeTab === 'employees' && (
@@ -356,8 +361,8 @@ export default function EmployeesPage() {
                       <td className="px-4 py-3 text-slate-500">{emp.phone || '-'}</td>
                       <td className="px-4 py-3 text-right font-mono">{emp.salary.toLocaleString()}</td>
                       <td className="px-4 py-3 text-center">
-                        <button onClick={() => openModal('employee', emp)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={() => deleteMutation.mutate({ type: 'employee', id: emp.id })} className="p-1 text-red-600 hover:bg-red-50 rounded ml-1"><Trash2 className="w-4 h-4" /></button>
+                        {canEdit && <button onClick={() => openModal('employee', emp)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 className="w-4 h-4" /></button>}
+                        {canDelete && <button onClick={() => deleteMutation.mutate({ type: 'employee', id: emp.id })} className="p-1 text-red-600 hover:bg-red-50 rounded ml-1"><Trash2 className="w-4 h-4" /></button>}
                       </td>
                     </tr>
                   ))}

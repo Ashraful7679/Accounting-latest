@@ -927,6 +927,7 @@ model Product {
   salesOrderLines SalesOrderLine[]
   DebitNoteLine   DebitNoteLine[]
   CreditNoteLine  CreditNoteLine[]
+  stockTransferLines StockTransferLine[]
 
   @@unique([companyId, code], name: "companyId_code")
   @@index([companyId])

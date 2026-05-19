@@ -16,8 +16,9 @@ export class TransactionRepository {
     limit?: number;
     search?: string;
     status?: string;
+    createdByIds?: string[];
   }) {
-    const { companyId, type, page = 1, limit = 20, search, status } = options;
+    const { companyId, type, page = 1, limit = 20, search, status, createdByIds } = options as any;
     
     const where: any = { companyId };
     if (type) where.type = type.toUpperCase();
@@ -30,6 +31,10 @@ export class TransactionRepository {
     }
 
     const skip = (page - 1) * limit;
+
+    if (createdByIds && Array.isArray(createdByIds)) {
+      where.createdById = { in: createdByIds };
+    }
 
     if (SYSTEM_MODE === "LIVE") {
       try {
@@ -62,8 +67,10 @@ export class TransactionRepository {
     
     const companyId_ = (options as any).companyId;
     const type_ = (options as any).type;
+    const createdBy = (options as any).createdByIds as string[] | undefined;
     let results = companyId_ ? offlineInvoices.filter(inv => inv.companyId === companyId_) : offlineInvoices;
     if (type_) results = results.filter(inv => inv.type === type_.toUpperCase());
+    if (createdBy && Array.isArray(createdBy)) results = results.filter(inv => createdBy.includes(inv.createdById));
     
     const start = (page - 1) * limit;
     return {

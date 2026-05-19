@@ -8,6 +8,7 @@ import { JournalService } from '../accounting/journal.service';
 import { InventoryService } from './inventory.service';
 import { checkOptimisticLock } from '../../lib/optimisticLock';
 import { RBACService } from './rbac.service';
+import { getAccessibleUserIds } from './access.service';
 
 export class InvoiceController extends BaseCompanyController {
   // ============ INVOICES ============
@@ -20,7 +21,9 @@ export class InvoiceController extends BaseCompanyController {
       search?: string;
       status?: string;
     };
-    
+    const userId = (request.user as any).id;
+    const accessibleUserIds = await getAccessibleUserIds(userId, companyId);
+
     const result = await TransactionRepository.findInvoices({
       companyId,
       type: type?.toUpperCase(),
@@ -28,6 +31,7 @@ export class InvoiceController extends BaseCompanyController {
       limit: parseInt(limit),
       search,
       status,
+      createdByIds: accessibleUserIds
     });
     
     return reply.send({ 

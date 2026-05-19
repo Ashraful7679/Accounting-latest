@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-19T09:16:49.590Z",
+  "lastUpdated": "2026-05-19T09:27:37.106Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -357,6 +357,30 @@
         "Fixed duplicate identifier error - renamed local status functions canVerify, canApprove, canDelete to canVerifyStatus, canApproveStatus, canDeleteStatus"
       ],
       "lastChange": "2026-05-19T05:07:11.179Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\modules\\company\\access.service.ts": {
+      "modified": "2026-05-19T09:26:55.455Z",
+      "features": [
+        "Added getAccessibleUserIds helper to restrict visibility to user + subordinates"
+      ],
+      "lastChange": "2026-05-19T09:26:55.456Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\repositories\\TransactionRepository.ts": {
+      "modified": "2026-05-19T09:27:16.755Z",
+      "features": [
+        "Filter invoices by createdByIds (user + subordinates)"
+      ],
+      "lastChange": "2026-05-19T09:27:16.755Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\modules\\company\\invoice.controller.ts": {
+      "modified": "2026-05-19T09:27:37.105Z",
+      "features": [
+        "Apply accessible user filter to invoice list endpoint (getInvoices)"
+      ],
+      "lastChange": "2026-05-19T09:27:37.106Z",
       "agent": "unknown"
     }
   },

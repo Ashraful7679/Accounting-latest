@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-13T04:58:40.736Z",
+  "lastUpdated": "2026-05-19T04:01:08.116Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -333,6 +333,14 @@
       ],
       "lastChange": "2026-05-13T04:58:34.255Z",
       "agent": "unknown"
+    },
+    "frontend\\src\\components\\Sidebar.tsx": {
+      "modified": "2026-05-19T04:01:04.630Z",
+      "features": [
+        "Added missing sidebar items: Credit Notes, Purchase PIs, Debit Notes, Purchase Requisitions, Payroll, Inventory (Warehouses, Transfers, Reconciliation)"
+      ],
+      "lastChange": "2026-05-19T04:01:04.635Z",
+      "agent": "unknown"
     }
   },
   "implementations": {
@@ -395,6 +403,17 @@
       ],
       "status": "complete",
       "updatedAt": "2026-05-10T15:20:30.539Z"
+    },
+    "duplicate-pages-removed": {
+      "date": "2026-05-19",
+      "description": "Removed unused duplicate pages: /finance/page.tsx, /closing/page.tsx, /finance/bank-reconciliation/page.tsx",
+      "files": [
+        "frontend/src/app/company/[id]/finance/page.tsx",
+        "frontend/src/app/company/[id]/closing/page.tsx",
+        "frontend/src/app/company/[id]/finance/bank-reconciliation/page.tsx"
+      ],
+      "status": "complete",
+      "updatedAt": "2026-05-19T04:01:08.116Z"
     }
   },
   "workflows": {

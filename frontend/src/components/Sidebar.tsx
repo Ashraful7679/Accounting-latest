@@ -100,6 +100,7 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
         { name: 'Proforma Invoice', href: `/company/${companyId}/sales/pis` },
         { name: 'Delivery Notes', href: `/company/${companyId}/sales/challans` },
         { name: 'Sales Invoices', href: `/company/${companyId}/sales/invoices` },
+        { name: 'Credit Notes', href: `/company/${companyId}/sales/credit-notes` },
         { name: 'Collections', href: `/company/${companyId}/payments/receive` },
       ]
     },
@@ -108,8 +109,11 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
       icon: CreditCard,
       children: [
         { name: 'Suppliers', href: `/company/${companyId}/vendors` },
+        { name: 'Purchase Requisitions', href: `/company/${companyId}/purchase/requisitions` },
         { name: 'Purchase Orders', href: `/company/${companyId}/purchase/orders` },
+        { name: 'Purchase PIs', href: `/company/${companyId}/purchase/pis` },
         { name: 'Purchase Invoices', href: `/company/${companyId}/purchase/invoices` },
+        { name: 'Debit Notes', href: `/company/${companyId}/purchase/debit-notes` },
       ]
     },
     { 
@@ -144,6 +148,16 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
       ]
     },
     { name: 'Employees', href: `/company/${companyId}/employees`, icon: User },
+    { name: 'Payroll', href: `/company/${companyId}/hr/payroll`, icon: DollarSign },
+    { 
+      name: 'Inventory', 
+      icon: Package,
+      children: [
+        { name: 'Warehouses', href: `/company/${companyId}/inventory/warehouses` },
+        { name: 'Transfers', href: `/company/${companyId}/inventory/transfers` },
+        { name: 'Reconciliation', href: `/company/${companyId}/inventory/reconciliation` },
+      ]
+    },
     { 
       name: 'Finance', 
       icon: Briefcase,

@@ -18,6 +18,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { toast } from 'react-hot-toast';
+import { usePermissions } from '@/hooks/usePermissions';
 
 
 function cn(...inputs: ClassValue[]) {
@@ -35,6 +36,29 @@ interface BackupLog {
 
 export default function BackupRestorePage() {
   const { id: companyId } = useParams();
+  const { canView, isLoading: permsLoading } = usePermissions('company.settings', companyId);
+
+  if (!permsLoading && !canView) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+          You do not have permission to view this page.
+        </div>
+      </div>
+    );
+  }
+
+
+  if (!permsLoading && !canView) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+          You do not have permission to view this page.
+        </div>
+      </div>
+    );
+  }
+
   const [logs, setLogs] = useState<BackupLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);

@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Shield, Users, Plus, X, Check, Settings, Loader2 } from 'lucide-react';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const MODULES = [
   { key: 'sales.orders', label: 'Sales Orders' },
@@ -51,6 +52,18 @@ interface Role {
 export default function RolesPage() {
   const params = useParams();
   const companyId = params.id as string;
+  const { canView, isLoading: permsLoading } = usePermissions('company.settings', companyId);
+
+  if (!permsLoading && !canView) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+          You do not have permission to view this page.
+        </div>
+      </div>
+    );
+  }
+
   const queryClient = useQueryClient();
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
 

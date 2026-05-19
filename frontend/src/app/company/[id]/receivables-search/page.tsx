@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { usePermissions } from '@/hooks/usePermissions';
 
 
 function cn(...inputs: ClassValue[]) {
@@ -31,6 +32,18 @@ export default function ReceivablesSearchPage() {
   const params = useParams();
   const router = useRouter();
   const companyId = params.id as string;
+  const { canView, isLoading: permsLoading } = usePermissions('finance.receivables', companyId);
+
+  if (!permsLoading && !canView) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+          You do not have permission to view this page.
+        </div>
+      </div>
+    );
+  }
+
 
   const [filters, setFilters] = useState({
     customerName: '',

@@ -9,11 +9,13 @@ import Link from 'next/link';
 import { formatCurrency } from '@/lib/decimalUtils';
 import { useCompany } from '@/lib/CompanyContext';
 import React from 'react';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function DeliveryChallanDetail() {
   const router = useRouter();
   const params = useParams();
   const { id: companyId, challanId } = params as { id: string; challanId: string };
+  const { canView, isLoading: permsLoading } = usePermissions('sales.challans', companyId);
   const { exchangeRate: companyExchangeRate } = useCompany();
   const [mounted, setMounted] = useState(false);
 
@@ -31,6 +33,15 @@ export default function DeliveryChallanDetail() {
   const challan = challans?.find((c: any) => c.id === challanId);
 
   if (!mounted) return null;
+  if (!permsLoading && !canView) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+          You do not have permission to view this page.
+        </div>
+      </div>
+    );
+  }
   if (isLoading) return <p className="text-center">Loading…</p>;
   if (!challan) return <p className="text-center">Challan not found</p>;
 

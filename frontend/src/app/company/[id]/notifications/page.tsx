@@ -13,10 +13,12 @@ import api from '@/lib/api';
 import Header from '@/components/Header';
 import { ActivityLog, renderActivityMessage } from '@/utils/activityRenderer';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePermissions } from '@/hooks/usePermissions';
 
 
 export default function ActivityHistoryPage() {
   const { id: companyId } = useParams() as { id: string };
+  const { canView, isLoading: permsLoading } = usePermissions('company.notifications', companyId);
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'journal' | 'invoice' | 'payment'>('all');

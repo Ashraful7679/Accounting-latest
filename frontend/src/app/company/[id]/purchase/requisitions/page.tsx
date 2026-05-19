@@ -14,6 +14,7 @@ import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
 import { cn } from '@/lib/utils';
 import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface PurchaseRequisition {
   id: string;
@@ -38,6 +39,7 @@ export default function PurchaseRequisitionsPage() {
   const router = useRouter();
   const params = useParams();
   const companyId = params.id as string;
+  const { canView, isLoading: permsLoading } = usePermissions('purchase.requisitions', companyId);
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [mounted, setMounted] = useState(false);
@@ -403,6 +405,16 @@ export default function PurchaseRequisitionsPage() {
   };
 
   if (!mounted) return null;
+
+  if (!permsLoading && !canView) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+          You do not have permission to view this page.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50/50">

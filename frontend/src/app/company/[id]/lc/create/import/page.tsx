@@ -9,11 +9,24 @@ import { handleError } from '@/lib/error-handler';
 import { ArrowLeft, Landmark, Calendar, CheckCircle2, Package } from 'lucide-react';
 import Link from 'next/link';
 import { useCompany } from '@/lib/CompanyContext';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function CreateImportLCPage() {
   const router = useRouter();
   const params = useParams();
   const companyId = params.id as string;
+  const { canView, isLoading: permsLoading } = usePermissions('lc', companyId);
+
+  if (!permsLoading && !canView) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+          You do not have permission to view this page.
+        </div>
+      </div>
+    );
+  }
+
   const queryClient = useQueryClient();
   const { exchangeRate } = useCompany();
 

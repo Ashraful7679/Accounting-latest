@@ -5,6 +5,7 @@ export const PERMISSIONS = {
   'sales.orders': { label: 'Sales Orders', create: true, view: true, edit: true, delete: false, verify: true, approve: true, export: true, print: true },
   'sales.invoices': { label: 'Sales Invoices', create: true, view: true, edit: false, delete: false, verify: true, approve: true, export: true, print: true },
   'sales.customers': { label: 'Customers', create: true, view: true, edit: true, delete: false, verify: false, approve: false, export: true, print: true },
+  'sales.pis': { label: 'Purchase Instructions', create: true, view: true, edit: true, delete: false, verify: false, approve: false, export: true, print: true },
   'sales.credit-notes': { label: 'Credit Notes', create: true, view: true, edit: true, delete: false, verify: true, approve: true },
   'sales.challans': { label: 'Delivery Challans', create: true, view: true, edit: true, delete: false, verify: false, approve: false },
 
@@ -21,6 +22,30 @@ export const PERMISSIONS = {
   'finance.reports': { label: 'Reports', create: false, view: true, edit: false, delete: false, verify: false, approve: false, export: true, print: true },
   'finance.bank-reconciliation': { label: 'Bank Reconciliation', create: true, view: true, edit: true, delete: false, verify: true, approve: true },
   'finance.fixed-assets': { label: 'Fixed Assets', create: true, view: true, edit: true, delete: false, verify: true, approve: true },
+  'finance.receivables': { label: 'Receivables Search', create: false, view: true, edit: false, delete: false, verify: false, approve: false, export: true, print: true },
+
+  // Payments & Cash Management
+  'payments.receive': { label: 'Receive Payments', create: true, view: true, edit: false, delete: false, verify: false, approve: false, export: true, print: true },
+  'payments.make': { label: 'Make Payments', create: true, view: true, edit: false, delete: false, verify: false, approve: false, export: true, print: true },
+  'payments.transfer': { label: 'Transfers', create: true, view: true, edit: false, delete: false, verify: false, approve: false, export: true, print: true },
+  'payments.allocate': { label: 'Payment Allocation', create: true, view: true, edit: false, delete: false, verify: false, approve: false, export: true, print: true },
+  'payments.history': { label: 'Payment History', create: false, view: true, edit: false, delete: false, verify: false, approve: false, export: true, print: true },
+
+  // Inventory & Warehousing
+  'inventory.transfers': { label: 'Stock Transfers', create: true, view: true, edit: true, delete: false, verify: false, approve: false, export: true, print: true },
+  'inventory.warehouses': { label: 'Warehouses', create: true, view: true, edit: true, delete: false, verify: false, approve: false, export: true, print: true },
+  'inventory.reconciliation': { label: 'Inventory Reconciliation', create: true, view: true, edit: true, delete: false, verify: false, approve: false, export: true, print: true },
+
+  // Purchase & LC
+  'purchase.pis': { label: 'Purchase PIs', create: true, view: true, edit: true, delete: false, verify: false, approve: false, export: true, print: true },
+  'purchase.requisitions': { label: 'Purchase Requisitions', create: true, view: true, edit: true, delete: false, verify: true, approve: true, export: true, print: true },
+  'lc': { label: 'Letter of Credit', create: true, view: true, edit: true, delete: false, verify: true, approve: true, export: true, print: true },
+
+  // Company & Utility Pages
+  'company.notifications': { label: 'Notifications', create: false, view: true, edit: true, delete: false, verify: false, approve: false, export: true, print: true },
+  'company.audit': { label: 'Audit Trail', create: false, view: true, edit: false, delete: false, verify: false, approve: false, export: true, print: true },
+  'company.dashboard': { label: 'Dashboard', create: false, view: true, edit: false, delete: false, verify: false, approve: false, export: false, print: false },
+  'company.health': { label: 'Health', create: false, view: true, edit: false, delete: false, verify: false, approve: false, export: false, print: false },
 
   // Products & Settings
   'inventory.products': { label: 'Products', create: true, view: true, edit: true, delete: false, verify: false, approve: false, export: true },

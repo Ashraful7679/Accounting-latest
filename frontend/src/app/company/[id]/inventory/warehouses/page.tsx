@@ -8,6 +8,7 @@ import { Plus, Search, Edit, Trash2, Warehouse, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface Warehouse {
   id: string;
@@ -27,6 +28,7 @@ export default function WarehousesPage() {
   const router = useRouter();
   const params = useParams();
   const companyId = params.id as string;
+  const { canView, isLoading: permsLoading } = usePermissions('inventory.warehouses', companyId);
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [mounted, setMounted] = useState(false);
@@ -111,6 +113,16 @@ export default function WarehousesPage() {
   ];
 
   if (!mounted) return null;
+
+  if (!permsLoading && !canView) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+          You do not have permission to view this page.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">

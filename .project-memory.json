@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-19T05:07:11.179Z",
+  "lastUpdated": "2026-05-19T09:16:49.590Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -212,12 +212,13 @@
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\rbac.service.ts": {
-      "modified": "2026-05-10T14:25:04.784Z",
+      "modified": "2026-05-19T09:16:49.589Z",
       "features": [
         "Removed global Admin bypass and restricted Admin role to system-level modules",
-        "Strict Admin isolation and RolePermission table integration"
+        "Strict Admin isolation and RolePermission table integration",
+        "Added sales.pis permission and expanded permission map; added usePermissions coverage across frontend company pages"
       ],
-      "lastChange": "2026-05-10T14:25:04.791Z",
+      "lastChange": "2026-05-19T09:16:49.590Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\dashboard.controller.ts": {

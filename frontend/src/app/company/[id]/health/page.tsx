@@ -5,10 +5,23 @@ import { useParams } from 'next/navigation';
 import api from '@/lib/api';
 import { Activity, CheckCircle2, AlertTriangle, XCircle, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function SystemHealthPage() {
   const params = useParams();
   const companyId = params.id as string;
+  const { canView, isLoading: permsLoading } = usePermissions('company.health', companyId);
+
+  if (!permsLoading && !canView) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+          You do not have permission to view this page.
+        </div>
+      </div>
+    );
+  }
+
 
   const { data: health, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['system-health', companyId],

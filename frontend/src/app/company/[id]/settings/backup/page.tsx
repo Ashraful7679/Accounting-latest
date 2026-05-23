@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -35,7 +35,7 @@ interface BackupLog {
 }
 
 export default function BackupRestorePage() {
-  const { id: companyId } = useParams();
+  const { id: companyId } = useParams() as { id: string };
   const { canView, isLoading: permsLoading } = usePermissions('company.settings', companyId);
 
   if (!permsLoading && !canView) {

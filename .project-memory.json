@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-19T09:27:37.106Z",
+  "lastUpdated": "2026-05-23T06:43:30.768Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -102,11 +102,12 @@
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\settings\\backup\\page.tsx": {
-      "modified": "2026-05-10T12:15:01.290Z",
+      "modified": "2026-05-23T06:43:30.767Z",
       "features": [
-        "Replaced native confirm/prompt/alert with ConfirmModal and toast notifications in backup page"
+        "Replaced native confirm/prompt/alert with ConfirmModal and toast notifications in backup page",
+        "Fixed useParams type casting to resolve TypeScript build failure"
       ],
-      "lastChange": "2026-05-10T12:15:01.294Z",
+      "lastChange": "2026-05-23T06:43:30.768Z",
       "agent": "unknown"
     },
     "backend\\prisma\\migrations\\20260515000001_add_user_security_columns\\migration.sql": {

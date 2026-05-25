@@ -52,6 +52,7 @@ export function createApp() {
   fastify.addHook('preHandler', offlineCheck);
   fastify.setErrorHandler(errorHandler);
 
+  fastify.get('/', async () => ({ status: 'ok' }));
   fastify.get('/health', async () => {
     return { status: 'ok', timestamp: new Date().toISOString() };
   });

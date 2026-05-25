@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-25T09:31:11.120Z",
+  "lastUpdated": "2026-05-25T10:05:07.106Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -385,11 +385,12 @@
       "agent": "unknown"
     },
     "backend\\src\\app.ts": {
-      "modified": "2026-05-25T09:09:20.537Z",
+      "modified": "2026-05-25T10:05:07.102Z",
       "features": [
-        "Extracted createApp() factory for serverless compatibility"
+        "Extracted createApp() factory for serverless compatibility",
+        "Fix CORS: always include vercel.app regex, not just when CORS_ORIGINS is unset"
       ],
-      "lastChange": "2026-05-25T09:09:20.538Z",
+      "lastChange": "2026-05-25T10:05:07.106Z",
       "agent": "unknown"
     },
     "backend\\api\\index.ts": {

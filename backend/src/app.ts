@@ -13,17 +13,17 @@ import { offlineCheck } from './middleware/offlineCheck';
 export function createApp() {
   const fastify = Fastify({ logger: true });
 
-  const corsOrigins: (string | RegExp)[] = [/http:\/\/localhost:\d+/, /http:\/\/127.0.0.1:\d+/];
+  const corsOrigins: (string | RegExp)[] = [
+    /http:\/\/localhost:\d+/,
+    /http:\/\/127.0.0.1:\d+/,
+    'https://accabiz-frontend.onrender.com',
+    'https://accabiz-backend.onrender.com',
+    /\.onrender\.com$/,
+    /\.netlify\.app$/,
+    /\.vercel\.app$/,
+  ];
   if (process.env.CORS_ORIGINS) {
     process.env.CORS_ORIGINS.split(',').map(o => o.trim()).forEach(o => corsOrigins.push(o));
-  } else {
-    corsOrigins.push(
-      'https://accabiz-frontend.onrender.com',
-      'https://accabiz-backend.onrender.com',
-      /\.onrender\.com$/,
-      /\.netlify\.app$/,
-      /\.vercel\.app$/
-    );
   }
 
   fastify.register(cors, {

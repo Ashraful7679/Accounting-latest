@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-25T10:05:07.106Z",
+  "lastUpdated": "2026-05-25T10:17:14.962Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -138,11 +138,12 @@
       "agent": "unknown"
     },
     "backend\\prisma\\schema.prisma": {
-      "modified": "2026-05-10T12:56:01.587Z",
+      "modified": "2026-05-25T10:17:14.073Z",
       "features": [
-        "Added disallowFutureDates, lockPreviousMonths, approvalWorkflow to CompanySettings"
+        "Added disallowFutureDates, lockPreviousMonths, approvalWorkflow to CompanySettings",
+        "Switched to library engine with driverAdapters previewFeature for Neon adapter"
       ],
-      "lastChange": "2026-05-10T12:56:01.592Z",
+      "lastChange": "2026-05-25T10:17:14.073Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\rbac.controller.ts": {
@@ -407,6 +408,14 @@
         "Added vercel-build and postinstall scripts to fix Prisma cached client on Vercel"
       ],
       "lastChange": "2026-05-25T09:31:11.120Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\config\\database.ts": {
+      "modified": "2026-05-25T10:17:14.961Z",
+      "features": [
+        "Added PrismaNeonHTTP driver adapter for HTTP-based serverless connections"
+      ],
+      "lastChange": "2026-05-25T10:17:14.962Z",
       "agent": "unknown"
     }
   },

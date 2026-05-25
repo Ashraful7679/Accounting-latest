@@ -32,7 +32,7 @@ export function createApp() {
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
     credentials: true,
     exposedHeaders: ['set-cookie', 'x-system-mode'],
-    strictPreflight: false,
+    hook: 'preHandler',
   });
 
   fastify.register(jwt, {

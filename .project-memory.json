@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-25T09:09:25.646Z",
+  "lastUpdated": "2026-05-25T09:22:58.554Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -390,6 +390,14 @@
         "Extracted createApp() factory for serverless compatibility"
       ],
       "lastChange": "2026-05-25T09:09:20.538Z",
+      "agent": "unknown"
+    },
+    "backend\\api\\index.ts": {
+      "modified": "2026-05-25T09:22:58.554Z",
+      "features": [
+        "Fix Vercel TypeScript error: use app.server + ready() for serverless-http compatibility"
+      ],
+      "lastChange": "2026-05-25T09:22:58.554Z",
       "agent": "unknown"
     }
   },

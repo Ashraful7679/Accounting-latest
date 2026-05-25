@@ -4,8 +4,7 @@
   "description": "Accounting System Backend API",
   "main": "app.js",
   "scripts": {
-    "vercel-build": "npx prisma generate && tsc",
-    "postinstall": "npx prisma generate",
+    "postinstall": "prisma generate",
     "dev": "tsx watch src/index.ts",
     "build": "npx prisma generate && tsc && npx prisma migrate deploy",
     "build:render": "npm install && npx prisma generate && npx tsc && npx prisma migrate resolve --rolled-back 20260513000000_comprehensive_gap_fill 2>/dev/null; npx prisma migrate deploy",

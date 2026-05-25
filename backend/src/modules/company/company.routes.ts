@@ -363,9 +363,10 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.post('/:id/debit-notes/:dnId/approve', debitNoteController.approveDebitNote.bind(debitNoteController));
   fastify.post('/:id/debit-notes/:dnId/cancel', debitNoteController.cancelDebitNote.bind(debitNoteController));
 
-  // Notifications / Activities
+  // Notifications / Activities / Audit
   fastify.get('/:id/notifications', notificationController.list.bind(notificationController));
   fastify.get('/:id/activities', notificationController.listActivities.bind(notificationController));
+  fastify.get('/:id/audit', notificationController.listActivities.bind(notificationController));
   fastify.put('/:id/notifications/:notificationId/read', notificationController.markRead.bind(notificationController));
   fastify.post('/:id/notifications/mark-all-read', notificationController.markAllRead.bind(notificationController));
   fastify.delete('/:id/notifications/:notificationId', notificationController.delete.bind(notificationController));

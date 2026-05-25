@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-25T12:50:42.345Z",
+  "lastUpdated": "2026-05-25T14:53:10.766Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -163,12 +163,13 @@
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\company.routes.ts": {
-      "modified": "2026-05-10T13:25:14.086Z",
+      "modified": "2026-05-25T14:53:10.766Z",
       "features": [
         "Registered PUT /company/:id/settings route",
-        "Registered verification and approval routes for Fixed Assets and Branches"
+        "Registered verification and approval routes for Fixed Assets and Branches",
+        "Added /:id/audit route alias pointing to listActivities for audit trail page"
       ],
-      "lastChange": "2026-05-10T13:25:14.087Z",
+      "lastChange": "2026-05-25T14:53:10.766Z",
       "agent": "unknown"
     },
     "backend\\src\\repositories\\FixedAssetRepository.ts": {
@@ -386,12 +387,14 @@
       "agent": "unknown"
     },
     "backend\\src\\app.ts": {
-      "modified": "2026-05-25T10:05:07.102Z",
+      "modified": "2026-05-25T13:48:48.028Z",
       "features": [
         "Extracted createApp() factory for serverless compatibility",
-        "Fix CORS: always include vercel.app regex, not just when CORS_ORIGINS is unset"
+        "Fix CORS: always include vercel.app regex, not just when CORS_ORIGINS is unset",
+        "Add root GET / handler to silence 404",
+        "Changed @fastify/cors hook to preHandler for reliable CORS preflight handling"
       ],
-      "lastChange": "2026-05-25T10:05:07.106Z",
+      "lastChange": "2026-05-25T13:48:48.029Z",
       "agent": "unknown"
     },
     "backend\\api\\index.ts": {
@@ -417,6 +420,14 @@
         "Added PrismaNeonHTTP driver adapter for HTTP-based serverless connections"
       ],
       "lastChange": "2026-05-25T10:17:14.962Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\login\\page.tsx": {
+      "modified": "2026-05-25T14:53:07.027Z",
+      "features": [
+        "Fixed login redirect: all non-admin users now go to /company/[id]/dashboard instead of /owner/dashboard"
+      ],
+      "lastChange": "2026-05-25T14:53:07.028Z",
       "agent": "unknown"
     }
   },

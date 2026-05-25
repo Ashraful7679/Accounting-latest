@@ -28,10 +28,9 @@ export default function LoginPage() {
       
       console.log('Login success, user:', user.email, 'roles:', roles);
       
-      //优先级: Admin > Owner > Company User
       if (roles.includes('Admin') || user.email?.toLowerCase().includes('admin')) {
         window.location.href = '/admin/dashboard';
-      } else if (roles.includes('Owner') || user.email?.includes('@')) {
+      } else if (roles.includes('Owner')) {
         window.location.href = '/owner/dashboard';
       } else if (user.userCompanies && user.userCompanies.length > 0) {
         const defaultCompany = user.userCompanies.find((uc: any) => uc.isDefault) || user.userCompanies[0];

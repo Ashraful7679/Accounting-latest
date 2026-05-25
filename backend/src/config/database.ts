@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaNeonHTTP } from '@prisma/adapter-neon';
-import { neon } from '@neondatabase/serverless';
+import { PrismaNeon } from '@prisma/adapter-neon';
+import { Pool } from '@neondatabase/serverless';
 
 import { registerSoftDelete } from './prisma-middleware';
 
@@ -9,8 +9,8 @@ const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL || '';
   if (connectionString.includes('neon') || connectionString.includes('neon.tech')) {
-    const sql = neon(connectionString);
-    const adapter = new PrismaNeonHTTP(sql);
+    const pool = new Pool({ connectionString });
+    const adapter = new PrismaNeon(pool);
     return new PrismaClient({ adapter });
   }
   return new PrismaClient();

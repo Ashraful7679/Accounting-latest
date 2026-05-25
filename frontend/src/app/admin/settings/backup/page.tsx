@@ -192,7 +192,8 @@ export default function BackupDashboard() {
                     <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
                         onClick={() => {
-                          window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5002/api'}/admin/backups/download/${backup.fileName}`, '_blank');
+                          const base = process.env.NEXT_PUBLIC_API_URL || '';
+window.open(`${base}/admin/backups/download/${backup.fileName}`, '_blank');
                         }}
                         className="p-2 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
                         title="Download"

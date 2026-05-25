@@ -2,9 +2,11 @@ import { PrismaClient } from '@prisma/client';
 
 import { registerSoftDelete } from './prisma-middleware';
 
-const prisma = new PrismaClient();
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
-// Register Soft Delete & Global Scoping Middleware
+const prisma = globalForPrisma.prisma ?? new PrismaClient();
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+
 registerSoftDelete(prisma);
 
 export { prisma };

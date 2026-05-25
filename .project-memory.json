@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-23T06:43:30.768Z",
+  "lastUpdated": "2026-05-25T09:09:25.646Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -383,6 +383,14 @@
       ],
       "lastChange": "2026-05-19T09:27:37.106Z",
       "agent": "unknown"
+    },
+    "backend\\src\\app.ts": {
+      "modified": "2026-05-25T09:09:20.537Z",
+      "features": [
+        "Extracted createApp() factory for serverless compatibility"
+      ],
+      "lastChange": "2026-05-25T09:09:20.538Z",
+      "agent": "unknown"
     }
   },
   "implementations": {
@@ -476,6 +484,27 @@
       ],
       "status": "complete",
       "updatedAt": "2026-05-19T04:28:24.400Z"
+    },
+    "vercel-migration": {
+      "date": "2026-05-25",
+      "description": "Migrated backend from Render to Vercel: serverless-http wrapper, Vercel Blob storage, vercel.json, Prisma singleton, API URL cleanup",
+      "files": [
+        "backend/src/app.ts",
+        "backend/api/index.ts",
+        "backend/vercel.json",
+        "backend/src/index.ts",
+        "backend/src/config/database.ts",
+        "backend/src/lib/storage.ts",
+        "backend/src/modules/owner/owner.controller.ts",
+        "backend/src/modules/backup/backup.controller.ts",
+        "backend/src/modules/admin/backup.controller.ts",
+        "backend/src/modules/system/backup.controller.ts",
+        "backend/src/modules/system/backup.service.ts",
+        "frontend/src/lib/api.ts",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "complete",
+      "updatedAt": "2026-05-25T09:09:25.646Z"
     }
   },
   "workflows": {
@@ -515,8 +544,8 @@
     "frontend": "frontend/.env.local - NEXT_PUBLIC_API_URL"
   },
   "apiEndpoints": {
-    "production": "https://accabiz-backend.onrender.com/api",
-    "productionFrontend": "https://accabiz-frontend.onrender.com"
+    "production": "",
+    "productionFrontend": ""
   },
   "errorPrevention": {
     "doubleEntryValidation": {

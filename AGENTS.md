@@ -39,8 +39,8 @@ npm run build    # next build
 
 ## Deploy
 
-- **Backend**: Render.com - auto-deploys on `git push` to `okay` branch
-- **Frontend**: Render.com - auto-deploys on `git push` to `okay` branch
+- **Backend**: Vercel - auto-deploys on `git push` to `okay` branch
+- **Frontend**: Vercel - auto-deploys on `git push` to `okay` branch
 - **Database**: Neon PostgreSQL (production)
 
 ## Database Migrations
@@ -64,8 +64,10 @@ npm run build    # next build
 
 - **Backend**: `backend/.env` - DATABASE_URL, JWT_SECRET, PORT
 - **Frontend**: `frontend/.env.local` - NEXT_PUBLIC_API_URL
-- Production API: `https://accabiz-backend.onrender.com/api`
-- Production Frontend: `https://accabiz-frontend.onrender.com`
+- Production API: Set `NEXT_PUBLIC_API_URL` in Vercel dashboard (e.g., `https://accabiz-api.vercel.app`)
+- Production Frontend: `https://accabiz.vercel.app`
+- Backend deployed as Vercel Functions via `backend/api/index.ts` (serverless-http + Fastify)
+- File storage: `@vercel/blob` (set `BLOB_READ_WRITE_TOKEN` in Vercel dashboard)
 
 ## Project Structure
 

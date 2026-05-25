@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import path from 'path';
 import fs from 'fs';
 import prisma from '../../config/database';
+import { saveFile, getFile } from '../../lib/storage';
 
 export class BackupController {
   private BACKUP_DIR: string;
@@ -11,9 +12,11 @@ export class BackupController {
       ? path.join(process.cwd(), 'backups') 
       : '/tmp/accabiz_backups');
     
-    if (!fs.existsSync(this.BACKUP_DIR)) {
-      fs.mkdirSync(this.BACKUP_DIR, { recursive: true });
-    }
+    try {
+      if (!fs.existsSync(this.BACKUP_DIR)) {
+        fs.mkdirSync(this.BACKUP_DIR, { recursive: true });
+      }
+    } catch {}
     console.log('Backup directory:', this.BACKUP_DIR);
   }
 
@@ -64,6 +67,10 @@ export class BackupController {
     await execPromise(dumpCmd);
   }
 
+  private isServerless(): boolean {
+    return process.env.VERCEL === '1' || !!process.env.BLOB_READ_WRITE_TOKEN;
+  }
+
   private async createAuditLog(request: FastifyRequest, action: string, targetResource: string, targetId: string, details?: Record<string, unknown>) {
     const ipAddress = (request.ip || (request.headers['x-forwarded-for'] as string)?.split(',')[0] || 'unknown') as string;
     await (prisma as any).systemAuditLog.create({
@@ -78,7 +85,7 @@ export class BackupController {
     });
   }
 
-  private async createCompanyScopedBackup(companyId: string, outputPath: string): Promise<void> {
+  private async createCompanyScopedBackup(companyId: string): Promise<{ fileName: string; buffer: Buffer }> {
     const company = await prisma.company.findUnique({ 
       where: { id: companyId },
       include: { settings: true }
@@ -100,7 +107,6 @@ export class BackupController {
       },
     };
 
-    // 1. Fetch all models with direct companyId
     const directModels = [
       { name: 'branches', key: 'branch' },
       { name: 'documentSequences', key: 'documentSequence' },
@@ -138,9 +144,7 @@ export class BackupController {
 
     for (const model of directModels) {
       try {
-        const data = await (prisma as any)[model.key].findMany({ 
-          where: { companyId } 
-        });
+        const data = await (prisma as any)[model.key].findMany({ where: { companyId } });
         backupPayload.data[model.name] = data;
       } catch (err) {
         console.warn(`Could not fetch data for model ${model.name}:`, err);
@@ -148,107 +152,102 @@ export class BackupController {
       }
     }
 
-    // 2. Fetch child records (Lines/Details)
-    // PILines
     if (backupPayload.data.pis.length > 0) {
       const piIds = backupPayload.data.pis.map((p: any) => p.id);
       backupPayload.data.piLines = await prisma.pILine.findMany({ where: { piId: { in: piIds } } });
     }
-
-    // PurchaseOrderLines
     if (backupPayload.data.purchaseOrders.length > 0) {
       const poIds = backupPayload.data.purchaseOrders.map((p: any) => p.id);
       backupPayload.data.purchaseOrderLines = await prisma.purchaseOrderLine.findMany({ where: { purchaseOrderId: { in: poIds } } });
     }
-
-    // SalesOrderLines
     if (backupPayload.data.salesOrders.length > 0) {
       const soIds = backupPayload.data.salesOrders.map((p: any) => p.id);
       backupPayload.data.salesOrderLines = await prisma.salesOrderLine.findMany({ where: { salesOrderId: { in: soIds } } });
     }
-
-    // InvoiceLines
     if (backupPayload.data.invoices.length > 0) {
       const invIds = backupPayload.data.invoices.map((p: any) => p.id);
       backupPayload.data.invoiceLines = await prisma.invoiceLine.findMany({ where: { invoiceId: { in: invIds } } });
     }
-
-    // JournalEntryLines
     if (backupPayload.data.journalEntries.length > 0) {
       const journalIds = backupPayload.data.journalEntries.map((p: any) => p.id);
       backupPayload.data.journalEntryLines = await prisma.journalEntryLine.findMany({ where: { journalEntryId: { in: journalIds } } });
     }
-
-    // GRNLines
     if (backupPayload.data.grns.length > 0) {
       const grnIds = backupPayload.data.grns.map((p: any) => p.id);
       backupPayload.data.grnLines = await prisma.gRNLine.findMany({ where: { grnId: { in: grnIds } } });
     }
-
-    // DNLines
     if (backupPayload.data.dns.length > 0) {
       const dnIds = backupPayload.data.dns.map((p: any) => p.id);
       backupPayload.data.dnLines = await prisma.dNLine.findMany({ where: { dnId: { in: dnIds } } });
     }
-
-    // DebitNoteLines
     if (backupPayload.data.debitNotes.length > 0) {
       const dnIds = backupPayload.data.debitNotes.map((p: any) => p.id);
       backupPayload.data.debitNoteLines = await prisma.debitNoteLine.findMany({ where: { debitNoteId: { in: dnIds } } });
     }
-
-    // CreditNoteLines
     if (backupPayload.data.creditNotes.length > 0) {
       const cnIds = backupPayload.data.creditNotes.map((p: any) => p.id);
       backupPayload.data.creditNoteLines = await prisma.creditNoteLine.findMany({ where: { creditNoteId: { in: cnIds } } });
     }
-
-    // PayrollPayslips
     if (backupPayload.data.payrollRuns.length > 0) {
       const runIds = backupPayload.data.payrollRuns.map((p: any) => p.id);
       backupPayload.data.payrollPayslips = await prisma.payrollPayslip.findMany({ where: { payrollRunId: { in: runIds } } });
     }
-
-    // Payment Allocations
     if (backupPayload.data.payments.length > 0) {
       const paymentIds = backupPayload.data.payments.map((p: any) => p.id);
       backupPayload.data.paymentPIs = await prisma.paymentPI.findMany({ where: { paymentId: { in: paymentIds } } });
       backupPayload.data.paymentInvoices = await prisma.paymentInvoice.findMany({ where: { paymentId: { in: paymentIds } } });
     }
 
-    fs.writeFileSync(outputPath, JSON.stringify(backupPayload, null, 2));
+    const jsonContent = JSON.stringify(backupPayload, null, 2);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `backup-company-${companyId}-${timestamp}.json`;
+    return { fileName, buffer: Buffer.from(jsonContent, 'utf8') };
   }
 
   async createBackup(request: FastifyRequest, reply: FastifyReply) {
     const { companyId } = request.query as { companyId?: string };
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const fileName = companyId ? `backup-company-${companyId}-${timestamp}.json` : `backup-${timestamp}.sql`;
-    const filePath = path.join(this.BACKUP_DIR, fileName);
 
-    if (!fs.existsSync(this.BACKUP_DIR)) {
-      fs.mkdirSync(this.BACKUP_DIR, { recursive: true });
+    if (this.isServerless() && !companyId) {
+      return reply.status(503).send({
+        success: false,
+        message: 'Full database backups (pg_dump) are not available in serverless mode. Use company-scoped backups or Neon built-in backups.',
+      });
     }
 
     try {
       if (companyId) {
-        await this.createCompanyScopedBackup(companyId, filePath);
+        const { fileName, buffer } = await this.createCompanyScopedBackup(companyId);
+        const result = await saveFile(fileName, buffer, 'application/json');
+
+        return reply.send({ 
+          success: true, 
+          data: { 
+            fileName, 
+            size: result.fileSize,
+            timestamp: new Date().toISOString(),
+            downloadUrl: result.url || `/api/admin/backups/download/${fileName}`,
+            scope: 'COMPANY',
+            companyId: companyId || null,
+          } 
+        });
       } else {
-        await this.dumpDatabase(filePath);
+        await this.dumpDatabase(path.join(this.BACKUP_DIR, `backup-${timestamp}.sql`));
+        const filePath = path.join(this.BACKUP_DIR, `backup-${timestamp}.sql`);
+        const stats = fs.statSync(filePath);
+
+        return reply.send({ 
+          success: true, 
+          data: { 
+            fileName: `backup-${timestamp}.sql`, 
+            size: stats.size,
+            timestamp: new Date().toISOString(),
+            downloadUrl: `/api/admin/backups/download/backup-${timestamp}.sql`,
+            scope: 'SYSTEM',
+            companyId: null,
+          } 
+        });
       }
-
-      const stats = fs.statSync(filePath);
-
-      return reply.send({ 
-        success: true, 
-        data: { 
-          fileName, 
-          size: stats.size,
-          timestamp: new Date().toISOString(),
-          downloadUrl: `/api/admin/backups/download/${fileName}`,
-          scope: companyId ? 'COMPANY' : 'SYSTEM',
-          companyId: companyId || null,
-        } 
-      });
     } catch (error: any) {
       console.error('Backup Error:', error);
       return reply.status(500).send({ success: false, message: 'Failed to create backup', error: error.message });
@@ -256,26 +255,44 @@ export class BackupController {
   }
 
   async listBackups(request: FastifyRequest, reply: FastifyReply) {
-    if (!fs.existsSync(this.BACKUP_DIR)) return reply.send({ success: true, data: [] });
-
-    const files = fs.readdirSync(this.BACKUP_DIR)
-      .filter(f => f.endsWith('.json') || f.endsWith('.sql') || f.endsWith('.zip'))
-      .map(f => {
-        const stats = fs.statSync(path.join(this.BACKUP_DIR, f));
-        return {
-          id: f,
-          fileName: f,
-          fileSize: stats.size,
-          size: stats.size,
+    try {
+      const { list } = require('@vercel/blob');
+      const { blobs } = await list({ prefix: 'backup-' });
+      const files = blobs
+        .filter(b => b.pathname.endsWith('.json'))
+        .map(b => ({
+          id: b.pathname,
+          fileName: b.pathname,
+          fileSize: b.size,
+          size: b.size,
+          downloadUrl: b.url,
           status: 'SUCCESS',
           triggeredBy: 'system',
-          scope: f.endsWith('.json') ? 'COMPANY' : 'SYSTEM',
-          createdAt: stats.birthtime
-        };
-      })
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-    return reply.send({ success: true, data: files });
+          scope: 'COMPANY',
+          createdAt: new Date(b.uploadedAt),
+        }))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      return reply.send({ success: true, data: files });
+    } catch {
+      if (!fs.existsSync(this.BACKUP_DIR)) return reply.send({ success: true, data: [] });
+      const files = fs.readdirSync(this.BACKUP_DIR)
+        .filter(f => f.endsWith('.json') || f.endsWith('.sql') || f.endsWith('.zip'))
+        .map(f => {
+          const stats = fs.statSync(path.join(this.BACKUP_DIR, f));
+          return {
+            id: f,
+            fileName: f,
+            fileSize: stats.size,
+            size: stats.size,
+            status: 'SUCCESS',
+            triggeredBy: 'system',
+            scope: f.endsWith('.json') ? 'COMPANY' : 'SYSTEM',
+            createdAt: stats.birthtime
+          };
+        })
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      return reply.send({ success: true, data: files });
+    }
   }
 
   async restoreBackup(request: FastifyRequest, reply: FastifyReply) {
@@ -283,6 +300,13 @@ export class BackupController {
 
     if (!fileName.endsWith('.sql')) {
       return reply.status(400).send({ success: false, message: 'Only SQL backup files can be restored through this endpoint' });
+    }
+
+    if (this.isServerless()) {
+      return reply.status(503).send({
+        success: false,
+        message: 'SQL restore via psql is not available in serverless mode. Use Neon Console for database restore.',
+      });
     }
 
     const filePath = path.join(this.BACKUP_DIR, fileName);
@@ -307,7 +331,6 @@ export class BackupController {
       const execPromise = promisify(exec);
       await execPromise(restoreCmd);
 
-      const { fileName } = request.body as { fileName: string };
       await this.createAuditLog(request, 'RESTORE_BACKUP', 'Backup', fileName, { fileName });
 
       return reply.send({ success: true, message: 'Database restored successfully' });
@@ -319,8 +342,17 @@ export class BackupController {
 
   async downloadBackup(request: FastifyRequest, reply: FastifyReply) {
     const { fileName } = request.params as { fileName: string };
-    const filePath = path.join(this.BACKUP_DIR, fileName);
 
+    try {
+      const file = await getFile(fileName);
+      if (file) {
+        reply.header('Content-Type', 'application/octet-stream');
+        reply.header('Content-Disposition', `attachment; filename="${fileName}"`);
+        return reply.send(file.stream);
+      }
+    } catch {}
+
+    const filePath = path.join(this.BACKUP_DIR, fileName);
     if (!fs.existsSync(filePath)) {
       return reply.status(404).send({ success: false, message: 'Backup file not found' });
     }

@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import toast from 'react-hot-toast';
 
-let API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://accabiz-backend.onrender.com';
+let API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 if (!API_URL.endsWith('/api')) {
   API_URL = `${API_URL.replace(/\/$/, '')}/api`;

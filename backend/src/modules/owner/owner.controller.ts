@@ -1,13 +1,9 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import bcrypt from 'bcryptjs';
 import prisma from '../../config/database';
-import { NotFoundError, ConflictError, ForbiddenError, ValidationError } from '../../middleware/errorHandler';
-import fs from 'fs';
 import path from 'path';
-import { pipeline } from 'stream';
-import { promisify } from 'util';
-
-const pump = promisify(pipeline);
+import { NotFoundError, ConflictError, ForbiddenError, ValidationError } from '../../middleware/errorHandler';
+import { saveFile } from '../../lib/storage';
 import { EquityService } from '../accounting/equity.service';
 import { CoaController } from '../company/coa.controller';
 
@@ -128,19 +124,12 @@ export class OwnerController {
 
   private async saveLogo(file: any): Promise<string | null> {
     if (!file) return null;
-    
-    // Ensure upload directory exists
-    const uploadDir = path.join(process.cwd(), 'uploads/logos');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
 
     const ext = path.extname(file.filename);
-    const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
-    const filepath = path.join(uploadDir, filename);
+    const filename = `logos/${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
 
-    await pump(file.file, fs.createWriteStream(filepath));
-    return `/uploads/logos/${filename}`;
+    const result = await saveFile(filename, file.file, file.mimetype || 'image/jpeg');
+    return result.url || `/uploads/${filename}`;
   }
 
   // Update company details

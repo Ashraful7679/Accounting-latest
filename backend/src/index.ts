@@ -1,113 +1,10 @@
-import Fastify from 'fastify';
-import cors from '@fastify/cors';
-import jwt from '@fastify/jwt';
-import multipart from '@fastify/multipart';
-import fastifyStatic from '@fastify/static';
-import { join } from 'path';
-import fs from 'fs';
-import { authRoutes } from './modules/auth/auth.routes';
-import { adminRoutes } from './modules/admin/admin.routes';
-import { ownerRoutes } from './modules/owner/owner.routes';
-import { companyRoutes, portalRoutes } from './modules/company/company.routes';
-import { systemRoutes } from './modules/system/system.routes';
-import { BackupController } from './modules/backup/backup.controller';
+import { createApp } from './app';
 import { BackupService } from './modules/system/backup.service';
-import { errorHandler } from './middleware/errorHandler';
-import { offlineCheck } from './middleware/offlineCheck';
 
-// --- STARTUP LOGGING ---
-// const startupLog = join(process.cwd(), 'startup.log');
-// fs.appendFileSync(startupLog, `[${new Date().toISOString()}] Backend Starting... CWD: ${process.cwd()}\n`);
-// fs.appendFileSync(startupLog, `[${new Date().toISOString()}] ENV: PORT=${process.env.PORT}, NODE_ENV=${process.env.NODE_ENV}\n`);
+const fastify = createApp();
 
-const fastify = Fastify({
-
-  logger: true,
-});
-
-// Register plugins
-const corsOrigins: (string | RegExp)[] = [/http:\/\/localhost:\d+/, /http:\/\/127.0.0.1:\d+/];
-if (process.env.CORS_ORIGINS) {
-  process.env.CORS_ORIGINS.split(',').map(o => o.trim()).forEach(o => corsOrigins.push(o));
-} else {
-  // Allow common development and staging domains
-  corsOrigins.push(
-    'https://accabiz-frontend.onrender.com',
-    'https://accabiz-backend.onrender.com',
-    /\.onrender\.com$/,
-    /\.netlify\.app$/,
-    /\.vercel\.app$/
-  );
-}
-
-// Debug logging for CORS
-fastify.addHook('onRequest', async (request) => {
-  const origin = request.headers.origin;
-  if (origin) {
-    request.log.info(`[CORS DEBUG] Incoming Origin: ${origin}`);
-  }
-});
-
-fastify.register(cors, {
-  origin: corsOrigins,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
-  credentials: true,
-  exposedHeaders: ['set-cookie', 'x-system-mode'],
-});
-
-fastify.register(jwt, {
-  secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
-});
-
-// Ensure required directories path
-const uploadsDir = join(__dirname, '../uploads');
-
-fastify.register(multipart, {
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB
-  },
-});
-
-fastify.register(fastifyStatic, {
-  root: uploadsDir,
-  prefix: '/uploads/',
-});
-
-// Register offline check hook
-fastify.addHook('preHandler', offlineCheck);
-
-// Error handler
-fastify.setErrorHandler(errorHandler);
-
-// Health check
-fastify.get('/health', async () => {
-  return { status: 'ok', timestamp: new Date().toISOString() };
-});
-
-// Register routes
-fastify.register(authRoutes, { prefix: '/api/auth' });
-fastify.register(adminRoutes, { prefix: '/api/admin' });
-fastify.register(ownerRoutes, { prefix: '/api/owner' });
-fastify.register(portalRoutes, { prefix: '/api' });  // public — no JWT required
-fastify.register(companyRoutes, { prefix: '/api/company' });
-fastify.register(systemRoutes, { prefix: '/api/system' });
-
-// Start server
 const start = async () => {
   try {
-    // Ensure required directories exist (Moved inside start to prevent crash on read-only filesystems)
-    const uploadsDir = join(__dirname, '../uploads');
-    try {
-      if (!fs.existsSync(uploadsDir)) {
-        console.log(`Creating uploads directory at: ${uploadsDir}`);
-        fs.mkdirSync(uploadsDir, { recursive: true });
-      }
-    } catch (dirErr: any) {
-      console.warn('Warning: Could not create uploads directory. If this is a read-only environment (like Render without persistence), this is expected.', dirErr.message);
-    }
-
-    // For Passenger/cPanel: PORT might be a Unix socket path or a dynamic port
     const rawPort = process.env.PORT || '5002';
     const port = isNaN(Number(rawPort)) ? rawPort : parseInt(rawPort, 10);
     const host = '0.0.0.0';
@@ -120,14 +17,9 @@ const start = async () => {
     });
 
     console.log(`=========================================`);
-    console.log(`🚀 Server ready at ${typeof port === 'number' ? `http://${host}:${port}` : `socket ${port}`}`);
+    console.log(`Server ready at ${typeof port === 'number' ? `http://${host}:${port}` : `socket ${port}`}`);
     console.log(`=========================================`);
 
-    // Start background cron jobs (disabled until schema is updated)
-    // CronScheduler.start();
-
-    // --- Automated Backup Cron (Daily at 2 AM) ---
-    // Note: In an industrial ERP, we use BackupService for a complete disaster recovery snapshot (pg_dump)
     setInterval(async () => {
       const now = new Date();
       if (now.getHours() === 2) {
@@ -143,7 +35,7 @@ const start = async () => {
           console.error('[Automated System Backup] Exception caught:', err);
         }
       }
-    }, 3600000); // Check once an hour
+    }, 3600000);
 
   } catch (err) {
     console.error('Fatal error during startup:', err);

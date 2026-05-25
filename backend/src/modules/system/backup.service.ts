@@ -7,28 +7,29 @@ import prisma from '../../config/database';
 const execAsync = promisify(exec);
 
 export class BackupService {
-  private static BACKUP_DIR = path.join(process.cwd(), 'backups');
+  private static BACKUP_DIR = process.env.VERCEL === '1' ? '/tmp/accabiz_backups' : path.join(process.cwd(), 'backups');
 
-  /**
-   * Performs a database backup using pg_dump.
-   * Note: Requires pg_dump to be installed on the host system.
-   */
   static async performBackup(userId: string = 'SYSTEM') {
-    if (!fs.existsSync(this.BACKUP_DIR)) {
-      fs.mkdirSync(this.BACKUP_DIR, { recursive: true });
+    if (process.env.VERCEL === '1') {
+      console.log('[BackupService] pg_dump not available in serverless. Skipping automated backup.');
+      return { success: false, error: 'Not available in serverless mode. Use Neon built-in backups.' };
+    }
+
+    try {
+      if (!fs.existsSync(this.BACKUP_DIR)) {
+        fs.mkdirSync(this.BACKUP_DIR, { recursive: true });
+      }
+    } catch {
+      return { success: false, error: 'Cannot create backup directory' };
     }
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const fileName = `accabiz_backup_${timestamp}.sql`;
     const filePath = path.join(this.BACKUP_DIR, fileName);
     
-    // Extract DB params from DATABASE_URL
     const dbUrl = process.env.DATABASE_URL || '';
     
     try {
-      // Basic pg_dump command. 
-      // For industrial use, we'd use a more robust cloud-native solution (e.g. S3 upload)
-      // but for this modernization step, local snapshotting is the baseline.
       await execAsync(`pg_dump "${dbUrl}" > "${filePath}"`);
       
       const stats = fs.statSync(filePath);

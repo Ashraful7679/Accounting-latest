@@ -10,9 +10,6 @@ env:
   NODE_VERSION: '20'
 
 jobs:
-  # ============================================
-  # Backend Tests
-  # ============================================
   backend-test:
     name: Backend Tests
     runs-on: ubuntu-latest
@@ -71,9 +68,6 @@ jobs:
           name: backend-coverage
           path: backend/coverage/
 
-  # ============================================
-  # Frontend Build
-  # ============================================
   frontend-build:
     name: Frontend Build
     runs-on: ubuntu-latest
@@ -109,29 +103,34 @@ jobs:
           name: frontend-build
           path: frontend/.next/
 
-  # ============================================
-  # Deploy to Staging (on okay branch)
-  # ============================================
   deploy-staging:
-    name: Deploy to Staging
+    name: Deploy to Vercel (Staging)
     runs-on: ubuntu-latest
     needs: [backend-test, frontend-build]
     if: github.ref == 'refs/heads/okay' && github.event_name == 'push'
     
     steps:
-      - name: Deploy backend
-        run: |
-          echo "Deploying backend to staging..."
-          # Add your Render deploy webhook or SSH deploy command here
-          
-      - name: Deploy frontend
-        run: |
-          echo "Deploying frontend to staging..."
-          # Add your Render deploy webhook or SSH deploy command here
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  # ============================================
-  # Security Scan
-  # ============================================
+      - name: Deploy Backend to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
+          vercel-args: '--prod'
+          working-directory: backend
+
+      - name: Deploy Frontend to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_FRONTEND_PROJECT_ID }}
+          vercel-args: '--prod'
+          working-directory: frontend
+
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -147,9 +146,6 @@ jobs:
           cd backend && npm audit --audit-level=high
           cd ../frontend && npm audit --audit-level=high
 
-  # ============================================
-  # Notify on Failure
-  # ============================================
   notify-failure:
     name: Notify on Failure
     runs-on: ubuntu-latest
@@ -160,4 +156,3 @@ jobs:
       - name: Notify
         run: |
           echo "Pipeline failed! Check the artifacts for details."
-          # Add Slack/Discord notification here

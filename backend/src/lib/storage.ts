@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import { Readable } from 'stream';
 
 interface StorageProvider {
-  save(fileName: string, data: Buffer | Readable, mimeType: string): Promise<{ filePath: string; hash: string; fileSize: number }>;
+  save(fileName: string, data: Buffer | Readable, mimeType: string): Promise<{ filePath: string; hash: string; fileSize: number; url?: string }>;
   get(filePath: string): Promise<{ stream: Readable; mimeType: string } | null>;
   delete(filePath: string): Promise<void>;
   exists(filePath: string): Promise<boolean>;
@@ -15,14 +15,60 @@ let provider: StorageProvider | null = null;
 async function getStorageProvider(): Promise<StorageProvider> {
   if (provider) return provider;
 
+  const useVercelBlob = process.env.VERCEL === '1' || process.env.BLOB_READ_WRITE_TOKEN;
+
+  if (useVercelBlob) {
+    try {
+      const { put, get, delete: del, head } = require('@vercel/blob');
+      provider = {
+        async save(fileName, data, mimeType) {
+          const buf = data instanceof Buffer ? data : await new Promise<Buffer>((resolve, reject) => {
+            const chunks: Buffer[] = [];
+            (data as Readable).on('data', (c: Buffer) => chunks.push(c));
+            (data as Readable).on('end', () => resolve(Buffer.concat(chunks)));
+            (data as Readable).on('error', reject);
+          });
+          const hash = crypto.createHash('sha256').update(buf).digest('hex');
+          const blob = await put(fileName, buf, {
+            contentType: mimeType,
+            access: 'public',
+          });
+          return { filePath: fileName, hash, fileSize: buf.length, url: blob.url };
+        },
+        async get(filePath) {
+          try {
+            const blob = await get(filePath);
+            if (!blob) return null;
+            const response = await fetch(blob.url);
+            const stream = Readable.from(response.body as any);
+            return { stream, mimeType: blob.contentType || 'application/octet-stream' };
+          } catch {
+            return null;
+          }
+        },
+        async delete(filePath) {
+          try { await del(filePath); } catch {}
+        },
+        async exists(filePath) {
+          try {
+            const result = await head(filePath);
+            return !!result;
+          } catch {
+            return false;
+          }
+        },
+      };
+    } catch {
+      console.warn('[Storage] @vercel/blob not installed, falling back');
+    }
+  }
+
   const s3Bucket = process.env.S3_BUCKET;
   const s3Region = process.env.S3_REGION;
   const s3AccessKey = process.env.S3_ACCESS_KEY;
   const s3SecretKey = process.env.S3_SECRET_KEY;
 
-  if (s3Bucket && s3Region && s3AccessKey && s3AccessKey !== '') {
-    // S3 support is available when @aws-sdk/client-s3 is installed and env vars are set
-    // Use require() to avoid TypeScript compilation error when package is not installed
+  if (!provider && s3Bucket && s3Region && s3AccessKey && s3AccessKey !== '') {
     try {
       const s3Module = require('@aws-sdk/client-s3');
       const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } = s3Module;
@@ -78,16 +124,22 @@ async function getStorageProvider(): Promise<StorageProvider> {
   }
 
   if (!provider) {
-    const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
-    if (!fs.existsSync(UPLOAD_DIR)) {
-      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
+    try {
+      if (!fs.existsSync(UPLOAD_DIR)) {
+        fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+      }
+    } catch {
+      console.warn('[Storage] Cannot create uploads directory, may be read-only filesystem');
     }
 
     provider = {
       async save(fileName, data, _mimeType) {
         const filePath = path.join(UPLOAD_DIR, fileName);
         const dir = path.dirname(filePath);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        try {
+          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        } catch {}
 
         const hash = crypto.createHash('sha256');
         const writeStream = fs.createWriteStream(filePath);
@@ -140,7 +192,14 @@ async function getStorageProvider(): Promise<StorageProvider> {
   return provider;
 }
 
-export async function saveFile(fileName: string, data: Buffer | Readable, mimeType: string) {
+export interface SaveResult {
+  filePath: string;
+  hash: string;
+  fileSize: number;
+  url?: string;
+}
+
+export async function saveFile(fileName: string, data: Buffer | Readable, mimeType: string): Promise<SaveResult> {
   const p = await getStorageProvider();
   return p.save(fileName, data, mimeType);
 }

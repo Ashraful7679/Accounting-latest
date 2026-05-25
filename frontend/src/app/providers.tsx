@@ -26,28 +26,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   const router = useRouter();
 
-  useEffect(() => {
-    const HEARTBEAT_INTERVAL = 14 * 60 * 1000; // 14 minutes
-    
-    const heartbeat = async () => {
-      try {
-        await fetch(`${BASE_URL}/health`, { 
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          keepalive: true 
-        });
-      } catch (error) {
-        console.log('Heartbeat ping failed', error);
-      }
-    };
-
-    // Initial ping
-    heartbeat();
-
-    const intervalId = setInterval(heartbeat, HEARTBEAT_INTERVAL);
-
-    return () => clearInterval(intervalId);
-  }, []);
+  // Heartbeat removed as per request – no periodic health checks
 
   return (
     <QueryClientProvider client={queryClient}>

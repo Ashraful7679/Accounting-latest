@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-25T14:53:10.766Z",
+  "lastUpdated": "2026-05-25T15:10:18.832Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -128,13 +128,14 @@
       "agent": "unknown"
     },
     "backend\\src\\modules\\owner\\owner.controller.ts": {
-      "modified": "2026-05-10T14:00:28.089Z",
+      "modified": "2026-05-25T15:10:16.698Z",
       "features": [
         "Fixed Prisma relation query syntax (role: { is: { name: 'Owner' } }) to prevent Invalid prisma.user.count/findMany errors",
         "Fixed email findUnique errors and synchronized permissions",
-        "Added bulk permission update, synchronized default roles, and improved employee validation"
+        "Added bulk permission update, synchronized default roles, and improved employee validation",
+        "Updated role defaults: Manager no create/approve, Accountant can delete no verify, User view-only"
       ],
-      "lastChange": "2026-05-10T14:00:28.097Z",
+      "lastChange": "2026-05-25T15:10:16.698Z",
       "agent": "unknown"
     },
     "backend\\prisma\\schema.prisma": {
@@ -215,13 +216,14 @@
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\rbac.service.ts": {
-      "modified": "2026-05-19T09:16:49.589Z",
+      "modified": "2026-05-25T15:10:18.831Z",
       "features": [
         "Removed global Admin bypass and restricted Admin role to system-level modules",
         "Strict Admin isolation and RolePermission table integration",
-        "Added sales.pis permission and expanded permission map; added usePermissions coverage across frontend company pages"
+        "Added sales.pis permission and expanded permission map; added usePermissions coverage across frontend company pages",
+        "Updated Accountant template: can delete, cannot verify"
       ],
-      "lastChange": "2026-05-19T09:16:49.590Z",
+      "lastChange": "2026-05-25T15:10:18.832Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\dashboard.controller.ts": {
@@ -339,11 +341,12 @@
       "agent": "unknown"
     },
     "frontend\\src\\components\\Sidebar.tsx": {
-      "modified": "2026-05-19T04:01:04.630Z",
+      "modified": "2026-05-25T15:10:18.359Z",
       "features": [
-        "Added missing sidebar items: Credit Notes, Purchase PIs, Debit Notes, Purchase Requisitions, Payroll, Inventory (Warehouses, Transfers, Reconciliation)"
+        "Added missing sidebar items: Credit Notes, Purchase PIs, Debit Notes, Purchase Requisitions, Payroll, Inventory (Warehouses, Transfers, Reconciliation)",
+        "Removed Roles sidebar link (permissions only from /owner/users)"
       ],
-      "lastChange": "2026-05-19T04:01:04.635Z",
+      "lastChange": "2026-05-25T15:10:18.360Z",
       "agent": "unknown"
     },
     "frontend\\src\\app\\page.tsx": {
@@ -428,6 +431,30 @@
         "Fixed login redirect: all non-admin users now go to /company/[id]/dashboard instead of /owner/dashboard"
       ],
       "lastChange": "2026-05-25T14:53:07.028Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\modules\\owner\\owner.routes.ts": {
+      "modified": "2026-05-25T15:10:16.067Z",
+      "features": [
+        "Renamed /employees routes to /users, added toggle status route"
+      ],
+      "lastChange": "2026-05-25T15:10:16.072Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\owner\\dashboard\\page.tsx": {
+      "modified": "2026-05-25T15:10:17.228Z",
+      "features": [
+        "Changed Employees card to Users with count, updated API to /owner/users"
+      ],
+      "lastChange": "2026-05-25T15:10:17.229Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\owner\\users\\page.tsx": {
+      "modified": "2026-05-25T15:10:17.744Z",
+      "features": [
+        "Updated API endpoints to /owner/users and role permission defaults"
+      ],
+      "lastChange": "2026-05-25T15:10:17.744Z",
       "agent": "unknown"
     }
   },

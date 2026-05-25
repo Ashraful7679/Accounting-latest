@@ -26,28 +26,31 @@ export const ownerRoutes = async (fastify: FastifyInstance) => {
   // Remove owner from company
   fastify.delete('/companies/:id/owners/:ownerId', controller.removeOwnerFromCompany.bind(controller));
 
-  // Get employees in owner's companies
-  fastify.get('/employees', controller.getEmployees.bind(controller));
+  // Get users in owner's companies
+  fastify.get('/users', controller.getEmployees.bind(controller));
 
-  // Create employee
-  fastify.post('/employees', controller.createEmployee.bind(controller));
+  // Create user
+  fastify.post('/users', controller.createEmployee.bind(controller));
 
-  // Update employee
-  fastify.put('/employees/:id', controller.updateEmployee.bind(controller));
+  // Update user
+  fastify.put('/users/:id', controller.updateEmployee.bind(controller));
 
-  // Update employee permissions
-  fastify.put('/employees/:id/permissions', controller.updateEmployeePermissions.bind(controller));
-  fastify.put('/employees/:id/permissions/bulk', controller.bulkUpdateEmployeePermissions.bind(controller));
+  // Update user permissions
+  fastify.put('/users/:id/permissions', controller.updateEmployeePermissions.bind(controller));
+  fastify.put('/users/:id/permissions/bulk', controller.bulkUpdateEmployeePermissions.bind(controller));
 
   // Set reporting manager
-  fastify.put('/employees/:id/manager', controller.setEmployeeManager.bind(controller));
+  fastify.put('/users/:id/manager', controller.setEmployeeManager.bind(controller));
 
   // Reset password
-  fastify.post('/employees/:id/reset-password', controller.resetEmployeePassword.bind(controller));
+  fastify.post('/users/:id/reset-password', controller.resetEmployeePassword.bind(controller));
 
-  // Delete employee
-  fastify.delete('/employees/:id', controller.deleteEmployee.bind(controller));
+  // Toggle user active status
+  fastify.put('/users/:id/activate', controller.toggleEmployeeStatus.bind(controller));
 
-  // One-shot: seed default permissions for ALL employees based on their current role
-  fastify.post('/employees/sync-permissions', controller.syncAllPermissions.bind(controller));
+  // Delete user
+  fastify.delete('/users/:id', controller.deleteEmployee.bind(controller));
+
+  // One-shot: seed default permissions for ALL users based on their current role
+  fastify.post('/users/sync-permissions', controller.syncAllPermissions.bind(controller));
 };

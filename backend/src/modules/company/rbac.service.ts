@@ -74,10 +74,10 @@ export const ROLE_TEMPLATES = {
     }), {})
   },
   'Accountant': {
-    description: 'Can create and verify transactions',
+    description: 'Can create and edit transactions',
     permissions: Object.keys(PERMISSIONS).reduce((acc, mod) => ({
       ...acc,
-      [mod]: { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: true, canApprove: false, canExport: true, canPrint: true }
+      [mod]: { canCreate: true, canView: true, canEdit: true, canDelete: true, canVerify: false, canApprove: false, canExport: true, canPrint: true }
     }), {})
   },
   'Sales Rep': {

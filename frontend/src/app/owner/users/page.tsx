@@ -37,11 +37,11 @@ interface Role {
 }
 
   const ROLE_PERMISSIONS_DEFAULTS: Record<string, any> = {
-    'User': { canCreate: false, canView: true, canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
+    'User': { canCreate: false, canView: true, canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: true, canPrint: true },
     'DataEntry': { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: true },
-    'Accountant': { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: true, canApprove: false, canExport: true, canPrint: true },
+    'Accountant': { canCreate: true, canView: true, canEdit: true, canDelete: true, canVerify: false, canApprove: false, canExport: true, canPrint: true },
     'Co-Owner': { canCreate: true, canView: true, canEdit: true, canDelete: true, canVerify: true, canApprove: true, canExport: true, canPrint: true },
-    'Manager': { canCreate: true, canView: true, canEdit: true, canDelete: false, canVerify: true, canApprove: true, canExport: true, canPrint: true },
+    'Manager': { canCreate: false, canView: true, canEdit: true, canDelete: false, canVerify: true, canApprove: false, canExport: true, canPrint: true },
     'Owner': { canCreate: true, canView: true, canEdit: true, canDelete: true, canVerify: true, canApprove: true, canExport: true, canPrint: true },
   };
 
@@ -82,9 +82,9 @@ export default function OwnerUsersPage() {
   }>({});
 
   const { data: employeesData, isLoading } = useQuery({
-    queryKey: ['owner-employees'],
+    queryKey: ['owner-users'],
     queryFn: async () => {
-      const response = await api.get('/owner/employees');
+      const response = await api.get('/owner/users');
       return response.data.data as Employee[];
     },
   });
@@ -140,11 +140,11 @@ export default function OwnerUsersPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const response = await api.post('/owner/employees', data);
+      const response = await api.post('/owner/users', data);
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['owner-employees'] });
+      queryClient.invalidateQueries({ queryKey: ['owner-users'] });
       toast.success('User created successfully');
       closeCreateModal();
     },
@@ -155,11 +155,11 @@ export default function OwnerUsersPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
-      const response = await api.put(`/owner/employees/${id}`, data);
+      const response = await api.put(`/owner/users/${id}`, data);
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['owner-employees'] });
+      queryClient.invalidateQueries({ queryKey: ['owner-users'] });
       toast.success('User updated successfully');
       closeCreateModal();
     },
@@ -170,11 +170,11 @@ export default function OwnerUsersPage() {
 
   const toggleStatusMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      const response = await api.put(`/owner/employees/${id}/activate`, { isActive });
+      const response = await api.put(`/owner/users/${id}/activate`, { isActive });
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['owner-employees'] });
+      queryClient.invalidateQueries({ queryKey: ['owner-users'] });
       toast.success('User status updated');
     },
     onError: (error: any) => {
@@ -184,10 +184,10 @@ export default function OwnerUsersPage() {
 
   const updatePermissionsMutation = useMutation({
     mutationFn: async ({ id, permissions: perms }: { id: string; permissions: any[] }) => {
-      await api.put(`/owner/employees/${id}/permissions/bulk`, { permissions: perms });
+      await api.put(`/owner/users/${id}/permissions/bulk`, { permissions: perms });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['owner-employees'] });
+      queryClient.invalidateQueries({ queryKey: ['owner-users'] });
       toast.success('Permissions updated successfully');
       closePermissionsModal();
     },
@@ -198,11 +198,11 @@ export default function OwnerUsersPage() {
 
   const setManagerMutation = useMutation({
     mutationFn: async ({ id, managerId }: { id: string; managerId: string | null }) => {
-      const response = await api.put(`/owner/employees/${id}/manager`, { managerId });
+      const response = await api.put(`/owner/users/${id}/manager`, { managerId });
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['owner-employees'] });
+      queryClient.invalidateQueries({ queryKey: ['owner-users'] });
       toast.success('Manager updated successfully');
       closeManagerModal();
     },
@@ -213,11 +213,11 @@ export default function OwnerUsersPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await api.delete(`/owner/employees/${id}`);
+      const response = await api.delete(`/owner/users/${id}`);
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['owner-employees'] });
+      queryClient.invalidateQueries({ queryKey: ['owner-users'] });
       toast.success('User deleted successfully');
     },
     onError: (error: any) => {

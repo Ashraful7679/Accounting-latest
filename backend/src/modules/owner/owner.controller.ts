@@ -20,11 +20,11 @@ const ROLE_PERMISSIONS: Record<string, {
   canVerify: boolean; canApprove: boolean; canExport: boolean; canPrint: boolean;
 }> = {
   //            create  view   edit   delete verify approve export print
-  User:       { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: false },
+  User:       { canCreate: false, canView: true,  canEdit: false, canDelete: false, canVerify: false, canApprove: false, canExport: true,  canPrint: true  },
   DataEntry:  { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: false, canApprove: false, canExport: false, canPrint: true  },
-  Accountant: { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: false, canExport: true,  canPrint: true  },
+  Accountant: { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: false, canApprove: false, canExport: true,  canPrint: true  },
   'Co-Owner': { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
-  Manager:    { canCreate: true,  canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
+  Manager:    { canCreate: false, canView: true,  canEdit: true,  canDelete: false, canVerify: true,  canApprove: false, canExport: true,  canPrint: true  },
   Owner:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
   Admin:      { canCreate: true,  canView: true,  canEdit: true,  canDelete: true,  canVerify: true,  canApprove: true,  canExport: true,  canPrint: true  },
 };
@@ -48,7 +48,7 @@ async function seedDefaultPermissions(userId: string, roleName: string): Promise
         canPrint: t.canPrint
       }))
     : PERMISSION_MODULES.map(module => {
-        const defaults = ROLE_PERMISSIONS[roleName as keyof typeof ROLE_PERMISSIONS] || ROLE_PERMISSIONS.Employee;
+        const defaults = ROLE_PERMISSIONS[roleName as keyof typeof ROLE_PERMISSIONS] || ROLE_PERMISSIONS.User;
         return {
           module,
           canView: true,

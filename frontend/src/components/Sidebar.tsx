@@ -168,7 +168,6 @@ export default function Sidebar({ companyName, role: propRole }: SidebarProps) {
       ]
     },
     { name: 'Reports', href: `/company/${companyId}/reports`, icon: FileBarChart },
-    { name: 'Roles', href: `/company/${companyId}/settings/roles`, icon: ShieldCheck },
     { name: 'Backup', href: `/company/${companyId}/settings/backup`, icon: Database },
   ];
 

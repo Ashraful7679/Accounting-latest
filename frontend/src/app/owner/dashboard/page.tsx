@@ -28,7 +28,6 @@ export default function OwnerDashboard() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
-  const [stats, setStats] = useState({ companies: 0, employees: 0 });
   const [user, setUser] = useState<{ firstName: string; lastName: string } | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [formData, setFormData] = useState({
@@ -55,9 +54,9 @@ export default function OwnerDashboard() {
   });
 
   const { data: employeesData } = useQuery({
-    queryKey: ['owner-employees'],
+    queryKey: ['owner-users'],
     queryFn: async () => {
-      const response = await api.get('/owner/employees');
+      const response = await api.get('/owner/users');
       return response.data.data;
     },
   });
@@ -78,7 +77,7 @@ export default function OwnerDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['owner-companies'] });
-      queryClient.invalidateQueries({ queryKey: ['owner-employees'] });
+      queryClient.invalidateQueries({ queryKey: ['owner-users'] });
       toast.success('Company created successfully');
       setFormData({
         name: '',
@@ -224,7 +223,7 @@ export default function OwnerDashboard() {
               </div>
               <div>
                 <p className="text-sm text-gray-700">My Companies</p>
-                <p className="text-2xl font-bold">{stats.companies}</p>
+                <p className="text-2xl font-bold">{companiesData?.length || 0}</p>
               </div>
             </div>
           </div>
@@ -235,8 +234,8 @@ export default function OwnerDashboard() {
                 <Users className="w-6 h-6 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-700">Employees</p>
-                <p className="text-2xl font-bold">{stats.employees}</p>
+                <p className="text-sm text-gray-700">Users</p>
+                <p className="text-2xl font-bold">{(Array.isArray(employeesData) ? employeesData : []).filter(e => e.role !== 'Owner').length || 0}</p>
               </div>
             </div>
           </div>

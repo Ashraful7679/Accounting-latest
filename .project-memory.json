@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-06-23T12:11:22.384Z",
+  "lastUpdated": "2026-06-23T12:51:12.449Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -488,21 +488,23 @@
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\invoices\\create\\page.tsx": {
-      "modified": "2026-06-23T11:18:30.882Z",
+      "modified": "2026-06-23T12:51:06.834Z",
       "features": [
         "Invalidate dashboard-stats query key on sales invoice creation to auto-refresh dashboard KPI",
-        "Allowed blank instead of 0 in numeric form inputs"
+        "Allowed blank instead of 0 in numeric form inputs",
+        "Integrated DocumentTreeView summary and refactored DN filtering to use customerDNs variable"
       ],
-      "lastChange": "2026-06-23T11:18:30.883Z",
+      "lastChange": "2026-06-23T12:51:06.834Z",
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\purchase\\invoices\\create\\page.tsx": {
-      "modified": "2026-06-23T11:18:24.663Z",
+      "modified": "2026-06-23T12:51:06.783Z",
       "features": [
         "Invalidate dashboard-stats query key on purchase invoice registration to auto-refresh dashboard KPI",
-        "Allowed blank instead of 0 in numeric form inputs"
+        "Allowed blank instead of 0 in numeric form inputs",
+        "Integrated DocumentTreeView summary and fixed GRN supplier filter"
       ],
-      "lastChange": "2026-06-23T11:18:24.664Z",
+      "lastChange": "2026-06-23T12:51:06.784Z",
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\orders\\page.tsx": {
@@ -575,6 +577,38 @@
         "Accept purchaseRequisitionIds in createPurchaseOrder payload"
       ],
       "lastChange": "2026-06-23T12:11:22.384Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\company\\[id]\\sales\\challans\\page.tsx": {
+      "modified": "2026-06-23T12:51:00.933Z",
+      "features": [
+        "Added Delivery Challan create modal with SO selector and line items, plus delete action with confirmation"
+      ],
+      "lastChange": "2026-06-23T12:51:00.934Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\components\\DocumentTreeView.tsx": {
+      "modified": "2026-06-23T12:51:01.615Z",
+      "features": [
+        "Created reusable DocumentTreeView component with collapsible doc groups, status badges, amount/date display, and navigation links"
+      ],
+      "lastChange": "2026-06-23T12:51:01.615Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\company\\[id]\\sales\\orders\\[orderId]\\page.tsx": {
+      "modified": "2026-06-23T12:51:06.882Z",
+      "features": [
+        "Replaced individual link cards with DocumentTreeView in sidebar for linked documents"
+      ],
+      "lastChange": "2026-06-23T12:51:06.882Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\company\\[id]\\purchase\\orders\\[poId]\\page.tsx": {
+      "modified": "2026-06-23T12:51:06.927Z",
+      "features": [
+        "Replaced individual link cards with DocumentTreeView in sidebar for linked documents"
+      ],
+      "lastChange": "2026-06-23T12:51:06.928Z",
       "agent": "unknown"
     }
   },
@@ -690,6 +724,36 @@
       ],
       "status": "complete",
       "updatedAt": "2026-05-25T09:09:25.646Z"
+    },
+    "delivery-challan-crud": {
+      "date": "2026-06-23",
+      "description": "Added create modal (SO selector, line items with remaining qty, shipment date) and delete action to challans page",
+      "files": [
+        "frontend/src/app/company/[id]/sales/challans/page.tsx"
+      ],
+      "status": "complete",
+      "updatedAt": "2026-06-23T12:51:12.350Z"
+    },
+    "document-tree-view": {
+      "date": "2026-06-23",
+      "description": "Created reusable DocumentTreeView component with collapsible doc groups, status badges, amount/date display, and nav links",
+      "files": [
+        "frontend/src/components/DocumentTreeView.tsx"
+      ],
+      "status": "complete",
+      "updatedAt": "2026-06-23T12:51:12.398Z"
+    },
+    "tree-view-integration": {
+      "date": "2026-06-23",
+      "description": "Integrated DocumentTreeView into PI/SI create forms and SO/PO detail pages",
+      "files": [
+        "frontend/src/app/company/[id]/purchase/invoices/create/page.tsx",
+        "frontend/src/app/company/[id]/sales/invoices/create/page.tsx",
+        "frontend/src/app/company/[id]/sales/orders/[orderId]/page.tsx",
+        "frontend/src/app/company/[id]/purchase/orders/[poId]/page.tsx"
+      ],
+      "status": "complete",
+      "updatedAt": "2026-06-23T12:51:12.449Z"
     }
   },
   "workflows": {

@@ -52,7 +52,9 @@ export default function ExportPIsPage() {
   const { exchangeRate } = useCompany();
   const [activeTab, setActiveTab] = useState<'local' | 'foreign'>('local');
   const [showModal, setShowModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [selectedPI, setSelectedPI] = useState<PI | null>(null);
+  const [viewingPI, setViewingPI] = useState<PI | null>(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [isAutoPI, setIsAutoPI] = useState(false);
   
@@ -242,6 +244,16 @@ export default function ExportPIsPage() {
       });
     }
     setShowModal(true);
+  };
+
+  const openViewModal = (pi: PI) => {
+    setViewingPI(pi);
+    setShowViewModal(true);
+  };
+
+  const closeViewModal = () => {
+    setShowViewModal(false);
+    setViewingPI(null);
   };
 
   const closeModal = () => {
@@ -435,7 +447,7 @@ export default function ExportPIsPage() {
                       {pi.status === 'DRAFT' && <button onClick={() => updateStatusMutation.mutate({ id: pi.id, status: 'VERIFIED' })} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-sm transition-colors" title="Verify"><CheckCircle2 className="w-3.5 h-3.5" /></button>}
                       {pi.status === 'VERIFIED' && <button onClick={() => updateStatusMutation.mutate({ id: pi.id, status: 'APPROVED' })} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-sm transition-colors" title="Approve"><CheckCircle2 className="w-3.5 h-3.5" /></button>}
                       {pi.status === 'APPROVED' && <button onClick={() => updateStatusMutation.mutate({ id: pi.id, status: 'SENT' })} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-sm transition-colors" title="Mark as Sent"><ArrowUpRight className="w-3.5 h-3.5" /></button>}
-                      <button onClick={() => openModal(pi)} className="p-1.5 text-gray-400 hover:text-gray-900 rounded-sm transition-colors" title="View"><Eye className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => openViewModal(pi)} className="p-1.5 text-gray-400 hover:text-gray-900 rounded-sm transition-colors" title="View"><Eye className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>
@@ -458,36 +470,22 @@ export default function ExportPIsPage() {
               </div>
 
               <div className="flex gap-2">
-                <button 
-                  type="submit" 
-                  form="pi-form"
-                  disabled={createMutation.isPending}
-                  className="px-6 py-2 bg-gray-900 text-white font-bold text-[10px] uppercase tracking-widest rounded-sm hover:bg-gray-800 disabled:bg-gray-300 transition-all flex items-center gap-2"
-                >
-                  {createMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  {selectedPI ? 'Update PI' : 'Register PI'}
-                </button>
-
-                <button 
-                  type="button" 
-                  onClick={closeModal} 
-                  className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-sm transition-all"
-                >
+                <button type="button" onClick={closeModal} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-sm transition-all">
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8 bg-white">
-              <form onSubmit={handleSubmit} id="pi-form" className="space-y-12">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+            <div className="flex-1 overflow-y-auto p-6 bg-white">
+              <form onSubmit={handleSubmit} id="pi-form" className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Left Column: Contract */}
-                  <div className="space-y-8">
+                  <div className="space-y-4">
                     <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.3em] border-b border-gray-100 pb-3">Contract Data</h4>
                     
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
                           <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest">PI Number *</label>
                           <input 
                             type="text" 
@@ -504,14 +502,14 @@ export default function ExportPIsPage() {
                             </label>
                           )}
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                           <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest">PI Date</label>
                           <input type="date" value={formData.piDate} onChange={(e) => setFormData({...formData, piDate: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:border-gray-900 text-[11px] font-mono bg-white shadow-sm" required />
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest">Buyer Selection *</label>
+                      <div className="space-y-1">
+                        <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest">Buyer *</label>
                         <select 
                           value={formData.customerId} 
                           onChange={(e) => setFormData({...formData, customerId: e.target.value})}
@@ -523,7 +521,7 @@ export default function ExportPIsPage() {
                         </select>
                       </div>
 
-                      <div className="space-y-2">
+                      <div className="space-y-1">
                         <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest">LC Reference</label>
                         <select 
                           value={formData.lcId} 
@@ -538,31 +536,31 @@ export default function ExportPIsPage() {
                   </div>
 
                   {/* Center Column: Financials */}
-                  <div className="space-y-8">
+                  <div className="space-y-4">
                     <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.3em] border-b border-gray-100 pb-3">Value & Currency</h4>
                     
-                    <div className="bg-gray-50/50 p-6 border border-gray-100 rounded-sm space-y-8 relative overflow-hidden">
+                    <div className="bg-gray-50/50 p-4 border border-gray-100 rounded-sm space-y-4 relative overflow-hidden">
                       <div className="absolute top-0 right-0 p-4 opacity-5">
                         <DollarSign className="w-24 h-24" />
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4 relative z-10">
-                        <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-3 relative z-10">
+                        <div className="space-y-1">
                           <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Currency</label>
-                          <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-[11px] bg-white focus:outline-none focus:border-gray-900 font-bold uppercase tracking-widest">
+                          <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-xs bg-white focus:outline-none focus:border-gray-900 font-bold uppercase tracking-widest">
                             <option value="USD">USD</option>
                             <option value="BDT">BDT</option>
                           </select>
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                           <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Spot Rate</label>
-                          <div className="w-full px-2 py-1.5 bg-white border border-gray-100 rounded-sm text-[11px] text-gray-900 font-mono font-bold">
+                          <div className="w-full px-2 py-1.5 bg-white border border-gray-100 rounded-sm text-xs text-gray-900 font-mono font-bold">
                             {formData.currency === 'BDT' ? 1 : (exchangeRate || 1)}
                           </div>
                         </div>
                       </div>
 
-                      <div className="space-y-6 pt-6 border-t border-gray-200 relative z-10">
+                      <div className="space-y-4 pt-4 border-t border-gray-200 relative z-10">
                         <div className="flex justify-between items-baseline">
                           <span className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.2em]">Foreign Val.</span>
                           <span className="text-2xl font-mono font-black text-gray-900">
@@ -580,30 +578,30 @@ export default function ExportPIsPage() {
                   </div>
 
                   {/* Right Column: Banking */}
-                  <div className="space-y-8">
+                  <div className="space-y-4">
                     <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.3em] border-b border-gray-100 pb-3">Banking Compliance</h4>
                     
-                    <div className="space-y-6">
-                      <div className="space-y-2">
+                    <div className="space-y-3">
+                      <div className="space-y-1">
                         <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest">Commercial Invoice Ref</label>
                         <input type="text" value={formData.invoiceNumber} onChange={(e) => setFormData({...formData, invoiceNumber: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:border-gray-900 text-[11px] font-mono font-bold uppercase tracking-tight bg-white shadow-sm" placeholder="INV/XXX/24" />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
                           <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest">Buyer Submission</label>
                           <input type="date" value={formData.submissionToBuyerDate} onChange={(e) => setFormData({...formData, submissionToBuyerDate: e.target.value})} className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-[10px] font-mono bg-white shadow-sm" />
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                           <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest">Bank Submission</label>
                           <input type="date" value={formData.submissionToBankDate} onChange={(e) => setFormData({...formData, submissionToBankDate: e.target.value})} className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-[10px] font-mono bg-white shadow-sm" />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
                           <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest">Acceptance Date</label>
                           <input type="date" value={formData.bankAcceptanceDate} onChange={(e) => setFormData({...formData, bankAcceptanceDate: e.target.value})} className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-[10px] font-mono bg-white shadow-sm" />
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                           <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest">Maturity Date</label>
                           <input type="date" value={formData.maturityDate} onChange={(e) => setFormData({...formData, maturityDate: e.target.value})} className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-[10px] font-mono bg-white shadow-sm" />
                         </div>
@@ -613,14 +611,14 @@ export default function ExportPIsPage() {
                 </div>
 
                 {/* Schedule Table */}
-                <div className="space-y-6 pt-4">
-                  <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                    <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.3em] flex items-center gap-2">
+                <div className="space-y-4 pt-2">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-wider flex items-center gap-2">
                        <ShoppingBag className="w-4 h-4 text-gray-400" />
-                       PI Schedule Breakdown
+                       Schedule
                     </h4>
-                    <button type="button" onClick={addLine} className="text-gray-900 hover:text-blue-600 transition-colors text-[9px] font-bold uppercase tracking-[0.15em] flex items-center gap-1.5">
-                      <Plus className="w-3.5 h-3.5" /> Add New Row
+                    <button type="button" onClick={addLine} className="text-gray-900 hover:text-blue-600 transition-colors text-[9px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                      <Plus className="w-3.5 h-3.5" /> Add Row
                     </button>
                   </div>
 
@@ -700,41 +698,91 @@ export default function ExportPIsPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-between items-start gap-12 pt-6">
+                <div className="flex justify-between items-start gap-6 pt-4">
                    <div className="flex-1">
-                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-3">Internal Procurement Notes</label>
-                      <textarea 
-                        value={formData.description} 
-                        onChange={(e) => setFormData({...formData, description: e.target.value})}
-                        rows={4}
-                        className="w-full border border-gray-200 rounded-sm p-4 text-[11px] font-medium focus:outline-none focus:border-gray-900 bg-white resize-none shadow-sm placeholder:text-gray-300"
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">Internal Procurement Notes</label>
+                      <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}
+                        rows={3}
+                        className="w-full border border-gray-200 rounded-sm p-3 text-xs font-medium focus:outline-none focus:border-gray-900 bg-white resize-none shadow-sm placeholder:text-gray-300"
                         placeholder="SPECIFY LC CLAUSES, SHIPPING TERMS, OR BANKING REQUIREMENTS..."
                       />
                    </div>
-                   <div className="w-96 space-y-6 bg-gray-50 p-6 rounded-sm border border-gray-100">
+                   <div className="w-80 space-y-4 bg-gray-50 p-4 rounded-sm border border-gray-100">
                       <div className="flex justify-between items-center">
                         <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Foreign Subtotal</span>
-                        <span className="font-mono text-[13px] font-bold text-gray-900">{formData.currency} {calculateSubtotal().toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        <span className="font-mono text-sm font-bold text-gray-900">{formData.currency} {calculateSubtotal().toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                       </div>
-                      <div className="pt-6 border-t border-gray-200 flex justify-between items-end">
+                      <div className="pt-4 border-t border-gray-200 flex justify-between items-end">
                         <div className="space-y-1">
-                          <span className="text-[10px] font-black text-gray-900 uppercase tracking-[0.3em]">Total BDT</span>
-                          <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest italic opacity-60">Spot Rate {exchangeRate || 1}</p>
+                          <span className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Total BDT</span>
+                          <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Rate {exchangeRate || 1}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-mono text-2xl font-black text-blue-600 leading-none">
-                            ৳{(calculateSubtotal() * (exchangeRate || 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                          </p>
+                          <p className="font-mono text-xl font-black text-blue-600">৳{(calculateSubtotal() * (exchangeRate || 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                         </div>
                       </div>
                    </div>
                 </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+
+                 <div className="flex justify-end pt-4 border-t border-gray-100">
+                   <button type="submit" form="pi-form" disabled={createMutation.isPending}
+                     className="px-8 py-3 bg-gray-900 text-white font-bold text-xs uppercase tracking-widest rounded-sm hover:bg-gray-800 disabled:bg-gray-300 transition-all flex items-center gap-2 shadow-sm">
+                     {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                     {selectedPI ? 'Update PI' : 'Register PI'}
+                   </button>
+                 </div>
+               </form>
+             </div>
+           </div>
+         </div>
+       )}
+
+       {showViewModal && viewingPI && (
+         <div className="fixed inset-0 bg-gray-900/10 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
+           <div className="bg-white rounded-sm shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-gray-200">
+             <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+               <div className="flex items-center gap-3">
+                 <Globe className="w-4 h-4 text-gray-400" />
+                 <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">PI: {viewingPI.piNumber}</h3>
+               </div>
+               <button type="button" onClick={closeViewModal} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-sm">
+                 <X className="w-5 h-5" />
+               </button>
+             </div>
+             <div className="flex-1 overflow-y-auto p-6 space-y-6">
+               <div className="grid grid-cols-2 gap-4 text-sm">
+                 <div><span className="text-gray-400 text-xs">Customer</span><p className="font-semibold">{viewingPI.customer?.name || '--'}</p></div>
+                 <div><span className="text-gray-400 text-xs">PI Date</span><p className="font-semibold">{new Date(viewingPI.piDate).toLocaleDateString()}</p></div>
+                 <div><span className="text-gray-400 text-xs">Currency</span><p className="font-semibold">{viewingPI.currency}</p></div>
+                 <div><span className="text-gray-400 text-xs">Amount ({viewingPI.currency})</span><p className="font-semibold">{getCurrencySymbol(viewingPI.currency)}{viewingPI.amount?.toLocaleString()}</p></div>
+                 <div><span className="text-gray-400 text-xs">Total (BDT)</span><p className="font-semibold">৳{viewingPI.totalBDT?.toLocaleString()}</p></div>
+                 <div><span className="text-gray-400 text-xs">Status</span><p className="font-semibold">{viewingPI.status}</p></div>
+                 {viewingPI.lc && <div><span className="text-gray-400 text-xs">LC</span><p className="font-semibold">{viewingPI.lc.lcNumber}</p></div>}
+               </div>
+               {viewingPI.lines?.length > 0 && (
+                 <div className="border border-gray-200 rounded-sm overflow-hidden">
+                   <table className="w-full text-sm">
+                     <thead className="bg-gray-50 text-xs text-gray-500 uppercase font-bold">
+                       <tr><th className="px-4 py-2 text-left">Description</th><th className="px-4 py-2 text-right">Qty</th><th className="px-4 py-2 text-right">Unit Price</th><th className="px-4 py-2 text-right">Total</th></tr>
+                     </thead>
+                     <tbody className="divide-y divide-gray-100">
+                       {viewingPI.lines.map((l, i) => (
+                         <tr key={i} className="hover:bg-gray-50">
+                           <td className="px-4 py-2">{l.description}</td>
+                           <td className="px-4 py-2 text-right font-mono">{l.quantity}</td>
+                           <td className="px-4 py-2 text-right font-mono">{getCurrencySymbol(viewingPI.currency)}{l.unitPrice?.toLocaleString()}</td>
+                           <td className="px-4 py-2 text-right font-mono">{getCurrencySymbol(viewingPI.currency)}{(l.quantity * l.unitPrice)?.toLocaleString()}</td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                 </div>
+               )}
+             </div>
+           </div>
+         </div>
+       )}
+     </div>
+   );
+ }
 

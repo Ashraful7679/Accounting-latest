@@ -7,8 +7,9 @@ import api from '@/lib/api';
 import { 
   Plus, Trash2, ArrowLeft, Save, 
   User, Calendar, Receipt, Loader2, Link as LinkIcon,
-  TrendingUp, Truck, ShieldAlert, RotateCcw, MapPin
+  TrendingUp, Truck, ShoppingCart, ShieldAlert, RotateCcw, MapPin, Globe
 } from 'lucide-react';
+import DocumentTreeView from '@/components/DocumentTreeView';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
 import { useCompany } from '@/lib/CompanyContext';
@@ -36,12 +37,13 @@ export default function CreateSalesInvoicePage() {
     branchId: defaultBranchId || '',
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
+    soIds: [] as string[],
     piIds: [] as string[],
     dnIds: [] as string[],
     otherExpenses: 0,
     taxAmount: 0,
     discountAmount: 0,
-    lines: [{ itemDescription: '', quantity: 1, unitPrice: 0, total: 0, piId: '', dnId: '', returnQuantity: 0, damagedQuantity: 0 }] as any[]
+    lines: [{ itemDescription: '', quantity: 1, unitPrice: 0, total: 0, piId: '', dnId: '', soId: '', returnQuantity: 0, damagedQuantity: 0 }] as any[]
   });
 
   useEffect(() => { setMounted(true); }, []);
@@ -73,11 +75,22 @@ export default function CreateSalesInvoicePage() {
     enabled: !!companyId,
   });
 
+  const { data: salesOrders } = useQuery({
+    queryKey: ['sales-orders', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/sales-orders`);
+      const result = response.data.data;
+      return (Array.isArray(result) ? result : (result?.data || []));
+    },
+    enabled: !!companyId,
+  });
+
   const { data: challans } = useQuery({
     queryKey: ['delivery-notes', companyId],
     queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/delivery-notes`);
-      return response.data.data;
+      const response = await api.get(`/company/${companyId}/challans`);
+      const result = response.data.data;
+      return Array.isArray(result) ? result : (result?.data || []);
     },
     enabled: !!companyId,
   });
@@ -117,6 +130,17 @@ export default function CreateSalesInvoicePage() {
 
   const selectedCustomer = (Array.isArray(customers) ? customers : []).find((c: any) => c.name === formData.customerName);
   const customerPIs = (Array.isArray(exportPIs) ? exportPIs : []).filter((pi: any) => pi.customerId === selectedCustomer?.id && (pi.status === 'SENT' || pi.status === 'APPROVED' || pi.status === 'PARTIAL')) || [];
+  const customerSOs = (Array.isArray(salesOrders) ? salesOrders : []).filter((so: any) => so.customerId === selectedCustomer?.id && (so.status === 'CONFIRMED' || so.status === 'FULFILLED')) || [];
+  const customerDNs = (Array.isArray(challans) ? challans : []).filter((d: any) => d.salesOrder?.customerId === selectedCustomer?.id) || [];
+
+  const selectedSOs = formData.soIds.map(id => customerSOs.find((so: any) => so.id === id)).filter(Boolean);
+  const selectedPIs = formData.piIds.map(id => customerPIs.find((pi: any) => pi.id === id)).filter(Boolean);
+  const selectedDNs = formData.dnIds.map(id => customerDNs.find((dn: any) => dn.id === id)).filter(Boolean);
+  const treeGroups = [
+    { label: 'Sales Orders', icon: ShoppingCart, documents: selectedSOs.map((so: any) => ({ id: so.id, number: so.soNumber, status: so.status, date: so.soDate, amount: so.totalAmount, currency: so.currency, href: `/company/${companyId}/sales/orders/${so.id}` })) },
+    { label: 'Proforma Invoices', icon: Globe, documents: selectedPIs.map((pi: any) => ({ id: pi.id, number: pi.piNumber, status: pi.status, date: pi.piDate, amount: pi.amount, currency: pi.currency, href: `/company/${companyId}/sales/pis/${pi.id}` })) },
+    { label: 'Delivery Notes', icon: Truck, documents: selectedDNs.map((dn: any) => ({ id: dn.id, number: dn.dnNumber, status: dn.status, date: dn.shipmentDate, href: `/company/${companyId}/sales/challans/${dn.id}` })) },
+  ];
 
   const handleLineChange = (index: number, field: string, value: any) => {
     const newLines = [...formData.lines];
@@ -146,7 +170,7 @@ export default function CreateSalesInvoicePage() {
   const addLine = () => {
     setFormData({
       ...formData,
-      lines: [...formData.lines, { itemDescription: '', quantity: 1, unitPrice: 0, total: 0, piId: '' }]
+      lines: [...formData.lines, { itemDescription: '', quantity: 1, unitPrice: 0, total: 0, piId: '', soId: '' }]
     });
   };
 
@@ -154,6 +178,35 @@ export default function CreateSalesInvoicePage() {
     if (formData.lines.length === 1) return;
     const newLines = formData.lines.filter((_, i) => i !== index);
     setFormData({ ...formData, lines: newLines });
+  };
+
+  const handleSOToggle = (soId: string) => {
+    const currentSOs = [...formData.soIds];
+    const soIndex = currentSOs.indexOf(soId);
+    if (soIndex > -1) {
+      currentSOs.splice(soIndex, 1);
+      setFormData({ ...formData, soIds: currentSOs });
+    } else {
+      currentSOs.push(soId);
+      const so = (Array.isArray(salesOrders) ? salesOrders : []).find((s: any) => s.id === soId);
+      if (so && so.lines) {
+        const newLinesFromSO = so.lines.map((l: any) => ({
+          productId: l.productId,
+          itemDescription: l.itemDescription || l.description,
+          quantity: l.quantity - (l.deliveredQuantity || 0),
+          unitPrice: l.unitPrice,
+          total: (l.quantity - (l.deliveredQuantity || 0)) * l.unitPrice,
+          soId: so.id,
+          returnQuantity: 0,
+          damagedQuantity: 0,
+        })).filter((l: any) => l.quantity > 0);
+        setFormData({
+          ...formData,
+          soIds: currentSOs,
+          lines: [...formData.lines.filter(l => l.itemDescription !== ''), ...newLinesFromSO]
+        });
+      }
+    }
   };
 
   const handlePIToggle = (piId: string) => {
@@ -313,6 +366,7 @@ export default function CreateSalesInvoicePage() {
         status: 'DRAFT',
         branchId: formData.branchId || undefined,
         lines: finalLines,
+        salesOrderId: formData.soIds[0] || undefined,
         piIds: formData.piIds,
         dnIds: formData.dnIds,
         taxAmount: Number(formData.taxAmount) || 0,
@@ -458,6 +512,23 @@ export default function CreateSalesInvoicePage() {
 
         {/* Linked Documents */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {selectedCustomer && customerSOs.length > 0 && (
+            <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
+              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <ShoppingCart className="w-3 h-3" /> Link Sales Orders
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {customerSOs.map((so: any) => (
+                  <button key={so.id} type="button" onClick={() => handleSOToggle(so.id)}
+                    className={`px-3 py-1.5 rounded-sm text-[10px] font-bold transition-all border ${
+                      formData.soIds.includes(so.id) ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm' : 'bg-gray-50 border-gray-100 text-gray-500 hover:border-gray-300'
+                    }`}
+                  >{so.soNumber}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {selectedCustomer && customerPIs.length > 0 && (
             <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
               <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -482,13 +553,13 @@ export default function CreateSalesInvoicePage() {
             </div>
           )}
 
-          {selectedCustomer && challans?.filter((d: any) => d.customerId === selectedCustomer.id).length > 0 && (
+          {selectedCustomer && customerDNs.length > 0 && (
             <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
               <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                 <Truck className="w-3 h-3" /> Link Delivery Notes
               </h3>
               <div className="flex flex-wrap gap-2">
-                  {(Array.isArray(challans) ? challans : []).filter((d: any) => d.customerId === selectedCustomer.id).map((dn: any) => (
+                  {customerDNs.map((dn: any) => (
                   <button
                     key={dn.id}
                     type="button"
@@ -506,6 +577,9 @@ export default function CreateSalesInvoicePage() {
             </div>
           )}
         </div>
+
+        {/* Tree View Summary */}
+        <DocumentTreeView groups={treeGroups} title="Selected Documents" />
 
         {/* Lines */}
         <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">

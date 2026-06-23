@@ -7,8 +7,9 @@ import api from '@/lib/api';
 import { 
   Plus, Trash2, ArrowLeft, Save, 
   User, Calendar, Receipt, Loader2, Link as LinkIcon,
-  Truck, ShieldAlert, RotateCcw, MapPin
+  Truck, ShieldAlert, RotateCcw, MapPin, ShoppingCart
 } from 'lucide-react';
+import DocumentTreeView from '@/components/DocumentTreeView';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
 import { useCompany } from '@/lib/CompanyContext';
@@ -117,6 +118,14 @@ export default function CreatePurchaseInvoicePage() {
 
   const selectedVendor = (Array.isArray(vendors) ? vendors : []).find((v: any) => v.name === formData.vendorName);
   const vendorPOs = (Array.isArray(pos) ? pos : []).filter((po: any) => po.supplierId === selectedVendor?.id && (po.status === 'SENT' || po.status === 'APPROVED' || po.status === 'PARTIALLY_RECEIVED')) || [];
+  const vendorGRNs = (Array.isArray(grns) ? grns : []).filter((g: any) => g.purchaseOrder?.supplierId === selectedVendor?.id) || [];
+
+  const selectedPOs = formData.poIds.map(id => vendorPOs.find((po: any) => po.id === id)).filter(Boolean);
+  const selectedGRNs = formData.grnIds.map(id => vendorGRNs.find((g: any) => g.id === id)).filter(Boolean);
+  const treeGroups = [
+    { label: 'Purchase Orders', icon: ShoppingCart, documents: selectedPOs.map((po: any) => ({ id: po.id, number: po.poNumber, status: po.status, date: po.poDate, amount: po.totalAmount, currency: po.currency, href: `/company/${companyId}/purchase/orders/${po.id}` })) },
+    { label: 'GRNs', icon: Truck, documents: selectedGRNs.map((grn: any) => ({ id: grn.id, number: grn.grnNumber, status: grn.status, date: grn.receivedDate, amount: grn.purchaseOrder?.totalAmount, currency: grn.purchaseOrder?.currency, href: `/company/${companyId}/purchase/grns/${grn.id}` })) },
+  ];
 
   const handleLineChange = (index: number, field: string, value: any) => {
     const newLines = [...formData.lines];
@@ -479,13 +488,13 @@ export default function CreatePurchaseInvoicePage() {
             </div>
           )}
 
-          {selectedVendor && (Array.isArray(grns) ? grns : []).filter((g: any) => g.supplierId === selectedVendor.id).length > 0 && (
+          {selectedVendor && (Array.isArray(grns) ? grns : []).filter((g: any) => g.purchaseOrder?.supplierId === selectedVendor.id).length > 0 && (
             <div className="bg-white p-6 border border-gray-200 rounded-sm shadow-sm">
               <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                 <Truck className="w-3 h-3" /> Link GRNs
               </h3>
               <div className="flex flex-wrap gap-2">
-                {(Array.isArray(grns) ? grns : []).filter((g: any) => g.supplierId === selectedVendor.id).map((grn: any) => (
+                {(Array.isArray(grns) ? grns : []).filter((g: any) => g.purchaseOrder?.supplierId === selectedVendor.id).map((grn: any) => (
                   <button
                     key={grn.id}
                     type="button"
@@ -503,6 +512,9 @@ export default function CreatePurchaseInvoicePage() {
             </div>
           )}
         </div>
+
+        {/* Tree View Summary */}
+        <DocumentTreeView groups={treeGroups} title="Selected Documents" />
 
         {/* Lines */}
         <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">

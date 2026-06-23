@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-05-25T15:10:18.832Z",
+  "lastUpdated": "2026-06-23T09:39:43.150Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -455,6 +455,22 @@
         "Updated API endpoints to /owner/users and role permission defaults"
       ],
       "lastChange": "2026-05-25T15:10:17.744Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\company\\[id]\\dashboard\\components\\StickyTopBar.tsx": {
+      "modified": "2026-06-23T09:39:34.972Z",
+      "features": [
+        "Created StickyTopBar component - extracted Bell, Settings, LogOut icons into sticky header"
+      ],
+      "lastChange": "2026-06-23T09:39:34.973Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\company\\[id]\\dashboard\\DashboardClient.tsx": {
+      "modified": "2026-06-23T09:39:43.150Z",
+      "features": [
+        "Converted top header to sticky header with backdrop-blur, uses StickyTopBar component"
+      ],
+      "lastChange": "2026-06-23T09:39:43.150Z",
       "agent": "unknown"
     }
   },

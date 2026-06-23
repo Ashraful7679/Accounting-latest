@@ -6,10 +6,11 @@ import { api } from '@/lib/api';
 import {
   TrendingUp, DollarSign, ArrowUpRight, ArrowDownRight,
   BarChart2, FileText, ShoppingCart, Users, Layers,
-  BookOpen, Settings, Bell, LogOut, Activity, AlertTriangle,
+  BookOpen, Activity, AlertTriangle,
   CheckCircle, Clock, Loader2
 } from 'lucide-react';
 import { FinanceCharts } from './components/FinanceCharts';
+import { StickyTopBar } from './components/StickyTopBar';
 
 const QUICK_ACTIONS = [
   { label: 'Journals', icon: BookOpen, path: 'journals' },
@@ -137,40 +138,16 @@ export default function DashboardClient() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Top Header */}
-      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+      {/* Sticky Top Header */}
+      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-slate-800">
             {data?.companyName || 'Command Center'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-0.5 hidden sm:block">Dashboard overview</p>
         </div>
-        <div className="flex items-center gap-1 sm:gap-3">
-          <button
-            onClick={() => router.push(`/company/${companyId}/audit`)}
-            className="relative p-2 rounded-xl hover:bg-slate-100 transition-colors touch-target"
-          >
-            <Bell className="w-5 h-5 text-slate-500" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => router.push(`/company/${companyId}/settings`)}
-            className="p-2 rounded-xl hover:bg-slate-100 transition-colors touch-target"
-          >
-            <Settings className="w-5 h-5 text-slate-500" />
-          </button>
-          <button
-            onClick={() => { localStorage.clear(); router.push('/login'); }}
-            className="p-2 rounded-xl hover:bg-red-50 hover:text-red-500 transition-colors touch-target"
-          >
-            <LogOut className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-      </div>
+        <StickyTopBar companyId={companyId} unreadCount={unreadCount} />
+      </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8 space-y-6 sm:space-y-8">
 

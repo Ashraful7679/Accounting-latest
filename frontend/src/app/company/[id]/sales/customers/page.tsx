@@ -9,7 +9,7 @@ import { getCurrencySymbol } from '@/lib/decimalUtils';
 import { cn } from '@/lib/utils';
 import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
 import { ConfirmModal } from '@/components/ConfirmModal';
-import { Plus, Trash2, Edit, Search, Building2, Eye, Save, X, User } from 'lucide-react';
+import { Plus, Trash2, Edit, Search, Building2, Eye, Save, X, User, Edit2 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 
 interface Customer {
@@ -40,6 +40,7 @@ export default function CompanyCustomersPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'local' | 'foreign'>('all');
 
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -129,11 +130,16 @@ export default function CompanyCustomersPage() {
     },
   });
 
-  const filteredCustomers = (Array.isArray(customers) ? customers : [])?.filter(c =>
-    !searchTerm || 
-    (c.name?.toLowerCase() ?? '').includes(searchTerm.toLowerCase()) ||
-    (c.code?.toLowerCase() ?? '').includes(searchTerm.toLowerCase())
-  ) || [];
+  const filteredCustomers = (Array.isArray(customers) ? customers : [])?.filter(c => {
+    const matchesSearch = !searchTerm ||
+      (c.name?.toLowerCase() ?? '').includes(searchTerm.toLowerCase()) ||
+      (c.code?.toLowerCase() ?? '').includes(searchTerm.toLowerCase());
+    const matchesTab =
+      activeTab === 'all' ? true :
+      activeTab === 'local' ? (c.preferredCurrency === 'BDT') :
+      (c.preferredCurrency !== 'BDT');
+    return matchesSearch && matchesTab;
+  }) || [];
 
   const handleRowClick = (customer: Customer) => {
     setSelectedCustomer(customer);
@@ -370,38 +376,94 @@ export default function CompanyCustomersPage() {
       <div className="p-8 max-w-[1600px] mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <User className="w-8 h-8 text-blue-600" />
+            <User className="w-8 h-8 text-slate-900" />
             Customer Master
           </h1>
-          <button onClick={() => { setFormData({ name: '', email: '', phone: '', address: '', city: '', country: '', contactPerson: '', tinVat: '', openingBalance: 0, balanceType: 'DR', preferredCurrency: 'BDT', exchangeRate: 1, paymentTerms: 'COD', isActive: true }); setSelectedCustomer(null); setShowDetailPanel(true); setViewMode('create'); }} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700">
+          <button
+            onClick={() => {
+              const defaultCurrency = activeTab === 'foreign' ? 'USD' : 'BDT';
+              setFormData({ name: '', email: '', phone: '', address: '', city: '', country: '', contactPerson: '', tinVat: '', openingBalance: 0, balanceType: 'DR', preferredCurrency: defaultCurrency, exchangeRate: 1, paymentTerms: 'COD', isActive: true });
+              setSelectedCustomer(null);
+              setShowDetailPanel(true);
+              setViewMode('create');
+            }}
+            className="bg-gray-900 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-700 transition-colors"
+          >
             <Plus className="w-5 h-5" /> Add Customer
           </button>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
-          <div className="p-4 border-b border-slate-100">
-            <div className="relative">
+          <div className="p-4 border-b border-slate-100 flex items-center gap-4">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input type="text" placeholder="Search customers..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl" />
+            </div>
+            <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+              {(['all', 'local', 'foreign'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={cn('px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-colors',
+                    activeTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  )}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
           </div>
 
           {isLoading ? (
-            <div className="p-20 text-center"><div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" /></div>
+            <div className="p-20 text-center"><div className="w-8 h-8 border-4 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto" /></div>
           ) : filteredCustomers.length === 0 ? (
             <div className="p-20 text-center"><User className="w-12 h-12 text-slate-300 mx-auto mb-3" /><p className="text-slate-900 font-bold">No customers found</p></div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {(Array.isArray(filteredCustomers) ? filteredCustomers : []).map((customer) => (
-                <div key={customer.id} onClick={() => handleRowClick(customer)} className="p-4 hover:bg-slate-50 cursor-pointer flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div><div className="font-bold text-slate-900">{customer.name}</div><div className="text-sm text-slate-500">{customer.code}</div></div>
+              {filteredCustomers.map((customer) => (
+                <div key={customer.id} className="p-4 hover:bg-slate-50 flex items-center justify-between group">
+                  <div
+                    className="flex items-center gap-4 flex-1 cursor-pointer"
+                    onClick={() => handleRowClick(customer)}
+                  >
+                    <div>
+                      <div className="font-bold text-slate-900">{customer.name}</div>
+                      <div className="text-sm text-slate-500">{customer.code} · {customer.preferredCurrency === 'BDT' ? 'Local' : 'Foreign'}</div>
+                    </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="text-sm text-slate-500">{customer.email || '-'}</span>
+                    <span className="text-sm text-slate-500 hidden sm:block">{customer.email || '-'}</span>
                     <span className="font-bold text-slate-900">{getCurrencySymbol(customer.preferredCurrency)}{customer.openingBalance?.toLocaleString()}</span>
                     <span className={cn("text-xs px-2 py-1 rounded", customer.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-50 text-slate-500')}>{customer.isActive ? 'Active' : 'Inactive'}</span>
-                    <Eye className="w-4 h-4 text-slate-400" />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedCustomer(customer);
+                        setFormData({
+                          name: customer.name,
+                          email: customer.email || '',
+                          phone: customer.phone || '',
+                          address: customer.address || '',
+                          city: customer.city || '',
+                          country: customer.country || '',
+                          contactPerson: customer.contactPerson || '',
+                          tinVat: customer.tinVat || '',
+                          openingBalance: customer.openingBalance,
+                          balanceType: customer.balanceType || 'DR',
+                          preferredCurrency: customer.preferredCurrency || 'BDT',
+                          exchangeRate: customer.exchangeRate || 1,
+                          paymentTerms: customer.paymentTerms || 'COD',
+                          isActive: customer.isActive,
+                        });
+                        setViewMode('edit');
+                        setShowDetailPanel(true);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-900"
+                      title="Edit"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <Eye className="w-4 h-4 text-slate-400 cursor-pointer" onClick={() => handleRowClick(customer)} />
                   </div>
                 </div>
               ))}

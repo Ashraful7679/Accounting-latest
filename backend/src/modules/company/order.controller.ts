@@ -192,7 +192,7 @@ export class OrderController extends BaseCompanyController {
     const { 
       supplierId, lcId, poDate, expectedDeliveryDate, 
       currency, exchangeRate, totalForeign, totalBDT, 
-      status, lines, createdById 
+      status, lines, createdById, purchaseRequisitionIds 
     } = request.body as any;
 
     if (!supplierId || supplierId === "") {
@@ -220,7 +220,8 @@ export class OrderController extends BaseCompanyController {
         quantity: l.quantity,
         unitPrice: l.unitPrice,
         total: l.total
-      }))
+      })),
+      purchaseRequisitionIds
     });
 
     await NotificationController.logActivity({

@@ -9,7 +9,7 @@ import { getCurrencySymbol } from '@/lib/decimalUtils';
 import { cn } from '@/lib/utils';
 import DetailPanel, { DetailField, DetailAction, DetailTab } from '@/components/DetailPanel';
 import { ConfirmModal } from '@/components/ConfirmModal';
-import { Plus, Trash2, Edit, Search, Building2, Eye, Save, X } from 'lucide-react';
+import { Plus, Trash2, Edit, Search, Building2, Eye, Save, X, Edit2 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 
 interface Vendor {
@@ -39,6 +39,7 @@ export default function CompanyVendorsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'local' | 'foreign'>('all');
 
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -127,11 +128,16 @@ export default function CompanyVendorsPage() {
     },
   });
 
-  const filteredVendors = (Array.isArray(vendors) ? vendors : [])?.filter(v =>
-    !searchTerm || 
-    v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    v.code.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const filteredVendors = (Array.isArray(vendors) ? vendors : [])?.filter(v => {
+    const matchesSearch = !searchTerm ||
+      v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      v.code.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTab =
+      activeTab === 'all' ? true :
+      activeTab === 'local' ? (v.preferredCurrency === 'BDT') :
+      (v.preferredCurrency !== 'BDT');
+    return matchesSearch && matchesTab;
+  }) || [];
 
   const handleRowClick = (vendor: Vendor) => {
     setSelectedVendor(vendor);
@@ -496,29 +502,30 @@ export default function CompanyVendorsPage() {
       <div className="p-8 max-w-[1600px] mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <Building2 className="w-8 h-8 text-blue-600" />
+            <Building2 className="w-8 h-8 text-slate-900" />
             Vendor Master
           </h1>
           <button
             onClick={() => {
+              const defaultCurrency = activeTab === 'foreign' ? 'USD' : 'BDT';
               setFormData({
                 name: '', email: '', phone: '', address: '', city: '', country: '',
                 contactPerson: '', tinVat: '', openingBalance: 0, balanceType: 'CR',
-                preferredCurrency: 'BDT', exchangeRate: 1, isActive: true
+                preferredCurrency: defaultCurrency, exchangeRate: 1, isActive: true
               });
               setSelectedVendor(null);
               setShowDetailPanel(true);
               setViewMode('create');
             }}
-            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700"
+            className="bg-gray-900 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-700 transition-colors"
           >
             <Plus className="w-5 h-5" /> Add Vendor
           </button>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
-          <div className="p-4 border-b border-slate-100">
-            <div className="relative">
+          <div className="p-4 border-b border-slate-100 flex items-center gap-4">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
                 type="text"
@@ -528,11 +535,24 @@ export default function CompanyVendorsPage() {
                 className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl"
               />
             </div>
+            <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+              {(['all', 'local', 'foreign'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={cn('px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-colors',
+                    activeTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  )}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
           </div>
 
           {isLoading ? (
             <div className="p-20 text-center">
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+              <div className="w-8 h-8 border-4 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto" />
             </div>
           ) : filteredVendors.length === 0 ? (
             <div className="p-20 text-center">
@@ -555,16 +575,18 @@ export default function CompanyVendorsPage() {
                 {filteredVendors.map((vendor) => (
                   <tr
                     key={vendor.id}
-                    onClick={() => handleRowClick(vendor)}
-                    className="hover:bg-slate-50 cursor-pointer"
+                    className="hover:bg-slate-50 group"
                   >
-                    <td className="px-4 py-3 font-medium text-slate-900">{vendor.code}</td>
-                    <td className="px-4 py-3 font-bold text-slate-900">{vendor.name}</td>
-                    <td className="px-4 py-3 text-slate-500">{vendor.email || '-'}</td>
-                    <td className="px-4 py-3 text-right font-mono font-medium">
+                    <td className="px-4 py-3 font-medium text-slate-900 cursor-pointer" onClick={() => handleRowClick(vendor)}>{vendor.code}</td>
+                    <td className="px-4 py-3 font-bold text-slate-900 cursor-pointer" onClick={() => handleRowClick(vendor)}>
+                      {vendor.name}
+                      <div className="text-xs font-normal text-slate-400">{vendor.preferredCurrency === 'BDT' ? 'Local' : 'Foreign'}</div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 cursor-pointer" onClick={() => handleRowClick(vendor)}>{vendor.email || '-'}</td>
+                    <td className="px-4 py-3 text-right font-mono font-medium cursor-pointer" onClick={() => handleRowClick(vendor)}>
                       {getCurrencySymbol(vendor.preferredCurrency)}{vendor.openingBalance?.toLocaleString()}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 cursor-pointer" onClick={() => handleRowClick(vendor)}>
                       <span className={cn(
                         "text-xs px-2 py-1 rounded",
                         vendor.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-50 text-slate-500'
@@ -573,7 +595,36 @@ export default function CompanyVendorsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <Eye className="w-4 h-4 text-slate-400" />
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedVendor(vendor);
+                            setFormData({
+                              name: vendor.name,
+                              email: vendor.email || '',
+                              phone: vendor.phone || '',
+                              address: vendor.address || '',
+                              city: vendor.city || '',
+                              country: vendor.country || '',
+                              contactPerson: vendor.contactPerson || '',
+                              tinVat: vendor.tinVat || '',
+                              openingBalance: vendor.openingBalance || 0,
+                              balanceType: vendor.balanceType || 'CR',
+                              preferredCurrency: vendor.preferredCurrency || 'BDT',
+                              exchangeRate: vendor.exchangeRate || 1,
+                              isActive: vendor.isActive,
+                            });
+                            setViewMode('edit');
+                            setShowDetailPanel(true);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-900"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <Eye className="w-4 h-4 text-slate-400 cursor-pointer" onClick={() => handleRowClick(vendor)} />
+                      </div>
                     </td>
                   </tr>
                 ))}

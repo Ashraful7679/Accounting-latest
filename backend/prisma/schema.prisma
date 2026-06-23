@@ -679,8 +679,7 @@ model PurchaseRequisition {
   status String @default("DRAFT")
   notes  String?
 
-  purchaseOrderId String?
-  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  purchaseOrders PurchaseOrder[] @relation("PRtoPO")
 
   // Audit
   createdById  String?
@@ -752,7 +751,7 @@ model PurchaseOrder {
   grns       GRN[]
   invoices   Invoice[]
   debitNotes DebitNote[]         @relation("DebitNotePurchaseOrder")
-  purchaseRequisitions PurchaseRequisition[]
+  purchaseRequisitions PurchaseRequisition[] @relation("PRtoPO")
 
   // Many-to-many with SalesOrder
   salesOrders SalesOrder[] @relation("SalesOrderPurchaseOrders")

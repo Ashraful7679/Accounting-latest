@@ -7,7 +7,7 @@ import api from '@/lib/api';
 import { 
   FileText, Plus, Search, Eye, Edit2, Trash2, 
   CheckCircle2, AlertCircle, XCircle, ArrowRight,
-  Package, Loader2, Send
+  Package, Loader2, Send, ShoppingCart
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getCurrencySymbol, formatCurrency } from '@/lib/decimalUtils';
@@ -459,7 +459,7 @@ export default function PurchaseRequisitionsPage() {
               setShowDetailPanel(true);
               setViewMode('create');
             }}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-2"
+            className="px-6 py-3 bg-gray-900 hover:bg-gray-700 text-white rounded-xl font-bold flex items-center gap-2 transition-colors"
           >
             <Plus className="w-5 h-5" /> New Requisition
           </button>
@@ -481,7 +481,7 @@ export default function PurchaseRequisitionsPage() {
 
           {isLoading ? (
             <div className="p-20 text-center">
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+              <div className="w-8 h-8 border-4 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto" />
             </div>
           ) : filteredPRs.length === 0 ? (
             <div className="p-20 text-center">
@@ -509,9 +509,33 @@ export default function PurchaseRequisitionsPage() {
                   <div className="md:col-span-2 font-bold text-slate-900 text-right md:text-left">
                     {getCurrencySymbol(pr.currency)}{formatCurrency(pr.totalBDT)}
                   </div>
-                  <div className="md:col-span-2 flex items-center justify-between md:justify-end gap-3">
+                  <div className="md:col-span-2 flex items-center justify-between md:justify-end gap-2">
                     {getStatusBadge(pr.status)}
-                    <Eye className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    {pr.status === 'APPROVED' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/company/${companyId}/purchase/orders/create?prIds=${pr.id}`);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1 text-xs font-bold bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 flex items-center gap-1"
+                        title="Create Purchase Order from this PR"
+                      >
+                        <ShoppingCart className="w-3 h-3" />
+                        Create PO
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRowClick(pr);
+                        setViewMode('edit');
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-900"
+                      title="Edit"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <Eye className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
                   </div>
                 </div>
               ))}

@@ -33,7 +33,8 @@ export class PurchaseOrderRepository {
               lines: true,
               grns: { include: { lines: true } },
               invoices: { include: { lines: true } },
-              salesOrders: true
+              salesOrders: true,
+              purchaseRequisitions: true
             },
             orderBy: { createdAt: 'desc' },
             skip,
@@ -74,7 +75,8 @@ export class PurchaseOrderRepository {
             invoices: {
               include: { lines: true }
             },
-            salesOrders: true
+            salesOrders: true,
+            purchaseRequisitions: true
           }
         });
       } catch (e) {
@@ -86,22 +88,22 @@ export class PurchaseOrderRepository {
   }
 
   static async create(data: any) {
-    const { lines, requisitionId, ...poData } = data;
+    const { lines, purchaseRequisitionIds, ...poData } = data;
     
     // Ensure empty relation IDs are treated as null
     if (poData.lcId === "") {
       poData.lcId = null;
     }
-    // Handle requisitionId conversion
-    if (poData.requisitionId === "") {
-      poData.requisitionId = null;
-    }
 
     if (SYSTEM_MODE === "LIVE") {
+      const connectPRs = purchaseRequisitionIds && Array.isArray(purchaseRequisitionIds)
+        ? { connect: purchaseRequisitionIds.map((id: string) => ({ id })) }
+        : undefined;
+
       return await prisma.purchaseOrder.create({
         data: {
           ...poData,
-          requisitionId: requisitionId || null,
+          purchaseRequisitions: connectPRs,
           lines: {
             create: lines.map((l: any) => ({
               productId: l.productId,
@@ -115,7 +117,8 @@ export class PurchaseOrderRepository {
         include: {
           lines: true,
           supplier: true,
-          lc: true
+          lc: true,
+          purchaseRequisitions: true
         }
       });
     }
@@ -123,7 +126,7 @@ export class PurchaseOrderRepository {
   }
 
   static async update(id: string, data: any) {
-    const { lines, ...poData } = data;
+    const { lines, purchaseRequisitionIds, ...poData } = data;
     
     // Ensure empty relation IDs are treated as null
     if (poData.lcId === "") {
@@ -135,6 +138,10 @@ export class PurchaseOrderRepository {
     }
 
     if (SYSTEM_MODE === "LIVE") {
+      const setPRs = purchaseRequisitionIds && Array.isArray(purchaseRequisitionIds)
+        ? { set: purchaseRequisitionIds.map((id: string) => ({ id })) }
+        : undefined;
+
       // For updates, we might want to replace lines or update them individually.
       // Simplest: Delete and recreate lines if provided
       if (lines) {
@@ -145,6 +152,7 @@ export class PurchaseOrderRepository {
           where: { id },
           data: {
             ...poData,
+            purchaseRequisitions: setPRs,
             lines: {
               create: lines.map((l: any) => ({
                 productId: l.productId,
@@ -158,18 +166,23 @@ export class PurchaseOrderRepository {
           include: {
             lines: true,
             supplier: true,
-            lc: true
+            lc: true,
+            purchaseRequisitions: true
           }
         });
       }
 
       return await prisma.purchaseOrder.update({
         where: { id },
-        data: poData,
+        data: {
+          ...poData,
+          purchaseRequisitions: setPRs
+        },
         include: {
           lines: true,
           supplier: true,
-          lc: true
+          lc: true,
+          purchaseRequisitions: true
         }
       });
     }

@@ -37,6 +37,50 @@ export default function CreatePurchaseOrderPage() {
     lines: [{ itemDescription: '', quantity: 1, unitPrice: 0, total: 0 }] as any[]
   });
 
+  // PR→PO linking: read prIds from query params
+  const prIdsParam = searchParams.get('prIds');
+  const linkedPrIds = prIdsParam ? prIdsParam.split(',').filter(Boolean) : [];
+
+  const { data: linkedPRs } = useQuery({
+    queryKey: ['linked-prs', companyId, linkedPrIds.join(',')],
+    queryFn: async () => {
+      const results = await Promise.all(
+        linkedPrIds.map(id =>
+          api.get(`/company/${companyId}/purchase-requisitions/${id}`).then(r => r.data.data)
+        )
+      );
+      return results;
+    },
+    enabled: linkedPrIds.length > 0 && !!companyId,
+  });
+
+  // Pre-populate from linked PRs when data arrives
+  const [prPopulated, setPrPopulated] = useState(false);
+  useEffect(() => {
+    if (linkedPRs && linkedPRs.length > 0 && !prPopulated) {
+      const firstPR = linkedPRs[0];
+      const vendorName = firstPR.vendor?.name || firstPR.supplier?.name || '';
+      const allLines = linkedPRs.flatMap((pr: any) =>
+        (pr.lines || []).map((line: any) => ({
+          itemDescription: line.itemDescription || line.product?.name || '',
+          quantity: line.quantity || 1,
+          unitPrice: line.unitPrice || 0,
+          total: (line.quantity || 1) * (line.unitPrice || 0),
+          productId: line.productId || '',
+        }))
+      );
+      setFormData(prev => ({
+        ...prev,
+        vendorName: vendorName || prev.vendorName,
+        lines: allLines.length > 0 ? allLines : prev.lines,
+      }));
+      if (firstPR.currency && firstPR.currency !== 'BDT') {
+        setOrderType('foreign');
+      }
+      setPrPopulated(true);
+    }
+  }, [linkedPRs, prPopulated]);
+
   useEffect(() => { setMounted(true); }, []);
 
   const { data: vendors } = useQuery({
@@ -204,7 +248,10 @@ export default function CreatePurchaseOrderPage() {
         totalForeign: orderType === 'foreign' ? total : 0
       };
 
-      await api.post(`/company/${companyId}/purchase-orders`, payload);
+      await api.post(`/company/${companyId}/purchase-orders`, {
+        ...payload,
+        purchaseRequisitionIds: linkedPrIds.length > 0 ? linkedPrIds : undefined,
+      });
       queryClient.invalidateQueries({ queryKey: ['purchase-orders', companyId] });
       toast.success('Purchase Order created successfully');
       router.push(`/company/${companyId}/purchase/orders`);

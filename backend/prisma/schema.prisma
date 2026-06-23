@@ -406,6 +406,7 @@ model PI {
 
   lines              PILine[]
   paymentAllocations PaymentPI[]
+  salesOrders        SalesOrder[] @relation("PISalesOrders")
 
   // Soft Delete
   deletedAt DateTime?
@@ -794,6 +795,7 @@ model SalesOrder {
   dns         DN[]
   invoices    Invoice[]
   creditNotes CreditNote[]
+  pis         PI[]             @relation("PISalesOrders")
 
   // Many-to-many with PurchaseOrder
   purchaseOrders PurchaseOrder[] @relation("SalesOrderPurchaseOrders")

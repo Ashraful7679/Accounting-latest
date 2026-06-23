@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-06-23T12:51:12.449Z",
+  "lastUpdated": "2026-06-23T13:16:13.111Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -140,13 +140,14 @@
       "agent": "unknown"
     },
     "backend\\prisma\\schema.prisma": {
-      "modified": "2026-06-23T12:11:12.318Z",
+      "modified": "2026-06-23T13:16:13.018Z",
       "features": [
         "Added disallowFutureDates, lockPreviousMonths, approvalWorkflow to CompanySettings",
         "Switched to library engine with driverAdapters previewFeature for Neon adapter",
-        "Update PurchaseRequisition and PurchaseOrder relation to many-to-many"
+        "Update PurchaseRequisition and PurchaseOrder relation to many-to-many",
+        "Added many-to-many relation PISalesOrders between PI and SalesOrder"
       ],
-      "lastChange": "2026-06-23T12:11:12.325Z",
+      "lastChange": "2026-06-23T13:16:13.018Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\rbac.controller.ts": {
@@ -312,12 +313,13 @@
       "agent": "unknown"
     },
     "CHECKLIST.md": {
-      "modified": "2026-05-13T04:35:09.798Z",
+      "modified": "2026-06-23T13:16:13.111Z",
       "features": [
         "Added comprehensive page inventory with elements, field types/effects, role-permission, UI/UX and validation checklists",
-        "Marked completed items: idempotency, transactions, auth hooks, permission matrix"
+        "Marked completed items: idempotency, transactions, auth hooks, permission matrix",
+        "Standardized all New buttons across app to bg-gray-900 rounded-sm uppercase style"
       ],
-      "lastChange": "2026-05-13T04:35:09.799Z",
+      "lastChange": "2026-06-23T13:16:13.111Z",
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\finance\\fixed-assets\\page.tsx": {
@@ -609,6 +611,22 @@
         "Replaced individual link cards with DocumentTreeView in sidebar for linked documents"
       ],
       "lastChange": "2026-06-23T12:51:06.928Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\company\\[id]\\sales\\pis\\page.tsx": {
+      "modified": "2026-06-23T13:16:06.779Z",
+      "features": [
+        "Removed Value & Currency section, moved currency/rate to header, added linked SO section with auto-render products, added borders to line item cells"
+      ],
+      "lastChange": "2026-06-23T13:16:06.779Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\modules\\company\\pi.controller.ts": {
+      "modified": "2026-06-23T13:16:13.062Z",
+      "features": [
+        "Accept soIds in create/update PI, include salesOrders in list/detail endpoints"
+      ],
+      "lastChange": "2026-06-23T13:16:13.063Z",
       "agent": "unknown"
     }
   },

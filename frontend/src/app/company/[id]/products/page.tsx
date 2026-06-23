@@ -457,9 +457,9 @@ export default function ProductsPage() {
           
           <button
             onClick={() => router.push(`/company/${companyId}/products/create`)}
-            className="group relative px-6 py-3 bg-gray-900 hover:bg-gray-700 text-white rounded-xl font-bold transition-all duration-300 hover:shadow-lg active:scale-95 flex items-center gap-2"
+            className="bg-gray-900 text-white px-4 py-2 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2"
           >
-            <Plus className="w-5 h-5 transition-transform group-hover:rotate-90" />
+            <Plus className="w-3.5 h-3.5" />
             Add New Product
           </button>
         </div>

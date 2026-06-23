@@ -21,6 +21,7 @@ interface PILine {
   quantity: number;
   unitPrice: number;
   total: number;
+  soId?: string;
 }
 
 interface PI {
@@ -71,7 +72,8 @@ export default function ExportPIsPage() {
     lcId: '',
     description: '',
     status: 'DRAFT',
-    lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }] as PILine[]
+    soIds: [] as string[],
+    lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0, soId: '' }] as PILine[]
   });
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -117,6 +119,16 @@ export default function ExportPIsPage() {
     enabled: !!companyId,
   });
 
+  const { data: salesOrders } = useQuery({
+    queryKey: ['sales-orders', companyId],
+    queryFn: async () => {
+      const response = await api.get(`/company/${companyId}/sales-orders`);
+      const result = response.data.data;
+      return (Array.isArray(result) ? result : (result?.data || []));
+    },
+    enabled: !!companyId,
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       const totalForeign = data.lines.reduce((acc: number, line: PILine) => acc + (line.quantity * line.unitPrice), 0);
@@ -128,6 +140,7 @@ export default function ExportPIsPage() {
         amount: totalForeign, 
         exchangeRate: effectiveRate,
         totalBDT: totalForeign * effectiveRate, 
+        soIds: data.soIds,
         type: 'EXPORT' 
       });
       return response.data;
@@ -184,6 +197,37 @@ export default function ExportPIsPage() {
     setFormData({ ...formData, lines: newLines });
   };
 
+  const handleSOToggle = (soId: string) => {
+    const currentSOs = [...formData.soIds];
+    const soIndex = currentSOs.indexOf(soId);
+    if (soIndex > -1) {
+      currentSOs.splice(soIndex, 1);
+      setFormData({
+        ...formData,
+        soIds: currentSOs,
+        lines: formData.lines.filter(l => l.soId !== soId)
+      });
+    } else {
+      currentSOs.push(soId);
+      const so = (Array.isArray(salesOrders) ? salesOrders : []).find((s: any) => s.id === soId);
+      if (so && so.lines) {
+        const newLinesFromSO = so.lines.map((l: any) => ({
+          productId: l.productId,
+          description: l.itemDescription || l.description,
+          quantity: l.quantity - (l.deliveredQuantity || 0),
+          unitPrice: l.unitPrice,
+          total: (l.quantity - (l.deliveredQuantity || 0)) * l.unitPrice,
+          soId: so.id,
+        })).filter((l: any) => l.quantity > 0);
+        setFormData({
+          ...formData,
+          soIds: currentSOs,
+          lines: [...formData.lines.filter(l => !l.soId), ...newLinesFromSO]
+        });
+      }
+    }
+  };
+
   const addLine = () => {
     setFormData({
       ...formData,
@@ -217,13 +261,15 @@ export default function ExportPIsPage() {
         lcId: pi.lc?.id || '',
         description: pi.description || '',
         status: pi.status || 'DRAFT',
+        soIds: (pi as any).soIds || [],
         lines: pi.lines?.length ? pi.lines.map((l: any) => ({
           productId: l.productId || '',
           description: l.description || '',
           quantity: l.quantity,
           unitPrice: l.unitPrice,
-          total: Number((l.quantity * l.unitPrice).toFixed(2))
-        })) : [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }]
+          total: Number((l.quantity * l.unitPrice).toFixed(2)),
+          soId: l.soId || '',
+        })) : [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0, soId: '' }]
       });
     } else {
       setSelectedPI(null);
@@ -240,7 +286,8 @@ export default function ExportPIsPage() {
         lcId: '',
         description: '',
         status: 'DRAFT',
-        lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0 }]
+        soIds: [],
+        lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0, soId: '' }]
       });
     }
     setShowModal(true);
@@ -460,8 +507,8 @@ export default function ExportPIsPage() {
       {showModal && (
         <div className="fixed inset-0 bg-gray-900/10 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-sm shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden border border-gray-200 animate-in fade-in zoom-in duration-150">
-            {/* Sticky Header */}
-            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex flex-wrap gap-4 items-center justify-between">
+            {/* Sticky Header with Currency */}
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex flex-wrap gap-3 items-center justify-between">
               <div className="flex items-center gap-3">
                 <Globe className="w-4 h-4 text-gray-400" />
                 <h3 className="text-[10px] font-bold text-gray-900 uppercase tracking-[0.2em]">
@@ -469,7 +516,17 @@ export default function ExportPIsPage() {
                 </h3>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="px-2 py-1 border border-gray-200 rounded-sm text-[10px] font-bold uppercase tracking-widest bg-white focus:outline-none focus:border-gray-900">
+                    <option value="USD">USD</option>
+                    <option value="BDT">BDT</option>
+                  </select>
+                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Rate:</span>
+                  <span className="px-2 py-1 bg-white border border-gray-100 rounded-sm text-[10px] font-mono font-bold text-gray-900 min-w-[60px] text-center">
+                    {formData.currency === 'BDT' ? '1' : (exchangeRate || '1')}
+                  </span>
+                </div>
                 <button type="button" onClick={closeModal} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-sm transition-all">
                   <X className="w-5 h-5" />
                 </button>
@@ -478,7 +535,7 @@ export default function ExportPIsPage() {
 
             <div className="flex-1 overflow-y-auto p-6 bg-white">
               <form onSubmit={handleSubmit} id="pi-form" className="space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Left Column: Contract */}
                   <div className="space-y-4">
                     <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.3em] border-b border-gray-100 pb-3">Contract Data</h4>
@@ -535,48 +592,6 @@ export default function ExportPIsPage() {
                     </div>
                   </div>
 
-                  {/* Center Column: Financials */}
-                  <div className="space-y-4">
-                    <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.3em] border-b border-gray-100 pb-3">Value & Currency</h4>
-                    
-                    <div className="bg-gray-50/50 p-4 border border-gray-100 rounded-sm space-y-4 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-4 opacity-5">
-                        <DollarSign className="w-24 h-24" />
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-3 relative z-10">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Currency</label>
-                          <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full px-2 py-1.5 border border-gray-200 rounded-sm text-xs bg-white focus:outline-none focus:border-gray-900 font-bold uppercase tracking-widest">
-                            <option value="USD">USD</option>
-                            <option value="BDT">BDT</option>
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Spot Rate</label>
-                          <div className="w-full px-2 py-1.5 bg-white border border-gray-100 rounded-sm text-xs text-gray-900 font-mono font-bold">
-                            {formData.currency === 'BDT' ? 1 : (exchangeRate || 1)}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4 pt-4 border-t border-gray-200 relative z-10">
-                        <div className="flex justify-between items-baseline">
-                          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.2em]">Foreign Val.</span>
-                          <span className="text-2xl font-mono font-black text-gray-900">
-                             {getCurrencySymbol(formData.currency)}{calculateSubtotal().toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-baseline">
-                          <span className="text-[9px] font-bold text-blue-600 uppercase tracking-[0.2em]">Equiv. BDT</span>
-                          <span className="text-2xl font-mono font-black text-blue-600">
-                             ৳{(calculateSubtotal() * (formData.currency === 'BDT' ? 1 : (exchangeRate || 1))).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Right Column: Banking */}
                   <div className="space-y-4">
                     <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.3em] border-b border-gray-100 pb-3">Banking Compliance</h4>
@@ -610,6 +625,50 @@ export default function ExportPIsPage() {
                   </div>
                 </div>
 
+                {/* Linked Sales Orders */}
+                <div className="space-y-3 pt-2">
+                  <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-[0.3em] border-b border-gray-100 pb-3 flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4 text-gray-400" />
+                    Linked Sales Orders
+                  </h4>
+                  {(() => {
+                    const selectedCustomer = (Array.isArray(customersData) ? customersData : []).find((c: any) => c.id === formData.customerId);
+                    const customerSOs = (Array.isArray(salesOrders) ? salesOrders : []).filter(
+                      (so: any) => so.customerId === formData.customerId && ['DRAFT', 'APPROVED', 'SENT'].includes(so.status)
+                    );
+                    return (
+                      <div>
+                        {!formData.customerId ? (
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Select a buyer first to link Sales Orders</p>
+                        ) : customerSOs.length === 0 ? (
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">No available Sales Orders for this buyer</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {customerSOs.map((so: any) => {
+                              const isSelected = formData.soIds.includes(so.id);
+                              return (
+                                <button
+                                  key={so.id}
+                                  type="button"
+                                  onClick={() => handleSOToggle(so.id)}
+                                  className={cn(
+                                    "px-3 py-1.5 rounded-sm text-[9px] font-bold uppercase tracking-wider border transition-all",
+                                    isSelected 
+                                      ? "bg-gray-900 text-white border-gray-900" 
+                                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
+                                  )}
+                                >
+                                  {so.soNumber} ({so.currency} {so.totalAmount?.toLocaleString()})
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
                 {/* Schedule Table */}
                 <div className="space-y-4 pt-2">
                   <div className="flex justify-between items-center">
@@ -626,18 +685,18 @@ export default function ExportPIsPage() {
                     <table className="w-full text-[11px]">
                       <thead className="bg-gray-50 border-b border-gray-200 text-[9px] text-gray-400 uppercase font-bold tracking-widest">
                         <tr>
-                          <th className="px-4 py-3 text-left">Category</th>
-                          <th className="px-4 py-3 text-left">Line Description</th>
-                          <th className="px-4 py-3 text-center w-24">Qty</th>
-                          <th className="px-4 py-3 text-right w-32">Unit Price</th>
-                          <th className="px-4 py-3 text-right w-40">Foreign Total</th>
+                          <th className="px-4 py-3 text-left border-r border-gray-200">Category</th>
+                          <th className="px-4 py-3 text-left border-r border-gray-200">Line Description</th>
+                          <th className="px-4 py-3 text-center w-24 border-r border-gray-200">Qty</th>
+                          <th className="px-4 py-3 text-right w-32 border-r border-gray-200">Unit Price</th>
+                          <th className="px-4 py-3 text-right w-40 border-r border-gray-200">Foreign Total</th>
                           <th className="px-4 py-3 text-center w-12"></th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {formData.lines.map((line, idx) => (
                           <tr key={idx} className="hover:bg-gray-50/50 group transition-colors">
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 border-r border-gray-100">
                               <select 
                                 value={line.productId} 
                                 onChange={(e) => handleLineChange(idx, 'productId', e.target.value)}
@@ -647,7 +706,7 @@ export default function ExportPIsPage() {
                                 {allProductsData?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                               </select>
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 border-r border-gray-100">
                               <input 
                                 type="text" value={line.description}
                                 onChange={(e) => handleLineChange(idx, 'description', e.target.value)}
@@ -655,14 +714,14 @@ export default function ExportPIsPage() {
                                 placeholder="ENTER SPECIFICATIONS..."
                               />
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 border-r border-gray-100">
                               <input 
                                 type="number" step="any" value={line.quantity}
                                 onChange={(e) => handleLineChange(idx, 'quantity', parseFloat(e.target.value) || 0)}
                                 className="w-full bg-transparent border-none focus:ring-0 text-[11px] text-center font-mono font-bold text-gray-900 p-0"
                               />
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 border-r border-gray-100">
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-1 border border-gray-50 rounded px-2 py-1">
                                   <span className="text-[9px] font-bold text-gray-400">{formData.currency === 'USD' ? '$' : '৳'}</span>
@@ -677,7 +736,7 @@ export default function ExportPIsPage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-right">
+                            <td className="px-4 py-3 text-right border-r border-gray-100">
                                <div className="flex flex-col">
                                  <span className="font-mono font-black text-gray-900 text-[12px]">{getCurrencySymbol(formData.currency)} {line.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                  <span className="text-[9px] text-gray-400 font-mono">৳{(line.total * (formData.currency === 'BDT' ? 1 : (exchangeRate || 1))).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
@@ -735,7 +794,7 @@ export default function ExportPIsPage() {
              </div>
            </div>
          </div>
-       )}
+        )}
 
        {showViewModal && viewingPI && (
          <div className="fixed inset-0 bg-gray-900/10 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">

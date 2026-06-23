@@ -495,9 +495,9 @@ export default function CreditNotesPage() {
               setShowDetailPanel(true);
               setViewMode('create');
             }}
-            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700"
+            className="bg-gray-900 text-white px-4 py-2 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2"
           >
-            <Plus className="w-5 h-5" /> New Credit Note
+            <Plus className="w-3.5 h-3.5" /> New Credit Note
           </button>
         </div>
 

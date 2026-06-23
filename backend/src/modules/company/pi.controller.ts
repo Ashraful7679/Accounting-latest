@@ -40,7 +40,8 @@ export class PIController {
           include: { customer: { select: { id: true, name: true } } }
         },
         customer: { select: { id: true, name: true } },
-        vendor: { select: { id: true, name: true } }
+        vendor: { select: { id: true, name: true } },
+        salesOrders: { select: { id: true, soNumber: true, status: true } }
       },
       orderBy: { piDate: 'desc' }
     });
@@ -56,7 +57,8 @@ export class PIController {
           include: { customer: { select: { id: true, name: true } } }
         },
         customer: { select: { id: true, name: true } },
-        vendor: { select: { id: true, name: true } }
+        vendor: { select: { id: true, name: true } },
+        salesOrders: { select: { id: true, soNumber: true, status: true } }
       }
     });
     if (!pi) return reply.status(404).send({ success: false, message: 'PI not found' });
@@ -141,6 +143,9 @@ export class PIController {
           idbpNumber: data.idbpNumber,
           customerId: data.customerId || null,
           vendorId: data.vendorId || null,
+          salesOrders: data.soIds?.length ? {
+            connect: data.soIds.map((id: string) => ({ id }))
+          } : undefined,
           lines: {
             create: (data.lines || []).map((line: any) => ({
               productId: line.productId || null,
@@ -259,6 +264,9 @@ export class PIController {
           purchaseAmount: data.purchaseAmount ? Number(data.purchaseAmount) : undefined,
           idbpNumber: data.idbpNumber,
           customerId: data.customerId || null,
+          salesOrders: data.soIds ? {
+            set: data.soIds.map((id: string) => ({ id }))
+          } : undefined,
           lines: data.lines ? {
             create: data.lines.map((line: any) => ({
               productId: line.productId || null,

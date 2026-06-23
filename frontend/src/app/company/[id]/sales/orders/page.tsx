@@ -202,9 +202,9 @@ function SalesOrdersPage() {
           {canCreate && (
             <button
               onClick={() => router.push(`/company/${companyId}/sales/orders/create?type=${activeTab}`)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-bold hover:bg-gray-700 transition-colors"
+              className="bg-gray-900 text-white px-4 py-2 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               New Order
             </button>
           )}

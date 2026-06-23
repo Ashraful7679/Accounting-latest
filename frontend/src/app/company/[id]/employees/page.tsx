@@ -330,10 +330,10 @@ export default function EmployeesPage() {
               {canCreate && (
                 <button
                   onClick={() => openModal(getModalType(activeTab))}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700"
+                  className="bg-gray-900 text-white px-4 py-2 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2"
                 >
-                  <Plus className="w-4 h-4" />
-                  Add {activeTab === 'employees' ? 'Employee' : activeTab === 'advances' ? 'Advance' : activeTab === 'loans' ? 'Loan' : 'Expense'}
+                  <Plus className="w-3.5 h-3.5" />
+                  {activeTab === 'employees' ? 'Add Employee' : activeTab === 'advances' ? 'Add Advance' : activeTab === 'loans' ? 'Add Loan' : 'Add Expense'}
                 </button>
               )}
             </div>

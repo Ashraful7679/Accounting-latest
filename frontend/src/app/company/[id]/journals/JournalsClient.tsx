@@ -466,8 +466,8 @@ export default function JournalsClient() {
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">Transaction Engine</h2>
             <div className="flex items-center gap-3">
               {(userRole === 'Accountant' || userRole === 'Owner' || userRole === 'Admin') && (
-                <button onClick={() => openModal()} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20">
-                  <Plus className="w-5 h-5" />
+                <button onClick={() => openModal()} className="bg-gray-900 text-white px-4 py-2 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2">
+                  <Plus className="w-3.5 h-3.5" />
                   Create Voucher
                 </button>
               )}

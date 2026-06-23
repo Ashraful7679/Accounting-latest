@@ -126,9 +126,9 @@ export default function PurchaseInvoicesPage() {
         </div>
         <Link 
           href={`/company/${companyId}/purchase/invoices/create`}
-          className="px-6 py-2.5 bg-gray-900 text-white rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-700 transition-all flex items-center gap-2 shadow-sm"
+          className="bg-gray-900 text-white px-4 py-2 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-3.5 h-3.5" />
           Register Invoice
         </Link>
       </div>

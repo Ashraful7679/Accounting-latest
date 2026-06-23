@@ -159,8 +159,8 @@ export default function PayrollPage() {
       <div className="flex items-center justify-between p-4 border-b">
         <h1 className="text-xl font-semibold">Payroll</h1>
         {canCreate && (
-          <button onClick={() => setProcessModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            <DollarSign className="w-4 h-4" /> Process Payroll
+          <button onClick={() => setProcessModal(true)} className="bg-gray-900 text-white px-4 py-2 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2">
+            <DollarSign className="w-3.5 h-3.5" /> Process Payroll
           </button>
         )}
       </div>

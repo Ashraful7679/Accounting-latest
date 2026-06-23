@@ -62,7 +62,8 @@ export class AccountRepository {
       try {
         return await prisma.account.create({ data });
       } catch (error) {
-        console.error('Account creation failed');
+        console.error('Account creation failed:', error);
+        throw error;
       }
     }
     return { ...data, id: `offline-${Date.now()}` };

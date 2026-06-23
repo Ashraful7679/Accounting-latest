@@ -322,6 +322,7 @@ export default function CreatePurchaseInvoicePage() {
 
       await api.post(`/company/${companyId}/invoices?type=purchase`, payload);
       queryClient.invalidateQueries({ queryKey: ['purchase-invoices', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats', companyId] });
       toast.success('Purchase Invoice registered successfully');
       router.push(`/company/${companyId}/purchase/invoices`);
     } catch (err: any) {

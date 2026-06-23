@@ -57,7 +57,7 @@ function SalesOrdersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [mounted, setMounted] = useState(false);
 
-  const { canCreate, canEdit, canDelete } = usePermissions('sales.orders', companyId);
+  const { canView, canCreate, canEdit, canDelete, isLoading: permsLoading } = usePermissions('sales.orders', companyId);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -152,6 +152,16 @@ function SalesOrdersPage() {
   };
 
   if (!mounted) return null;
+
+  if (!permsLoading && !canView) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+          You do not have permission to view this page.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-slate-50">

@@ -33,6 +33,7 @@ import { PayrollController } from './payroll.controller';
 import { RBACController } from './rbac.controller';
 import { BranchController } from './branch.controller';
 import { InventoryController } from './inventory.controller';
+import { RequisitionController } from './requisition.controller';
 
 import { authenticate } from '../../middleware/auth';
 
@@ -76,6 +77,16 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   const rbacController = new RBACController();
   const branchController = new BranchController();
   const inventoryController = new InventoryController();
+  const requisitionController = new RequisitionController();
+
+  // Purchase Requisitions
+  fastify.get('/:id/purchase-requisitions', requisitionController.getPurchaseRequisitions.bind(requisitionController));
+  fastify.get('/:id/purchase-requisitions/:prId', requisitionController.getPurchaseRequisition.bind(requisitionController));
+  fastify.post('/:id/purchase-requisitions', requisitionController.createPurchaseRequisition.bind(requisitionController));
+  fastify.put('/:id/purchase-requisitions/:prId', requisitionController.updatePurchaseRequisition.bind(requisitionController));
+  fastify.delete('/:id/purchase-requisitions/:prId', requisitionController.deletePurchaseRequisition.bind(requisitionController));
+  fastify.post('/:id/purchase-requisitions/:prId/submit', requisitionController.submitPurchaseRequisition.bind(requisitionController));
+  fastify.post('/:id/purchase-requisitions/:prId/approve', requisitionController.approvePurchaseRequisition.bind(requisitionController));
 
   // Products
   fastify.get('/:id/products', productController.getProducts.bind(productController));

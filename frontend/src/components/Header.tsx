@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Bell, ChevronDown, ShoppingCart, Briefcase, Clock, FileText } from 'lucide-react';
+import { Bell, ChevronDown, ShoppingCart, Briefcase, Clock, FileText, Settings, LogOut } from 'lucide-react';
 import UserDropdown from './UserDropdown';
 import NotificationPanel from './NotificationPanel';
 import CompanySwitcher from './CompanySwitcher';
@@ -23,6 +23,13 @@ export default function Header({ companyId, breadcrumbs, role: propRole, unreadC
   const [time, setTime] = useState<Date | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('roles');
+    router.push('/login');
+  };
 
   // Tick clock
   useEffect(() => {
@@ -110,7 +117,8 @@ export default function Header({ companyId, breadcrumbs, role: propRole, unreadC
         <div className="relative">
           <button
             onClick={() => setNotifOpen(o => !o)}
-            className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors relative"
+            className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-full transition-colors relative"
+            title="Notifications"
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
@@ -124,7 +132,23 @@ export default function Header({ companyId, breadcrumbs, role: propRole, unreadC
           />
         </div>
 
-        <div className="h-6 w-px bg-slate-200" />
+        <button
+          onClick={() => router.push(`/company/${companyId}/settings`)}
+          className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-full transition-colors hidden sm:block"
+          title="Company Settings"
+        >
+          <Settings className="w-5 h-5" />
+        </button>
+
+        <button
+          onClick={handleLogout}
+          className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors hidden sm:block"
+          title="Sign Out"
+        >
+          <LogOut className="w-5 h-5" />
+        </button>
+
+        <div className="h-6 w-px bg-slate-200 hidden sm:block" />
         <UserDropdown role={role} />
       </div>
     </header>

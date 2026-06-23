@@ -12,7 +12,8 @@ const softDeleteModels = [
   'PayrollRun', 'PayrollPayslip', 'User', 'Branch', 'PILine', 'SalesOrderLine',
   'PurchaseOrderLine', 'GRN', 'GRNLine', 'DN', 'DNLine', 'InvoiceLine',
   'JournalEntryLine', 'DebitNote', 'DebitNoteLine', 'CreditNote', 'CreditNoteLine',
-  'Attachment', 'Notification', 'FixedAsset', 'RecurringInvoice'
+  'Attachment', 'Notification', 'FixedAsset', 'RecurringInvoice',
+  'PurchaseRequisition', 'PurchaseRequisitionLine'
 ];
 
 /**
@@ -49,6 +50,7 @@ export function registerSoftDelete(prisma: any) {
         'PayrollRun': [{ model: 'payrollPayslip', foreignKey: 'payrollRunId' }],
         'DebitNote': [{ model: 'debitNoteLine', foreignKey: 'debitNoteId' }],
         'CreditNote': [{ model: 'creditNoteLine', foreignKey: 'creditNoteId' }],
+        'PurchaseRequisition': [{ model: 'purchaseRequisitionLine', foreignKey: 'purchaseRequisitionId' }],
       };
 
       const targets = cascades[params.model || ''];

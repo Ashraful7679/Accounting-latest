@@ -10,7 +10,6 @@ import {
   CheckCircle, Clock, Loader2
 } from 'lucide-react';
 import { FinanceCharts } from './components/FinanceCharts';
-import { StickyTopBar } from './components/StickyTopBar';
 
 const QUICK_ACTIONS = [
   { label: 'Journals', icon: BookOpen, path: 'journals' },
@@ -138,17 +137,6 @@ export default function DashboardClient() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Sticky Top Header */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-slate-800">
-            {data?.companyName || 'Command Center'}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-0.5 hidden sm:block">Dashboard overview</p>
-        </div>
-        <StickyTopBar companyId={companyId} unreadCount={unreadCount} />
-      </header>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8 space-y-6 sm:space-y-8">
 
         {/* Loading State */}

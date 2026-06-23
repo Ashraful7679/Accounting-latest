@@ -217,6 +217,7 @@ model Company {
   payrollRuns PayrollRun[]
   creditNotes CreditNote[]
   recurringInvoices RecurringInvoice[]
+  purchaseRequisitions PurchaseRequisition[]
 
   category String? @default("GENERAL")
 }
@@ -649,10 +650,72 @@ model Vendor {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   debitNotes DebitNote[]
+  purchaseRequisitions PurchaseRequisition[]
 
   @@unique([companyId, code])
   @@index([companyId])
   @@index([companyId, deletedAt])
+}
+
+// ============================================
+// PURCHASE REQUISITION MODEL
+// ============================================
+
+model PurchaseRequisition {
+  id         String  @id @default(uuid())
+  prNumber   String
+  companyId  String
+  vendorId   String?
+  
+  prDate       DateTime @default(now())
+  expectedDate DateTime?
+
+  currency     String @default("BDT")
+  exchangeRate Float  @default(1)
+  totalForeign Float  @default(0)
+  totalBDT     Float  @default(0)
+
+  // Status: DRAFT, PENDING, APPROVED, REJECTED, CONVERTED, CANCELLED
+  status String @default("DRAFT")
+  notes  String?
+
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+
+  // Audit
+  createdById  String?
+  approvedById String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vendor  Vendor? @relation(fields: [vendorId], references: [id])
+  lines   PurchaseRequisitionLine[]
+
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, prNumber])
+  @@index([companyId])
+  @@index([vendorId])
+}
+
+model PurchaseRequisitionLine {
+  id                    String  @id @default(uuid())
+  purchaseRequisitionId String
+  productId             String?
+  itemDescription       String
+  quantity              Float   @default(1)
+  unitPrice             Float
+  total                 Float
+
+  purchaseRequisition PurchaseRequisition @relation(fields: [purchaseRequisitionId], references: [id], onDelete: Cascade)
+  product             Product?            @relation(fields: [productId], references: [id])
+
+  deletedAt DateTime?
+
+  @@index([purchaseRequisitionId])
+  @@index([productId])
+  @@index([deletedAt])
 }
 
 // ============================================
@@ -689,6 +752,7 @@ model PurchaseOrder {
   grns       GRN[]
   invoices   Invoice[]
   debitNotes DebitNote[]         @relation("DebitNotePurchaseOrder")
+  purchaseRequisitions PurchaseRequisition[]
 
   // Many-to-many with SalesOrder
   salesOrders SalesOrder[] @relation("SalesOrderPurchaseOrders")
@@ -930,6 +994,7 @@ model Product {
   CreditNoteLine  CreditNoteLine[]
   stockTransferLines StockTransferLine[]
   recurringInvoices  RecurringInvoice[]
+  purchaseRequisitionLines PurchaseRequisitionLine[]
 
   @@unique([companyId, code], name: "companyId_code")
   @@index([companyId])

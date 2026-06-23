@@ -332,11 +332,28 @@ export default function PurchaseRequisitionsPage() {
           </div>
 
           <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase flex justify-between">
-              Line Items
-              <button type="button" onClick={addLine} className="text-blue-600 text-xs font-bold">+ Add Line</button>
-            </label>
-            <div className="space-y-2 mt-2">
+            <div className="flex justify-between items-end">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Line Items</label>
+              <button type="button" onClick={addLine} className="text-blue-600 text-xs font-bold hover:text-blue-800">+ Add Line</button>
+            </div>
+            
+            <div className="flex gap-2 items-center mt-4 mb-1 px-1">
+              <div className="flex-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Item Description</span>
+              </div>
+              <div className="w-20 text-right">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Quantity</span>
+              </div>
+              <div className="w-24 text-right">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Unit Price</span>
+              </div>
+              <div className="w-24 text-right">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Total</span>
+              </div>
+              {formData.lines.length > 1 && <div className="w-6"></div>}
+            </div>
+            
+            <div className="space-y-2">
               {formData.lines.map((line, idx) => (
                 <div key={idx} className="flex gap-2 items-center">
                   <div className="flex-1">

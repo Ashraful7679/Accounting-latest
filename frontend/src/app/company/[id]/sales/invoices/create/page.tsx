@@ -324,6 +324,7 @@ export default function CreateSalesInvoicePage() {
 
       await api.post(`/company/${companyId}/invoices?type=sales`, payload);
       queryClient.invalidateQueries({ queryKey: ['sales-invoices', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats', companyId] });
       toast.success('Sales Invoice created successfully');
       router.push(`/company/${companyId}/sales/invoices`);
     } catch (err: any) {

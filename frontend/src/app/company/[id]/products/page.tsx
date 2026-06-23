@@ -128,6 +128,9 @@ export default function ProductsPage() {
       queryClient.invalidateQueries({ queryKey: ['products', companyId] });
       toast.success('Stock adjusted successfully');
       setShowAdjustModal(false);
+      // Reset form fields so next open starts fresh
+      setAdjustAmount(0);
+      setAdjustNotes('');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error?.message || 'Failed to adjust stock');
@@ -671,7 +674,7 @@ export default function ProductsPage() {
                 <div className="relative">
                   <input
                     type="number"
-                    value={adjustAmount}
+                    value={adjustAmount || ''}
                     onChange={(e) => setAdjustAmount(parseFloat(e.target.value) || 0)}
                     placeholder="Enter + to add or - to subtract"
                     className={`w-full px-4 py-3 bg-white border-2 rounded-2xl focus:outline-none focus:ring-4 transition-all font-black text-xl text-center ${

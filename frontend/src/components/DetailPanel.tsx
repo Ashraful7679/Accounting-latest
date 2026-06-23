@@ -174,10 +174,17 @@ export default function DetailPanel({
   const displayActions = currentLinked?.actions || filteredActions;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
       <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
-      <div className={cn('relative flex flex-col w-full h-full bg-white shadow-2xl animate-in slide-in-from-right duration-300', sizeClasses[size])}>
-        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
+      {/* Centered Modal */}
+      <div className={cn(
+        'relative flex flex-col w-full bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200',
+        'max-h-[90vh]',
+        sizeClasses[size]
+      )}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl shrink-0">
           <div className="flex items-center gap-3 flex-1 min-w-0 pr-4">
             {currentLinked && (
               <button onClick={handleLinkedBack} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500" title="Back">
@@ -197,8 +204,9 @@ export default function DetailPanel({
           </button>
         </div>
 
+        {/* Tabs */}
         {displayTabs.length > 0 && (
-          <div className="flex border-b border-slate-200 px-6">
+          <div className="flex border-b border-slate-200 px-6 shrink-0">
             {(Array.isArray(displayTabs) ? displayTabs : []).map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn('px-4 py-3 text-sm font-bold border-b-2 transition-colors', activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700')}>
                 {tab.label}
@@ -207,6 +215,7 @@ export default function DetailPanel({
           </div>
         )}
 
+        {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto p-6">
           {(() => {
             const currentTab = displayTabs.find(t => t.id === activeTab);
@@ -231,8 +240,9 @@ export default function DetailPanel({
           })()}
         </div>
 
+        {/* Footer Actions */}
         {displayActions.length > 0 && (
-          <div className="p-4 border-t border-slate-100 bg-slate-50 flex gap-2 flex-wrap">
+          <div className="p-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex gap-2 flex-wrap shrink-0">
             {(Array.isArray(displayActions) ? displayActions : []).map((action, idx) => {
               const Icon = action.icon || Save;
               return (

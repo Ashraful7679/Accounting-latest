@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-06-23T10:18:22.446Z",
+  "lastUpdated": "2026-06-23T11:18:44.288Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -157,21 +157,23 @@
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\company.controller.ts": {
-      "modified": "2026-05-10T12:56:10.264Z",
+      "modified": "2026-06-23T11:18:03.327Z",
       "features": [
-        "Implemented persistence for accounting control toggles in updateSettings"
+        "Implemented persistence for accounting control toggles in updateSettings",
+        "Added getMyCompanies endpoint to fetch user-associated companies"
       ],
-      "lastChange": "2026-05-10T12:56:10.265Z",
+      "lastChange": "2026-06-23T11:18:03.328Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\company.routes.ts": {
-      "modified": "2026-05-25T14:53:10.766Z",
+      "modified": "2026-06-23T11:18:13.393Z",
       "features": [
         "Registered PUT /company/:id/settings route",
         "Registered verification and approval routes for Fixed Assets and Branches",
-        "Added /:id/audit route alias pointing to listActivities for audit trail page"
+        "Added /:id/audit route alias pointing to listActivities for audit trail page",
+        "Registered /user-companies endpoint"
       ],
-      "lastChange": "2026-05-25T14:53:10.766Z",
+      "lastChange": "2026-06-23T11:18:13.393Z",
       "agent": "unknown"
     },
     "backend\\src\\repositories\\FixedAssetRepository.ts": {
@@ -334,11 +336,12 @@
       "agent": "unknown"
     },
     "frontend\\src\\components\\DetailPanel.tsx": {
-      "modified": "2026-05-13T04:58:34.254Z",
+      "modified": "2026-06-23T11:18:37.833Z",
       "features": [
-        "Fixed tab content not rendering - now shows content when available"
+        "Fixed tab content not rendering - now shows content when available",
+        "Refactored right-side sliding form panels to centered modal dialogs"
       ],
-      "lastChange": "2026-05-13T04:58:34.255Z",
+      "lastChange": "2026-06-23T11:18:37.834Z",
       "agent": "unknown"
     },
     "frontend\\src\\components\\Sidebar.tsx": {
@@ -475,27 +478,30 @@
       "agent": "unknown"
     },
     "frontend\\src\\components\\Header.tsx": {
-      "modified": "2026-06-23T10:17:40.202Z",
+      "modified": "2026-06-23T11:18:40.719Z",
       "features": [
-        "Added settings and logout buttons directly to the global Header next to the notifications bell"
+        "Added settings and logout buttons directly to the global Header next to the notifications bell",
+        "Added notification bell outside-click container ref, dynamically fetched notifications, displayed unread count"
       ],
-      "lastChange": "2026-06-23T10:17:40.203Z",
+      "lastChange": "2026-06-23T11:18:40.720Z",
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\invoices\\create\\page.tsx": {
-      "modified": "2026-06-23T10:17:54.050Z",
+      "modified": "2026-06-23T11:18:30.882Z",
       "features": [
-        "Invalidate dashboard-stats query key on sales invoice creation to auto-refresh dashboard KPI"
+        "Invalidate dashboard-stats query key on sales invoice creation to auto-refresh dashboard KPI",
+        "Allowed blank instead of 0 in numeric form inputs"
       ],
-      "lastChange": "2026-06-23T10:17:54.051Z",
+      "lastChange": "2026-06-23T11:18:30.883Z",
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\purchase\\invoices\\create\\page.tsx": {
-      "modified": "2026-06-23T10:18:00.121Z",
+      "modified": "2026-06-23T11:18:24.663Z",
       "features": [
-        "Invalidate dashboard-stats query key on purchase invoice registration to auto-refresh dashboard KPI"
+        "Invalidate dashboard-stats query key on purchase invoice registration to auto-refresh dashboard KPI",
+        "Allowed blank instead of 0 in numeric form inputs"
       ],
-      "lastChange": "2026-06-23T10:18:00.121Z",
+      "lastChange": "2026-06-23T11:18:24.664Z",
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\orders\\page.tsx": {
@@ -512,6 +518,46 @@
         "Fixed compile errors in requisition controller by using SequenceService and fixing relation name"
       ],
       "lastChange": "2026-06-23T10:18:17.437Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\modules\\company\\notification.controller.ts": {
+      "modified": "2026-06-23T11:18:17.018Z",
+      "features": [
+        "Fixed notification ID route parameter bindings and URL mapping"
+      ],
+      "lastChange": "2026-06-23T11:18:17.018Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\company\\[id]\\products\\page.tsx": {
+      "modified": "2026-06-23T11:18:20.811Z",
+      "features": [
+        "Reset stock adjustment state on success, allowed blank in adjustment input"
+      ],
+      "lastChange": "2026-06-23T11:18:20.812Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\company\\[id]\\purchase\\requisitions\\page.tsx": {
+      "modified": "2026-06-23T11:18:27.883Z",
+      "features": [
+        "Fixed layout of requisition list rows using grid and allowed blank in quantity/unit price inputs"
+      ],
+      "lastChange": "2026-06-23T11:18:27.885Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\components\\CompanySwitcher.tsx": {
+      "modified": "2026-06-23T11:18:33.969Z",
+      "features": [
+        "Updated company switcher to pull user-associated companies"
+      ],
+      "lastChange": "2026-06-23T11:18:33.970Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\components\\NotificationPanel.tsx": {
+      "modified": "2026-06-23T11:18:44.287Z",
+      "features": [
+        "Fixed notification action routing for various event types"
+      ],
+      "lastChange": "2026-06-23T11:18:44.288Z",
       "agent": "unknown"
     }
   },

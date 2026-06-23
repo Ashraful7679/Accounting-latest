@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Bell, ChevronDown, ShoppingCart, Briefcase, Clock, FileText, Settings, LogOut } from 'lucide-react';
 import UserDropdown from './UserDropdown';
 import NotificationPanel from './NotificationPanel';
 import CompanySwitcher from './CompanySwitcher';
 import { useCompany } from '@/lib/CompanyContext';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
 
 interface HeaderProps {
   companyId: string;
@@ -16,11 +19,43 @@ interface HeaderProps {
 }
 
 export default function Header({ companyId, breadcrumbs, role: propRole, unreadCount = 0 }: HeaderProps) {
+  const router = useRouter();
   const { exchangeRate } = useCompany();
   const [mounted, setMounted] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [role, setRole] = useState(propRole || 'User');
   const [time, setTime] = useState<Date | null>(null);
+  
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  // Fetch unread notifications count from backend
+  const { data: notifData } = useQuery({
+    queryKey: ['notifications', companyId],
+    queryFn: async () => {
+      try {
+        const res = await api.get(`/company/${companyId}/notifications`);
+        return res.data.data;
+      } catch (err) {
+        console.error('Failed to fetch notifications in Header:', err);
+        return { notifications: [], unreadCount: 0 };
+      }
+    },
+    enabled: !!companyId,
+    refetchInterval: 30000, // refresh every 30s
+  });
+
+  const resolvedUnreadCount = notifData?.unreadCount ?? unreadCount;
+
+  // Close notifications panel on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -114,15 +149,17 @@ export default function Header({ companyId, breadcrumbs, role: propRole, unreadC
         <div className="h-6 w-px bg-slate-200" />
 
         {/* Notifications */}
-        <div className="relative">
+        <div className="relative" ref={notifRef}>
           <button
             onClick={() => setNotifOpen(o => !o)}
             className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-full transition-colors relative"
             title="Notifications"
           >
             <Bell className="w-5 h-5" />
-            {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full" />
+            {resolvedUnreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 border-2 border-white">
+                {resolvedUnreadCount > 99 ? '99+' : resolvedUnreadCount}
+              </span>
             )}
           </button>
           <NotificationPanel

@@ -51,6 +51,9 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.addHook('preHandler', authenticate);
 
   const controller = new CompanyController();
+
+  // Get companies assigned to the authenticated user
+  fastify.get('/user-companies', controller.getMyCompanies.bind(controller));
   const dashboardController = new DashboardController();
   const lcController = new LCController();
   const loanController = new LoanController();

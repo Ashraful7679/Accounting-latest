@@ -371,14 +371,14 @@ export default function PurchaseRequisitionsPage() {
                   </div>
                   <input
                     type="number"
-                    value={line.quantity}
+                    value={line.quantity || ''}
                     onChange={(e) => handleLineChange(idx, 'quantity', parseFloat(e.target.value) || 0)}
                     placeholder="Qty"
                     className="w-20 px-2 py-2 border border-slate-200 rounded-lg text-sm text-right"
                   />
                   <input
                     type="number"
-                    value={line.unitPrice}
+                    value={line.unitPrice || ''}
                     onChange={(e) => handleLineChange(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
                     placeholder="Price"
                     className="w-24 px-2 py-2 border border-slate-200 rounded-lg text-sm text-right"
@@ -494,19 +494,24 @@ export default function PurchaseRequisitionsPage() {
                 <div
                   key={pr.id}
                   onClick={() => handleRowClick(pr)}
-                  className="p-4 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
+                  className="p-4 hover:bg-slate-50 cursor-pointer grid grid-cols-1 md:grid-cols-12 gap-4 items-center group text-left"
                 >
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <div className="font-bold text-slate-900">{pr.prNumber}</div>
-                      <div className="text-sm text-slate-500">{pr.supplier?.name || 'No supplier'}</div>
-                    </div>
+                  <div className="md:col-span-3">
+                    <div className="font-bold text-slate-900">{pr.prNumber}</div>
+                    <div className="text-[10px] text-slate-400 font-mono">Date: {new Date(pr.prDate).toLocaleDateString()}</div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-slate-500">{new Date(pr.prDate).toLocaleDateString()}</span>
-                    <span className="font-bold text-slate-900">{getCurrencySymbol(pr.currency)}{pr.totalBDT.toFixed(2)}</span>
+                  <div className="md:col-span-3 text-slate-600 text-sm font-semibold truncate">
+                    {pr.supplier?.name || <span className="text-slate-400 italic font-normal">No supplier</span>}
+                  </div>
+                  <div className="md:col-span-2 text-sm font-medium text-slate-500">
+                    {pr.expectedDate ? `Expected: ${new Date(pr.expectedDate).toLocaleDateString()}` : '-'}
+                  </div>
+                  <div className="md:col-span-2 font-bold text-slate-900 text-right md:text-left">
+                    {getCurrencySymbol(pr.currency)}{formatCurrency(pr.totalBDT)}
+                  </div>
+                  <div className="md:col-span-2 flex items-center justify-between md:justify-end gap-3">
                     {getStatusBadge(pr.status)}
-                    <Eye className="w-4 h-4 text-slate-400" />
+                    <Eye className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
                   </div>
                 </div>
               ))}

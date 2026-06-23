@@ -66,4 +66,25 @@ export class CompanyController extends BaseCompanyController {
 
     return reply.send({ success: true, data: settings });
   }
+
+  /**
+   * Returns all companies the currently authenticated user has access to.
+   * Used by the CompanySwitcher for non-owner users.
+   */
+  async getMyCompanies(request: FastifyRequest, reply: FastifyReply) {
+    const userId = (request.user as any).id;
+    const userCompanies = await prisma.userCompany.findMany({
+      where: { userId },
+      include: { company: { select: { id: true, code: true, name: true, logoUrl: true, isActive: true } } },
+    });
+    const companies = userCompanies.map((uc: any) => ({
+      id: uc.company.id,
+      code: uc.company.code,
+      name: uc.company.name,
+      logoUrl: uc.company.logoUrl,
+      isActive: uc.company.isActive,
+      isDefault: uc.isDefault,
+    }));
+    return reply.send({ success: true, data: companies });
+  }
 }

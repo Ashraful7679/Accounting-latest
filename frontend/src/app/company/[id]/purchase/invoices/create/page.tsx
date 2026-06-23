@@ -559,7 +559,7 @@ export default function CreatePurchaseInvoicePage() {
                     <input 
                       type="number"
                       required min="0.01" step="any"
-                      value={line.quantity}
+                      value={line.quantity || ''}
                       onChange={(e) => handleLineChange(index, 'quantity', parseFloat(e.target.value) || 0)}
                       className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-emerald-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none transition-colors"
                     />
@@ -568,7 +568,7 @@ export default function CreatePurchaseInvoicePage() {
                     <input 
                       type="number"
                       min="0" step="any"
-                      value={line.returnQuantity}
+                      value={line.returnQuantity || ''}
                       onChange={(e) => handleLineChange(index, 'returnQuantity', parseFloat(e.target.value) || 0)}
                       className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-emerald-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none text-orange-600 transition-colors"
                     />
@@ -577,7 +577,7 @@ export default function CreatePurchaseInvoicePage() {
                     <input 
                       type="number"
                       min="0" step="any"
-                      value={line.damagedQuantity}
+                      value={line.damagedQuantity || ''}
                       onChange={(e) => handleLineChange(index, 'damagedQuantity', parseFloat(e.target.value) || 0)}
                       className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-emerald-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none text-red-600 transition-colors"
                     />
@@ -591,7 +591,7 @@ export default function CreatePurchaseInvoicePage() {
                         <div className="flex flex-col items-end">
                           <input 
                             type="number" step="any"
-                            value={line.unitPrice}
+                            value={line.unitPrice || ''}
                             onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
                             className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-emerald-500 rounded-sm px-2 py-1 text-sm text-right font-mono outline-none transition-colors"
                           />
@@ -610,7 +610,7 @@ export default function CreatePurchaseInvoicePage() {
                       <td className="px-4 py-2">
                         <input 
                           type="number" step="any"
-                          value={line.unitPrice}
+                          value={line.unitPrice || ''}
                           onChange={(e) => handleLineChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
                           className="w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-emerald-500 rounded-sm px-2 py-1.5 text-sm text-right font-mono outline-none transition-colors"
                         />
@@ -641,7 +641,7 @@ export default function CreatePurchaseInvoicePage() {
                   <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Tax Amount</label>
                   <input 
                     type="number"
-                    value={formData.taxAmount}
+                    value={formData.taxAmount || ''}
                     onChange={(e) => setFormData({ ...formData, taxAmount: parseFloat(e.target.value) || 0 })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-sm text-xs font-mono outline-none focus:border-emerald-500"
                   />
@@ -650,7 +650,7 @@ export default function CreatePurchaseInvoicePage() {
                   <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Other Expenses</label>
                   <input 
                     type="number"
-                    value={formData.otherExpenses}
+                    value={formData.otherExpenses || ''}
                     onChange={(e) => setFormData({ ...formData, otherExpenses: parseFloat(e.target.value) || 0 })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-sm text-xs font-mono outline-none focus:border-emerald-500"
                   />
@@ -660,7 +660,7 @@ export default function CreatePurchaseInvoicePage() {
                 <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Discount</label>
                 <input 
                   type="number"
-                  value={formData.discountAmount}
+                  value={formData.discountAmount || ''}
                   onChange={(e) => setFormData({ ...formData, discountAmount: parseFloat(e.target.value) || 0 })}
                   className="w-full px-3 py-2 border border-gray-200 rounded-sm text-xs font-mono outline-none focus:border-emerald-500"
                 />

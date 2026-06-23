@@ -154,10 +154,10 @@ export class NotificationController {
    * Mark a single notification as read.
    */
   async markRead(request: FastifyRequest, reply: FastifyReply) {
-    const { notifId } = request.params as { notifId: string };
+    const { notificationId } = request.params as { notificationId: string };
 
     await prisma.notification.update({
-      where: { id: notifId },
+      where: { id: notificationId },
       data: { isRead: true },
     });
 
@@ -182,9 +182,9 @@ export class NotificationController {
    * Delete (dismiss) a single notification.
    */
   async delete(request: FastifyRequest, reply: FastifyReply) {
-    const { notifId } = request.params as { notifId: string };
+    const { notificationId } = request.params as { notificationId: string };
 
-    await prisma.notification.delete({ where: { id: notifId } });
+    await prisma.notification.delete({ where: { id: notificationId } });
 
     return reply.send({ success: true, message: 'Notification dismissed.' });
   }

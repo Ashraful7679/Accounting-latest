@@ -15,7 +15,7 @@ export default function CompanySwitcher() {
 
   useEffect(() => {
     // Fetch all companies the user has access to
-    api.get('/owner/companies')
+    api.get('/company/user-companies')
       .then((res: any) => {
         setCompanies(res.data.data || []);
       })

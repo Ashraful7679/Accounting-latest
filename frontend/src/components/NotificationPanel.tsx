@@ -67,16 +67,28 @@ export default function NotificationPanel({ companyId, isOpen, onClose }: Notifi
     if (!notif.entityId) return;
 
     const type = notif.type;
-    const entityType = notif.entityType?.toLowerCase();
+    const entityType = notif.entityType?.toLowerCase().replace(/_/g, '').replace(/ /g, '');
 
-    if (type === 'PENDING_JOURNAL' || entityType === 'journalentry') {
+    if (type === 'PENDING_JOURNAL' || entityType === 'journalentry' || entityType === 'journal') {
       router.push(`/company/${companyId}/journals?edit=${notif.entityId}`);
     } else if (type === 'OVERDUE_INVOICE' || entityType === 'invoice') {
       router.push(`/company/${companyId}/invoices?edit=${notif.entityId}`);
     } else if (type === 'LC_EXPIRY' || entityType === 'lc') {
-      router.push(`/company/${companyId}/finance?edit=${notif.entityId}`);
+      router.push(`/company/${companyId}/lc?edit=${notif.entityId}`);
     } else if (type === 'LOAN_DUE' || entityType === 'loan') {
-      router.push(`/company/${companyId}/finance?edit=${notif.entityId}`);
+      router.push(`/company/${companyId}/lc/loans?edit=${notif.entityId}`);
+    } else if (entityType === 'purchaserequisition') {
+      router.push(`/company/${companyId}/purchase/requisitions?edit=${notif.entityId}`);
+    } else if (entityType === 'purchaseorder') {
+      router.push(`/company/${companyId}/purchase/orders?edit=${notif.entityId}`);
+    } else if (entityType === 'salesorder') {
+      router.push(`/company/${companyId}/sales/orders?edit=${notif.entityId}`);
+    } else if (entityType === 'bill') {
+      router.push(`/company/${companyId}/purchase/invoices?edit=${notif.entityId}`);
+    } else if (entityType === 'debitnote') {
+      router.push(`/company/${companyId}/purchase/debit-notes?edit=${notif.entityId}`);
+    } else if (entityType === 'creditnote') {
+      router.push(`/company/${companyId}/sales/credit-notes?edit=${notif.entityId}`);
     }
   };
 
@@ -100,17 +112,17 @@ export default function NotificationPanel({ companyId, isOpen, onClose }: Notifi
   });
 
   const markReadMutation = useMutation({
-    mutationFn: (notifId: string) => api.patch(`/company/notifications/${notifId}/read`),
+    mutationFn: (notifId: string) => api.put(`/company/${companyId}/notifications/${notifId}/read`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications', companyId] }),
   });
 
   const markAllReadMutation = useMutation({
-    mutationFn: () => api.patch(`/company/${companyId}/notifications/read-all`),
+    mutationFn: () => api.post(`/company/${companyId}/notifications/mark-all-read`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications', companyId] }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (notifId: string) => api.delete(`/company/notifications/${notifId}`),
+    mutationFn: (notifId: string) => api.delete(`/company/${companyId}/notifications/${notifId}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications', companyId] }),
   });
 

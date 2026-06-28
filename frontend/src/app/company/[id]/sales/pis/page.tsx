@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -79,12 +79,13 @@ export default function ExportPIsPage() {
   const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [mounted, setMounted] = useState(false);
+  const pendingSoId = useRef<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
     const soId = searchParams.get('soId');
     if (soId) {
-      setFormData(f => ({ ...f, soIds: [soId] }));
+      pendingSoId.current = soId;
       setShowModal(true);
     }
   }, [searchParams]);
@@ -134,6 +135,29 @@ export default function ExportPIsPage() {
     },
     enabled: !!companyId,
   });
+
+  useEffect(() => {
+    const soId = pendingSoId.current;
+    if (!soId || !salesOrders || !customersData) return;
+    pendingSoId.current = null;
+    const so = (Array.isArray(salesOrders) ? salesOrders : []).find((s: any) => s.id === soId);
+    if (!so) return;
+    setFormData(f => ({
+      ...f,
+      soIds: [soId],
+      customerId: so.customerId || '',
+      lines: (so.lines || [])
+        .filter((l: any) => (l.quantity - (l.deliveredQuantity || 0)) > 0)
+        .map((l: any) => ({
+          productId: l.productId || '',
+          description: l.itemDescription || l.description || '',
+          quantity: l.quantity - (l.deliveredQuantity || 0),
+          unitPrice: l.unitPrice || 0,
+          total: ((l.quantity - (l.deliveredQuantity || 0)) * (l.unitPrice || 0)),
+          soId: so.id,
+        })),
+    }));
+  }, [salesOrders, customersData]);
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-06-28T10:44:58.211Z",
+  "lastUpdated": "2026-06-28T11:05:47.337Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -624,12 +624,13 @@
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\pis\\page.tsx": {
-      "modified": "2026-06-28T10:44:58.210Z",
+      "modified": "2026-06-28T11:05:47.336Z",
       "features": [
         "Removed Value & Currency section, moved currency/rate to header, added linked SO section with auto-render products, added borders to line item cells",
-        "Added soId query param support to auto-open create modal"
+        "Added soId query param support to auto-open create modal",
+        "Fixed PI modal: pre-fill customer and line items from SO when soId param present"
       ],
-      "lastChange": "2026-06-28T10:44:58.211Z",
+      "lastChange": "2026-06-28T11:05:47.337Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\pi.controller.ts": {
@@ -710,6 +711,14 @@
         "Added SALES_ORDER, PURCHASE_ORDER, PRODUCT entity types"
       ],
       "lastChange": "2026-06-28T10:03:38.212Z",
+      "agent": "unknown"
+    },
+    "backend\\prisma\\migrations\\20260628000000_add_pi_sales_orders\\migration.sql": {
+      "modified": "2026-06-28T11:05:47.288Z",
+      "features": [
+        "Created migration for PI-SalesOrder junction table (_PISalesOrders)"
+      ],
+      "lastChange": "2026-06-28T11:05:47.289Z",
       "agent": "unknown"
     }
   },

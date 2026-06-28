@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-06-28T10:03:38.212Z",
+  "lastUpdated": "2026-06-28T10:35:05.034Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -578,12 +578,13 @@
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\order.controller.ts": {
-      "modified": "2026-06-28T09:44:21.634Z",
+      "modified": "2026-06-28T10:35:05.033Z",
       "features": [
         "Accept purchaseRequisitionIds in createPurchaseOrder payload",
-        "Added updateSalesOrderStatus with transition validation"
+        "Added updateSalesOrderStatus with transition validation",
+        "Fixed generateDeliveryChallan/generateGRN: safe destructuring with fallback to deliver all lines"
       ],
-      "lastChange": "2026-06-28T09:44:21.635Z",
+      "lastChange": "2026-06-28T10:35:05.034Z",
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\challans\\page.tsx": {

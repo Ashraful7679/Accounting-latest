@@ -478,7 +478,7 @@ export class OrderController extends BaseCompanyController {
 
   async generateDeliveryChallan(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, soId } = request.params as { id: string, soId: string };
-    const { items, shipmentDate } = request.body as { items: { productId: string, quantity: number }[], shipmentDate?: string };
+    const body = request.body ? request.body as any : {};
     const userId = (request.user as any).id;
 
     const so = await (prisma as any).salesOrder.findUnique({
@@ -487,6 +487,24 @@ export class OrderController extends BaseCompanyController {
     });
 
     if (!so) throw new NotFoundError('Sales Order not found');
+
+    // If no items specified, deliver all remaining quantities
+    let items = body.items;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      items = so.lines
+        .filter((l: any) => {
+          const remaining = l.quantity - (l.deliveredQuantity || 0);
+          return remaining > 0;
+        })
+        .map((l: any) => ({
+          productId: l.productId,
+          quantity: l.quantity - (l.deliveredQuantity || 0)
+        }));
+    }
+
+    if (items.length === 0) {
+      throw new ValidationError('No items to deliver — all lines are already fully delivered');
+    }
 
     const dnNumber = await this.generateDocumentNumber(companyId, 'dn');
 
@@ -497,7 +515,7 @@ export class OrderController extends BaseCompanyController {
           dnNumber,
           companyId,
           salesOrderId: soId,
-          shipmentDate: shipmentDate ? new Date(shipmentDate) : new Date(),
+          shipmentDate: body.shipmentDate ? new Date(body.shipmentDate) : new Date(),
           status: 'SHIPPED',
           lines: {
             create: items.map((item: any) => {
@@ -564,7 +582,7 @@ export class OrderController extends BaseCompanyController {
 
   async generateGRN(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, poId } = request.params as { id: string, poId: string };
-    const { items, receiptDate } = request.body as { items: { productId: string, quantity: number }[], receiptDate?: string };
+    const body = request.body ? request.body as any : {};
     const userId = (request.user as any).id;
 
     const po = await (prisma as any).purchaseOrder.findUnique({
@@ -574,6 +592,24 @@ export class OrderController extends BaseCompanyController {
 
     if (!po) throw new NotFoundError('Purchase Order not found');
 
+    // If no items specified, receive all remaining quantities
+    let items = body.items;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      items = po.lines
+        .filter((l: any) => {
+          const remaining = l.quantity - (l.receivedQuantity || 0);
+          return remaining > 0;
+        })
+        .map((l: any) => ({
+          productId: l.productId,
+          quantity: l.quantity - (l.receivedQuantity || 0)
+        }));
+    }
+
+    if (items.length === 0) {
+      throw new ValidationError('No items to receive — all lines are already fully received');
+    }
+
     const grnNumber = await this.generateDocumentNumber(companyId, 'grn');
 
     const grn = await prisma.$transaction(async (tx: any) => {
@@ -582,7 +618,7 @@ export class OrderController extends BaseCompanyController {
           grnNumber,
           companyId,
           purchaseOrderId: poId,
-          receiptDate: receiptDate ? new Date(receiptDate) : new Date(),
+          receiptDate: body.receiptDate ? new Date(body.receiptDate) : new Date(),
           status: 'RECEIVED',
           lines: {
             create: items.map((item: any) => {

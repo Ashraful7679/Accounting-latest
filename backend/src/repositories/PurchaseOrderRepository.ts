@@ -30,7 +30,7 @@ export class PurchaseOrderRepository {
             include: {
               supplier: true,
               lc: true,
-              lines: true,
+              lines: { include: { product: true } },
               grns: { include: { lines: true } },
               invoices: { include: { lines: true } },
               salesOrders: true,
@@ -68,7 +68,9 @@ export class PurchaseOrderRepository {
           include: {
             supplier: true,
             lc: true,
-            lines: true,
+            lines: {
+              include: { product: true }
+            },
             grns: {
               include: { lines: true }
             },

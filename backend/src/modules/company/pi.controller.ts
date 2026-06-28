@@ -41,7 +41,8 @@ export class PIController {
         },
         customer: { select: { id: true, name: true } },
         vendor: { select: { id: true, name: true } },
-        salesOrders: { select: { id: true, soNumber: true, status: true } }
+        salesOrders: { select: { id: true, soNumber: true, status: true } },
+        lines: { include: { product: true } }
       },
       orderBy: { piDate: 'desc' }
     });
@@ -58,7 +59,8 @@ export class PIController {
         },
         customer: { select: { id: true, name: true } },
         vendor: { select: { id: true, name: true } },
-        salesOrders: { select: { id: true, soNumber: true, status: true } }
+        salesOrders: { select: { id: true, soNumber: true, status: true } },
+        lines: { include: { product: true } }
       }
     });
     if (!pi) return reply.status(404).send({ success: false, message: 'PI not found' });

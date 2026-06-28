@@ -168,7 +168,7 @@ export class InvoiceController extends BaseCompanyController {
     const role = await this.getUserRole(userId, companyId);
     const invoice = await prisma.invoice.findUnique({ 
       where: { id: invoiceId },
-      include: { lines: true }
+      include: { lines: { include: { product: true } } }
     });
 
     if (!invoice) throw new NotFoundError('Invoice not found');
@@ -231,7 +231,7 @@ export class InvoiceController extends BaseCompanyController {
         dns: data.dnIds ? { set: [], connect: data.dnIds.map((id: string) => ({ id })) } : undefined,
         grns: data.grnIds ? { set: [], connect: data.grnIds.map((id: string) => ({ id })) } : undefined,
       },
-      include: { lines: true, dns: true, grns: true },
+      include: { lines: { include: { product: true } }, dns: true, grns: true },
     });
 
     return reply.send({ success: true, data: updated });
@@ -246,7 +246,7 @@ export class InvoiceController extends BaseCompanyController {
     const role = await this.getUserRole(userId, companyId);
     const invoice = await prisma.invoice.findUnique({ 
       where: { id: invoiceId },
-      include: { lines: true }
+      include: { lines: { include: { product: true } } }
     });
 
     if (!invoice) throw new NotFoundError('Invoice not found');
@@ -316,7 +316,7 @@ export class InvoiceController extends BaseCompanyController {
 
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
-      include: { lines: true },
+      include: { lines: { include: { product: true } } },
     });
 
     if (!invoice) throw new NotFoundError('Invoice not found');
@@ -627,7 +627,7 @@ export class InvoiceController extends BaseCompanyController {
       const role = await this.getUserRole(userId, companyId);
       const invoice = await prisma.invoice.findUnique({ 
         where: { id: invoiceId },
-        include: { lines: true } 
+        include: { lines: { include: { product: true } } } 
       });
 
       if (!invoice) throw new NotFoundError('Invoice not found');
@@ -644,7 +644,7 @@ export class InvoiceController extends BaseCompanyController {
             approvedById: userId,
             approvedAt: new Date(),
           },
-          include: { lines: true, dns: true, grns: true }
+          include: { lines: { include: { product: true } }, dns: true, grns: true }
         });
 
         // 1. Handle Order Quantity Updates (Invoiced/Billed Qty)
@@ -754,7 +754,7 @@ export class InvoiceController extends BaseCompanyController {
 
       const invoice = await prisma.invoice.findUnique({
         where: { id: invoiceId },
-        include: { lines: true }
+        include: { lines: { include: { product: true } } }
       });
 
       if (!invoice) throw new NotFoundError('Invoice not found');
@@ -767,7 +767,7 @@ export class InvoiceController extends BaseCompanyController {
         const inv = await tx.invoice.update({
           where: { id: invoiceId },
           data: { status: 'DRAFT', approvedById: null, approvedAt: null },
-          include: { lines: true, dns: true, grns: true }
+          include: { lines: { include: { product: true } }, dns: true, grns: true }
         });
 
         // 2. Revert Order Quantity Updates

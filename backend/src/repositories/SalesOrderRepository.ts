@@ -32,7 +32,7 @@ export class SalesOrderRepository {
             include: {
               customer: true,
               lc: true,
-              lines: true,
+              lines: { include: { product: true } },
               dns: { include: { lines: true } },
               invoices: { include: { lines: true } },
               purchaseOrders: { include: { supplier: true } }
@@ -69,7 +69,9 @@ export class SalesOrderRepository {
           include: {
             customer: true,
             lc: true,
-            lines: true,
+            lines: {
+              include: { product: true }
+            },
             dns: {
               include: { lines: true }
             },

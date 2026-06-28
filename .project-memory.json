@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-06-28T11:05:47.337Z",
+  "lastUpdated": "2026-06-28T11:17:41.756Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -392,11 +392,12 @@
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\invoice.controller.ts": {
-      "modified": "2026-05-19T09:27:37.105Z",
+      "modified": "2026-06-28T11:17:41.755Z",
       "features": [
-        "Apply accessible user filter to invoice list endpoint (getInvoices)"
+        "Apply accessible user filter to invoice list endpoint (getInvoices)",
+        "Replaced lines:true with lines:{include:{product:true}} throughout"
       ],
-      "lastChange": "2026-05-19T09:27:37.106Z",
+      "lastChange": "2026-06-28T11:17:41.756Z",
       "agent": "unknown"
     },
     "backend\\src\\app.ts": {
@@ -571,11 +572,12 @@
       "agent": "unknown"
     },
     "backend\\src\\repositories\\PurchaseOrderRepository.ts": {
-      "modified": "2026-06-23T12:11:18.031Z",
+      "modified": "2026-06-28T11:17:41.666Z",
       "features": [
-        "Include purchaseRequisitions in queries and connect/set relations during create/update"
+        "Include purchaseRequisitions in queries and connect/set relations during create/update",
+        "Added product include to lines in findMany and findById"
       ],
-      "lastChange": "2026-06-23T12:11:18.033Z",
+      "lastChange": "2026-06-28T11:17:41.667Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\order.controller.ts": {
@@ -634,11 +636,12 @@
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\pi.controller.ts": {
-      "modified": "2026-06-23T13:16:13.062Z",
+      "modified": "2026-06-28T11:17:41.710Z",
       "features": [
-        "Accept soIds in create/update PI, include salesOrders in list/detail endpoints"
+        "Accept soIds in create/update PI, include salesOrders in list/detail endpoints",
+        "Added lines (with product) include to getAllPIs and getPIDetail"
       ],
-      "lastChange": "2026-06-23T13:16:13.063Z",
+      "lastChange": "2026-06-28T11:17:41.711Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\accounting\\equity.service.ts": {
@@ -719,6 +722,14 @@
         "Created migration for PI-SalesOrder junction table (_PISalesOrders)"
       ],
       "lastChange": "2026-06-28T11:05:47.289Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\repositories\\SalesOrderRepository.ts": {
+      "modified": "2026-06-28T11:17:41.615Z",
+      "features": [
+        "Added product include to lines in findMany and findById"
+      ],
+      "lastChange": "2026-06-28T11:17:41.615Z",
       "agent": "unknown"
     }
   },

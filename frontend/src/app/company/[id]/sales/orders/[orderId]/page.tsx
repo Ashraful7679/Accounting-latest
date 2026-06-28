@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { ArrowLeft, ShoppingCart, Calendar, User, Package, Truck, FileText, Link as LinkIcon, Loader2, Globe } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Calendar, User, Package, Truck, FileText, Link as LinkIcon, Loader2, Globe, Printer } from 'lucide-react';
 import { formatCurrency } from '@/lib/decimalUtils';
 import { useCompany } from '@/lib/CompanyContext';
 import Link from 'next/link';
 import DocumentTreeView from '@/components/DocumentTreeView';
+import { AttachmentManager } from '@/components/AttachmentManager';
 
 export default function SalesOrderDetailPage() {
   const router = useRouter();
@@ -22,9 +23,8 @@ export default function SalesOrderDetailPage() {
   const { data: order, isLoading } = useQuery({
     queryKey: ['sales-order-detail', companyId, orderId],
     queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/sales-orders?limit=100`);
-      const orders = response.data.data?.data || [];
-      return orders.find((o: any) => o.id === orderId);
+      const response = await api.get(`/company/${companyId}/sales-orders/${orderId}`);
+      return response.data.data;
     },
     enabled: !!companyId && !!orderId,
   });
@@ -67,6 +67,13 @@ export default function SalesOrderDetailPage() {
           <h1 className="text-xl font-bold">{order.soNumber}</h1>
           <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getStatusColor(order.status)}`}>{order.status}</span>
         </div>
+        <button
+          onClick={() => window.open(`/company/${companyId}/sales/orders/${orderId}/print`, '_blank')}
+          className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
+        >
+          <Printer className="w-4 h-4" />
+          Print
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -138,6 +145,10 @@ export default function SalesOrderDetailPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div>
+        <AttachmentManager entityType="SALES_ORDER" entityId={order.id} />
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-06-28T09:44:24.256Z",
+  "lastUpdated": "2026-06-28T10:03:38.212Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -513,11 +513,12 @@
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\orders\\page.tsx": {
-      "modified": "2026-06-23T10:18:05.784Z",
+      "modified": "2026-06-28T10:03:38.162Z",
       "features": [
-        "Added RBAC view permission check (usePermissions hook) to sales orders page"
+        "Added RBAC view permission check (usePermissions hook) to sales orders page",
+        "Added DC/SI/PI action buttons to SO list"
       ],
-      "lastChange": "2026-06-23T10:18:05.784Z",
+      "lastChange": "2026-06-28T10:03:38.162Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\requisition.controller.ts": {
@@ -602,19 +603,21 @@
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\orders\\[orderId]\\page.tsx": {
-      "modified": "2026-06-23T12:51:06.882Z",
+      "modified": "2026-06-28T10:03:38.063Z",
       "features": [
-        "Replaced individual link cards with DocumentTreeView in sidebar for linked documents"
+        "Replaced individual link cards with DocumentTreeView in sidebar for linked documents",
+        "SO detail: dedicated endpoint, print button, attachment upload"
       ],
-      "lastChange": "2026-06-23T12:51:06.882Z",
+      "lastChange": "2026-06-28T10:03:38.064Z",
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\purchase\\orders\\[poId]\\page.tsx": {
-      "modified": "2026-06-23T12:51:06.927Z",
+      "modified": "2026-06-28T10:03:38.111Z",
       "features": [
-        "Replaced individual link cards with DocumentTreeView in sidebar for linked documents"
+        "Replaced individual link cards with DocumentTreeView in sidebar for linked documents",
+        "PO detail: dedicated endpoint, print button, attachment upload"
       ],
-      "lastChange": "2026-06-23T12:51:06.928Z",
+      "lastChange": "2026-06-28T10:03:38.111Z",
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\pis\\page.tsx": {
@@ -695,6 +698,14 @@
         "Added paymentTerms field to vendor form"
       ],
       "lastChange": "2026-06-28T09:44:24.256Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\components\\AttachmentManager.tsx": {
+      "modified": "2026-06-28T10:03:38.211Z",
+      "features": [
+        "Added SALES_ORDER, PURCHASE_ORDER, PRODUCT entity types"
+      ],
+      "lastChange": "2026-06-28T10:03:38.212Z",
       "agent": "unknown"
     }
   },

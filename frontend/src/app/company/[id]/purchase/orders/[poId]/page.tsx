@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { ArrowLeft, ShoppingCart, Calendar, User, Package, Truck, FileText, Link as LinkIcon, Loader2 } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Calendar, User, Package, Truck, FileText, Link as LinkIcon, Loader2, Printer } from 'lucide-react';
 import { formatCurrency } from '@/lib/decimalUtils';
 import { useCompany } from '@/lib/CompanyContext';
 import Link from 'next/link';
 import DocumentTreeView from '@/components/DocumentTreeView';
+import { AttachmentManager } from '@/components/AttachmentManager';
 
 export default function PurchaseOrderDetailPage() {
   const router = useRouter();
@@ -22,10 +23,8 @@ export default function PurchaseOrderDetailPage() {
   const { data: orders, isLoading } = useQuery({
     queryKey: ['purchase-order-detail', companyId, poId],
     queryFn: async () => {
-      const response = await api.get(`/company/${companyId}/purchase-orders?limit=100`);
-      const result = response.data.data;
-      const data = Array.isArray(result) ? result : (result?.data || []);
-      return data.find((o: any) => o.id === poId);
+      const response = await api.get(`/company/${companyId}/purchase-orders/${poId}`);
+      return response.data.data;
     },
     enabled: !!companyId && !!poId,
   });
@@ -68,6 +67,13 @@ export default function PurchaseOrderDetailPage() {
           <h1 className="text-xl font-bold">{orders.poNumber}</h1>
           <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getStatusColor(orders.status)}`}>{orders.status}</span>
         </div>
+        <button
+          onClick={() => window.open(`/company/${companyId}/purchase/orders/${poId}/print`, '_blank')}
+          className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
+        >
+          <Printer className="w-4 h-4" />
+          Print
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -138,6 +144,10 @@ export default function PurchaseOrderDetailPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div>
+        <AttachmentManager entityType="PURCHASE_ORDER" entityId={orders.id} />
       </div>
     </div>
   );

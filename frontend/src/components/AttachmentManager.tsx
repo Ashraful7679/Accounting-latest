@@ -20,7 +20,7 @@ interface Attachment {
 }
 
 interface AttachmentManagerProps {
-  entityType: 'VOUCHER' | 'LC' | 'BILL' | 'PAYMENT' | 'INVOICE' | 'EXPENSE' | 'PI';
+  entityType: 'VOUCHER' | 'LC' | 'BILL' | 'PAYMENT' | 'INVOICE' | 'EXPENSE' | 'PI' | 'SALES_ORDER' | 'PURCHASE_ORDER' | 'PRODUCT';
   entityId: string;
   canEdit?: boolean;
 }

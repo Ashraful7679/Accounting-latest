@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Plus, Search, ChevronDown, ChevronRight, ChevronUp, Trash2, Loader2, ShoppingBag } from 'lucide-react';
+import { Plus, Search, ChevronDown, ChevronRight, ChevronUp, Trash2, Loader2, ShoppingBag, Truck, FileText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/decimalUtils';
 import { cn } from '@/lib/utils';
@@ -109,6 +109,20 @@ function SalesOrdersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders', companyId] });
+    },
+  });
+
+  const generateDCMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.post(`/company/${companyId}/sales-orders/${id}/dn`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales-orders', companyId] });
+      toast.success('Delivery Challan generated');
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to generate DC');
     },
   });
 
@@ -291,6 +305,31 @@ function SalesOrdersPage() {
                           )}
                         </>
                       )}
+                      {order.status === 'CONFIRMED' && (
+                        <button
+                          onClick={() => generateDCMutation.mutate(order.id)}
+                          className="p-1.5 text-purple-600 hover:bg-purple-50 rounded"
+                          title="Generate Delivery Challan"
+                        >
+                          <Truck className="w-4 h-4" />
+                        </button>
+                      )}
+                      {order.status === 'FULFILLED' && (
+                        <button
+                          onClick={() => router.push(`/company/${companyId}/sales/invoices/create?soId=${order.id}`)}
+                          className="p-1.5 text-amber-600 hover:bg-amber-50 rounded"
+                          title="Create Sales Invoice"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => router.push(`/company/${companyId}/pis/create?soId=${order.id}`)}
+                        className="p-1.5 text-green-600 hover:bg-green-50 rounded"
+                        title="Create Proforma Invoice"
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>

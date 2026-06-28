@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-06-28T10:35:05.034Z",
+  "lastUpdated": "2026-06-28T10:44:58.211Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -513,12 +513,13 @@
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\orders\\page.tsx": {
-      "modified": "2026-06-28T10:03:38.162Z",
+      "modified": "2026-06-28T10:44:58.163Z",
       "features": [
         "Added RBAC view permission check (usePermissions hook) to sales orders page",
-        "Added DC/SI/PI action buttons to SO list"
+        "Added DC/SI/PI action buttons to SO list",
+        "Fixed PI link to navigate to sales/pis instead of non-existent pis/create"
       ],
-      "lastChange": "2026-06-28T10:03:38.162Z",
+      "lastChange": "2026-06-28T10:44:58.164Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\requisition.controller.ts": {
@@ -578,13 +579,14 @@
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\order.controller.ts": {
-      "modified": "2026-06-28T10:35:05.033Z",
+      "modified": "2026-06-28T10:44:58.119Z",
       "features": [
         "Accept purchaseRequisitionIds in createPurchaseOrder payload",
         "Added updateSalesOrderStatus with transition validation",
-        "Fixed generateDeliveryChallan/generateGRN: safe destructuring with fallback to deliver all lines"
+        "Fixed generateDeliveryChallan/generateGRN: safe destructuring with fallback to deliver all lines",
+        "Fixed deleteDeliveryChallan: allow Owner to delete shipped DC"
       ],
-      "lastChange": "2026-06-28T10:35:05.034Z",
+      "lastChange": "2026-06-28T10:44:58.119Z",
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\challans\\page.tsx": {
@@ -622,11 +624,12 @@
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\pis\\page.tsx": {
-      "modified": "2026-06-23T13:16:06.779Z",
+      "modified": "2026-06-28T10:44:58.210Z",
       "features": [
-        "Removed Value & Currency section, moved currency/rate to header, added linked SO section with auto-render products, added borders to line item cells"
+        "Removed Value & Currency section, moved currency/rate to header, added linked SO section with auto-render products, added borders to line item cells",
+        "Added soId query param support to auto-open create modal"
       ],
-      "lastChange": "2026-06-23T13:16:06.779Z",
+      "lastChange": "2026-06-28T10:44:58.211Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\pi.controller.ts": {

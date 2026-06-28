@@ -680,8 +680,8 @@ export class OrderController extends BaseCompanyController {
     if (!dn) throw new NotFoundError('Delivery Note not found');
 
     const role = await this.getUserRole(userId, companyId);
-    if (!this.canDelete(dn.status, role)) {
-      throw new ForbiddenError('Cannot delete this delivery note');
+    if (dn.status !== 'DRAFT' && role !== 'Owner') {
+      throw new ForbiddenError('Only Owners can delete a shipped delivery note');
     }
 
     await prisma.$transaction(async (tx: any) => {

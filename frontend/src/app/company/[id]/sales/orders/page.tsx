@@ -324,7 +324,7 @@ function SalesOrdersPage() {
                         </button>
                       )}
                       <button
-                        onClick={() => router.push(`/company/${companyId}/pis/create?soId=${order.id}`)}
+                        onClick={() => router.push(`/company/${companyId}/sales/pis?soId=${order.id}`)}
                         className="p-1.5 text-green-600 hover:bg-green-50 rounded"
                         title="Create Proforma Invoice"
                       >

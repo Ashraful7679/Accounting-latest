@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
@@ -76,12 +76,18 @@ export default function ExportPIsPage() {
     lines: [{ productId: '', description: '', quantity: 1, unitPrice: 0, total: 0, soId: '' }] as PILine[]
   });
   
+  const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    const soId = searchParams.get('soId');
+    if (soId) {
+      setFormData(f => ({ ...f, soIds: [soId] }));
+      setShowModal(true);
+    }
+  }, [searchParams]);
 
   const { data: pisData, isLoading } = useQuery({
     queryKey: ['export-pis', companyId],

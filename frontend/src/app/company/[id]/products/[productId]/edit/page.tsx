@@ -23,6 +23,7 @@ interface Product {
   currency: string;
   stockAmount: number;
   isActive: boolean;
+  type?: string;
 }
 
 export default function EditProductPage() {
@@ -43,7 +44,8 @@ export default function EditProductPage() {
     unitPrice: 0,
     currency: 'BDT',
     stockAmount: 0,
-    isActive: true
+    isActive: true,
+    type: 'SALES_PURCHASE'
   });
 
   useEffect(() => {
@@ -72,7 +74,8 @@ export default function EditProductPage() {
         unitPrice: product.unitPrice,
         currency: product.currency || 'BDT',
         stockAmount: product.stockAmount || 0,
-        isActive: product.isActive
+        isActive: product.isActive,
+        type: (product as any).type || 'SALES_PURCHASE'
       });
     }
   }, [product]);
@@ -229,6 +232,8 @@ export default function EditProductPage() {
                       <option value="SET">SET (Sets)</option>
                       <option value="PAIR">PAIR (Pairs)</option>
                       <option value="LITS">LITS (Liters)</option>
+                      <option value="HR">HR (Hours)</option>
+                      <option value="DA">DA (Days)</option>
                     </select>
                   </div>
                 </div>
@@ -340,6 +345,30 @@ export default function EditProductPage() {
                     <p className="font-bold text-slate-900 text-sm">Active Status</p>
                     <p className="text-[11px] text-slate-500 font-medium">Allow in transactions</p>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Product Type Card */}
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="p-6 border-b border-slate-50 bg-slate-50/30 flex items-center gap-3">
+                <div className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center text-cyan-600">
+                  <Package className="w-4 h-4" />
+                </div>
+                <h3 className="font-bold text-slate-900">Type</h3>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="text-sm font-bold text-slate-700 mb-1.5">Sales/Purchase Type</label>
+                  <select
+                    value={formData.type}
+                    onChange={(e) => setFormData({...formData, type: e.target.value})}
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-700"
+                  >
+                    <option value="SALES_PURCHASE">Sales & Purchase</option>
+                    <option value="SALES_ONLY">Sales Only</option>
+                    <option value="PURCHASE_ONLY">Purchase Only</option>
+                  </select>
                 </div>
               </div>
             </div>

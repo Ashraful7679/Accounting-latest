@@ -12,7 +12,7 @@ export class SalesOrderRepository {
   }) {
     const { companyId, page = 1, limit = 20, currency, search, status } = options;
     
-    const where: any = { companyId };
+    const where: any = { companyId, deletedAt: null };
     if (currency) where.currency = currency;
     if (status) where.status = status;
     if (search) {
@@ -64,8 +64,8 @@ export class SalesOrderRepository {
   static async findById(id: string) {
     if (SYSTEM_MODE === "LIVE") {
       try {
-        return await prisma.salesOrder.findUnique({
-          where: { id },
+        return await prisma.salesOrder.findFirst({
+          where: { id, deletedAt: null },
           include: {
             customer: true,
             lc: true,
@@ -172,8 +172,9 @@ export class SalesOrderRepository {
 
   static async delete(id: string) {
     if (SYSTEM_MODE === "LIVE") {
-      return await prisma.salesOrder.delete({
-        where: { id }
+      return await prisma.salesOrder.update({
+        where: { id },
+        data: { deletedAt: new Date() }
       });
     }
     return { id };

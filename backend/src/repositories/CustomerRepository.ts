@@ -58,6 +58,13 @@ export class CustomerRepository {
               isActive: true,
               preferredCurrency: true,
               exchangeRate: true,
+              openingBalance: true,
+              balanceType: true,
+              paymentTerms: true,
+              contactPerson: true,
+              tinVat: true,
+              creditLimit: true,
+              portalEnabled: true,
               updatedAt: true,
               createdAt: true,
             }

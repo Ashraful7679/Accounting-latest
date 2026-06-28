@@ -221,7 +221,10 @@ export default function CreateSalesOrderPage() {
         {filteredCustomers.map((c: any) => <option key={c.id} value={c.name} />)}
       </datalist>
       <datalist id="product-list">
-        {(Array.isArray(products) ? products : []).filter((p: any) => p.type === 'Sales' || !p.type).map((p: any) => (
+        {(Array.isArray(products) ? products : []).filter((p: any) => {
+          if (!p.type || p.type === 'Sales' || p.type === 'SALES_PURCHASE' || p.type === 'SALES_ONLY') return true;
+          return false;
+        }).map((p: any) => (
           <option key={p.id} value={p.name} />
         ))}
       </datalist>

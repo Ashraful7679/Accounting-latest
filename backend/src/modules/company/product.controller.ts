@@ -92,6 +92,7 @@ export class ProductController extends BaseCompanyController {
     if (data.currency !== undefined) updateData.currency = data.currency;
     if (data.stockAmount !== undefined) updateData.stockAmount = Number(data.stockAmount);
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.type !== undefined) updateData.type = data.type;
 
     const product = await ProductRepository.update(productId, updateData);
 

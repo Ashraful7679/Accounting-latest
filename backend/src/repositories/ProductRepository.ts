@@ -30,7 +30,7 @@ export class ProductRepository {
   static async findMany(options: FindManyOptions): Promise<PaginatedResult<any>> {
     const { companyId, page = 1, limit = 20, search, isActive } = options;
     
-    const where: any = { companyId };
+    const where: any = { companyId, deletedAt: null };
     if (isActive !== undefined) where.isActive = isActive;
     if (search) {
       where.OR = [
@@ -87,8 +87,8 @@ export class ProductRepository {
   }
 
   static async findById(id: string) {
-    return prisma.product.findUnique({
-      where: { id },
+    return prisma.product.findFirst({
+      where: { id, deletedAt: null },
     });
   }
 
@@ -117,12 +117,16 @@ export class ProductRepository {
     isActive: boolean;
     currency: string;
     stockAmount: number;
+    type: string;
   }>) {
     return prisma.product.update({ where: { id }, data });
   }
 
   static async delete(id: string) {
-    return prisma.product.delete({ where: { id } });
+    return prisma.product.update({
+      where: { id },
+      data: { deletedAt: new Date(), isActive: false }
+    });
   }
 
   static async adjustStock(productId: string, adjustmentAmount: number, userId: string, notes?: string) {

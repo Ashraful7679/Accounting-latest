@@ -10,9 +10,9 @@ export class InventoryService {
   static async increaseStock(tx: any, productId: string, quantity: number) {
     if (!productId || quantity <= 0) return;
 
-    // Skip for services
-    const product = await tx.product.findUnique({ where: { id: productId }, select: { isService: true } });
-    if (product?.isService) return;
+    // Skip for services and non-stock items
+    const product = await tx.product.findUnique({ where: { id: productId }, select: { type: true } });
+    if (product && (product.type === 'SERVICE' || product.type?.toLowerCase() === 'service')) return;
 
     await tx.product.update({
       where: { id: productId },
@@ -31,9 +31,9 @@ export class InventoryService {
   static async decreaseStock(tx: any, productId: string, quantity: number) {
     if (!productId || quantity <= 0) return;
 
-    // Skip for services
-    const product = await tx.product.findUnique({ where: { id: productId }, select: { isService: true } });
-    if (product?.isService) return;
+    // Skip for services and non-stock items
+    const product = await tx.product.findUnique({ where: { id: productId }, select: { type: true } });
+    if (product && (product.type === 'SERVICE' || product.type?.toLowerCase() === 'service')) return;
 
     await tx.product.update({
       where: { id: productId },

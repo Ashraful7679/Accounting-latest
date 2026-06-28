@@ -56,8 +56,8 @@ export class ProductPricingController {
         continue;
       }
 
-      const totalValue = allLines.reduce((sum, l) => sum + (Number((l as any).rate || 0) * Number((l as any).receivedQuantity || (l as any).quantity || 0)), 0);
-      const totalQuantity = allLines.reduce((sum, l) => sum + Number((l as any).receivedQuantity || (l as any).quantity || 0), 0);
+      const totalValue = allLines.reduce((sum, l) => sum + (Number(l.unitPrice || 0) * Number(l.quantity || 0)), 0);
+      const totalQuantity = allLines.reduce((sum, l) => sum + Number(l.quantity || 0), 0);
       const averageCost = totalQuantity > 0 ? totalValue / totalQuantity : 0;
 
       results.push({
@@ -65,7 +65,7 @@ export class ProductPricingController {
         averageCost: Math.round(averageCost * 100) / 100,
         totalQuantity,
         purchaseCount: allLines.length,
-        lastPurchasePrice: (allLines[0] as any)?.rate || 0,
+        lastPurchasePrice: allLines[0]?.unitPrice || 0,
         lastPurchaseDate: allLines[0]?.date
       });
     }
@@ -94,13 +94,13 @@ export class ProductPricingController {
 
     const recentCosts = grnLines.map(l => ({
       date: l.grn.receivedDate,
-      cost: (l as any).rate,
-      quantity: (l as any).receivedQuantity
+      cost: l.unitPrice || 0,
+      quantity: l.quantity
     }));
 
     // Calculate average cost from recent GRN lines
-    const totalValue = grnLines.reduce((s, l) => s + (Number((l as any).rate || 0) * Number((l as any).receivedQuantity || 0)), 0);
-    const totalQty = grnLines.reduce((s, l) => s + Number((l as any).receivedQuantity || 0), 0);
+    const totalValue = grnLines.reduce((s, l) => s + (Number(l.unitPrice || 0) * Number(l.quantity || 0)), 0);
+    const totalQty = grnLines.reduce((s, l) => s + Number(l.quantity || 0), 0);
     const averageCost = totalQty > 0 ? totalValue / totalQty : 0;
 
     const sellingPrice = product.unitPrice || 0;

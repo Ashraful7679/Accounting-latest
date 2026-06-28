@@ -11,7 +11,7 @@ export class PurchaseOrderRepository {
   }) {
     const { companyId, page = 1, limit = 20, search, status } = options;
     
-    const where: any = { companyId };
+    const where: any = { companyId, deletedAt: null };
     if (status) where.status = status;
     if (search) {
       where.OR = [
@@ -63,8 +63,8 @@ export class PurchaseOrderRepository {
   static async findById(id: string) {
     if (SYSTEM_MODE === "LIVE") {
       try {
-        return await prisma.purchaseOrder.findUnique({
-          where: { id },
+        return await prisma.purchaseOrder.findFirst({
+          where: { id, deletedAt: null },
           include: {
             supplier: true,
             lc: true,
@@ -191,8 +191,9 @@ export class PurchaseOrderRepository {
 
   static async delete(id: string) {
     if (SYSTEM_MODE === "LIVE") {
-      return await prisma.purchaseOrder.delete({
-        where: { id }
+      return await prisma.purchaseOrder.update({
+        where: { id },
+        data: { deletedAt: new Date() }
       });
     }
     return { id };

@@ -1,10 +1,13 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../../config/database';
+import { BaseCompanyController } from './base.controller';
 
-export class InventoryController {
+export class InventoryController extends BaseCompanyController {
   // ─── Warehouses ───────────────────────────────────────────────
   async getWarehouses(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'inventory.warehouses', 'view');
     const warehouses = await prisma.warehouse.findMany({
       where: { companyId },
       orderBy: { name: 'asc' },
@@ -14,6 +17,8 @@ export class InventoryController {
 
   async createWarehouse(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'inventory.warehouses', 'create');
     const { name, code, address, isDefault } = request.body as any;
     const warehouse = await prisma.warehouse.create({
       data: { companyId, name, code, address, isDefault: isDefault || false },
@@ -23,6 +28,8 @@ export class InventoryController {
 
   async updateWarehouse(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, warehouseId } = request.params as { id: string; warehouseId: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'inventory.warehouses', 'edit');
     const { name, code, address, isDefault } = request.body as any;
     const warehouse = await prisma.warehouse.update({
       where: { id: warehouseId, companyId },
@@ -33,13 +40,17 @@ export class InventoryController {
 
   async deleteWarehouse(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, warehouseId } = request.params as { id: string; warehouseId: string };
-    await prisma.warehouse.delete({ where: { id: warehouseId, companyId } });
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'inventory.warehouses', 'delete');
+    await prisma.warehouse.update({ where: { id: warehouseId, companyId }, data: { deletedAt: new Date() } });
     return reply.send({ success: true, message: 'Warehouse deleted' });
   }
 
   // ─── Stock Transfers ──────────────────────────────────────────
   async getStockTransfers(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'inventory.warehouses', 'view');
     const transfers = await prisma.stockTransfer.findMany({
       where: { companyId },
       include: {
@@ -54,6 +65,8 @@ export class InventoryController {
 
   async getStockTransfer(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, transferId } = request.params as { id: string; transferId: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'inventory.warehouses', 'view');
     const transfer = await prisma.stockTransfer.findFirst({
       where: { id: transferId, companyId },
       include: {
@@ -68,6 +81,8 @@ export class InventoryController {
 
   async createStockTransfer(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'inventory.warehouses', 'create');
     const { fromWarehouseId, toWarehouseId, lines, notes } = request.body as any;
 
     if (!fromWarehouseId || !toWarehouseId || !lines || lines.length === 0) {
@@ -112,6 +127,8 @@ export class InventoryController {
 
   async approveStockTransfer(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, transferId } = request.params as { id: string; transferId: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'inventory.warehouses', 'approve');
     const transfer = await prisma.stockTransfer.findFirst({
       where: { id: transferId, companyId },
       include: { lines: true },
@@ -130,11 +147,13 @@ export class InventoryController {
 
   async deleteStockTransfer(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, transferId } = request.params as { id: string; transferId: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'inventory.warehouses', 'delete');
     const transfer = await prisma.stockTransfer.findFirst({ where: { id: transferId, companyId } });
     if (!transfer) return reply.status(404).send({ success: false, error: { message: 'Transfer not found' } });
     if (transfer.status === 'APPROVED') return reply.status(400).send({ success: false, error: { message: 'Cannot delete approved transfer' } });
 
-    await prisma.stockTransfer.delete({ where: { id: transferId } });
+    await prisma.stockTransfer.update({ where: { id: transferId }, data: { deletedAt: new Date() } });
     return reply.send({ success: true, message: 'Transfer deleted' });
   }
 }

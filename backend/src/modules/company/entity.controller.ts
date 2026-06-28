@@ -86,15 +86,28 @@ export class EntityController extends BaseCompanyController {
     const userId = (request.user as any).id;
     await this.requirePermission(userId, companyId, 'sales.customers', 'edit');
 
-    const { exchangeRate, openingBalance, ...data } = request.body as any;
+    const body = request.body as any;
 
-    let openingBalanceBDT = Number(openingBalance || 0);
-    if (exchangeRate) {
-      openingBalanceBDT = openingBalanceBDT * Number(exchangeRate);
-    }
+    // Include exchangeRate and openingBalance in update data
+    const updateData: any = {};
+    if (body.name !== undefined) updateData.name = body.name;
+    if (body.email !== undefined) updateData.email = body.email;
+    if (body.phone !== undefined) updateData.phone = body.phone;
+    if (body.address !== undefined) updateData.address = body.address;
+    if (body.city !== undefined) updateData.city = body.city;
+    if (body.country !== undefined) updateData.country = body.country;
+    if (body.contactPerson !== undefined) updateData.contactPerson = body.contactPerson;
+    if (body.tinVat !== undefined) updateData.tinVat = body.tinVat;
+    if (body.openingBalance !== undefined) updateData.openingBalance = Number(body.openingBalance);
+    if (body.balanceType !== undefined) updateData.balanceType = body.balanceType;
+    if (body.creditLimit !== undefined) updateData.creditLimit = Number(body.creditLimit);
+    if (body.preferredCurrency !== undefined) updateData.preferredCurrency = body.preferredCurrency;
+    if (body.exchangeRate !== undefined) updateData.exchangeRate = Number(body.exchangeRate);
 
-    // Update account balance if exchangeRate is provided
-    if (exchangeRate) {
+    const openingBalanceBDT = Number(body.openingBalance || 0) * Number(body.exchangeRate || 1);
+
+    // Update linked AR account balance
+    if (body.openingBalance !== undefined || body.exchangeRate !== undefined) {
       try {
         await prisma.$transaction(async (tx) => {
           await tx.account.updateMany({
@@ -109,7 +122,7 @@ export class EntityController extends BaseCompanyController {
 
     const customer = await prisma.customer.update({
       where: { id: customerId },
-      data,
+      data: updateData,
     });
 
     return reply.send({ success: true, data: customer });
@@ -120,7 +133,10 @@ export class EntityController extends BaseCompanyController {
     const userId = (request.user as any).id;
     await this.requirePermission(userId, companyId, 'sales.customers', 'delete');
 
-    await prisma.customer.delete({ where: { id: customerId } });
+    await prisma.customer.update({
+      where: { id: customerId },
+      data: { deletedAt: new Date(), isActive: false }
+    });
     return reply.send({ success: true, message: 'Customer deleted' });
   }
 
@@ -197,15 +213,27 @@ export class EntityController extends BaseCompanyController {
     const userId = (request.user as any).id;
     await this.requirePermission(userId, companyId, 'purchase.vendors', 'edit');
 
-    const { exchangeRate, openingBalance, ...data } = request.body as any;
+    const body = request.body as any;
 
-    let openingBalanceBDT = Number(openingBalance || 0);
-    if (exchangeRate) {
-      openingBalanceBDT = openingBalanceBDT * Number(exchangeRate);
-    }
+    const updateData: any = {};
+    if (body.name !== undefined) updateData.name = body.name;
+    if (body.email !== undefined) updateData.email = body.email;
+    if (body.phone !== undefined) updateData.phone = body.phone;
+    if (body.address !== undefined) updateData.address = body.address;
+    if (body.city !== undefined) updateData.city = body.city;
+    if (body.country !== undefined) updateData.country = body.country;
+    if (body.contactPerson !== undefined) updateData.contactPerson = body.contactPerson;
+    if (body.tinVat !== undefined) updateData.tinVat = body.tinVat;
+    if (body.openingBalance !== undefined) updateData.openingBalance = Number(body.openingBalance);
+    if (body.balanceType !== undefined) updateData.balanceType = body.balanceType;
+    if (body.creditLimit !== undefined) updateData.creditLimit = Number(body.creditLimit);
+    if (body.preferredCurrency !== undefined) updateData.preferredCurrency = body.preferredCurrency;
+    if (body.exchangeRate !== undefined) updateData.exchangeRate = Number(body.exchangeRate);
 
-    // Update the account balance in COA if exchangeRate is provided
-    if (exchangeRate) {
+    const openingBalanceBDT = Number(body.openingBalance || 0) * Number(body.exchangeRate || 1);
+
+    // Update linked AP account balance
+    if (body.openingBalance !== undefined || body.exchangeRate !== undefined) {
       try {
         await prisma.$transaction(async (tx) => {
           await tx.account.updateMany({
@@ -220,7 +248,7 @@ export class EntityController extends BaseCompanyController {
 
     const vendor = await prisma.vendor.update({
       where: { id: vendorId },
-      data,
+      data: updateData,
     });
 
     return reply.send({ success: true, data: vendor });
@@ -231,7 +259,10 @@ export class EntityController extends BaseCompanyController {
     const userId = (request.user as any).id;
     await this.requirePermission(userId, companyId, 'purchase.vendors', 'delete');
 
-    await prisma.vendor.delete({ where: { id: vendorId } });
+    await prisma.vendor.update({
+      where: { id: vendorId },
+      data: { deletedAt: new Date(), isActive: false }
+    });
     return reply.send({ success: true, message: 'Vendor deleted' });
   }
 }

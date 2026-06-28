@@ -28,6 +28,7 @@ interface Vendor {
   balanceType?: string | null;
   preferredCurrency?: string;
   exchangeRate?: number;
+  paymentTerms?: string | null;
   createdAt?: string;
 }
 
@@ -59,6 +60,7 @@ export default function CompanyVendorsPage() {
     balanceType: 'CR',
     preferredCurrency: 'BDT',
     exchangeRate: 1,
+    paymentTerms: 'NET30',
     isActive: true,
   });
 
@@ -89,7 +91,7 @@ export default function CompanyVendorsPage() {
       setFormData({
         name: '', email: '', phone: '', address: '', city: '', country: '',
         contactPerson: '', tinVat: '', openingBalance: 0, balanceType: 'CR',
-        preferredCurrency: 'BDT', exchangeRate: 1, isActive: true
+        preferredCurrency: 'BDT', exchangeRate: 1, paymentTerms: 'NET30', isActive: true
       });
     },
     onError: (error: any) => {
@@ -154,6 +156,7 @@ export default function CompanyVendorsPage() {
       balanceType: vendor.balanceType || 'CR',
       preferredCurrency: vendor.preferredCurrency || 'BDT',
       exchangeRate: vendor.exchangeRate || 1,
+      paymentTerms: vendor.paymentTerms || 'NET30',
       isActive: vendor.isActive,
     });
     setShowDetailPanel(true);
@@ -172,12 +175,13 @@ export default function CompanyVendorsPage() {
         country: selectedVendor.country || '',
         contactPerson: selectedVendor.contactPerson || '',
         tinVat: selectedVendor.tinVat || '',
-        openingBalance: selectedVendor.openingBalance || 0,
-        balanceType: selectedVendor.balanceType || 'CR',
-        preferredCurrency: selectedVendor.preferredCurrency || 'BDT',
-        exchangeRate: selectedVendor.exchangeRate || 1,
-        isActive: selectedVendor.isActive,
-      });
+      openingBalance: selectedVendor.openingBalance || 0,
+      balanceType: selectedVendor.balanceType || 'CR',
+      preferredCurrency: selectedVendor.preferredCurrency || 'BDT',
+      exchangeRate: selectedVendor.exchangeRate || 1,
+      paymentTerms: selectedVendor.paymentTerms || 'NET30',
+      isActive: selectedVendor.isActive,
+    });
     }
     setViewMode('view');
   };
@@ -196,6 +200,7 @@ export default function CompanyVendorsPage() {
       { label: 'City', value: selectedVendor.city || '-' },
       { label: 'Country', value: selectedVendor.country || '-' },
       { label: 'TIN/VAT', value: selectedVendor.tinVat || '-' },
+      { label: 'Payment Terms', value: selectedVendor.paymentTerms || 'NET30' },
       { label: 'Opening Balance', value: `${selectedVendor.openingBalance || 0} ${selectedVendor.balanceType || 'CR'}`, type: 'text' },
       { label: 'Currency', value: selectedVendor.preferredCurrency || 'BDT' },
       { label: 'Status', value: selectedVendor.isActive ? 'Active' : 'Inactive', type: 'status' },
@@ -318,6 +323,21 @@ export default function CompanyVendorsPage() {
               >
                 <option value="CR">Credit (Receivable)</option>
                 <option value="DR">Debit (Payable)</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Payment Terms</label>
+              <select
+                value={formData.paymentTerms}
+                onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              >
+                <option value="NET15">NET 15</option>
+                <option value="NET30">NET 30</option>
+                <option value="NET60">NET 60</option>
+                <option value="NET90">NET 90</option>
+                <option value="CASH_ON_DELIVERY">Cash on Delivery</option>
+                <option value="UPON_RECEIPT">Upon Receipt</option>
               </select>
             </div>
             <div>
@@ -452,6 +472,21 @@ export default function CompanyVendorsPage() {
               </select>
             </div>
             <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">Payment Terms</label>
+              <select
+                value={formData.paymentTerms}
+                onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+              >
+                <option value="NET15">NET 15</option>
+                <option value="NET30">NET 30</option>
+                <option value="NET60">NET 60</option>
+                <option value="NET90">NET 90</option>
+                <option value="CASH_ON_DELIVERY">Cash on Delivery</option>
+                <option value="UPON_RECEIPT">Upon Receipt</option>
+              </select>
+            </div>
+            <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase">Opening Balance</label>
               <input
                 type="number"
@@ -511,7 +546,7 @@ export default function CompanyVendorsPage() {
               setFormData({
                 name: '', email: '', phone: '', address: '', city: '', country: '',
                 contactPerson: '', tinVat: '', openingBalance: 0, balanceType: 'CR',
-                preferredCurrency: defaultCurrency, exchangeRate: 1, isActive: true
+                preferredCurrency: defaultCurrency, exchangeRate: 1, paymentTerms: 'NET30', isActive: true
               });
               setSelectedVendor(null);
               setShowDetailPanel(true);
@@ -613,6 +648,7 @@ export default function CompanyVendorsPage() {
                               balanceType: vendor.balanceType || 'CR',
                               preferredCurrency: vendor.preferredCurrency || 'BDT',
                               exchangeRate: vendor.exchangeRate || 1,
+                              paymentTerms: vendor.paymentTerms || 'NET30',
                               isActive: vendor.isActive,
                             });
                             setViewMode('edit');

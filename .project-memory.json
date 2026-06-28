@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-06-28T09:13:03.287Z",
+  "lastUpdated": "2026-06-28T09:44:24.256Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -577,11 +577,12 @@
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\order.controller.ts": {
-      "modified": "2026-06-23T12:11:22.383Z",
+      "modified": "2026-06-28T09:44:21.634Z",
       "features": [
-        "Accept purchaseRequisitionIds in createPurchaseOrder payload"
+        "Accept purchaseRequisitionIds in createPurchaseOrder payload",
+        "Added updateSalesOrderStatus with transition validation"
       ],
-      "lastChange": "2026-06-23T12:11:22.384Z",
+      "lastChange": "2026-06-28T09:44:21.635Z",
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\challans\\page.tsx": {
@@ -662,6 +663,38 @@
         "Created migration script to fix existing MANUFACTURING/TRADING company COAs and duplicate capital accounts"
       ],
       "lastChange": "2026-06-28T09:12:57.864Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\modules\\company\\inventory.controller.ts": {
+      "modified": "2026-06-28T09:44:22.253Z",
+      "features": [
+        "Added permission checks, soft delete, extended BaseCompanyController"
+      ],
+      "lastChange": "2026-06-28T09:44:22.254Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\repositories\\SalesOrderRepository.ts,PurchaseOrderRepository.ts": {
+      "modified": "2026-06-28T09:44:22.951Z",
+      "features": [
+        "Added deletedAt: null filters, soft delete"
+      ],
+      "lastChange": "2026-06-28T09:44:22.952Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\company\\[id]\\products\\[productId]\\edit\\page.tsx": {
+      "modified": "2026-06-28T09:44:23.691Z",
+      "features": [
+        "Added type dropdown, HR/DA units to product edit page"
+      ],
+      "lastChange": "2026-06-28T09:44:23.692Z",
+      "agent": "unknown"
+    },
+    "frontend\\src\\app\\company\\[id]\\vendors\\page.tsx": {
+      "modified": "2026-06-28T09:44:24.256Z",
+      "features": [
+        "Added paymentTerms field to vendor form"
+      ],
+      "lastChange": "2026-06-28T09:44:24.256Z",
       "agent": "unknown"
     }
   },

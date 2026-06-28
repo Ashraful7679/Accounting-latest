@@ -42,6 +42,17 @@ export class OrderController extends BaseCompanyController {
     });
   }
 
+  async getSalesOrder(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, soId } = request.params as { id: string, soId: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'sales.orders', 'view');
+
+    const so = await SalesOrderRepository.findById(soId);
+    if (!so) throw new NotFoundError('Sales Order not found');
+
+    return reply.send({ success: true, data: so });
+  }
+
   async createSalesOrder(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId } = request.params as { id: string };
     const userId = (request.user as any).id;
@@ -136,6 +147,72 @@ export class OrderController extends BaseCompanyController {
     return reply.send({ success: true, data: updatedSo });
   }
 
+  async updateSalesOrderStatus(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, soId } = request.params as { id: string, soId: string };
+    const { status: newStatus } = request.body as { status: string };
+    const userId = (request.user as any).id;
+
+    await this.requirePermission(userId, companyId, 'sales.orders', 'edit');
+
+    const so = await (prisma as any).salesOrder.findUnique({ where: { id: soId } });
+    if (!so) throw new NotFoundError('Sales Order not found');
+
+    const role = await this.getUserRole(userId, companyId);
+
+    const allowedTransitions: Record<string, string[]> = {
+      'DRAFT': ['CONFIRMED', 'CANCELLED'],
+      'CONFIRMED': ['FULFILLED', 'CANCELLED'],
+      'FULFILLED': ['INVOICED'],
+      'INVOICED': ['COMPLETED'],
+      'COMPLETED': [],
+      'CANCELLED': ['DRAFT']
+    };
+
+    const isCorrection = role === 'Owner' || role === 'Manager';
+    
+    if (!isCorrection && (!allowedTransitions[so.status] || !allowedTransitions[so.status].includes(newStatus))) {
+      throw new ForbiddenError(`Transition from ${so.status} to ${newStatus} is not allowed for your role.`);
+    }
+
+    const updated = await (prisma as any).salesOrder.update({
+      where: { id: soId },
+      data: { status: newStatus },
+    });
+
+    await NotificationController.notifyStatusChange({
+      companyId,
+      entityType: 'SalesOrder',
+      entityId: soId,
+      entityNumber: so.soNumber,
+      oldStatus: so.status,
+      newStatus: newStatus,
+      performedById: userId
+    });
+
+    return reply.send({ success: true, data: updated });
+  }
+
+  async deleteSalesOrder(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, soId } = request.params as { id: string, soId: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'sales.orders', 'delete');
+
+    const so = await (prisma as any).salesOrder.findUnique({ where: { id: soId } });
+    if (!so) throw new NotFoundError('Sales Order not found');
+
+    const role = await this.getUserRole(userId, companyId);
+    if (!this.canDelete(so.status, role)) {
+      throw new ForbiddenError('Cannot delete this sales order in current status');
+    }
+
+    await (prisma as any).salesOrder.update({
+      where: { id: soId },
+      data: { deletedAt: new Date() }
+    });
+
+    return reply.send({ success: true, message: 'Sales Order deleted' });
+  }
+
   async assignPurchaseOrder(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, soId } = request.params as { id: string, soId: string };
     const { poId, action } = request.body as { poId: string, action: 'connect' | 'disconnect' };
@@ -185,6 +262,17 @@ export class OrderController extends BaseCompanyController {
         pagination: result.pagination
       }
     });
+  }
+
+  async getPurchaseOrder(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, poId } = request.params as { id: string, poId: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'purchase.orders', 'view');
+
+    const po = await PurchaseOrderRepository.findById(poId);
+    if (!po) throw new NotFoundError('Purchase Order not found');
+
+    return reply.send({ success: true, data: po });
   }
 
   async createPurchaseOrder(request: FastifyRequest, reply: FastifyReply) {

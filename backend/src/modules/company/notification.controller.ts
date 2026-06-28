@@ -195,7 +195,7 @@ export class NotificationController {
    */
   static async notifyStatusChange(params: {
     companyId: string;
-    entityType: 'Invoice' | 'JournalEntry' | 'LC' | 'PurchaseOrder' | 'EmployeeExpense' | 'PI';
+    entityType: 'Invoice' | 'JournalEntry' | 'LC' | 'PurchaseOrder' | 'EmployeeExpense' | 'PI' | 'SalesOrder' | 'StockTransfer';
     entityId: string;
     entityNumber: string;
     oldStatus?: string;

@@ -114,7 +114,7 @@ function SalesOrdersPage() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      await api.put(`/company/${companyId}/sales-orders/${id}`, { status });
+      await api.post(`/company/${companyId}/sales-orders/${id}/status`, { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders', companyId] });

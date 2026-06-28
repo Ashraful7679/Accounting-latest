@@ -978,7 +978,7 @@ model Product {
   isActive        Boolean             @default(true)
   currency        String              @default("BDT") // Actual product price in this currency
   stockAmount     Float               @default(0) // Current stock quantity
-  type            String              @default("Sales") // Purchase | Sales
+  type            String              @default("SALES_PURCHASE") // SALES_PURCHASE | SALES_ONLY | PURCHASE_ONLY
   // Soft Delete
   deletedAt       DateTime?
   createdAt       DateTime            @default(now())

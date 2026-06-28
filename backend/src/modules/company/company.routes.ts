@@ -34,6 +34,7 @@ import { RBACController } from './rbac.controller';
 import { BranchController } from './branch.controller';
 import { InventoryController } from './inventory.controller';
 import { RequisitionController } from './requisition.controller';
+import { ExchangeRateController } from './exchange-rate.controller';
 
 import { authenticate } from '../../middleware/auth';
 
@@ -81,6 +82,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   const branchController = new BranchController();
   const inventoryController = new InventoryController();
   const requisitionController = new RequisitionController();
+  const exchangeRateController = new ExchangeRateController();
 
   // Purchase Requisitions
   fastify.get('/:id/purchase-requisitions', requisitionController.getPurchaseRequisitions.bind(requisitionController));
@@ -217,13 +219,17 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
 
   // Sales Orders
   fastify.get('/:id/sales-orders', orderController.getSalesOrders.bind(orderController));
+  fastify.get('/:id/sales-orders/:soId', orderController.getSalesOrder.bind(orderController));
   fastify.post('/:id/sales-orders', orderController.createSalesOrder.bind(orderController));
   fastify.put('/:id/sales-orders/:soId', orderController.updateSalesOrder.bind(orderController));
   fastify.post('/:id/sales-orders/:soId/assign-po', orderController.assignPurchaseOrder.bind(orderController));
   fastify.post('/:id/sales-orders/:soId/dn', orderController.generateDeliveryChallan.bind(orderController));
+  fastify.post('/:id/sales-orders/:soId/status', orderController.updateSalesOrderStatus.bind(orderController));
+  fastify.delete('/:id/sales-orders/:soId', orderController.deleteSalesOrder.bind(orderController));
 
   // Purchase Orders
   fastify.get('/:id/purchase-orders', orderController.getPurchaseOrders.bind(orderController));
+  fastify.get('/:id/purchase-orders/:poId', orderController.getPurchaseOrder.bind(orderController));
   fastify.post('/:id/purchase-orders', orderController.createPurchaseOrder.bind(orderController));
   fastify.put('/:id/purchase-orders/:poId', orderController.updatePurchaseOrder.bind(orderController));
   fastify.post('/:id/purchase-orders/:poId/status', orderController.updatePurchaseOrderStatus.bind(orderController));
@@ -397,6 +403,11 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/:id/stock-transfers/:transferId', inventoryController.getStockTransfer.bind(inventoryController));
   fastify.post('/:id/stock-transfers/:transferId/approve', inventoryController.approveStockTransfer.bind(inventoryController));
   fastify.delete('/:id/stock-transfers/:transferId', inventoryController.deleteStockTransfer.bind(inventoryController));
+
+  // Exchange Rates
+  fastify.get('/:id/exchange-rates', ExchangeRateController.getRates.bind(ExchangeRateController));
+  fastify.post('/:id/exchange-rates', ExchangeRateController.setRate.bind(ExchangeRateController));
+  fastify.get('/:id/exchange-rates/latest', ExchangeRateController.getLatestRates.bind(ExchangeRateController));
 
   // Role-Based Access Control (RBAC)
   fastify.get('/:id/roles', rbacController.getRoles.bind(rbacController));

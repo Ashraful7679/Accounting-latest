@@ -484,6 +484,48 @@ export class OrderController extends BaseCompanyController {
     return reply.send({ success: true, data: dns });
   }
 
+  async getGRNs(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId } = request.params as { id: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'purchase.orders', 'view');
+
+    const grns = await (prisma as any).gRN.findMany({
+      where: { companyId },
+      include: {
+        purchaseOrder: {
+          include: {
+            supplier: { select: { id: true, name: true } },
+            lines: { include: { product: true } }
+          }
+        },
+        lines: { include: { product: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    return reply.send({ success: true, data: grns });
+  }
+
+  async getGRN(request: FastifyRequest, reply: FastifyReply) {
+    const { id: companyId, grnId } = request.params as { id: string; grnId: string };
+    const userId = (request.user as any).id;
+    await this.requirePermission(userId, companyId, 'purchase.orders', 'view');
+
+    const grn = await (prisma as any).gRN.findUnique({
+      where: { id: grnId },
+      include: {
+        purchaseOrder: {
+          include: {
+            supplier: { select: { id: true, name: true } },
+            lines: { include: { product: true } }
+          }
+        },
+        lines: { include: { product: true } }
+      }
+    });
+    if (!grn) throw new NotFoundError('GRN not found');
+    return reply.send({ success: true, data: grn });
+  }
+
   async generateDeliveryChallan(request: FastifyRequest, reply: FastifyReply) {
     const { id: companyId, soId } = request.params as { id: string, soId: string };
     const body = request.body ? request.body as any : {};

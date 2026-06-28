@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { ArrowLeft, ShoppingCart, Calendar, User, Package, Truck, FileText, Link as LinkIcon, Loader2, Printer } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Calendar, User, Package, Truck, FileText, Link as LinkIcon, Loader2, Printer, Plus, Receipt } from 'lucide-react';
 import { formatCurrency } from '@/lib/decimalUtils';
 import { useCompany } from '@/lib/CompanyContext';
 import Link from 'next/link';
 import DocumentTreeView from '@/components/DocumentTreeView';
 import { AttachmentManager } from '@/components/AttachmentManager';
+import { toast } from 'react-hot-toast';
+import api from '@/lib/api';
 
 export default function PurchaseOrderDetailPage() {
   const router = useRouter();
@@ -17,6 +19,7 @@ export default function PurchaseOrderDetailPage() {
   const { id: companyId, poId } = params as { id: string; poId: string };
   const { exchangeRate: companyExchangeRate } = useCompany();
   const [mounted, setMounted] = useState(false);
+  const [isGeneratingGRN, setIsGeneratingGRN] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -55,6 +58,24 @@ export default function PurchaseOrderDetailPage() {
   };
 
   const totalForeign = orders.lines?.reduce((s: number, l: any) => s + (l.quantity * l.unitPrice), 0) || 0;
+  const canGenerateGRN = ['APPROVED', 'SENT', 'RECEIVED'].includes(orders.status);
+  const canCreateBill = (orders.grns?.length || 0) > 0;
+  const supplierId = orders.supplier?.id || orders.supplierId;
+
+  const handleGenerateGRN = async () => {
+    if (isGeneratingGRN) return;
+    setIsGeneratingGRN(true);
+    try {
+      await api.post(`/company/${companyId}/purchase-orders/${poId}/grn`, {});
+      toast.success('GRN generated successfully');
+      // Reload
+      window.location.reload();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to generate GRN');
+    } finally {
+      setIsGeneratingGRN(false);
+    }
+  };
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6 bg-gray-50 min-h-screen">
@@ -67,13 +88,34 @@ export default function PurchaseOrderDetailPage() {
           <h1 className="text-xl font-bold">{orders.poNumber}</h1>
           <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getStatusColor(orders.status)}`}>{orders.status}</span>
         </div>
-        <button
-          onClick={() => window.open(`/company/${companyId}/purchase/orders/${poId}/print`, '_blank')}
-          className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
-        >
-          <Printer className="w-4 h-4" />
-          Print
-        </button>
+        <div className="flex items-center gap-2">
+          {canGenerateGRN && (
+            <button
+              onClick={handleGenerateGRN}
+              disabled={isGeneratingGRN}
+              className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 rounded-sm"
+            >
+              {isGeneratingGRN ? <Loader2 className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />}
+              Generate GRN
+            </button>
+          )}
+          {canCreateBill && (
+            <Link
+              href={`/company/${companyId}/purchase/invoices/create?grnIds=${orders.grns.map((g: any) => g.id).join(',')}&type=${orders.currency !== 'BDT' ? 'foreign' : 'local'}`}
+              className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider bg-gray-900 text-white hover:bg-gray-800 transition-colors rounded-sm"
+            >
+              <Receipt className="w-4 h-4" />
+              Create Bill
+            </Link>
+          )}
+          <button
+            onClick={() => window.open(`/company/${companyId}/purchase/orders/${poId}/print`, '_blank')}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <Printer className="w-4 h-4" />
+            Print
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -126,8 +168,8 @@ export default function PurchaseOrderDetailPage() {
           <DocumentTreeView
             groups={[
               ...(orders.lc ? [{ label: 'LC', icon: LinkIcon, documents: [{ id: orders.lc.id, number: orders.lc.lcNumber || orders.lc.id.slice(0, 8), status: orders.lc.status || '', href: `/company/${companyId}/finance/lc/${orders.lc.id}` }] }] : []),
-              ...(orders.grns?.length > 0 ? [{ label: 'GRNs', icon: Truck, documents: orders.grns.map((grn: any) => ({ id: grn.id, number: grn.grnNumber, status: grn.status })) }] : []),
-              ...(orders.invoices?.length > 0 ? [{ label: 'Invoices', icon: FileText, documents: orders.invoices.map((inv: any) => ({ id: inv.id, number: inv.invoiceNumber || inv.id.slice(0, 8), status: inv.status || '' })) }] : []),
+              ...(orders.grns?.length > 0 ? [{ label: 'GRNs', icon: Truck, documents: orders.grns.map((grn: any) => ({ id: grn.id, number: grn.grnNumber, status: grn.status, href: `/company/${companyId}/purchase/grns/${grn.id}` })) }] : []),
+              ...(orders.invoices?.length > 0 ? [{ label: 'Invoices', icon: FileText, documents: orders.invoices.map((inv: any) => ({ id: inv.id, number: inv.invoiceNumber || inv.id.slice(0, 8), status: inv.status || '', href: `/company/${companyId}/purchase/invoices/${inv.id}` })) }] : []),
               ...(orders.salesOrders?.length > 0 ? [{ label: 'Sales Orders', icon: ShoppingCart, documents: orders.salesOrders.map((so: any) => ({ id: so.id, number: so.soNumber, status: so.status || '', href: `/company/${companyId}/sales/orders/${so.id}` })) }] : []),
             ]}
             variant="sidebar"

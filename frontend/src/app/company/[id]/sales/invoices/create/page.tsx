@@ -27,6 +27,8 @@ export default function CreateSalesInvoicePage() {
   const [mounted, setMounted] = useState(false);
 
   const initialType = searchParams.get('type') === 'foreign' ? 'foreign' : 'local';
+  // Lock type when arriving from a linked document (DN/SO)
+  const isTypeLocked = !!(searchParams.get('dnIds') || searchParams.get('soId'));
   const [orderType, setOrderType] = useState<'local'|'foreign'>(initialType);
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -104,25 +106,50 @@ export default function CreateSalesInvoicePage() {
     enabled: !!companyId && multiBranchEnabled,
   });
 
+  // Pre-populate from URL params (e.g., coming from Challan detail "Create Invoice" button)
   useEffect(() => {
-    if (mounted && challans && searchParams.get('dnIds')) {
-      const dnIds = searchParams.get('dnIds')?.split(',') || [];
-      const customerId = searchParams.get('customerId');
-      
-      if (customerId) {
-        const customer = (Array.isArray(customers) ? customers : []).find((c: any) => c.id === customerId);
-        if (customer) {
-          setFormData(prev => ({ ...prev, customerName: customer.name }));
-        }
-      }
+    if (!mounted || !challans) return;
+    const dnIdsParam = searchParams.get('dnIds');
+    const customerId = searchParams.get('customerId');
+    if (!dnIdsParam) return;
 
-      dnIds.forEach(id => {
-        if (!formData.dnIds.includes(id)) {
-          handleDNToggle(id);
-        }
-      });
+    const dnIds = dnIdsParam.split(',').filter(Boolean);
+
+    // Set customer name first
+    if (customerId && Array.isArray(customers) && customers.length > 0) {
+      const customer = customers.find((c: any) => c.id === customerId);
+      if (customer) {
+        setFormData(prev => ({ ...prev, customerName: customer.name }));
+      }
     }
-  }, [mounted, challans, searchParams, customers]);
+
+    // Then add each DN's lines via functional updater
+    dnIds.forEach(id => {
+      const dn = (Array.isArray(challans) ? challans : []).find((d: any) => d.id === id);
+      if (!dn || !dn.lines) return;
+
+      const newLines = dn.lines.map((l: any) => {
+        const soLine = dn.salesOrder?.lines?.find((sl: any) => sl.productId === l.productId);
+        const unitPrice = l.unitPrice || soLine?.unitPrice || l.product?.unitPrice || 0;
+        return {
+          productId: l.productId,
+          itemDescription: l.product?.name || soLine?.product?.name || l.description || '',
+          quantity: l.quantity,
+          unitPrice,
+          total: l.quantity * unitPrice,
+          dnId: dn.id,
+          returnQuantity: 0,
+          damagedQuantity: 0,
+        };
+      });
+
+      setFormData(prev => ({
+        ...prev,
+        dnIds: prev.dnIds.includes(id) ? prev.dnIds : [...prev.dnIds, id],
+        lines: [...prev.lines.filter(l => l.itemDescription !== '' && l.dnId !== id), ...newLines],
+      }));
+    });
+  }, [mounted, challans, customers, searchParams]);
 
   const filteredCustomers = (Array.isArray(customers) ? customers : []).filter((c: any) => 
     orderType === 'local' ? c.type === 'Local' || !c.type : c.type === 'Foreign'
@@ -181,106 +208,90 @@ export default function CreateSalesInvoicePage() {
   };
 
   const handleSOToggle = (soId: string) => {
-    const currentSOs = [...formData.soIds];
-    const soIndex = currentSOs.indexOf(soId);
-    if (soIndex > -1) {
-      currentSOs.splice(soIndex, 1);
-      setFormData({ ...formData, soIds: currentSOs });
-    } else {
-      currentSOs.push(soId);
-      const so = (Array.isArray(salesOrders) ? salesOrders : []).find((s: any) => s.id === soId);
-      if (so && so.lines) {
-        const newLinesFromSO = so.lines.map((l: any) => ({
-          productId: l.productId,
-          itemDescription: l.itemDescription || l.description,
-          quantity: l.quantity - (l.deliveredQuantity || 0),
-          unitPrice: l.unitPrice,
-          total: (l.quantity - (l.deliveredQuantity || 0)) * l.unitPrice,
-          soId: so.id,
-          returnQuantity: 0,
-          damagedQuantity: 0,
-        })).filter((l: any) => l.quantity > 0);
-        setFormData({
-          ...formData,
-          soIds: currentSOs,
-          lines: [...formData.lines.filter(l => l.itemDescription !== ''), ...newLinesFromSO]
-        });
+    const so = (Array.isArray(salesOrders) ? salesOrders : []).find((s: any) => s.id === soId);
+    setFormData(prev => {
+      const alreadySelected = prev.soIds.includes(soId);
+      if (alreadySelected) {
+        return { ...prev, soIds: prev.soIds.filter(id => id !== soId) };
       }
-    }
+      const newLinesFromSO = so?.lines?.map((l: any) => ({
+        productId: l.productId,
+        itemDescription: l.itemDescription || l.description,
+        quantity: l.quantity - (l.deliveredQuantity || 0),
+        unitPrice: l.unitPrice,
+        total: (l.quantity - (l.deliveredQuantity || 0)) * l.unitPrice,
+        soId: so.id,
+        returnQuantity: 0,
+        damagedQuantity: 0,
+      })).filter((l: any) => l.quantity > 0) || [];
+      return {
+        ...prev,
+        soIds: [...prev.soIds, soId],
+        lines: [...prev.lines.filter(l => l.itemDescription !== ''), ...newLinesFromSO],
+      };
+    });
   };
 
   const handlePIToggle = (piId: string) => {
-    const currentPIs = [...formData.piIds];
-    const piIndex = currentPIs.indexOf(piId);
-    
-    if (piIndex > -1) {
-      currentPIs.splice(piIndex, 1);
-      setFormData({
-        ...formData,
-        piIds: currentPIs,
-        lines: formData.lines.filter(l => l.piId !== piId)
-      });
-    } else {
-      currentPIs.push(piId);
-      const pi = (Array.isArray(customerPIs) ? customerPIs : []).find((p: any) => p.id === piId);
-      if (pi && pi.lines) {
-        const newLinesFromPI = pi.lines.map((l: any) => ({
-          productId: l.productId,
-          itemDescription: l.description || l.itemDescription,
-          quantity: l.quantity,
-          unitPrice: l.unitPrice,
-          total: l.quantity * l.unitPrice,
-          piId: pi.id,
-          returnQuantity: 0,
-          damagedQuantity: 0
-        }));
-        
-        setFormData({
-          ...formData,
-          piIds: currentPIs,
-          lines: [...formData.lines.filter(l => l.itemDescription !== ''), ...newLinesFromPI]
-        });
+    const pi = (Array.isArray(customerPIs) ? customerPIs : []).find((p: any) => p.id === piId);
+    setFormData(prev => {
+      const alreadySelected = prev.piIds.includes(piId);
+      if (alreadySelected) {
+        return {
+          ...prev,
+          piIds: prev.piIds.filter(id => id !== piId),
+          lines: prev.lines.filter(l => l.piId !== piId),
+        };
       }
-    }
+      const newLinesFromPI = pi?.lines?.map((l: any) => ({
+        productId: l.productId,
+        itemDescription: l.description || l.itemDescription,
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        total: l.quantity * l.unitPrice,
+        piId: pi.id,
+        returnQuantity: 0,
+        damagedQuantity: 0,
+      })) || [];
+      return {
+        ...prev,
+        piIds: [...prev.piIds, piId],
+        lines: [...prev.lines.filter(l => l.itemDescription !== ''), ...newLinesFromPI],
+      };
+    });
   };
 
   const handleDNToggle = (dnId: string) => {
-    const currentDNs = [...formData.dnIds];
-    const dnIndex = currentDNs.indexOf(dnId);
-    
-    if (dnIndex > -1) {
-      currentDNs.splice(dnIndex, 1);
-      setFormData({
-        ...formData,
-        dnIds: currentDNs,
-        lines: formData.lines.filter(l => l.dnId !== dnId)
-      });
-    } else {
-      currentDNs.push(dnId);
-      const dn = (Array.isArray(challans) ? challans : []).find((d: any) => d.id === dnId);
-      if (dn && dn.lines) {
-        const newLinesFromDN = dn.lines.map((l: any) => {
-          const soLine = dn.salesOrder?.lines?.find((sl: any) => sl.productId === l.productId);
-          const unitPrice = l.unitPrice || soLine?.unitPrice || l.product?.unitPrice || 0;
-          return {
-            productId: l.productId,
-            itemDescription: l.product?.name || soLine?.product?.name || l.description || '',
-            quantity: l.quantity,
-            unitPrice,
-            total: l.quantity * unitPrice,
-            dnId: dn.id,
-            returnQuantity: 0,
-            damagedQuantity: 0
-          };
-        });
-        
-        setFormData({
-          ...formData,
-          dnIds: currentDNs,
-          lines: [...formData.lines.filter(l => l.itemDescription !== ''), ...newLinesFromDN]
-        });
+    const dn = (Array.isArray(challans) ? challans : []).find((d: any) => d.id === dnId);
+    setFormData(prev => {
+      const alreadySelected = prev.dnIds.includes(dnId);
+      if (alreadySelected) {
+        return {
+          ...prev,
+          dnIds: prev.dnIds.filter(id => id !== dnId),
+          lines: prev.lines.filter(l => l.dnId !== dnId),
+        };
       }
-    }
+      const newLinesFromDN = dn?.lines?.map((l: any) => {
+        const soLine = dn.salesOrder?.lines?.find((sl: any) => sl.productId === l.productId);
+        const unitPrice = l.unitPrice || soLine?.unitPrice || l.product?.unitPrice || 0;
+        return {
+          productId: l.productId,
+          itemDescription: l.product?.name || soLine?.product?.name || l.description || '',
+          quantity: l.quantity,
+          unitPrice,
+          total: l.quantity * unitPrice,
+          dnId: dn.id,
+          returnQuantity: 0,
+          damagedQuantity: 0,
+        };
+      }) || [];
+      return {
+        ...prev,
+        dnIds: [...prev.dnIds, dnId],
+        lines: [...prev.lines.filter(l => l.itemDescription !== ''), ...newLinesFromDN],
+      };
+    });
   };
 
   const calculateTotal = () => {
@@ -432,20 +443,28 @@ export default function CreateSalesInvoicePage() {
               USD/BDT Rate: <span className="text-gray-900">{companyExchangeRate}</span>
             </div>
           )}
-          <div className="flex bg-gray-100 p-1 rounded-sm">
-            <button 
-              onClick={() => setOrderType('local')} 
-              className={`px-4 py-1.5 rounded-sm text-[10px] font-bold uppercase tracking-wider transition-colors ${orderType === 'local' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
-            >
-              Local
-            </button>
-            <button 
-              onClick={() => setOrderType('foreign')} 
-              className={`px-4 py-1.5 rounded-sm text-[10px] font-bold uppercase tracking-wider transition-colors ${orderType === 'foreign' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
-            >
-              Foreign
-            </button>
-          </div>
+          {isTypeLocked ? (
+            <div className={`px-4 py-1.5 rounded-sm text-[10px] font-bold uppercase tracking-wider border ${
+              orderType === 'foreign' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-gray-100 border-gray-200 text-gray-700'
+            }`}>
+              {orderType === 'foreign' ? '🌐 Foreign' : '🏠 Local'} <span className="ml-1 text-[8px] opacity-60">(locked)</span>
+            </div>
+          ) : (
+            <div className="flex bg-gray-100 p-1 rounded-sm">
+              <button 
+                onClick={() => setOrderType('local')} 
+                className={`px-4 py-1.5 rounded-sm text-[10px] font-bold uppercase tracking-wider transition-colors ${orderType === 'local' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+              >
+                Local
+              </button>
+              <button 
+                onClick={() => setOrderType('foreign')} 
+                className={`px-4 py-1.5 rounded-sm text-[10px] font-bold uppercase tracking-wider transition-colors ${orderType === 'foreign' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+              >
+                Foreign
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

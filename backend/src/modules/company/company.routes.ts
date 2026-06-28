@@ -241,6 +241,7 @@ export const companyRoutes = async (fastify: FastifyInstance) => {
   fastify.get('/:id/challans', orderController.getDeliveryChallans.bind(orderController));
   fastify.delete('/:id/challans/:dnId', orderController.deleteDeliveryChallan.bind(orderController));
   fastify.get('/:id/grns', orderController.getGRNs.bind(orderController));
+  fastify.get('/:id/grns/:grnId', orderController.getGRN.bind(orderController));
   fastify.delete('/:id/grns/:grnId', orderController.deleteGRN.bind(orderController));
 
   // Journals

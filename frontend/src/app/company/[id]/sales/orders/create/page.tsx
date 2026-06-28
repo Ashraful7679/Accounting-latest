@@ -46,6 +46,7 @@ export default function CreateSalesOrderPage() {
   useEffect(() => {
     const type = searchParams?.get('type');
     if (type === 'foreign') setOrderType('foreign');
+    else setOrderType('local');
   }, [searchParams]);
 
   const { data: customers } = useQuery({
@@ -252,11 +253,19 @@ export default function CreateSalesOrderPage() {
             </div>
           )}
           <div className="flex bg-gray-100 p-1 rounded-sm">
-            <button type="button" onClick={() => setOrderType('local')}
+            <button type="button" onClick={() => {
+              setOrderType('local');
+              setFormData(prev => ({ ...prev, customerName: '' }));
+              router.replace(`/company/${companyId}/sales/orders/create?type=local`);
+            }}
               className={`px-4 py-1.5 rounded-sm text-xs font-bold ${orderType === 'local' ? 'bg-white text-gray-900' : 'text-gray-500'}`}>
               Local
             </button>
-            <button type="button" onClick={() => setOrderType('foreign')}
+            <button type="button" onClick={() => {
+              setOrderType('foreign');
+              setFormData(prev => ({ ...prev, customerName: '' }));
+              router.replace(`/company/${companyId}/sales/orders/create?type=foreign`);
+            }}
               className={`px-4 py-1.5 rounded-sm text-xs font-bold ${orderType === 'foreign' ? 'bg-white text-gray-900' : 'text-gray-500'}`}>
               Foreign
             </button>

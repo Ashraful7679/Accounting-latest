@@ -34,7 +34,7 @@ export class EntityController extends BaseCompanyController {
 
     const { 
       name, email, phone, address, city, country,
-      contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency, exchangeRate
+      contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency, exchangeRate, paymentTerms
     } = request.body as any;
 
     const code = await this.generateDocumentNumber(companyId, 'customer');
@@ -46,7 +46,7 @@ export class EntityController extends BaseCompanyController {
       customer = await prisma.$transaction(async (tx) => {
         const c = await CustomerRepository.create({ 
           code, name, companyId, email, phone, address, city, country,
-          contactPerson, tinVat, 
+          contactPerson, tinVat, paymentTerms,
           openingBalance: Number(openingBalance || 0), 
           balanceType, 
           creditLimit: Number(creditLimit || 0), 
@@ -103,6 +103,7 @@ export class EntityController extends BaseCompanyController {
     if (body.creditLimit !== undefined) updateData.creditLimit = Number(body.creditLimit);
     if (body.preferredCurrency !== undefined) updateData.preferredCurrency = body.preferredCurrency;
     if (body.exchangeRate !== undefined) updateData.exchangeRate = Number(body.exchangeRate);
+    if (body.paymentTerms !== undefined) updateData.paymentTerms = body.paymentTerms;
 
     const openingBalanceBDT = Number(body.openingBalance || 0) * Number(body.exchangeRate || 1);
 
@@ -166,7 +167,7 @@ export class EntityController extends BaseCompanyController {
 
     const { 
       name, email, phone, address, city, country,
-      contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency, exchangeRate
+      contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency, exchangeRate, paymentTerms
     } = request.body as any;
 
     const code = await this.generateDocumentNumber(companyId, 'vendor');
@@ -178,7 +179,7 @@ export class EntityController extends BaseCompanyController {
       vendor = await prisma.$transaction(async (tx) => {
         const v = await VendorRepository.create({ 
           code, name, companyId, email, phone, address, city, country,
-          contactPerson, tinVat, openingBalance, balanceType, creditLimit, preferredCurrency, exchangeRate
+          contactPerson, tinVat, paymentTerms, openingBalance, balanceType, creditLimit, preferredCurrency, exchangeRate
         }, tx);
 
         // Automated Ledger Account
@@ -229,6 +230,7 @@ export class EntityController extends BaseCompanyController {
     if (body.creditLimit !== undefined) updateData.creditLimit = Number(body.creditLimit);
     if (body.preferredCurrency !== undefined) updateData.preferredCurrency = body.preferredCurrency;
     if (body.exchangeRate !== undefined) updateData.exchangeRate = Number(body.exchangeRate);
+    if (body.paymentTerms !== undefined) updateData.paymentTerms = body.paymentTerms;
 
     const openingBalanceBDT = Number(body.openingBalance || 0) * Number(body.exchangeRate || 1);
 

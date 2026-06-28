@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-06-28T11:17:41.756Z",
+  "lastUpdated": "2026-06-28T11:38:56.176Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -514,13 +514,14 @@
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\orders\\page.tsx": {
-      "modified": "2026-06-28T10:44:58.163Z",
+      "modified": "2026-06-28T11:38:55.723Z",
       "features": [
         "Added RBAC view permission check (usePermissions hook) to sales orders page",
         "Added DC/SI/PI action buttons to SO list",
-        "Fixed PI link to navigate to sales/pis instead of non-existent pis/create"
+        "Fixed PI link to navigate to sales/pis instead of non-existent pis/create",
+        "Conditional DN/PI buttons with View/Create states; DN creation modal with editable line quantities"
       ],
-      "lastChange": "2026-06-28T10:44:58.164Z",
+      "lastChange": "2026-06-28T11:38:55.724Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\requisition.controller.ts": {
@@ -592,11 +593,12 @@
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\challans\\page.tsx": {
-      "modified": "2026-06-23T12:51:00.933Z",
+      "modified": "2026-06-28T11:38:56.175Z",
       "features": [
-        "Added Delivery Challan create modal with SO selector and line items, plus delete action with confirmation"
+        "Added Delivery Challan create modal with SO selector and line items, plus delete action with confirmation",
+        "Added Generate Invoice button to each DN row"
       ],
-      "lastChange": "2026-06-23T12:51:00.934Z",
+      "lastChange": "2026-06-28T11:38:56.176Z",
       "agent": "unknown"
     },
     "frontend\\src\\components\\DocumentTreeView.tsx": {
@@ -725,11 +727,12 @@
       "agent": "unknown"
     },
     "backend\\src\\repositories\\SalesOrderRepository.ts": {
-      "modified": "2026-06-28T11:17:41.615Z",
+      "modified": "2026-06-28T11:38:55.088Z",
       "features": [
-        "Added product include to lines in findMany and findById"
+        "Added product include to lines in findMany and findById",
+        "Added pis include to SO findMany/findById queries"
       ],
-      "lastChange": "2026-06-28T11:17:41.615Z",
+      "lastChange": "2026-06-28T11:38:55.089Z",
       "agent": "unknown"
     }
   },

@@ -35,7 +35,8 @@ export class SalesOrderRepository {
               lines: { include: { product: true } },
               dns: { include: { lines: true } },
               invoices: { include: { lines: true } },
-              purchaseOrders: { include: { supplier: true } }
+              purchaseOrders: { include: { supplier: true } },
+              pis: { select: { id: true, piNumber: true, status: true } }
             },
             orderBy: { createdAt: 'desc' },
             skip,
@@ -82,6 +83,9 @@ export class SalesOrderRepository {
               include: {
                 supplier: true
               }
+            },
+            pis: {
+              select: { id: true, piNumber: true, status: true }
             }
           }
         });

@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
   Truck, Search, Eye, ChevronDown, ChevronRight, 
-  Printer, Package, FileText, ArrowUpRight, Plus, Trash2, X, Loader2, ShoppingBag
+  Printer, Package, FileText, ArrowUpRight, Plus, Trash2, X, Loader2, ShoppingBag, Receipt
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/decimalUtils';
@@ -257,6 +257,13 @@ export default function DeliveryChallansPage() {
                           onClick={() => router.push(`/company/${companyId}/sales/challans/${dc.id}`)}
                         >
                           <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          className="p-2 text-amber-600 hover:bg-amber-50 rounded-sm transition-colors"
+                          onClick={() => router.push(`/company/${companyId}/sales/invoices/create?dnIds=${dc.id}&customerId=${dc.salesOrder?.customer?.id || ''}`)}
+                          title="Generate Invoice"
+                        >
+                          <Receipt className="w-4 h-4" />
                         </button>
                         <button
                           className="p-2 text-gray-400 hover:text-gray-900 rounded-sm transition-colors"

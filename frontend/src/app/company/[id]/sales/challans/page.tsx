@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
@@ -23,9 +23,16 @@ export default function DeliveryChallansPage() {
   const { canView, canCreate, canDelete, isLoading: permsLoading } = usePermissions('sales.challans', companyId);
   const { exchangeRate: companyExchangeRate } = useCompany();
   const queryClient = useQueryClient();
+  const challanSearchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'local' | 'foreign'>('local');
   const [expandedChallans, setExpandedChallans] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    const type = challanSearchParams?.get('type');
+    if (type === 'foreign') setActiveTab('foreign');
+  }, [challanSearchParams]);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedSOId, setSelectedSOId] = useState('');
@@ -149,10 +156,14 @@ export default function DeliveryChallansPage() {
   };
 
   const filteredChallans = (Array.isArray(challans) ? challans : [])?.filter((dc: any) => {
-    return !searchTerm || 
+    const matchesTab = activeTab === 'local'
+      ? (!dc.salesOrder?.currency || dc.salesOrder?.currency === 'BDT')
+      : (dc.salesOrder?.currency && dc.salesOrder?.currency !== 'BDT');
+    const matchesSearch = !searchTerm || 
       dc.dnNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       dc.salesOrder?.soNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       dc.salesOrder?.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesTab && matchesSearch;
   });
 
   if (!mounted) return null;
@@ -186,6 +197,22 @@ export default function DeliveryChallansPage() {
             <Plus className="w-3.5 h-3.5" /> New Challan
           </button>
         )}
+      </div>
+
+      {/* Local / Foreign Tabs */}
+      <div className="flex bg-slate-100 rounded-lg p-0.5 w-fit">
+        <button
+          onClick={() => setActiveTab('local')}
+          className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${activeTab === 'local' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+        >
+          Local
+        </button>
+        <button
+          onClick={() => setActiveTab('foreign')}
+          className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${activeTab === 'foreign' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+        >
+          Export
+        </button>
       </div>
 
       {/* Filters Area */}

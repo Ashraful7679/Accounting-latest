@@ -470,7 +470,12 @@ export class OrderController extends BaseCompanyController {
     const { id: companyId } = request.params as { id: string };
     const dns = await (prisma as any).dN.findMany({
       where: { companyId },
-      include: { salesOrder: true, lines: { include: { product: true } } },
+      include: {
+        salesOrder: {
+          include: { lines: { include: { product: true } } }
+        },
+        lines: { include: { product: true } }
+      },
       orderBy: { createdAt: 'desc' }
     });
     return reply.send({ success: true, data: dns });

@@ -195,7 +195,7 @@ export default function CreateSalesOrderPage() {
 
       queryClient.invalidateQueries({ queryKey: ['sales-orders', companyId] });
       toast.success('Sales Order created');
-      router.push(`/company/${companyId}/sales/orders`);
+      router.push(`/company/${companyId}/sales/orders?type=${orderType}`);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to create sales order');
     } finally {

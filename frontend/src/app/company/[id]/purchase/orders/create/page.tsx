@@ -254,7 +254,7 @@ export default function CreatePurchaseOrderPage() {
       });
       queryClient.invalidateQueries({ queryKey: ['purchase-orders', companyId] });
       toast.success('Purchase Order created successfully');
-      router.push(`/company/${companyId}/purchase/orders`);
+      router.push(`/company/${companyId}/purchase/orders?type=${orderType}`);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to create purchase order');
       setIsSaving(false);

@@ -259,16 +259,20 @@ export default function CreateSalesInvoicePage() {
       currentDNs.push(dnId);
       const dn = (Array.isArray(challans) ? challans : []).find((d: any) => d.id === dnId);
       if (dn && dn.lines) {
-        const newLinesFromDN = dn.lines.map((l: any) => ({
-          productId: l.productId,
-          itemDescription: l.itemDescription || l.description,
-          quantity: l.quantity,
-          unitPrice: l.unitPrice || 0,
-          total: l.quantity * (l.unitPrice || 0),
-          dnId: dn.id,
-          returnQuantity: 0,
-          damagedQuantity: 0
-        }));
+        const newLinesFromDN = dn.lines.map((l: any) => {
+          const soLine = dn.salesOrder?.lines?.find((sl: any) => sl.productId === l.productId);
+          const unitPrice = l.unitPrice || soLine?.unitPrice || l.product?.unitPrice || 0;
+          return {
+            productId: l.productId,
+            itemDescription: l.product?.name || soLine?.product?.name || l.description || '',
+            quantity: l.quantity,
+            unitPrice,
+            total: l.quantity * unitPrice,
+            dnId: dn.id,
+            returnQuantity: 0,
+            damagedQuantity: 0
+          };
+        });
         
         setFormData({
           ...formData,
@@ -380,7 +384,7 @@ export default function CreateSalesInvoicePage() {
       queryClient.invalidateQueries({ queryKey: ['sales-invoices', companyId] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats', companyId] });
       toast.success('Sales Invoice created successfully');
-      router.push(`/company/${companyId}/sales/invoices`);
+      router.push(`/company/${companyId}/sales/invoices?type=${orderType}`);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to create invoice');
       setIsSaving(false);

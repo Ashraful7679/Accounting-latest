@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -40,8 +40,15 @@ export default function PurchaseInvoicesPage() {
   const { canView, isLoading: permsLoading } = usePermissions('purchase.invoices', companyId);
   const { exchangeRate: companyExchangeRate } = useCompany();
   const queryClient = useQueryClient();
+  const piSearchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'local' | 'foreign'>('local');
   
+  useEffect(() => {
+    const type = piSearchParams?.get('type');
+    if (type === 'foreign') setActiveTab('foreign');
+  }, [piSearchParams]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [paymentTarget, setPaymentTarget] = useState<Invoice | null>(null);
@@ -83,11 +90,14 @@ export default function PurchaseInvoicesPage() {
   });
 
   const filteredInvoices = (Array.isArray(invoices) ? invoices : [])?.filter((inv: Invoice) => {
+    const matchesTab = activeTab === 'local'
+      ? (inv.currency === 'BDT' || !inv.currency)
+      : (inv.currency !== 'BDT' && !!inv.currency);
     const matchesSearch = !searchTerm || 
       inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inv.vendor?.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || inv.status === filterStatus;
-    return matchesSearch && matchesStatus;
+    return matchesTab && matchesSearch && matchesStatus;
   }) || [];
 
   const getStatusStyle = (status: string) => {
@@ -125,12 +135,28 @@ export default function PurchaseInvoicesPage() {
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Manage Local & Foreign Supplier Bills</p>
         </div>
         <Link 
-          href={`/company/${companyId}/purchase/invoices/create`}
+          href={`/company/${companyId}/purchase/invoices/create?type=${activeTab}`}
           className="bg-gray-900 text-white px-4 py-2 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2"
         >
           <Plus className="w-3.5 h-3.5" />
           Register Invoice
         </Link>
+      </div>
+
+      {/* Local / Foreign Tabs */}
+      <div className="flex bg-slate-100 rounded-lg p-0.5 w-fit">
+        <button
+          onClick={() => setActiveTab('local')}
+          className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${activeTab === 'local' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+        >
+          Local
+        </button>
+        <button
+          onClick={() => setActiveTab('foreign')}
+          className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${activeTab === 'foreign' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+        >
+          Foreign
+        </button>
       </div>
 
       {/* Filters Area */}

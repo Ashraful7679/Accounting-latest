@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { 
@@ -36,9 +36,16 @@ export default function PurchaseOrdersPage() {
   const companyId = params.id as string;
   const { canView, isLoading: permsLoading } = usePermissions('purchase.orders', companyId);
   const queryClient = useQueryClient();
+  const poSearchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'local' | 'foreign'>('local');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    const type = poSearchParams?.get('type');
+    if (type === 'foreign') setActiveTab('foreign');
+  }, [poSearchParams]);
   const [showSOSelector, setShowSOSelector] = useState<{ poId: string } | null>(null);
   const [showFulfillmentModal, setShowFulfillmentModal] = useState<{ order: any, type: 'DN' | 'GRN' } | null>(null);
 
@@ -138,10 +145,26 @@ export default function PurchaseOrdersPage() {
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Procurement and Inventory Control</p>
         </div>
         <button 
-          onClick={() => router.push(`/company/${companyId}/purchase/orders/create`)}
+          onClick={() => router.push(`/company/${companyId}/purchase/orders/create?type=${activeTab}`)}
           className="bg-gray-900 text-white px-4 py-2 rounded-sm text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors flex items-center gap-2"
         >
           <Plus className="w-3.5 h-3.5" /> Create PO
+        </button>
+      </div>
+
+      {/* Local / Foreign Tabs */}
+      <div className="flex bg-slate-100 rounded-lg p-0.5 w-fit">
+        <button
+          onClick={() => setActiveTab('local')}
+          className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${activeTab === 'local' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+        >
+          Local
+        </button>
+        <button
+          onClick={() => setActiveTab('foreign')}
+          className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${activeTab === 'foreign' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+        >
+          Foreign
         </button>
       </div>
 
@@ -180,10 +203,14 @@ export default function PurchaseOrdersPage() {
             ) : purchaseOrders?.length === 0 ? (
               <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 font-mono uppercase tracking-widest">No orders found</td></tr>
             ) : (
-              (Array.isArray(purchaseOrders) ? purchaseOrders : []).filter(po => 
-                (po.poNumber?.toLowerCase() ?? '').includes(searchTerm.toLowerCase()) ||
-                (po.supplier?.name?.toLowerCase() ?? '').includes(searchTerm.toLowerCase())
-              ).map((po) => (
+              (Array.isArray(purchaseOrders) ? purchaseOrders : []).filter(po => {
+                const matchesTab = activeTab === 'local'
+                  ? (po.currency === 'BDT' || !po.currency)
+                  : (po.currency !== 'BDT' && !!po.currency);
+                const matchesSearch = (po.poNumber?.toLowerCase() ?? '').includes(searchTerm.toLowerCase()) ||
+                  (po.supplier?.name?.toLowerCase() ?? '').includes(searchTerm.toLowerCase());
+                return matchesTab && matchesSearch;
+              }).map((po) => (
                 <React.Fragment key={po.id}>
                   <tr className={cn(
                     "hover:bg-gray-50/50 transition-colors group",

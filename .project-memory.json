@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-06-28T11:38:56.176Z",
+  "lastUpdated": "2026-06-28T11:56:18.164Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -494,13 +494,14 @@
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\invoices\\create\\page.tsx": {
-      "modified": "2026-06-23T12:51:06.834Z",
+      "modified": "2026-06-28T11:56:16.784Z",
       "features": [
         "Invalidate dashboard-stats query key on sales invoice creation to auto-refresh dashboard KPI",
         "Allowed blank instead of 0 in numeric form inputs",
-        "Integrated DocumentTreeView summary and refactored DN filtering to use customerDNs variable"
+        "Integrated DocumentTreeView summary and refactored DN filtering to use customerDNs variable",
+        "Fixed DN toggle: reads unitPrice from SO line or product, not DNLine (no unitPrice field)"
       ],
-      "lastChange": "2026-06-23T12:51:06.834Z",
+      "lastChange": "2026-06-28T11:56:16.785Z",
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\purchase\\invoices\\create\\page.tsx": {
@@ -582,14 +583,15 @@
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\order.controller.ts": {
-      "modified": "2026-06-28T10:44:58.119Z",
+      "modified": "2026-06-28T11:56:16.333Z",
       "features": [
         "Accept purchaseRequisitionIds in createPurchaseOrder payload",
         "Added updateSalesOrderStatus with transition validation",
         "Fixed generateDeliveryChallan/generateGRN: safe destructuring with fallback to deliver all lines",
-        "Fixed deleteDeliveryChallan: allow Owner to delete shipped DC"
+        "Fixed deleteDeliveryChallan: allow Owner to delete shipped DC",
+        "Added salesOrder.lines include to getDeliveryChallans for unitPrice lookup"
       ],
-      "lastChange": "2026-06-28T10:44:58.119Z",
+      "lastChange": "2026-06-28T11:56:16.335Z",
       "agent": "unknown"
     },
     "frontend\\src\\app\\company\\[id]\\sales\\challans\\page.tsx": {
@@ -733,6 +735,14 @@
         "Added pis include to SO findMany/findById queries"
       ],
       "lastChange": "2026-06-28T11:38:55.089Z",
+      "agent": "unknown"
+    },
+    "frontend\\*\\create\\page.tsx": {
+      "modified": "2026-06-28T11:56:18.163Z",
+      "features": [
+        "All create pages redirect with ?type"
+      ],
+      "lastChange": "2026-06-28T11:56:18.164Z",
       "agent": "unknown"
     }
   },

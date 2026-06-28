@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Plus, Search, ChevronDown, ChevronRight, ChevronUp, Trash2, Loader2, ShoppingBag, Truck, FileText, X, DollarSign } from 'lucide-react';
@@ -55,10 +55,16 @@ function SalesOrdersPage() {
   const router = useRouter();
   const params = useParams();
   const companyId = params.id as string;
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'local' | 'foreign'>('local');
   const [searchTerm, setSearchTerm] = useState('');
   const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const type = searchParams?.get('type');
+    if (type === 'foreign') setActiveTab('foreign');
+  }, [searchParams]);
 
   const { canView, canCreate, canEdit, canDelete, isLoading: permsLoading } = usePermissions('sales.orders', companyId);
 

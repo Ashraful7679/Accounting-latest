@@ -333,7 +333,7 @@ export default function CreatePurchaseInvoicePage() {
       queryClient.invalidateQueries({ queryKey: ['purchase-invoices', companyId] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats', companyId] });
       toast.success('Purchase Invoice registered successfully');
-      router.push(`/company/${companyId}/purchase/invoices`);
+      router.push(`/company/${companyId}/purchase/invoices?type=${orderType}`);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to register invoice');
       setIsSaving(false);

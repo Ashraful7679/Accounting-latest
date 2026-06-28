@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "projectName": "AccaBiz ERP",
-  "lastUpdated": "2026-06-23T13:16:13.111Z",
+  "lastUpdated": "2026-06-28T09:13:03.287Z",
   "lastAgent": "minimax-m2.5-free",
   "description": "Full-stack accounting ERP system - Fastify + Next.js + Prisma + PostgreSQL",
   "architecture": {
@@ -187,11 +187,12 @@
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\coa.controller.ts": {
-      "modified": "2026-05-10T13:25:10.401Z",
+      "modified": "2026-06-28T09:12:35.331Z",
       "features": [
-        "Implemented auto-COA generation based on company category"
+        "Implemented auto-COA generation based on company category",
+        "Fixed manual code generation format (1xxx/2xxx/3xxx/4xxx/5xxx), wrapped initializeCompanyCOA in transaction, added deactivation validation"
       ],
-      "lastChange": "2026-05-10T13:25:10.401Z",
+      "lastChange": "2026-06-28T09:12:35.332Z",
       "agent": "unknown"
     },
     "frontend\\src\\app\\owner\\employees\\page.tsx": {
@@ -205,11 +206,12 @@
       "agent": "unknown"
     },
     "backend\\src\\lib\\coaTemplates.ts": {
-      "modified": "2026-05-10T13:29:53.997Z",
+      "modified": "2026-06-28T09:12:30.735Z",
       "features": [
-        "Expanded COA templates with granular accounts for trade and manufacturing"
+        "Expanded COA templates with granular accounts for trade and manufacturing",
+        "Fixed MANUFACTURING/TRADING code conflicts - renamed 1400->1600, 1500->1700, 5000->5500"
       ],
-      "lastChange": "2026-05-10T13:29:53.998Z",
+      "lastChange": "2026-06-28T09:12:30.735Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\fixed-asset.controller.ts": {
@@ -381,11 +383,12 @@
       "agent": "unknown"
     },
     "backend\\src\\repositories\\TransactionRepository.ts": {
-      "modified": "2026-05-19T09:27:16.755Z",
+      "modified": "2026-06-28T09:12:44.659Z",
       "features": [
-        "Filter invoices by createdByIds (user + subordinates)"
+        "Filter invoices by createdByIds (user + subordinates)",
+        "Entity accounts use parent-code-based numbering (1200-001) instead of ACC-AR-YYYY-NNNN"
       ],
-      "lastChange": "2026-05-19T09:27:16.755Z",
+      "lastChange": "2026-06-28T09:12:44.660Z",
       "agent": "unknown"
     },
     "backend\\src\\modules\\company\\invoice.controller.ts": {
@@ -628,6 +631,38 @@
       ],
       "lastChange": "2026-06-23T13:16:13.063Z",
       "agent": "unknown"
+    },
+    "backend\\src\\modules\\accounting\\equity.service.ts": {
+      "modified": "2026-06-28T09:12:39.916Z",
+      "features": [
+        "Reuse template 3100 Owner Capital instead of creating duplicate"
+      ],
+      "lastChange": "2026-06-28T09:12:39.916Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\modules\\accounting\\journal.service.ts": {
+      "modified": "2026-06-28T09:12:48.995Z",
+      "features": [
+        "Added duplicate check in ensureGenericAccount"
+      ],
+      "lastChange": "2026-06-28T09:12:48.995Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\repositories\\AccountRepository.ts": {
+      "modified": "2026-06-28T09:12:53.258Z",
+      "features": [
+        "Added deletedAt: null filter in findMany to exclude soft-deleted accounts"
+      ],
+      "lastChange": "2026-06-28T09:12:53.258Z",
+      "agent": "unknown"
+    },
+    "backend\\src\\scripts\\migrate-coa.ts": {
+      "modified": "2026-06-28T09:12:57.864Z",
+      "features": [
+        "Created migration script to fix existing MANUFACTURING/TRADING company COAs and duplicate capital accounts"
+      ],
+      "lastChange": "2026-06-28T09:12:57.864Z",
+      "agent": "unknown"
     }
   },
   "implementations": {
@@ -772,6 +807,21 @@
       ],
       "status": "complete",
       "updatedAt": "2026-06-23T12:51:12.449Z"
+    },
+    "coa-fixes": {
+      "date": "2026-06-28",
+      "description": "Fixed COA auto-generation and manual creation issues: template code conflicts, code format inconsistency, equity duplicate, entity account codes, transaction safety, soft-delete filtering, deactivation validation",
+      "files": [
+        "backend/src/lib/coaTemplates.ts",
+        "backend/src/modules/company/coa.controller.ts",
+        "backend/src/modules/accounting/equity.service.ts",
+        "backend/src/repositories/TransactionRepository.ts",
+        "backend/src/modules/accounting/journal.service.ts",
+        "backend/src/repositories/AccountRepository.ts",
+        "backend/src/scripts/migrate-coa.ts"
+      ],
+      "status": "complete",
+      "updatedAt": "2026-06-28T09:13:03.287Z"
     }
   },
   "workflows": {

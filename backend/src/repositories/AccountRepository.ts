@@ -3,11 +3,14 @@ import { SYSTEM_MODE } from '../lib/systemMode';
 import { demoAccounts } from '../lib/mockData/accounts';
 
 export class AccountRepository {
-  static async findMany(where = {}, take?: number, skip?: number) {
+  static async findMany(where: any = {}, take?: number, skip?: number) {
     if (SYSTEM_MODE === "LIVE") {
       try {
         return await prisma.account.findMany({
-          where,
+          where: {
+            ...where,
+            deletedAt: where.deletedAt !== undefined ? where.deletedAt : null
+          },
           take,
           skip,
           include: { accountType: true },

@@ -97,24 +97,24 @@ export const COA_TEMPLATES: Record<string, CoaAccountTemplate[]> = {
   ],
   MANUFACTURING: [
     { code: '1000', name: 'ASSETS', type: 'ASSET', children: [
-      { code: '1400', name: 'Inventory', type: 'ASSET', children: [
-        { code: '1401', name: 'Raw Materials', type: 'ASSET' },
-        { code: '1402', name: 'Work in Progress', type: 'ASSET' },
-        { code: '1403', name: 'Finished Goods', type: 'ASSET' },
-        { code: '1404', name: 'Factory Supplies', type: 'ASSET' },
+      { code: '1600', name: 'Inventory', type: 'ASSET', category: 'INVENTORY', children: [
+        { code: '1601', name: 'Raw Materials', type: 'ASSET' },
+        { code: '1602', name: 'Work in Progress', type: 'ASSET' },
+        { code: '1603', name: 'Finished Goods', type: 'ASSET' },
+        { code: '1604', name: 'Factory Supplies', type: 'ASSET' },
       ]},
-      { code: '1500', name: 'Plant & Machinery', type: 'ASSET', children: [
-        { code: '1501', name: 'Factory Machines', type: 'ASSET' },
-        { code: '1599', name: 'Accumulated Depreciation - Machinery', type: 'ASSET' },
+      { code: '1700', name: 'Plant & Machinery', type: 'ASSET', children: [
+        { code: '1701', name: 'Factory Machines', type: 'ASSET' },
+        { code: '1799', name: 'Accumulated Depreciation - Machinery', type: 'ASSET' },
       ]},
     ]},
-    { code: '5000', name: 'Manufacturing Costs', type: 'EXPENSE', children: [
-      { code: '5100', name: 'Direct Material Cost', type: 'EXPENSE' },
-      { code: '5200', name: 'Direct Labor', type: 'EXPENSE' },
-      { code: '5300', name: 'Factory Overheads', type: 'EXPENSE', children: [
-        { code: '5301', name: 'Factory Rent', type: 'EXPENSE' },
-        { code: '5302', name: 'Factory Power & Fuel', type: 'EXPENSE' },
-        { code: '5303', name: 'Machine Maintenance', type: 'EXPENSE' },
+    { code: '5500', name: 'Manufacturing Costs', type: 'EXPENSE', children: [
+      { code: '5501', name: 'Direct Material Cost', type: 'EXPENSE' },
+      { code: '5502', name: 'Direct Labor', type: 'EXPENSE' },
+      { code: '5503', name: 'Factory Overheads', type: 'EXPENSE', children: [
+        { code: '5504', name: 'Factory Rent', type: 'EXPENSE' },
+        { code: '5505', name: 'Factory Power & Fuel', type: 'EXPENSE' },
+        { code: '5506', name: 'Machine Maintenance', type: 'EXPENSE' },
       ]},
     ]},
   ],
@@ -124,7 +124,7 @@ export const COA_TEMPLATES: Record<string, CoaAccountTemplate[]> = {
         { code: '1310', name: 'LC Margin Deposits', type: 'ASSET' },
         { code: '1320', name: 'Inventory in Transit (Import)', type: 'ASSET' },
       ]},
-      { code: '1400', name: 'Inventory for Resale', type: 'ASSET' },
+      { code: '1600', name: 'Inventory for Resale', type: 'ASSET', category: 'INVENTORY' },
     ]},
     { code: '4000', name: 'Trading Income', type: 'INCOME', children: [
       { code: '4100', name: 'Product Sales - Local', type: 'INCOME' },

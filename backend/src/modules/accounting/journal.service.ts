@@ -684,6 +684,12 @@ export class JournalService {
   }
 
   private static async ensureGenericAccount(tx: any, companyId: string, category: string, name: string) {
+    // Check if account with this category already exists (belts-and-suspenders)
+    const existing = await tx.account.findFirst({
+      where: { companyId, category, deletedAt: null }
+    });
+    if (existing) return existing;
+
     const typeName = category === 'REVENUE' ? 'INCOME' : 'EXPENSE';
     const accountType = await tx.accountType.findFirst({ where: { name: typeName } });
     if (!accountType) throw new Error(`Account type '${typeName}' not found in Chart of Accounts`);

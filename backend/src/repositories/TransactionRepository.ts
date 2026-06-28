@@ -394,20 +394,17 @@ export class TransactionRepository {
       });
     }
 
-    // Generate a unique account code for the dedicated ledger
-    const prefix = category === 'AR' ? 'ACC-AR' : category === 'AP' ? 'ACC-AP' : 'ACC-PAY';
-    const year = new Date().getFullYear();
-    const prefixYear = `${prefix}-${year}-`;
-
+    // Generate a unique account code based on parent code
+    const parentCodePrefix = parentAcc.code;
     const countResult = await tx.account.count({
-      where: { companyId, code: { startsWith: prefixYear } }
+      where: { companyId, code: { startsWith: parentCodePrefix } }
     });
 
     let counter = countResult + 1;
     let code = '';
     let attempts = 0;
     while (true) {
-      const candidate = `${prefixYear}${counter.toString().padStart(4, '0')}`;
+      const candidate = `${parentCodePrefix}-${counter.toString().padStart(3, '0')}`;
       const codeExists = await tx.account.findFirst({ where: { companyId, code: candidate } });
       if (!codeExists) { code = candidate; break; }
       counter++;

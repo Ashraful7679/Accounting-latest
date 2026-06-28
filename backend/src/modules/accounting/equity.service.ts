@@ -19,27 +19,50 @@ export class EquityService {
       if (!company || !userCompany) throw new Error('Company or Owner link not found');
 
       const ownerShortId = ownerId.split('-')[0].toUpperCase();
-      const accountName = `Capital Account - ${userCompany.user.firstName} ${userCompany.user.lastName}`;
-      const accountCode = userCompany.capitalAccountCode || `CAP-O-${company.code}-${ownerShortId}`;
+      const ownerFullName = `${userCompany.user.firstName} ${userCompany.user.lastName}`;
 
       // 2. Ensure Capital Account exists in COA
+      // First, check if template 3100 "Owner Capital" exists and is unused — reuse it
       let capitalAccount = await tx.account.findFirst({
-        where: { companyId, name: accountName, isActive: true }
+        where: { companyId, code: '3100', isActive: true }
       });
 
+      let accountCode = userCompany.capitalAccountCode || `CAP-O-${company.code}-${ownerShortId}`;
+
+      if (capitalAccount) {
+        const lineCount = await tx.journalEntryLine.count({ where: { accountId: capitalAccount.id } });
+        if (Number(capitalAccount.currentBalance) === 0 && lineCount === 0) {
+          // Unused template account — rename it to include owner name
+          capitalAccount = await tx.account.update({
+            where: { id: capitalAccount.id },
+            data: { name: `Capital Account - ${ownerFullName}`, code: accountCode }
+          });
+        } else {
+          // Template 3100 already has activity — keep it as-is, create a dedicated one
+          capitalAccount = null;
+        }
+      }
+
       if (!capitalAccount) {
-        const equityType = await tx.accountType.findUnique({ where: { name: 'EQUITY' } });
-        capitalAccount = await tx.account.create({
-          data: {
-            code: accountCode,
-            name: accountName,
-            accountTypeId: equityType!.id,
-            companyId,
-            category: 'EQUITY',
-            cashFlowType: 'FINANCING',
-            isActive: true
-          }
+        const accountName = `Capital Account - ${ownerFullName}`;
+        capitalAccount = await tx.account.findFirst({
+          where: { companyId, name: accountName, isActive: true }
         });
+
+        if (!capitalAccount) {
+          const equityType = await tx.accountType.findUnique({ where: { name: 'EQUITY' } });
+          capitalAccount = await tx.account.create({
+            data: {
+              code: accountCode,
+              name: accountName,
+              accountTypeId: equityType!.id,
+              companyId,
+              category: 'EQUITY',
+              cashFlowType: 'FINANCING',
+              isActive: true
+            }
+          });
+        }
       }
 
       // 3. Find a Cash/Bank account for the debit side

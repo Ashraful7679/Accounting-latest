@@ -40,11 +40,11 @@ export class CoaController extends BaseCompanyController {
       } else if (accountType) {
         // Generate code based on account type
         const typeCodeMap: Record<string, { prefix: string; min: number; max: number }> = {
-          'ASSET': { prefix: 'A-1', min: 100, max: 999 },
-          'LIABILITY': { prefix: 'L-1', min: 100, max: 999 },
-          'EQUITY': { prefix: 'E-1', min: 100, max: 999 },
-          'INCOME': { prefix: 'I-1', min: 100, max: 999 },
-          'EXPENSE': { prefix: 'X-1', min: 100, max: 999 },
+          'ASSET': { prefix: '1', min: 100, max: 999 },
+          'LIABILITY': { prefix: '2', min: 100, max: 999 },
+          'EQUITY': { prefix: '3', min: 100, max: 999 },
+          'INCOME': { prefix: '4', min: 100, max: 999 },
+          'EXPENSE': { prefix: '5', min: 100, max: 999 },
         };
         
         const config = typeCodeMap[accountType.name];
@@ -97,6 +97,21 @@ export class CoaController extends BaseCompanyController {
 
     const existingAccount = await prisma.account.findUnique({ where: { id: accountId } });
     if (!existingAccount) throw new NotFoundError('Account not found');
+
+    // Prevent deactivation if account has non-zero balance, children, or journal entries
+    if (isActive === false && existingAccount.isActive) {
+      if (Number(existingAccount.currentBalance) !== 0) {
+        return reply.status(400).send({ success: false, error: 'Cannot deactivate account with non-zero balance. Clear balance first.' });
+      }
+      const childCount = await prisma.account.count({ where: { parentId: accountId, deletedAt: null } });
+      if (childCount > 0) {
+        return reply.status(400).send({ success: false, error: 'Cannot deactivate account with active child accounts. Reassign or remove children first.' });
+      }
+      const journalCount = await prisma.journalEntryLine.count({ where: { accountId } });
+      if (journalCount > 0) {
+        return reply.status(400).send({ success: false, error: 'Cannot deactivate account with journal history. Account has existing transactions.' });
+      }
+    }
 
     const account = await prisma.account.update({
       where: { id: accountId },
@@ -192,23 +207,22 @@ export class CoaController extends BaseCompanyController {
       mergeTemplates(template, categoryTemplate);
     }
 
-    const createFromTemplate = async (items: CoaAccountTemplate[], parentId: string | null = null) => {
-      // Sort items by code to ensure parents are created before children (though recursion handles this)
+    const createFromTemplate = async (items: CoaAccountTemplate[], parentId: string | null = null, tx?: any) => {
+      const client = tx || prisma;
       const sortedItems = [...items].sort((a, b) => a.code.localeCompare(b.code));
       
       for (const item of sortedItems) {
         const typeId = typeIdMap[item.type];
         if (!typeId) continue;
 
-        // Check if account already exists (to prevent errors in case of partial overlap)
-        const existing = await prisma.account.findFirst({
+        const existing = await client.account.findFirst({
           where: { companyId, code: item.code }
         });
 
         let accountId = existing?.id;
 
         if (!existing) {
-          const account = await prisma.account.create({
+          const account = await client.account.create({
             data: {
               companyId,
               code: item.code,
@@ -226,11 +240,13 @@ export class CoaController extends BaseCompanyController {
         }
 
         if (item.children && item.children.length > 0) {
-          await createFromTemplate(item.children, accountId || null);
+          await createFromTemplate(item.children, accountId || null, tx);
         }
       }
     };
 
-    await createFromTemplate(template);
+    await prisma.$transaction(async (tx: any) => {
+      await createFromTemplate(template, null, tx);
+    });
   }
 }

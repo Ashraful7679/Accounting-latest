@@ -354,25 +354,22 @@ function SalesOrdersPage() {
                       )}
                       {['CONFIRMED', 'FULFILLED', 'INVOICED', 'COMPLETED'].includes(order.status) && (
                         <>
-                          {/* DN button: View if exists, Generate if not */}
-                          {order.dns?.length > 0 ? (
-                            <button
-                              onClick={() => router.push(`/company/${companyId}/sales/challans`)}
-                              className="p-1.5 text-purple-600 hover:bg-purple-50 rounded"
-                              title="View Delivery Challans"
-                            >
-                              <Truck className="w-4 h-4" />
-                            </button>
-                          ) : (
-                            canEdit && ['CONFIRMED', 'FULFILLED'].includes(order.status) && (
+                          {/* DN button: Always open modal to allow multiple DNs */}
+                          {canEdit && ['CONFIRMED', 'FULFILLED'].includes(order.status) && (
+                            <div className="relative">
                               <button
                                 onClick={() => openDnModal(order)}
                                 className="p-1.5 text-purple-600 hover:bg-purple-50 rounded"
-                                title="Generate Delivery Challan"
+                                title={order.dns?.length > 0 ? 'Create another Delivery Challan' : 'Generate Delivery Challan'}
                               >
                                 <Truck className="w-4 h-4" />
                               </button>
-                            )
+                              {order.dns?.length > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-purple-600 text-white text-[8px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                                  {order.dns.length}
+                                </span>
+                              )}
+                            </div>
                           )}
                           {/* PI button: View if exists, Create if not */}
                           {order.pis?.length > 0 ? (

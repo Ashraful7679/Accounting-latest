@@ -287,7 +287,10 @@ export default function DeliveryChallansPage() {
                         </button>
                         <button
                           className="p-2 text-amber-600 hover:bg-amber-50 rounded-sm transition-colors"
-                          onClick={() => router.push(`/company/${companyId}/sales/invoices/create?dnIds=${dc.id}&customerId=${dc.salesOrder?.customer?.id || ''}`)}
+                          onClick={() => {
+                            const isForeign = dc.salesOrder?.currency && dc.salesOrder.currency !== 'BDT';
+                            router.push(`/company/${companyId}/sales/invoices/create?dnIds=${dc.id}&customerId=${dc.salesOrder?.customer?.id || ''}&type=${isForeign ? 'foreign' : 'local'}`);
+                          }}
                           title="Generate Invoice"
                         >
                           <Receipt className="w-4 h-4" />

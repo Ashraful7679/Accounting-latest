@@ -472,7 +472,10 @@ export class OrderController extends BaseCompanyController {
       where: { companyId },
       include: {
         salesOrder: {
-          include: { lines: { include: { product: true } } }
+          include: {
+            customer: { select: { id: true, name: true } },
+            lines: { include: { product: true } }
+          }
         },
         lines: { include: { product: true } }
       },

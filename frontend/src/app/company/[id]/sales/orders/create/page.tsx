@@ -32,8 +32,7 @@ export default function CreateSalesOrderPage() {
   const [mounted, setMounted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const initialType = searchParams.get('type') === 'foreign' ? 'foreign' : 'local';
-  const [orderType, setOrderType] = useState<'local' | 'foreign'>(initialType);
+  const [orderType, setOrderType] = useState<'local' | 'foreign'>('local');
 
   const [formData, setFormData] = useState({
     customerName: '',
@@ -43,6 +42,11 @@ export default function CreateSalesOrderPage() {
   });
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    const type = searchParams?.get('type');
+    if (type === 'foreign') setOrderType('foreign');
+  }, [searchParams]);
 
   const { data: customers } = useQuery({
     queryKey: ['customers', companyId],

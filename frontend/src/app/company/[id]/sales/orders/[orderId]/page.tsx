@@ -2,21 +2,27 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { ArrowLeft, ShoppingCart, Calendar, User, Package, Truck, FileText, Link as LinkIcon, Loader2, Globe, Printer } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Calendar, User, Package, Truck, FileText, Link as LinkIcon, Loader2, Globe, Printer, Plus, X, DollarSign } from 'lucide-react';
 import { formatCurrency } from '@/lib/decimalUtils';
 import { useCompany } from '@/lib/CompanyContext';
 import Link from 'next/link';
 import DocumentTreeView from '@/components/DocumentTreeView';
 import { AttachmentManager } from '@/components/AttachmentManager';
+import { toast } from 'react-hot-toast';
 
 export default function SalesOrderDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const queryClient = useQueryClient();
   const { id: companyId, orderId } = params as { id: string; orderId: string };
   const { exchangeRate: companyExchangeRate } = useCompany();
   const [mounted, setMounted] = useState(false);
+
+  const [showDnModal, setShowDnModal] = useState(false);
+  const [dnItems, setDnItems] = useState<Array<{productId: string; productName: string; quantity: number; maxQty: number}>>([]);
+  const [dnShipmentDate, setDnShipmentDate] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -28,6 +34,55 @@ export default function SalesOrderDetailPage() {
     },
     enabled: !!companyId && !!orderId,
   });
+
+  const dnCreateMutation = useMutation({
+    mutationFn: async ({ soId, data }: { soId: string; data: { items: { productId: string; quantity: number }[]; shipmentDate?: string } }) => {
+      const response = await api.post(`/company/${companyId}/sales-orders/${soId}/dn`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales-order-detail', companyId, orderId] });
+      toast.success('Delivery Challan generated');
+      setShowDnModal(false);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to generate DC');
+    },
+  });
+
+  const openDnModal = () => {
+    if (!order) return;
+    setDnShipmentDate(new Date().toISOString().split('T')[0]);
+    const items = (order.lines || [])
+      .filter((l: any) => {
+        const remaining = l.quantity - (l.deliveredQuantity || 0);
+        return remaining > 0 && l.productId;
+      })
+      .map((l: any) => {
+        const remaining = l.quantity - (l.deliveredQuantity || 0);
+        return {
+          productId: l.productId,
+          productName: l.product?.name || l.itemDescription || l.description || 'Unknown',
+          quantity: remaining,
+          maxQty: remaining,
+        };
+      });
+    setDnItems(items);
+    setShowDnModal(true);
+  };
+
+  const handleDnCreateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!order) return;
+    const validItems = dnItems.filter(item => item.productId && item.quantity > 0);
+    if (validItems.length === 0) {
+      toast.error('At least one item with quantity > 0 is required');
+      return;
+    }
+    const body: any = { items: validItems.map(i => ({ productId: i.productId, quantity: i.quantity })) };
+    if (dnShipmentDate) body.shipmentDate = new Date(dnShipmentDate).toISOString();
+    dnCreateMutation.mutate({ soId: order.id, data: body });
+  };
 
   if (!mounted) return null;
 
@@ -67,13 +122,47 @@ export default function SalesOrderDetailPage() {
           <h1 className="text-xl font-bold">{order.soNumber}</h1>
           <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getStatusColor(order.status)}`}>{order.status}</span>
         </div>
-        <button
-          onClick={() => window.open(`/company/${companyId}/sales/orders/${orderId}/print`, '_blank')}
-          className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
-        >
-          <Printer className="w-4 h-4" />
-          Print
-        </button>
+        <div className="flex items-center gap-2">
+          {/* DN button */}
+          {['CONFIRMED', 'FULFILLED'].includes(order.status) && (
+            <div className="relative">
+              <button
+                onClick={openDnModal}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors rounded-sm"
+                title={order.dns?.length > 0 ? 'Create another Delivery Challan' : 'Generate Delivery Challan'}
+              >
+                <Truck className="w-4 h-4" />
+                {order.dns?.length > 0 ? `DN (${order.dns.length})` : 'DN'}
+              </button>
+            </div>
+          )}
+          {/* Invoice button */}
+          {order.status === 'FULFILLED' && (
+            <button
+              onClick={() => router.push(`/company/${companyId}/sales/invoices/create?soId=${order.id}&type=${order.currency === 'BDT' ? 'local' : 'foreign'}`)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors rounded-sm"
+            >
+              <FileText className="w-4 h-4" />
+              Invoice
+            </button>
+          )}
+          {/* PI button */}
+          {['CONFIRMED', 'FULFILLED', 'INVOICED', 'COMPLETED'].includes(order.status) && (
+            <button
+              onClick={() => router.push(`/company/${companyId}/sales/pis?soId=${order.id}`)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider bg-green-50 text-green-700 hover:bg-green-100 transition-colors rounded-sm"
+            >
+              <DollarSign className="w-4 h-4" />
+              PI
+            </button>
+          )}
+          <button
+            onClick={() => window.open(`/company/${companyId}/sales/orders/${orderId}/print`, '_blank')}
+            className="flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors rounded-sm"
+          >
+            <Printer className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -150,6 +239,76 @@ export default function SalesOrderDetailPage() {
       <div>
         <AttachmentManager entityType="SALES_ORDER" entityId={order.id} />
       </div>
+
+      {/* DN Creation Modal */}
+      {showDnModal && (
+        <div className="fixed inset-0 bg-gray-900/10 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-sm shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Truck className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-bold text-gray-900">Generate Delivery Challan — {order.soNumber}</h3>
+              </div>
+              <button type="button" onClick={() => setShowDnModal(false)} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-sm">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 bg-white">
+              <form onSubmit={handleDnCreateSubmit} className="space-y-6">
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-gray-600">Customer</label>
+                  <p className="text-sm font-bold text-gray-900">{order.customer?.name || 'N/A'}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-gray-600">Shipment Date</label>
+                  <input type="date" value={dnShipmentDate} onChange={(e) => setDnShipmentDate(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded text-sm" />
+                </div>
+                {dnItems.length === 0 ? (
+                  <p className="text-sm text-gray-400 italic py-4 text-center">All items in this order have been fully delivered.</p>
+                ) : (
+                  <div className="border border-gray-200 rounded overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase font-semibold">
+                        <tr>
+                          <th className="px-4 py-3 text-left">Product</th>
+                          <th className="px-4 py-3 text-center w-24">Max Qty</th>
+                          <th className="px-4 py-3 text-center w-24">Ship Qty</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {dnItems.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 font-medium text-gray-900">{item.productName}</td>
+                            <td className="px-4 py-3 text-center text-gray-500">{item.maxQty}</td>
+                            <td className="px-4 py-3 text-center">
+                              <input type="number" min={0} max={item.maxQty} step="any" value={item.quantity}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  const newItems = [...dnItems];
+                                  newItems[idx] = { ...newItems[idx], quantity: Math.max(0, Math.min(val, item.maxQty)) };
+                                  setDnItems(newItems);
+                                }}
+                                className="w-20 text-center border border-gray-200 rounded px-2 py-1 text-sm font-mono"
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <div className="flex justify-end pt-4 border-t border-gray-100">
+                  <button type="submit" disabled={dnCreateMutation.isPending || dnItems.length === 0}
+                    className="px-8 py-3 bg-gray-900 text-white font-bold text-xs uppercase tracking-widest rounded hover:bg-gray-800 disabled:bg-gray-300 transition-all flex items-center gap-2">
+                    {dnCreateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                    Generate Challan
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
